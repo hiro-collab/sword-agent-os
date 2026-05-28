@@ -21,8 +21,12 @@ and scratch data stay in `coordination/local`.
 
 - `registry/`: thread and worktree registry
 - `messages/`: active inter-thread messages
+- `tasks/`: visible work units assigned to or claimed by threads
 - `reservations/`: claimed files, areas, or decisions in progress
 - `handoffs/`: thread handoffs
 - `decisions/`: accepted decisions
 - `shared-notes/`: useful knowledge that is not yet a decision
 
+Tasks are not rigid permission gates. Small related work can happen inside a
+thread when needed, but out-of-area or shared-surface work should be mentioned
+in the handoff.
