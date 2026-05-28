@@ -2,6 +2,18 @@
 /local/
 /.cache/
 
+# Nested organ implementation checkouts
+/organs/speech-input/ai-talk-core/
+/organs/reflex/mediapipe-sword-sign/
+/organs/environment/environment-state-server/
+/organs/environment/vision-snapshot-processor/
+/organs/action/home-assistant-server/
+/organs/expression/tts-service/
+/organs/expression/avatar-service/
+/organs/expression/aituber-kit/
+/organs/display/touchdesigner-ai-controller/
+/organs/diagnostics/system-house-renderer/
+
 # Runtime output
 *.log
 *.pid
@@ -26,4 +38,3 @@ build/
 # OS/editor noise
 Thumbs.db
 .DS_Store
-

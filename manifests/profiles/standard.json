@@ -15,7 +15,8 @@
     "turn-router",
     "status-store",
     "event-journal",
-    "communication-governance"
+    "communication-governance",
+    "memory-core",
+    "approval-queue"
   ]
 }
-

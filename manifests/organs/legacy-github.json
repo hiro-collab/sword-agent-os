@@ -1,0 +1,129 @@
+{
+  "schema_version": "organs.sources.v0",
+  "id": "legacy-github",
+  "description": "GitHub-backed organ implementation sources selected from the legacy sword-agent-system workspace. These are import candidates, not vendored source files.",
+  "checked_at": "2026-05-29",
+  "sources": [
+    {
+      "organ_id": "ai-talk-core",
+      "organ_role": "speech-input",
+      "logical_role": "apps/voice-input",
+      "target_path": "organs/speech-input/ai-talk-core",
+      "repo_url": "https://github.com/hiro-collab/ai-talk-core.git",
+      "branch": "main",
+      "commit": "eb34b187cd1cf28392b6a4ff3da3310f2cb252b1",
+      "adoption": "standard_candidate",
+      "legacy_path": "organs/voice/ai-talk-core",
+      "notes": "STT, browser recording, transcript, and handoff boundary."
+    },
+    {
+      "organ_id": "mediapipe-sword-sign",
+      "organ_role": "reflex",
+      "logical_role": "services/reflex-core",
+      "target_path": "organs/reflex/mediapipe-sword-sign",
+      "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
+      "branch": "feature/camera-hub-topic-envelope",
+      "commit": "e63fa59a287553f1f0a0b1688920dc3e2ce6eddf",
+      "adoption": "standard_candidate",
+      "legacy_path": "organs/reflex/mediapipe-sword-sign",
+      "notes": "Camera Hub, gesture inference, and reflex topic surface."
+    },
+    {
+      "organ_id": "environment-state-server",
+      "organ_role": "environment",
+      "logical_role": "services/environment-server",
+      "target_path": "organs/environment/environment-state-server",
+      "repo_url": "https://github.com/hiro-collab/environment-state-server.git",
+      "branch": "main",
+      "commit": "92d2c6d834440052f4dc15b5ecbead650ad2911c",
+      "adoption": "standard_candidate",
+      "legacy_path": "organs/environment/environment-state-server",
+      "notes": "Environment snapshot, indicators, health aggregation, and feedback capture."
+    },
+    {
+      "organ_id": "vision-snapshot-processor",
+      "organ_role": "environment",
+      "logical_role": "environment-input",
+      "target_path": "organs/environment/vision-snapshot-processor",
+      "repo_url": "https://github.com/hiro-collab/vision-snapshot-processor.git",
+      "branch": "main",
+      "commit": "140930fb6cc1e0cbc8dcae5082a74aed75ee929c",
+      "adoption": "standard_candidate",
+      "legacy_path": "organs/environment/vision-snapshot-processor",
+      "notes": "Low-frequency vision snapshots such as room light state."
+    },
+    {
+      "organ_id": "home-assistant-server",
+      "organ_role": "action",
+      "logical_role": "services/home-control-server",
+      "target_path": "organs/action/home-assistant-server",
+      "repo_url": "https://github.com/hiro-collab/home-assistant-server.git",
+      "branch": "codex/add-fault-injection",
+      "commit": "c2a680293e57560a2705a74aaee2a56a3a2c4e31",
+      "adoption": "standard_candidate",
+      "legacy_path": "organs/action/home-assistant-server",
+      "notes": "Home Assistant safety bridge, allowlist, confirmation, audit, and fault injection."
+    },
+    {
+      "organ_id": "tts-service",
+      "organ_role": "expression",
+      "logical_role": "expression/speech",
+      "target_path": "organs/expression/tts-service",
+      "repo_url": "https://github.com/hiro-collab/tts-service.git",
+      "branch": "main",
+      "commit": "9f9196eec5db227e9bf3eed3092058288a0af857",
+      "adoption": "standard_candidate",
+      "legacy_path": "organs/expression/tts-service",
+      "notes": "Speech synthesis, playback, status, and volume control."
+    },
+    {
+      "organ_id": "avatar-service",
+      "organ_role": "expression",
+      "logical_role": "apps/avatar-ui",
+      "target_path": "organs/expression/avatar-service",
+      "repo_url": "https://github.com/hiro-collab/avatar-service.git",
+      "branch": "main",
+      "commit": "abd203a28e1bb83732c20db8a7b7cf49841bdefe",
+      "adoption": "deferred_reference",
+      "legacy_path": "organs/expression/avatar-service",
+      "notes": "Reference-only until an expression runtime replacement decision reintroduces it."
+    },
+    {
+      "organ_id": "aituber-kit",
+      "organ_role": "expression",
+      "logical_role": "apps/aituber-ui",
+      "target_path": "organs/expression/aituber-kit",
+      "repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
+      "branch": "experiment/aituber-gesture-voice-bridge",
+      "commit": "d5129b5162cf7736587f50b1d697632adfd84242",
+      "adoption": "standard_candidate",
+      "legacy_path": "organs/expression/aituber-kit",
+      "notes": "Projection Visual, HUD, avatar speech queue, and AITuber UI. Use the fork remote, not upstream origin."
+    },
+    {
+      "organ_id": "touchdesigner-ai-controller",
+      "organ_role": "display",
+      "logical_role": "apps/display-runtime",
+      "target_path": "organs/display/touchdesigner-ai-controller",
+      "repo_url": "https://github.com/hiro-collab/touchdesigner-ai-controller.git",
+      "branch": "codex/projection-visual-docs",
+      "commit": "2c58ef489099d8fde2f4b2903089dafe92968de7",
+      "adoption": "standard_candidate",
+      "legacy_path": "organs/display/touchdesigner-ai-controller",
+      "notes": "TouchDesigner control GUI, UDP visual trigger, and display bridge."
+    },
+    {
+      "organ_id": "system-house-renderer",
+      "organ_role": "diagnostics",
+      "logical_role": "ops/diagnostics",
+      "target_path": "organs/diagnostics/system-house-renderer",
+      "repo_url": "https://github.com/hiro-collab/system-house-renderer.git",
+      "branch": "codex/system-house-authority-map",
+      "commit": "5b016935218a7364d2329e31980272df85941181",
+      "adoption": "standard_candidate",
+      "legacy_path": "organs/diagnostics/system-house-renderer",
+      "notes": "Topology/runtime trace visualization and redaction evidence."
+    }
+  ]
+}
+

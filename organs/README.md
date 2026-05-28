@@ -17,3 +17,7 @@ organs/
 Organs may be nested repositories. The Agent OS repository owns the placement,
 contracts, manifests, and OS-specific integration rules.
 
+Implementation checkouts are sourced through `manifests/organs/`. Do not copy
+legacy organ folders directly into this repository. Use the manifest and
+bootstrap script so the selected repository, branch, and commit remain
+reproducible.
