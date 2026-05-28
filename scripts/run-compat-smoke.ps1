@@ -11,6 +11,11 @@ param(
   [int]$TouchDesignerGuiPort = 8788,
   [int]$ThoughtCorePort = 18787,
   [int]$TimeoutMs = 10000,
+  [switch]$RunManualTurn,
+  [string]$ManualTurnText = "こんにちは。起動確認です。",
+  [string]$ManualSessionId = "living_room_main",
+  [string]$ManualTurnId = "",
+  [int]$ManualTurnTimeoutSeconds = 90,
   [switch]$UseIsolatedPorts,
   [switch]$RequireVoicevox
 )
@@ -133,6 +138,23 @@ function Add-PortArguments {
   Add-Argument -Arguments $Arguments -Name "-ThoughtCorePort" -Value ([string]$ThoughtCorePort)
 }
 
+function Resolve-ToolPath {
+  param([Parameter(Mandatory = $true)][string]$Name)
+  $command = Get-Command $Name -ErrorAction SilentlyContinue
+  if ($null -eq $command -and $Name -eq "uv") {
+    $command = Get-Command "uv.exe" -ErrorAction SilentlyContinue
+  }
+  if ($null -eq $command) {
+    throw "tool not found on PATH: $Name"
+  }
+  return [string]$command.Source
+}
+
+function ConvertTo-PowerShellSingleQuotedString {
+  param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Value)
+  return "'{0}'" -f ($Value -replace "'", "''")
+}
+
 function Set-IsolatedPortIfUnbound {
   param(
     [Parameter(Mandatory = $true)][string]$Name,
@@ -195,6 +217,16 @@ $stopExitCode = $null
 $stopError = ""
 $smokeError = ""
 $checks = @()
+$manualTurn = [PSCustomObject]@{
+  enabled = [bool]$RunManualTurn
+  status = if ($RunManualTurn) { "pending" } else { "skipped" }
+  exit_code = $null
+  timed_out = $false
+  turn_id = ""
+  stdout = ""
+  stderr = ""
+  status_dir = ""
+}
 
 try {
   $startArguments = [System.Collections.Generic.List[string]]::new()
@@ -226,6 +258,54 @@ try {
   $checks += Test-HttpEndpoint -Id "touchdesigner_control_gui" -Url "http://127.0.0.1:$TouchDesignerGuiPort"
   if ($RequireVoicevox) {
     $checks += Test-HttpEndpoint -Id "voicevox" -Url "http://127.0.0.1:50021/version"
+  }
+
+  if ($RunManualTurn) {
+    $turnId = if ([string]::IsNullOrWhiteSpace($ManualTurnId)) {
+      "turn_smoke_{0}" -f (Get-Date -Format "yyyyMMdd_HHmmss")
+    }
+    else {
+      $ManualTurnId
+    }
+    $turnStdout = Join-Path $SmokeRoot "turn-$timestamp.out.log"
+    $turnStderr = Join-Path $SmokeRoot "turn-$timestamp.err.log"
+    $turnStatusDir = Resolve-RepoPath (Join-Path $StackStateDir "manual-turn-status")
+    $controlPlaneRoot = Resolve-RepoPath "control-plane\sword-voice-agent"
+    $uv = Resolve-ToolPath -Name "uv"
+    $turnScript = @"
+`$ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(`$false)
+`$OutputEncoding = [System.Text.UTF8Encoding]::new(`$false)
+`$env:PYTHONUTF8 = "1"
+`$env:PYTHONIOENCODING = "utf-8"
+`$env:THOUGHT_CORE_BASE_URL = "http://127.0.0.1:$ThoughtCorePort"
+Set-Location -LiteralPath $(ConvertTo-PowerShellSingleQuotedString -Value $controlPlaneRoot)
+& $(ConvertTo-PowerShellSingleQuotedString -Value $uv) run sword-thought-core-handoff --text $(ConvertTo-PowerShellSingleQuotedString -Value $ManualTurnText) --session-id $(ConvertTo-PowerShellSingleQuotedString -Value $ManualSessionId) --turn-id $(ConvertTo-PowerShellSingleQuotedString -Value $turnId) --status-dir $(ConvertTo-PowerShellSingleQuotedString -Value $turnStatusDir) --print-events
+exit `$LASTEXITCODE
+"@
+    $encodedTurnScript = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($turnScript))
+    $turnProcess = Start-Process `
+      -FilePath $powerShell `
+      -ArgumentList @("-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $encodedTurnScript) `
+      -WorkingDirectory $controlPlaneRoot `
+      -PassThru `
+      -WindowStyle Hidden `
+      -RedirectStandardOutput $turnStdout `
+      -RedirectStandardError $turnStderr
+    $timedOut = -not $turnProcess.WaitForExit([Math]::Max(1, $ManualTurnTimeoutSeconds) * 1000)
+    if ($timedOut) {
+      Stop-Process -Id $turnProcess.Id -Force -ErrorAction SilentlyContinue
+    }
+    $manualTurn = [PSCustomObject]@{
+      enabled = $true
+      status = if ((-not $timedOut) -and $turnProcess.ExitCode -eq 0) { "ok" } else { "failed" }
+      exit_code = if ($timedOut) { $null } else { $turnProcess.ExitCode }
+      timed_out = $timedOut
+      turn_id = $turnId
+      stdout = $turnStdout
+      stderr = $turnStderr
+      status_dir = $turnStatusDir
+    }
   }
 }
 catch {
@@ -279,6 +359,7 @@ $status = if (
   [string]::IsNullOrWhiteSpace($smokeError) -and
   [string]::IsNullOrWhiteSpace($stopError) -and
   $failedChecks.Count -eq 0 -and
+  ((-not $RunManualTurn) -or $manualTurn.status -eq "ok") -and
   $remainingPorts.Count -eq 0
 ) { "ok" } else { "failed" }
 
@@ -305,6 +386,7 @@ $result = [PSCustomObject]@{
   }
   readiness_status = [string]$readiness.status
   checks = @($checks)
+  manual_turn = $manualTurn
   remaining_ports = @($remainingPorts)
   processes = [PSCustomObject]@{
     start_pid = if ($null -ne $startProcess) { $startProcess.Id } else { $null }
@@ -316,6 +398,8 @@ $result = [PSCustomObject]@{
     start_stderr = $startStderr
     stop_stdout = $stopStdout
     stop_stderr = $stopStderr
+    turn_stdout = $manualTurn.stdout
+    turn_stderr = $manualTurn.stderr
   }
 }
 
