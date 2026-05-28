@@ -22,8 +22,10 @@ the legacy profile name `thought-core-v0`:
 .\scripts\system.ps1 status -Profile thought-core-v0 -ManifestOnly
 .\scripts\system.ps1 status -Profile thought-core-v0
 .\scripts\system.ps1 start -Profile thought-core-v0 -DryRun
+.\scripts\system.ps1 start -Profile thought-core-v0 -LegacyDelegate -DryRun -SkipVoicevoxCheck
 .\scripts\system.ps1 stop -Profile thought-core-v0 -DryRun -Force
 .\scripts\check-launch-readiness.ps1
+.\scripts\prepare-compat-launch.ps1 -ImportLocalConfig
 ```
 
 `status` is native to this repository and reads Agent OS manifests. `start` and
@@ -31,3 +33,6 @@ the legacy profile name `thought-core-v0`:
 until the runtime becomes fully native; non-dry-run delegation requires
 `-LegacyDelegate`. `check-launch-readiness.ps1` reports clone, tool, secret,
 asset, endpoint, and legacy-layout gaps before attempting a real launch.
+`prepare-compat-launch.ps1` creates ignored compatibility layout aliases and
+can import local-only config/env files from the legacy workspace without
+printing secret values.

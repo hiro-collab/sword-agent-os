@@ -3,7 +3,9 @@
 /.cache/
 
 # Nested organ implementation checkouts
+/sword-control-plane/
 /control-plane/sword-voice-agent/
+/organs/voice/
 /organs/speech-input/ai-talk-core/
 /organs/reflex/mediapipe-sword-sign/
 /organs/environment/environment-state-server/

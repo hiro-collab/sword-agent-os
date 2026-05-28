@@ -32,6 +32,29 @@ function Read-Json {
   return Get-Content -Raw -LiteralPath (Resolve-RepoPath $Path) | ConvertFrom-Json
 }
 
+function Resolve-WorkspaceRootArgument {
+  param([string]$Path)
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    return $RepoRoot
+  }
+  if ([System.IO.Path]::IsPathRooted($Path)) {
+    return $Path
+  }
+  return Resolve-RepoPath $Path
+}
+
+function Resolve-CurrentPowerShell {
+  $currentProcess = Get-Process -Id $PID -ErrorAction SilentlyContinue
+  if ($null -ne $currentProcess -and -not [string]::IsNullOrWhiteSpace($currentProcess.Path)) {
+    return $currentProcess.Path
+  }
+  $pwsh = Get-Command "pwsh" -ErrorAction SilentlyContinue
+  if ($null -ne $pwsh) {
+    return $pwsh.Source
+  }
+  return (Get-Command "powershell" -ErrorAction Stop).Source
+}
+
 function Get-OptionalProperty {
   param(
     [Parameter(Mandatory = $true)]$Object,
@@ -125,10 +148,8 @@ function New-LegacyDelegateArguments {
   $arguments.Add($Command)
   $arguments.Add("-Profile")
   $arguments.Add([string]$Spec.legacy_profile_id)
-  if (-not [string]::IsNullOrWhiteSpace($WorkspaceRoot)) {
-    $arguments.Add("-WorkspaceRoot")
-    $arguments.Add($WorkspaceRoot)
-  }
+  $arguments.Add("-WorkspaceRoot")
+  $arguments.Add($EffectiveWorkspaceRoot)
   if (-not [string]::IsNullOrWhiteSpace($StackStateDir)) {
     $arguments.Add("-StackStateDir")
     $arguments.Add($StackStateDir)
@@ -159,22 +180,22 @@ function Write-DelegatePlan {
       script = $ScriptPath
       arguments = @($Arguments)
     }
-    native_status = [PSCustomObject]@{
+  native_status = [PSCustomObject]@{
       script = (Join-Path $PSScriptRoot "check-profile-health.ps1")
       manifest_only = [bool]$ManifestOnly
     }
+    workspace_root = $EffectiveWorkspaceRoot
   } | ConvertTo-Json -Depth 6
 }
 
 $spec = Resolve-ProfileSpec -ProfileName $Profile
+$EffectiveWorkspaceRoot = Resolve-WorkspaceRootArgument -Path $WorkspaceRoot
 
 if ($Command -eq "status") {
   $healthArgs = @{
     ProfilePath = [string]$spec.profile_path
     TimeoutMs = $TimeoutMs
-  }
-  if (-not [string]::IsNullOrWhiteSpace($WorkspaceRoot)) {
-    $healthArgs.WorkspaceRoot = $WorkspaceRoot
+    WorkspaceRoot = $EffectiveWorkspaceRoot
   }
   if (-not [string]::IsNullOrWhiteSpace($StackStateDir)) {
     $healthArgs.StackStateDir = $StackStateDir
@@ -192,7 +213,7 @@ if ($Command -eq "status") {
 $legacyScript = Resolve-LegacySystemScript -Spec $spec
 $delegateArgs = New-LegacyDelegateArguments -Spec $spec
 
-if ($DryRun) {
+if ($DryRun -and (-not $LegacyDelegate)) {
   $dryRunArgs = @($delegateArgs + "-DryRun")
   Write-DelegatePlan -Spec $spec -ScriptPath $legacyScript -Arguments $dryRunArgs -Mode "dry-run"
   exit 0
@@ -203,7 +224,22 @@ if (-not $LegacyDelegate) {
   throw "$Command for $($spec.profile_id) is currently delegated to the legacy control-plane checkout. Re-run with -LegacyDelegate to execute it."
 }
 
-& $legacyScript @delegateArgs
+$executionArgs = [System.Collections.Generic.List[string]]::new()
+$executionArgs.Add("-NoLogo")
+$executionArgs.Add("-NoProfile")
+$executionArgs.Add("-ExecutionPolicy")
+$executionArgs.Add("Bypass")
+$executionArgs.Add("-File")
+$executionArgs.Add($legacyScript)
+foreach ($argument in $delegateArgs) {
+  $executionArgs.Add([string]$argument)
+}
+if ($DryRun) {
+  $executionArgs.Add("-DryRun")
+}
+$executionArray = [string[]]$executionArgs.ToArray()
+$powerShell = Resolve-CurrentPowerShell
+& $powerShell @executionArray
 if ($?) {
   exit 0
 }
