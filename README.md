@@ -28,6 +28,7 @@ the legacy profile name `thought-core-v0`:
 .\scripts\prepare-compat-launch.ps1 -ImportLocalConfig
 .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts
 .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManualTurn
+.\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManualTurn -RunSafeIntegrationProbes
 ```
 
 `status` is native to this repository and reads Agent OS manifests. `start` and
@@ -42,5 +43,7 @@ the ignored organ checkout when present. `run-compat-smoke.ps1` defaults to the
 legacy `thought-core-v0` ports; pass `-UseIsolatedPorts` to temporarily move the
 stack to the `188xx` range for local port conflicts or side-by-side legacy
 testing. Pass `-RunManualTurn` to add a non-action Thought Core turn after the
-service probes. Environment state liveness uses `/health`;
-`/environment/current` remains the token-protected state API.
+service probes. Pass `-RunSafeIntegrationProbes` to add token-protected
+environment state, AITuber direct_send, and Home Assistant `dry_run` checks
+without executing a real home action. Environment state liveness uses
+`/health`; `/environment/current` remains the token-protected state API.

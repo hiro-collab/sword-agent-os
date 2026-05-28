@@ -16,6 +16,8 @@ param(
   [string]$ManualSessionId = "living_room_main",
   [string]$ManualTurnId = "",
   [int]$ManualTurnTimeoutSeconds = 90,
+  [switch]$RunSafeIntegrationProbes,
+  [string]$HomeControlDryRunActionId = "light_on",
   [switch]$UseIsolatedPorts,
   [switch]$RequireVoicevox
 )
@@ -114,6 +116,91 @@ function Test-PortListening {
   param([Parameter(Mandatory = $true)][int]$Port)
   $listeners = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue)
   return $listeners.Count -gt 0
+}
+
+function Read-DotEnvValue {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Name
+  )
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    return ""
+  }
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    if ($line -match "^\s*$([regex]::Escape($Name))\s*=\s*(.*)\s*$") {
+      $value = $Matches[1].Trim()
+      if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+        $value = $value.Substring(1, $value.Length - 2)
+      }
+      return $value
+    }
+  }
+  return ""
+}
+
+function New-ProbeResult {
+  param(
+    [Parameter(Mandatory = $true)][string]$Id,
+    [Parameter(Mandatory = $true)][string]$Status,
+    [Parameter(Mandatory = $true)][string]$Detail,
+    [int]$StatusCode = 0
+  )
+  return [PSCustomObject]@{
+    id = $Id
+    status = $Status
+    status_code = $StatusCode
+    detail = $Detail
+  }
+}
+
+function Invoke-JsonProbe {
+  param(
+    [Parameter(Mandatory = $true)][string]$Id,
+    [Parameter(Mandatory = $true)][string]$Method,
+    [Parameter(Mandatory = $true)][string]$Url,
+    [hashtable]$Headers = @{},
+    [object]$Body = $null,
+    [scriptblock]$Validate = $null
+  )
+
+  try {
+    $request = @{
+      Uri = $Url
+      Method = $Method
+      TimeoutSec = [Math]::Max(1, [int][Math]::Ceiling($TimeoutMs / 1000))
+      UseBasicParsing = $true
+      Headers = $Headers
+    }
+    if ($null -ne $Body) {
+      $request.ContentType = "application/json"
+      $request.Body = ($Body | ConvertTo-Json -Depth 8)
+    }
+    $response = Invoke-WebRequest @request
+    $payload = $null
+    if (-not [string]::IsNullOrWhiteSpace($response.Content)) {
+      try {
+        $payload = $response.Content | ConvertFrom-Json
+      }
+      catch {
+        return New-ProbeResult -Id $Id -Status "failed" -StatusCode ([int]$response.StatusCode) -Detail "response was not JSON"
+      }
+    }
+    if ($null -ne $Validate) {
+      $validation = & $Validate $payload
+      if ($validation -is [string] -and -not [string]::IsNullOrWhiteSpace($validation)) {
+        return New-ProbeResult -Id $Id -Status "failed" -StatusCode ([int]$response.StatusCode) -Detail $validation
+      }
+    }
+    return New-ProbeResult -Id $Id -Status "ok" -StatusCode ([int]$response.StatusCode) -Detail "http $($response.StatusCode)"
+  }
+  catch {
+    $responseProperty = $_.Exception.PSObject.Properties["Response"]
+    $response = if ($null -ne $responseProperty) { $responseProperty.Value } else { $null }
+    if ($null -ne $response -and $null -ne $response.StatusCode) {
+      return New-ProbeResult -Id $Id -Status "failed" -StatusCode ([int]$response.StatusCode) -Detail "http $([int]$response.StatusCode)"
+    }
+    return New-ProbeResult -Id $Id -Status "failed" -Detail $_.Exception.Message
+  }
 }
 
 function Add-Argument {
@@ -217,6 +304,7 @@ $stopExitCode = $null
 $stopError = ""
 $smokeError = ""
 $checks = @()
+$integrationProbes = @()
 $manualTurn = [PSCustomObject]@{
   enabled = [bool]$RunManualTurn
   status = if ($RunManualTurn) { "pending" } else { "skipped" }
@@ -307,6 +395,79 @@ exit `$LASTEXITCODE
       status_dir = $turnStatusDir
     }
   }
+
+  if ($RunSafeIntegrationProbes) {
+    $homeAssistantEnvPath = Resolve-RepoPath "organs\action\home-assistant-server\.env"
+    $homeControlToken = Read-DotEnvValue -Path $homeAssistantEnvPath -Name "HOME_CONTROL_API_TOKEN"
+    $environmentToken = Read-DotEnvValue -Path $homeAssistantEnvPath -Name "ENVIRONMENT_API_TOKEN"
+    if ([string]::IsNullOrWhiteSpace($environmentToken)) {
+      $environmentToken = $homeControlToken
+    }
+
+    if ([string]::IsNullOrWhiteSpace($environmentToken)) {
+      $integrationProbes += New-ProbeResult -Id "environment_current" -Status "failed" -Detail "environment token missing"
+    }
+    else {
+      $integrationProbes += Invoke-JsonProbe `
+        -Id "environment_current" `
+        -Method "GET" `
+        -Url "http://127.0.0.1:$EnvironmentStatePort/environment/current" `
+        -Headers @{ Authorization = "Bearer $environmentToken" } `
+        -Validate {
+          param($Payload)
+          if ($null -eq $Payload) { return "empty response" }
+          if (-not $Payload.PSObject.Properties["snapshot_id"]) { return "missing snapshot_id" }
+          return ""
+        }
+    }
+
+    $clientId = "sword-smoke"
+    $messageUrl = "http://127.0.0.1:$AituberPort/api/messages?clientId=$clientId&type=direct_send"
+    $integrationProbes += Invoke-JsonProbe `
+      -Id "aituber_direct_send_post" `
+      -Method "POST" `
+      -Url $messageUrl `
+      -Body @{ messages = @("Agent OS smoke direct_send probe") } `
+      -Validate {
+        param($Payload)
+        if ($null -eq $Payload) { return "empty response" }
+        if ([string]$Payload.message -ne "Successfully sent") { return "unexpected response" }
+        return ""
+      }
+    $integrationProbes += Invoke-JsonProbe `
+      -Id "aituber_direct_send_get" `
+      -Method "GET" `
+      -Url $messageUrl `
+      -Validate {
+        param($Payload)
+        if ($null -eq $Payload -or $null -eq $Payload.messages) { return "missing messages" }
+        if (@($Payload.messages).Count -lt 1) { return "message queue empty" }
+        return ""
+      }
+
+    if ([string]::IsNullOrWhiteSpace($homeControlToken)) {
+      $integrationProbes += New-ProbeResult -Id "home_control_dry_run" -Status "failed" -Detail "home control token missing"
+    }
+    else {
+      $integrationProbes += Invoke-JsonProbe `
+        -Id "home_control_dry_run" `
+        -Method "POST" `
+        -Url "http://127.0.0.1:$HomeAssistantBridgePort/actions/$HomeControlDryRunActionId/execute" `
+        -Headers @{ Authorization = "Bearer $homeControlToken" } `
+        -Body @{
+          source = "agent_os_smoke"
+          request_id = "smoke-$timestamp"
+          user_text = "Agent OS dry-run probe"
+          dry_run = $true
+        } `
+        -Validate {
+          param($Payload)
+          if ($null -eq $Payload) { return "empty response" }
+          if ([string]$Payload.status -ne "dry_run") { return "expected dry_run status" }
+          return ""
+        }
+    }
+  }
 }
 catch {
   $smokeError = $_.Exception.Message
@@ -354,11 +515,13 @@ $ports = @(
 )
 $remainingPorts = @($ports | Where-Object { Test-PortListening -Port $_ })
 $failedChecks = @($checks | Where-Object { $_.status -ne "ok" })
+$failedIntegrationProbes = @($integrationProbes | Where-Object { $_.status -ne "ok" })
 $startExitCode = if ($null -ne $startProcess -and $startProcess.HasExited) { $startProcess.ExitCode } else { $null }
 $status = if (
   [string]::IsNullOrWhiteSpace($smokeError) -and
   [string]::IsNullOrWhiteSpace($stopError) -and
   $failedChecks.Count -eq 0 -and
+  $failedIntegrationProbes.Count -eq 0 -and
   ((-not $RunManualTurn) -or $manualTurn.status -eq "ok") -and
   $remainingPorts.Count -eq 0
 ) { "ok" } else { "failed" }
@@ -386,6 +549,7 @@ $result = [PSCustomObject]@{
   }
   readiness_status = [string]$readiness.status
   checks = @($checks)
+  integration_probes = @($integrationProbes)
   manual_turn = $manualTurn
   remaining_ports = @($remainingPorts)
   processes = [PSCustomObject]@{
