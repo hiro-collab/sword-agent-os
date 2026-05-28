@@ -2,6 +2,14 @@ param(
   [string]$ProfilePath = "manifests/profiles/thought-core-v0-compat.json",
   [string]$WorkspaceRoot = "",
   [switch]$CheckEndpoints,
+  [switch]$SkipPortChecks,
+  [int]$HomeAssistantBridgePort = 8787,
+  [int]$EnvironmentStatePort = 8790,
+  [int]$MediapipePort = 8765,
+  [int]$VisionSnapshotProcessorPort = 8776,
+  [int]$AituberPort = 3000,
+  [int]$TouchDesignerGuiPort = 8788,
+  [int]$ThoughtCorePort = 18787,
   [int]$TimeoutMs = 1200
 )
 
@@ -108,6 +116,24 @@ function Test-HttpEndpoint {
   }
 }
 
+function Test-LaunchPort {
+  param(
+    [Parameter(Mandatory = $true)][string]$Id,
+    [Parameter(Mandatory = $true)][int]$Port
+  )
+  if ($SkipPortChecks) {
+    return New-Check -Id $Id -Status "skipped" -Severity "info" -Path ([string]$Port) -Detail "port check skipped"
+  }
+  $listeners = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue)
+  if ($listeners.Count -eq 0) {
+    return New-Check -Id $Id -Status "ok" -Severity "info" -Path ([string]$Port) -Detail "port available"
+  }
+  $ownerPid = [int]($listeners | Select-Object -First 1).OwningProcess
+  $process = Get-Process -Id $ownerPid -ErrorAction SilentlyContinue
+  $processName = if ($null -ne $process) { [string]$process.ProcessName } else { "unknown" }
+  return New-Check -Id $Id -Status "in-use" -Severity "blocker" -Path ([string]$Port) -Detail "port is already used by pid $ownerPid $processName"
+}
+
 $workspace = Resolve-WorkspaceRoot -Path $WorkspaceRoot
 $profile = Read-Json -Path $ProfilePath
 $serviceManifest = Read-Json -Path ([string]$profile.service_manifest)
@@ -130,6 +156,14 @@ $checks += Test-Tool -Name "git"
 $checks += Test-Tool -Name "uv"
 $checks += Test-Tool -Name "node"
 $checks += Test-Tool -Name "npm"
+
+$checks += Test-LaunchPort -Id "port.home_assistant_bridge" -Port $HomeAssistantBridgePort
+$checks += Test-LaunchPort -Id "port.environment_state_server" -Port $EnvironmentStatePort
+$checks += Test-LaunchPort -Id "port.thought_core_api" -Port $ThoughtCorePort
+$checks += Test-LaunchPort -Id "port.mediapipe_camera_hub_stack" -Port $MediapipePort
+$checks += Test-LaunchPort -Id "port.vision_snapshot_processor" -Port $VisionSnapshotProcessorPort
+$checks += Test-LaunchPort -Id "port.aituber_kit" -Port $AituberPort
+$checks += Test-LaunchPort -Id "port.touchdesigner_control_gui" -Port $TouchDesignerGuiPort
 
 $homeAssistantRoot = Resolve-RepoPath "organs/action/home-assistant-server"
 $aituberRoot = Resolve-RepoPath "organs/expression/aituber-kit"
