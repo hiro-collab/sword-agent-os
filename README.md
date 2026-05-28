@@ -26,6 +26,7 @@ the legacy profile name `thought-core-v0`:
 .\scripts\system.ps1 stop -Profile thought-core-v0 -DryRun -Force
 .\scripts\check-launch-readiness.ps1
 .\scripts\prepare-compat-launch.ps1 -ImportLocalConfig
+.\scripts\run-compat-smoke.ps1 -UseIsolatedPorts
 ```
 
 `status` is native to this repository and reads Agent OS manifests. `start` and
@@ -35,4 +36,9 @@ until the runtime becomes fully native; non-dry-run delegation requires
 asset, endpoint, and legacy-layout gaps before attempting a real launch.
 `prepare-compat-launch.ps1` creates ignored compatibility layout aliases and
 can import local-only config/env files from the legacy workspace without
-printing secret values.
+printing secret values. It also imports the local MediaPipe gesture model into
+the ignored organ checkout when present. `run-compat-smoke.ps1` defaults to the
+legacy `thought-core-v0` ports; pass `-UseIsolatedPorts` to temporarily move the
+stack to the `188xx` range for local port conflicts or side-by-side legacy
+testing. Environment state liveness uses `/health`; `/environment/current`
+remains the token-protected state API.

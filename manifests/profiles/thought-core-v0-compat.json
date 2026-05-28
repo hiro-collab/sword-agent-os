@@ -46,13 +46,18 @@
     "health_targets": [
       "http://127.0.0.1:18787/health",
       "http://127.0.0.1:8787/health",
-      "http://127.0.0.1:8790/environment/current",
+      "http://127.0.0.1:8790/health",
       "http://127.0.0.1:3000",
       "http://127.0.0.1:8788",
       "ws://127.0.0.1:8765",
       "ws://127.0.0.1:8776",
       "http://127.0.0.1:50021/version"
+    ],
+    "secured_state_targets": [
+      {
+        "url": "http://127.0.0.1:8790/environment/current",
+        "auth": "Bearer ENVIRONMENT_API_TOKEN or HOME_CONTROL_API_TOKEN"
+      }
     ]
   }
 }
-

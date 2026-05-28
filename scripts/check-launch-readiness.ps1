@@ -6,6 +6,7 @@ param(
   [int]$HomeAssistantBridgePort = 8787,
   [int]$EnvironmentStatePort = 8790,
   [int]$MediapipePort = 8765,
+  [int]$MediapipeBrowserMonitorPort = 8770,
   [int]$VisionSnapshotProcessorPort = 8776,
   [int]$AituberPort = 3000,
   [int]$TouchDesignerGuiPort = 8788,
@@ -161,6 +162,7 @@ $checks += Test-LaunchPort -Id "port.home_assistant_bridge" -Port $HomeAssistant
 $checks += Test-LaunchPort -Id "port.environment_state_server" -Port $EnvironmentStatePort
 $checks += Test-LaunchPort -Id "port.thought_core_api" -Port $ThoughtCorePort
 $checks += Test-LaunchPort -Id "port.mediapipe_camera_hub_stack" -Port $MediapipePort
+$checks += Test-LaunchPort -Id "port.mediapipe_browser_monitor" -Port $MediapipeBrowserMonitorPort
 $checks += Test-LaunchPort -Id "port.vision_snapshot_processor" -Port $VisionSnapshotProcessorPort
 $checks += Test-LaunchPort -Id "port.aituber_kit" -Port $AituberPort
 $checks += Test-LaunchPort -Id "port.touchdesigner_control_gui" -Port $TouchDesignerGuiPort
@@ -177,6 +179,7 @@ $checks += Test-PathCheck -Id "local.control_plane_env" -Path (Join-Path $contro
 $checks += Test-PathCheck -Id "local.aituber_env" -Path (Join-Path $aituberRoot ".env") -MissingSeverity "warning" -MissingDetail "AITuber env is local-only"
 $checks += Test-PathCheck -Id "local.touchdesigner_server" -Path (Join-Path $touchDesignerRoot "tools\server.js") -MissingSeverity "blocker" -MissingDetail "TouchDesigner control GUI server entry missing"
 $checks += Test-PathCheck -Id "local.mediapipe_camera_hub_launcher" -Path (Join-Path $mediapipeRoot "scripts\start_camera_hub_stack.bat") -MissingSeverity "blocker" -MissingDetail "MediaPipe camera hub launcher missing"
+$checks += Test-PathCheck -Id "local.mediapipe_gesture_model" -Path (Join-Path $mediapipeRoot "gesture_model.pkl") -MissingSeverity "blocker" -MissingDetail "gesture_model.pkl is local-only and required for Camera Hub gesture classification"
 
 $vrmFiles = @()
 $vrmRoot = Join-Path $aituberRoot "public\vrm"

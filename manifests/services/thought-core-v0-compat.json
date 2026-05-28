@@ -58,7 +58,12 @@
       },
       "health": {
         "type": "http",
-        "url": "http://127.0.0.1:8790/environment/current"
+        "url": "http://127.0.0.1:8790/health"
+      },
+      "state_api": {
+        "type": "http",
+        "url": "http://127.0.0.1:8790/environment/current",
+        "auth": "Bearer ENVIRONMENT_API_TOKEN or HOME_CONTROL_API_TOKEN"
       },
       "authority_touched": [
         "environment_projection",

@@ -161,6 +161,11 @@ if ($ImportLocalConfig) {
     -Id "env.aituber_kit" `
     -Source (Resolve-LegacyPath "organs/expression/aituber-kit/.env") `
     -Destination (Resolve-RepoPath "organs/expression/aituber-kit/.env")
+
+  $results += Copy-LocalFile `
+    -Id "model.mediapipe_gesture_model" `
+    -Source (Resolve-LegacyPath "organs/reflex/mediapipe-sword-sign/gesture_model.pkl") `
+    -Destination (Resolve-RepoPath "organs/reflex/mediapipe-sword-sign/gesture_model.pkl")
 }
 
 [PSCustomObject]@{
