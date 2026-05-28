@@ -1,0 +1,6 @@
+{
+  "id": "standard",
+  "description": "Standard connection inventory. Connections are tracked by the OS but do not have to use one forced protocol.",
+  "connections": []
+}
+

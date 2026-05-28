@@ -1,0 +1,6 @@
+{
+  "id": "standard",
+  "description": "Standard data authority inventory. This file distinguishes authoritative data from projections, caches, and derived state.",
+  "authorities": []
+}
+

@@ -1,0 +1,21 @@
+{
+  "id": "standard",
+  "description": "Standard Sword Agent OS profile. This is not a minimal demo.",
+  "required_organs": [
+    "speech-input",
+    "reflex",
+    "thought",
+    "environment",
+    "action",
+    "expression",
+    "display",
+    "diagnostics"
+  ],
+  "required_runtime": [
+    "turn-router",
+    "status-store",
+    "event-journal",
+    "communication-governance"
+  ]
+}
+

@@ -1,0 +1,29 @@
+# Local workspace state
+/local/
+/.cache/
+
+# Runtime output
+*.log
+*.pid
+*.tmp
+*.jsonl
+
+# Secrets and environment
+.env
+.env.*
+!.env.example
+
+# Dependencies and generated caches
+node_modules/
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.next/
+dist/
+build/
+
+# OS/editor noise
+Thumbs.db
+.DS_Store
+
