@@ -14,6 +14,7 @@
   "required_runtime": [
     "turn-router",
     "status-store",
+    "process-registry",
     "event-journal",
     "communication-governance",
     "memory-core",

@@ -1,0 +1,296 @@
+{
+  "schema_version": "services.inventory.v0",
+  "id": "thought-core-v0-compat",
+  "description": "Legacy thought-core-v0 service inventory used as the first Agent OS compatibility baseline.",
+  "profile_id": "thought-core-v0-compat",
+  "legacy_profile_id": "thought-core-v0",
+  "legacy_reference": "manifests/legacy/control-plane-reference.json",
+  "services": [
+    {
+      "service_id": "home_assistant_bridge",
+      "layer": "action",
+      "logical_service": "home-control-server",
+      "organ_id": "home-assistant-server",
+      "target_path": "organs/action/home-assistant-server",
+      "contracts": [
+        "home-control",
+        "access-control"
+      ],
+      "start": {
+        "type": "legacy-stack-script",
+        "owner": "ops/scripts/home-control-stack/start-home-control-stack.ps1"
+      },
+      "health": {
+        "type": "http",
+        "url": "http://127.0.0.1:8787/health"
+      },
+      "authority_touched": [
+        "home_action_execution",
+        "home_action_audit"
+      ],
+      "behavior": {
+        "behavior_kind": "operation",
+        "agency_mode": "voluntary",
+        "target_domain": "home",
+        "risk_class": "action_catalog_defined",
+        "approval_mode": "policy_or_explicit_confirmation"
+      },
+      "runtime_outputs": [
+        ".cache/home-control-stack/logs",
+        ".cache/home_control"
+      ],
+      "notes": "Executes allowlisted Home Assistant actions. Meaning-level retry and post-action evaluation belong above this service."
+    },
+    {
+      "service_id": "environment_state_server",
+      "layer": "environment",
+      "logical_service": "environment-server",
+      "organ_id": "environment-state-server",
+      "target_path": "organs/environment/environment-state-server",
+      "contracts": [
+        "environment",
+        "reflex",
+        "access-control"
+      ],
+      "start": {
+        "type": "legacy-stack-script",
+        "owner": "ops/scripts/home-control-stack/start-home-control-stack.ps1"
+      },
+      "health": {
+        "type": "http",
+        "url": "http://127.0.0.1:8790/environment/current"
+      },
+      "authority_touched": [
+        "environment_projection",
+        "indicator_projection",
+        "state_query_feedback"
+      ],
+      "behavior": {
+        "behavior_kind": "observation",
+        "agency_mode": "autonomic",
+        "target_domain": "home_environment",
+        "risk_class": "low_to_contextual",
+        "approval_mode": "policy_allowed"
+      },
+      "runtime_outputs": [
+        ".cache/home-control-stack/feedback",
+        ".cache/environment_state_server"
+      ],
+      "notes": "Aggregates projections and freshness. It must keep Home Assistant state separate from camera/vision-derived state."
+    },
+    {
+      "service_id": "thought_core_api",
+      "layer": "turn",
+      "logical_service": "thought-core",
+      "organ_id": "sword-voice-agent-control-plane",
+      "target_path": "sword-control-plane/services/thought-core",
+      "contracts": [
+        "turn",
+        "events",
+        "tools",
+        "environment",
+        "home-control",
+        "memory",
+        "access-control"
+      ],
+      "start": {
+        "type": "legacy-script",
+        "owner": "scripts/start-thought-core.ps1"
+      },
+      "health": {
+        "type": "http",
+        "url": "http://127.0.0.1:18787/health"
+      },
+      "authority_touched": [
+        "turn_orchestration",
+        "tool_selection",
+        "memory_candidate_creation"
+      ],
+      "behavior": {
+        "behavior_kind": "reasoning",
+        "agency_mode": "voluntary",
+        "target_domain": "conversation_and_home",
+        "risk_class": "depends_on_tool",
+        "approval_mode": "delegated_to_tool_policy"
+      },
+      "runtime_outputs": [
+        ".cache/home-control-stack/thought-core-chat-events.jsonl",
+        ".cache/sword_voice_agent"
+      ],
+      "notes": "Canonical legacy turn service v0. It may propose memory candidates but must not directly commit long-term memory."
+    },
+    {
+      "service_id": "mediapipe_camera_hub_stack",
+      "layer": "reflex",
+      "logical_service": "reflex-core",
+      "organ_id": "mediapipe-sword-sign",
+      "target_path": "organs/reflex/mediapipe-sword-sign",
+      "contracts": [
+        "reflex"
+      ],
+      "start": {
+        "type": "legacy-stack-script",
+        "owner": "organs/reflex/mediapipe-sword-sign/scripts/start_camera_hub_stack.bat"
+      },
+      "health": {
+        "type": "websocket",
+        "url": "ws://127.0.0.1:8765"
+      },
+      "authority_touched": [
+        "gesture_state",
+        "camera_topic_freshness"
+      ],
+      "behavior": {
+        "behavior_kind": "observation",
+        "agency_mode": "autonomic",
+        "target_domain": "camera_reflex",
+        "risk_class": "privacy_sensitive_sensor",
+        "approval_mode": "policy_required_before_enablement"
+      },
+      "runtime_outputs": [
+        ".cache/home-control-stack/mediapipe-status.json"
+      ],
+      "notes": "Owns camera hub topics and gesture inference. Unselected branches contain latency, diagnostics, shutdown, HUD, and room-light candidates to inspect separately."
+    },
+    {
+      "service_id": "vision_snapshot_processor",
+      "layer": "environment",
+      "logical_service": "vision-snapshot-input",
+      "organ_id": "vision-snapshot-processor",
+      "target_path": "organs/environment/vision-snapshot-processor",
+      "contracts": [
+        "environment"
+      ],
+      "start": {
+        "type": "legacy-stack-script",
+        "owner": "ops/scripts/home-control-stack/start-home-control-stack.ps1"
+      },
+      "health": {
+        "type": "websocket",
+        "url": "ws://127.0.0.1:8776"
+      },
+      "authority_touched": [
+        "room_light_vision_estimate"
+      ],
+      "behavior": {
+        "behavior_kind": "observation",
+        "agency_mode": "autonomic",
+        "target_domain": "home_environment",
+        "risk_class": "privacy_sensitive_sensor",
+        "approval_mode": "policy_required_before_enablement"
+      },
+      "runtime_outputs": [
+        ".cache/home-control-stack/logs"
+      ],
+      "notes": "Provides low-frequency vision-derived observations such as room light state."
+    },
+    {
+      "service_id": "aituber_kit",
+      "layer": "expression",
+      "logical_service": "aituber-ui",
+      "organ_id": "aituber-kit",
+      "target_path": "organs/expression/aituber-kit",
+      "contracts": [
+        "expression"
+      ],
+      "start": {
+        "type": "legacy-stack-script",
+        "owner": "ops/scripts/home-control-stack/start-home-control-stack.ps1"
+      },
+      "health": {
+        "type": "http",
+        "url": "http://127.0.0.1:3000"
+      },
+      "authority_touched": [
+        "speech_queue_projection",
+        "projection_visual",
+        "conversation_log_projection"
+      ],
+      "behavior": {
+        "behavior_kind": "expression",
+        "agency_mode": "voluntary",
+        "target_domain": "display_and_speech",
+        "risk_class": "presentation_surface",
+        "approval_mode": "delegated_to_message_source"
+      },
+      "runtime_outputs": [
+        ".next",
+        "browser_runtime_state"
+      ],
+      "notes": "Displays Projection Visual, direct_send messages, Thought Core chat, HUD, and conversation log. It is not state authority."
+    },
+    {
+      "service_id": "thought_core_watcher",
+      "layer": "app",
+      "logical_service": "turn-router-adapter",
+      "organ_id": "sword-voice-agent-control-plane",
+      "target_path": "sword-control-plane/src/sword_voice_agent/apps/watch_handoff_to_thought_core.py",
+      "contracts": [
+        "turn",
+        "events",
+        "expression"
+      ],
+      "start": {
+        "type": "legacy-script",
+        "owner": "sword-thought-core-watch"
+      },
+      "health": {
+        "type": "process",
+        "pid_name": "thought_core_watcher"
+      },
+      "authority_touched": [
+        "handoff_routing",
+        "expression_forwarding"
+      ],
+      "behavior": {
+        "behavior_kind": "routing",
+        "agency_mode": "autonomic",
+        "target_domain": "conversation_runtime",
+        "risk_class": "depends_on_payload",
+        "approval_mode": "delegated_to_turn_and_expression_policy"
+      },
+      "runtime_outputs": [
+        ".cache/sword_voice_agent/latest_thought_core_response.json",
+        ".cache/sword_voice_agent/events.jsonl"
+      ],
+      "notes": "Watches ai-talk-core handoff output, calls Thought Core, and forwards assistant events to expression surfaces."
+    },
+    {
+      "service_id": "touchdesigner_control_gui",
+      "layer": "expression",
+      "logical_service": "display-runtime",
+      "organ_id": "touchdesigner-ai-controller",
+      "target_path": "organs/display/touchdesigner-ai-controller",
+      "contracts": [
+        "expression",
+        "display"
+      ],
+      "start": {
+        "type": "node",
+        "owner": "tools/server.js"
+      },
+      "health": {
+        "type": "http",
+        "url": "http://127.0.0.1:8788"
+      },
+      "authority_touched": [
+        "display_status_projection",
+        "touchdesigner_udp_trigger",
+        "conversation_log_projection"
+      ],
+      "behavior": {
+        "behavior_kind": "expression",
+        "agency_mode": "voluntary",
+        "target_domain": "display_projection",
+        "risk_class": "presentation_surface",
+        "approval_mode": "delegated_to_message_source"
+      },
+      "runtime_outputs": [
+        "TouchDesigner UDP 127.0.0.1:9001",
+        "local display GUI state"
+      ],
+      "notes": "The .toe accepts home_control_magic JSON over UDP 9001 and renders the cube-vault background page. Use toeexpand for inspection."
+    }
+  ]
+}
+

@@ -1,12 +1,14 @@
 # Runtime
 
 Runtime contains Agent OS orchestration pieces such as routers, status store,
-event journal, communication governance, memory core, and approval queue.
+process registry, event journal, communication governance, memory core, and
+approval queue.
 
 ## Standard Components
 
 - `routers/turn-router/`: coordinates user-response flow.
 - `status-store/`: holds current runtime projections.
+- `process-registry/`: tracks managed runtime processes for lifecycle control.
 - `event-journal/`: stores append-only runtime history after redaction.
 - `communication-governance/`: observes and controls organ-to-organ
   communication boundaries.

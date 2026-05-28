@@ -1,0 +1,58 @@
+{
+  "id": "thought-core-v0-compat",
+  "description": "Compatibility profile for the legacy thought-core-v0 local stack. This is the migration baseline, not the final native Agent OS profile.",
+  "profile_class": "compatibility",
+  "legacy_reference": "manifests/legacy/control-plane-reference.json",
+  "service_manifest": "manifests/services/thought-core-v0-compat.json",
+  "required_organs": [
+    "speech-input",
+    "reflex",
+    "thought",
+    "environment",
+    "action",
+    "expression",
+    "display",
+    "diagnostics"
+  ],
+  "required_runtime": [
+    "turn-router",
+    "status-store",
+    "process-registry",
+    "event-journal",
+    "communication-governance",
+    "memory-core",
+    "approval-queue"
+  ],
+  "required_services": [
+    "home_assistant_bridge",
+    "environment_state_server",
+    "thought_core_api",
+    "mediapipe_camera_hub_stack",
+    "vision_snapshot_processor",
+    "aituber_kit",
+    "thought_core_watcher",
+    "touchdesigner_control_gui"
+  ],
+  "non_standard_profiles": [
+    "full-local",
+    "thought-core-experimental"
+  ],
+  "debug_profiles": [
+    "aituber-only",
+    "camera-debug"
+  ],
+  "minimum_e2e": {
+    "manual_turn": "uv run sword-thought-core-handoff --text \"電気つけて\" --session-id living_room_main --turn-id turn_manual_001 --print-events",
+    "health_targets": [
+      "http://127.0.0.1:18787/health",
+      "http://127.0.0.1:8787/health",
+      "http://127.0.0.1:8790/environment/current",
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:8788",
+      "ws://127.0.0.1:8765",
+      "ws://127.0.0.1:8776",
+      "http://127.0.0.1:50021/version"
+    ]
+  }
+}
+
