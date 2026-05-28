@@ -1,0 +1,66 @@
+{
+  "schema_version": "legacy.recovery-candidates.v0",
+  "checked_at": "2026-05-29",
+  "policy": "These branches are feature-recovery candidates. Do not switch a whole organ checkout to one of these branches as the adoption baseline without a new integration decision.",
+  "candidates": [
+    {
+      "id": "mediapipe-latency-diagnostics",
+      "organ_id": "mediapipe-sword-sign",
+      "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
+      "branch": "codex-gesture-latency-instrumentation",
+      "commit": "6bc61fbbfe1bff5b7e1d20923e696465ed55a852",
+      "selected_baseline_branch": "feature/camera-hub-topic-envelope",
+      "selected_baseline_commit": "e63fa59bf29a2f9f781250bd95f8a03f9d8de46b",
+      "handling": "inspect-and-recover-feature-elements",
+      "recoverable_elements": [
+        "latency measurement",
+        "UDP diagnostics",
+        "shutdown control"
+      ],
+      "notes": "Use as diagnostics and communication-control input; do not replace the topic-envelope baseline."
+    },
+    {
+      "id": "mediapipe-monitor-gui",
+      "organ_id": "mediapipe-sword-sign",
+      "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
+      "branch": "codex/add-gesture-monitor-gui",
+      "commit": "5cf3fc1d8db05c44410d52505bd12a3002b180e3",
+      "selected_baseline_branch": "feature/camera-hub-topic-envelope",
+      "selected_baseline_commit": "e63fa59bf29a2f9f781250bd95f8a03f9d8de46b",
+      "handling": "inspect-and-recover-feature-elements",
+      "recoverable_elements": [
+        "HUD/status display",
+        "security payload surface"
+      ],
+      "notes": "Use as status and diagnostics input; keep branch adoption separate from feature recovery."
+    },
+    {
+      "id": "mediapipe-room-light-prototype",
+      "organ_id": "mediapipe-sword-sign",
+      "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
+      "branch": "feature/camera-hub-room-light",
+      "commit": "d5745cd2c6d288f1b297183e57d3152166599a52",
+      "selected_baseline_branch": "feature/camera-hub-topic-envelope",
+      "selected_baseline_commit": "e63fa59bf29a2f9f781250bd95f8a03f9d8de46b",
+      "handling": "inspect-and-recover-feature-elements",
+      "recoverable_elements": [
+        "room light prototype"
+      ],
+      "notes": "Assess whether room-light behavior belongs in environment/vision separation before migrating code."
+    },
+    {
+      "id": "home-assistant-direct-actions",
+      "organ_id": "home-assistant-server",
+      "repo_url": "https://github.com/hiro-collab/home-assistant-server.git",
+      "branch": "codex/direct-home-assistant-actions",
+      "commit": "340993c9d673bc3ac5865a726d84c9261be5cc4d",
+      "selected_baseline_branch": "codex/add-fault-injection",
+      "selected_baseline_commit": "c2a6802b35101f4b95976800e0cdb07690b50791",
+      "handling": "inspect-and-cherry-pick-candidate",
+      "recoverable_elements": [
+        "direct allowlisted actions"
+      ],
+      "notes": "Branch base is older than the selected baseline; inspect or cherry-pick specific changes only."
+    }
+  ]
+}

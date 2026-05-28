@@ -32,6 +32,7 @@ $compatProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/thoug
 $serviceManifest = Read-Json -Path (Resolve-ManifestPath $compatProfile.service_manifest)
 $organManifest = Read-Json -Path (Resolve-ManifestPath "manifests/organs/legacy-github.json")
 $controlPlaneReference = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/control-plane-reference.json")
+$recoveryCandidates = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/recovery-candidates.json")
 
 $runtimeDirs = @(
   "runtime/routers/turn-router",
@@ -87,6 +88,13 @@ Assert-True (-not [string]::IsNullOrWhiteSpace([string]$controlPlaneReference.ta
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/system.ps1") -PathType Leaf) "runtime system facade missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-launch-readiness.ps1") -PathType Leaf) "launch readiness checker missing"
 
+foreach ($candidate in $recoveryCandidates.candidates) {
+  Assert-True (-not [string]::IsNullOrWhiteSpace([string]$candidate.repo_url)) "recovery candidate $($candidate.id) missing repo_url"
+  Assert-True (-not [string]::IsNullOrWhiteSpace([string]$candidate.branch)) "recovery candidate $($candidate.id) missing branch"
+  Assert-True ([string]$candidate.commit -match "^[0-9a-f]{40}$") "recovery candidate $($candidate.id) commit is not a full SHA"
+  Assert-True ([string]$candidate.handling -match "^(inspect-and-recover-feature-elements|inspect-and-cherry-pick-candidate)$") "recovery candidate $($candidate.id) has invalid handling"
+}
+
 if ($VerifyRemote) {
   foreach ($source in $organManifest.sources) {
     $line = git ls-remote ([string]$source.repo_url) "refs/heads/$($source.branch)"
@@ -99,6 +107,13 @@ if ($VerifyRemote) {
   Assert-True (-not [string]::IsNullOrWhiteSpace(($cpLine -join ""))) "control-plane remote branch not found: $($controlPlaneReference.branch)"
   $cpRemoteCommit = (($cpLine | Select-Object -First 1) -split "`t")[0]
   Assert-True ($cpRemoteCommit -eq [string]$controlPlaneReference.commit) "control-plane remote commit mismatch: expected $($controlPlaneReference.commit), got $cpRemoteCommit"
+
+  foreach ($candidate in $recoveryCandidates.candidates) {
+    $candidateLine = git ls-remote ([string]$candidate.repo_url) "refs/heads/$($candidate.branch)"
+    Assert-True (-not [string]::IsNullOrWhiteSpace(($candidateLine -join ""))) "remote branch not found for recovery candidate $($candidate.id): $($candidate.branch)"
+    $candidateRemoteCommit = (($candidateLine | Select-Object -First 1) -split "`t")[0]
+    Assert-True ($candidateRemoteCommit -eq [string]$candidate.commit) "remote commit mismatch for recovery candidate $($candidate.id): expected $($candidate.commit), got $candidateRemoteCommit"
+  }
 }
 
 [PSCustomObject]@{
@@ -107,5 +122,6 @@ if ($VerifyRemote) {
   compatibility_profile = $compatProfile.id
   services = $serviceManifest.services.Count
   organ_sources = $organManifest.sources.Count
+  recovery_candidates = $recoveryCandidates.candidates.Count
   remote_verified = [bool]$VerifyRemote
 } | ConvertTo-Json
