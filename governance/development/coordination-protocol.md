@@ -26,7 +26,12 @@ and scratch data stay in `coordination/local`.
 - `handoffs/`: thread handoffs
 - `decisions/`: accepted decisions
 - `shared-notes/`: useful knowledge that is not yet a decision
+- `admin/`: coordination-system administration, templates, and process reviews
 
 Tasks are not rigid permission gates. Small related work can happen inside a
 thread when needed, but out-of-area or shared-surface work should be mentioned
 in the handoff.
+
+`coordination-admin` manages the development coordination system. It routes
+technical integration decisions to `integration-main` instead of owning the
+Agent OS architecture directly.
