@@ -12,3 +12,20 @@ not active edit targets.
 - [Remote workstation setup](docs/remote-workstation-setup.md)
 - [Thread startup guide](docs/thread-startup-guide.md)
 - [Legacy reference index](docs/legacy-reference-index.md)
+
+## Initial Runtime Facade
+
+The first compatibility profile is `thought-core-v0-compat`, which also accepts
+the legacy profile name `thought-core-v0`:
+
+```powershell
+.\scripts\system.ps1 status -Profile thought-core-v0 -ManifestOnly
+.\scripts\system.ps1 status -Profile thought-core-v0
+.\scripts\system.ps1 start -Profile thought-core-v0 -DryRun
+.\scripts\system.ps1 stop -Profile thought-core-v0 -DryRun -Force
+```
+
+`status` is native to this repository and reads Agent OS manifests. `start` and
+`stop` are compatibility delegates to the bootstrapped control-plane checkout
+until the runtime becomes fully native; non-dry-run delegation requires
+`-LegacyDelegate`.

@@ -33,6 +33,16 @@ manifests/services/thought-core-v0-compat.json
 For a non-starting status probe, use:
 
 ```powershell
-.\scripts\check-profile-health.ps1 -ManifestOnly
-.\scripts\check-profile-health.ps1
+.\scripts\system.ps1 status -Profile thought-core-v0 -ManifestOnly
+.\scripts\system.ps1 status -Profile thought-core-v0
 ```
+
+For start/stop compatibility planning, use:
+
+```powershell
+.\scripts\system.ps1 start -Profile thought-core-v0 -DryRun
+.\scripts\system.ps1 stop -Profile thought-core-v0 -DryRun -Force
+```
+
+Actual start/stop execution is still delegated to the bootstrapped legacy
+control-plane checkout and requires `-LegacyDelegate`.
