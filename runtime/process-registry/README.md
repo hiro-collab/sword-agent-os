@@ -46,3 +46,12 @@ For start/stop compatibility planning, use:
 
 Actual start/stop execution is still delegated to the bootstrapped legacy
 control-plane checkout and requires `-LegacyDelegate`.
+
+Before real launch attempts, run:
+
+```powershell
+.\scripts\check-launch-readiness.ps1
+```
+
+This reports missing local-only inputs such as secrets, Home Assistant config,
+VRM assets, tool availability, and legacy delegate layout assumptions.

@@ -23,9 +23,11 @@ the legacy profile name `thought-core-v0`:
 .\scripts\system.ps1 status -Profile thought-core-v0
 .\scripts\system.ps1 start -Profile thought-core-v0 -DryRun
 .\scripts\system.ps1 stop -Profile thought-core-v0 -DryRun -Force
+.\scripts\check-launch-readiness.ps1
 ```
 
 `status` is native to this repository and reads Agent OS manifests. `start` and
 `stop` are compatibility delegates to the bootstrapped control-plane checkout
 until the runtime becomes fully native; non-dry-run delegation requires
-`-LegacyDelegate`.
+`-LegacyDelegate`. `check-launch-readiness.ps1` reports clone, tool, secret,
+asset, endpoint, and legacy-layout gaps before attempting a real launch.
