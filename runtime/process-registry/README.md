@@ -30,3 +30,9 @@ defined in:
 manifests/services/thought-core-v0-compat.json
 ```
 
+For a non-starting status probe, use:
+
+```powershell
+.\scripts\check-profile-health.ps1 -ManifestOnly
+.\scripts\check-profile-health.ps1
+```
