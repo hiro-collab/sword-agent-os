@@ -83,7 +83,8 @@
       "layer": "turn",
       "logical_service": "thought-core",
       "organ_id": "sword-voice-agent-control-plane",
-      "target_path": "sword-control-plane/services/thought-core",
+      "target_path": "control-plane/sword-voice-agent/services/thought-core",
+      "legacy_path": "sword-control-plane/services/thought-core",
       "contracts": [
         "turn",
         "events",
@@ -224,7 +225,8 @@
       "layer": "app",
       "logical_service": "turn-router-adapter",
       "organ_id": "sword-voice-agent-control-plane",
-      "target_path": "sword-control-plane/src/sword_voice_agent/apps/watch_handoff_to_thought_core.py",
+      "target_path": "control-plane/sword-voice-agent/src/sword_voice_agent/apps/watch_handoff_to_thought_core.py",
+      "legacy_path": "sword-control-plane/src/sword_voice_agent/apps/watch_handoff_to_thought_core.py",
       "contracts": [
         "turn",
         "events",
@@ -293,4 +295,3 @@
     }
   ]
 }
-

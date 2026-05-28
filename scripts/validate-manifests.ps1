@@ -83,6 +83,7 @@ foreach ($source in $organManifest.sources) {
 }
 
 Assert-True ([string]$controlPlaneReference.commit -match "^[0-9a-f]{40}$") "control-plane reference commit is not a full SHA"
+Assert-True (-not [string]::IsNullOrWhiteSpace([string]$controlPlaneReference.target_path)) "control-plane reference missing target_path"
 
 if ($VerifyRemote) {
   foreach ($source in $organManifest.sources) {
@@ -106,4 +107,3 @@ if ($VerifyRemote) {
   organ_sources = $organManifest.sources.Count
   remote_verified = [bool]$VerifyRemote
 } | ConvertTo-Json
-

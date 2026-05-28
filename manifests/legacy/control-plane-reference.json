@@ -4,6 +4,7 @@
   "description": "Legacy control-plane reference for thought-core-v0, ops manifests, contracts, policies, tests, and runtime lifecycle behavior.",
   "checked_at": "2026-05-29",
   "legacy_path": "sword-control-plane",
+  "target_path": "control-plane/sword-voice-agent",
   "repo_url": "https://github.com/hiro-collab/sword-voice-agent.git",
   "branch": "codex/initial-sword-voice-agent",
   "commit": "da719d6a3bce5ba6be7cb16785e3a6737f74bc83",
@@ -54,4 +55,3 @@
     }
   ]
 }
-
