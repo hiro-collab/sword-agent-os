@@ -33,6 +33,8 @@ $serviceManifest = Read-Json -Path (Resolve-ManifestPath $compatProfile.service_
 $organManifest = Read-Json -Path (Resolve-ManifestPath "manifests/organs/legacy-github.json")
 $controlPlaneReference = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/control-plane-reference.json")
 $recoveryCandidates = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/recovery-candidates.json")
+$authorityManifest = Read-Json -Path (Resolve-ManifestPath "manifests/authorities/standard.json")
+$memoryStewardshipPolicy = Read-Json -Path (Resolve-ManifestPath "policies/data-safety/memory-stewardship.json")
 
 $runtimeDirs = @(
   "runtime/routers/turn-router",
@@ -95,6 +97,15 @@ foreach ($candidate in $recoveryCandidates.candidates) {
   Assert-True ([string]$candidate.handling -match "^(inspect-and-recover-feature-elements|inspect-and-cherry-pick-candidate)$") "recovery candidate $($candidate.id) has invalid handling"
 }
 
+$authorityIds = @($authorityManifest.authorities | ForEach-Object { [string]$_.authority_id })
+foreach ($requiredAuthority in @("memory-core", "approval-queue", "data-safety-policy")) {
+  Assert-True ($requiredAuthority -in $authorityIds) "standard authorities missing: $requiredAuthority"
+}
+Assert-True ([string]$memoryStewardshipPolicy.recording_posture.default -eq "broad_recording_allowed") "memory stewardship policy should allow broad recording by default"
+Assert-True ([string]$memoryStewardshipPolicy.forgetting.owner_runtime -eq "memory-core") "forgetting owner must be memory-core"
+Assert-True ([string]$memoryStewardshipPolicy.forgetting.default_deletion_class -eq "autonomously_deletable") "default deletion class should be autonomously_deletable"
+Assert-True ([string]$memoryStewardshipPolicy.forgetting.protected_deletion_class -eq "protected_requires_approval") "protected deletion class should require approval"
+
 if ($VerifyRemote) {
   foreach ($source in $organManifest.sources) {
     $line = git ls-remote ([string]$source.repo_url) "refs/heads/$($source.branch)"
@@ -123,5 +134,6 @@ if ($VerifyRemote) {
   services = $serviceManifest.services.Count
   organ_sources = $organManifest.sources.Count
   recovery_candidates = $recoveryCandidates.candidates.Count
+  authorities = $authorityManifest.authorities.Count
   remote_verified = [bool]$VerifyRemote
 } | ConvertTo-Json

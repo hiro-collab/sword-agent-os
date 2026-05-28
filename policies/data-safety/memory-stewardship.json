@@ -1,0 +1,83 @@
+{
+  "schema_version": "data-safety.memory-stewardship.v0",
+  "id": "memory-stewardship-standard",
+  "status": "draft-active",
+  "recording_posture": {
+    "default": "broad_recording_allowed",
+    "rationale": "Agent OS may store diverse operational, observational, conversational, and derived data. Safety is enforced primarily through inspection, quarantine, forgetting, approval, and traceability after save.",
+    "not_a_free_pass": [
+      "secrets must be flagged or quarantined when detected",
+      "high-risk actions still require policy and approval checks",
+      "local-only private assets and tokens are not made portable by memory policy"
+    ]
+  },
+  "forgetting": {
+    "owner_runtime": "memory-core",
+    "default_deletion_class": "autonomously_deletable",
+    "protected_deletion_class": "protected_requires_approval",
+    "cycle": {
+      "mode": "scheduled-and-demand-triggered",
+      "allowed_operations": [
+        "inspect",
+        "classify",
+        "quarantine",
+        "summarize",
+        "de_index",
+        "archive",
+        "delete"
+      ],
+      "must_preserve": [
+        "source traceability for committed memory",
+        "decision trace for protected deletion",
+        "quarantine reason for suspicious records"
+      ]
+    }
+  },
+  "protection_requests": {
+    "requesters": [
+      "thought",
+      "runtime",
+      "organs",
+      "policy",
+      "human_admin"
+    ],
+    "final_authorities": [
+      "memory-core",
+      "data-safety-policy",
+      "approval-queue",
+      "human_admin"
+    ],
+    "anti_abuse_note": "A requester may propose protected status, but normal operation must not allow arbitrary self-protection to bypass forgetting or security review."
+  },
+  "classification": {
+    "posture": "demand-driven-and-evolving",
+    "default_allowed": "unclassified_or_partial",
+    "shape_expectation": "high-dimensional, versioned, and allowed to become nested or graph-like",
+    "minimum_axes_when_security_relevant": [
+      "data_kind",
+      "source",
+      "sensitivity",
+      "authority_touched",
+      "retention_intent",
+      "deletion_class",
+      "approval_requirement"
+    ]
+  },
+  "secret_like_material": {
+    "normal_memory": false,
+    "when_detected": [
+      "flag",
+      "quarantine_or_redact",
+      "preserve detection trace",
+      "route review through data-safety policy"
+    ]
+  },
+  "approval_integration": {
+    "protected_memory_deletion": "approval-queue",
+    "early_approver_identity": {
+      "approver_id": "local_operator_or_unknown",
+      "assurance_level": "low",
+      "upgrade_path": "future person detection, authentication, or second factor"
+    }
+  }
+}

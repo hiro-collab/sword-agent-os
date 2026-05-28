@@ -1,6 +1,49 @@
 {
   "id": "standard",
   "description": "Standard data authority inventory. This file distinguishes authoritative data from projections, caches, and derived state.",
-  "authorities": []
+  "authorities": [
+    {
+      "authority_id": "memory-core",
+      "owns": [
+        "durable_memory_commit",
+        "forgetting_cycles",
+        "memory_protection_status",
+        "memory_retrieval_scope"
+      ],
+      "does_not_own": [
+        "organ_execution",
+        "home_action_success",
+        "approval_decision_authority"
+      ],
+      "source": "runtime/memory-core/README.md"
+    },
+    {
+      "authority_id": "approval-queue",
+      "owns": [
+        "approval_request_state",
+        "protected_memory_deletion_approval",
+        "high_risk_operation_review_state"
+      ],
+      "does_not_own": [
+        "memory_deletion_execution",
+        "home_action_execution",
+        "identity_detection"
+      ],
+      "source": "runtime/approval-queue/README.md"
+    },
+    {
+      "authority_id": "data-safety-policy",
+      "owns": [
+        "data_safety_policy_shape",
+        "secret_like_material_handling",
+        "security_relevant_classification_requirements"
+      ],
+      "does_not_own": [
+        "raw_sensor_operation",
+        "expression_rendering",
+        "process_lifecycle"
+      ],
+      "source": "policies/data-safety/memory-stewardship.json"
+    }
+  ]
 }
-
