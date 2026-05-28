@@ -1,7 +1,8 @@
 param(
   [string]$ManifestPath = "",
   [switch]$DryRun,
-  [switch]$IncludeDeferred
+  [switch]$IncludeDeferred,
+  [switch]$VerifyRemote
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,6 +59,18 @@ foreach ($source in $manifest.sources) {
   $target = Join-Path $RepoRoot (Get-RelativeTarget -Path $source.target_path)
   $parent = Split-Path -Parent $target
 
+  if ($VerifyRemote) {
+    $line = git ls-remote ([string]$source.repo_url) "refs/heads/$($source.branch)"
+    if ([string]::IsNullOrWhiteSpace(($line -join ""))) {
+      throw "remote branch not found for $($source.organ_id): $($source.branch)"
+    }
+    $remoteCommit = (($line | Select-Object -First 1) -split "`t")[0]
+    if ($remoteCommit -ne [string]$source.commit) {
+      throw "remote commit mismatch for $($source.organ_id): expected $($source.commit), got $remoteCommit"
+    }
+    Write-Host "remote verified: $($source.organ_id) $($source.commit.Substring(0, 7))"
+  }
+
   if (-not (Test-Path -LiteralPath $parent)) {
     if ($DryRun) {
       Write-Host "New-Item -ItemType Directory -Force -Path $parent"
@@ -104,4 +117,3 @@ foreach ($source in $manifest.sources) {
     }
   }
 }
-
