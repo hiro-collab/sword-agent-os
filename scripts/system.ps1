@@ -8,6 +8,8 @@ param(
   [switch]$LegacyDelegate,
   [switch]$Force,
   [int]$TimeoutMs = 1200,
+  [string]$WorkspaceRoot = "",
+  [string]$StackStateDir = "",
   [Parameter(ValueFromRemainingArguments = $true)]
   [string[]]$PassthroughArgs = @()
 )
@@ -123,6 +125,14 @@ function New-LegacyDelegateArguments {
   $arguments.Add($Command)
   $arguments.Add("-Profile")
   $arguments.Add([string]$Spec.legacy_profile_id)
+  if (-not [string]::IsNullOrWhiteSpace($WorkspaceRoot)) {
+    $arguments.Add("-WorkspaceRoot")
+    $arguments.Add($WorkspaceRoot)
+  }
+  if (-not [string]::IsNullOrWhiteSpace($StackStateDir)) {
+    $arguments.Add("-StackStateDir")
+    $arguments.Add($StackStateDir)
+  }
   if ($Force.IsPresent) {
     $arguments.Add("-Force")
   }
@@ -162,6 +172,12 @@ if ($Command -eq "status") {
   $healthArgs = @{
     ProfilePath = [string]$spec.profile_path
     TimeoutMs = $TimeoutMs
+  }
+  if (-not [string]::IsNullOrWhiteSpace($WorkspaceRoot)) {
+    $healthArgs.WorkspaceRoot = $WorkspaceRoot
+  }
+  if (-not [string]::IsNullOrWhiteSpace($StackStateDir)) {
+    $healthArgs.StackStateDir = $StackStateDir
   }
   if ($ManifestOnly) {
     $healthArgs.ManifestOnly = $true
