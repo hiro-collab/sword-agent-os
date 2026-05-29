@@ -320,6 +320,20 @@
           "expect_exit_code": 0
         },
         {
+          "id": "thought_core_api.runtime_reflex_alive",
+          "mode": "deep",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/check-runtime-reflex.ps1"
+          ],
+          "expect_exit_code": 0
+        },
+        {
           "id": "thought_core_api.conscious_readiness",
           "mode": "deep",
           "type": "command",
