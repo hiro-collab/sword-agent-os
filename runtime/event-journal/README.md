@@ -28,3 +28,8 @@ diagnostic pulse into long-term storage.
 - Target at most 300 MB of uncompressed routine journal data per day.
 - Do not copy raw camera frames, images, generated media, full module logs, or
   secret-bearing payloads into the routine journal.
+
+The first writer is `scripts/update-diagnostics-status.ps1`. It appends to
+`.cache/agent-os/events/events-YYYY-MM-DD.jsonl` only when status meaning
+changes, when a new service/capability is observed, or when the status is first
+initialized.

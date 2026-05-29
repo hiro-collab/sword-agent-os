@@ -21,6 +21,10 @@ decide whether a status is fresh enough for the current view.
 The first target size for `status-store/current.json` is under 1 MB. Heavier
 details should be represented as evidence references, not embedded payloads.
 
+The first writer is `scripts/update-diagnostics-status.ps1`. It writes
+`.cache/agent-os/status/current.json` and treats it as generated local runtime
+state.
+
 ## Health Projection
 
 Status projections should keep OS boot health separate from body capability

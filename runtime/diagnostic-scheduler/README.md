@@ -31,10 +31,28 @@ Heavy details belong in evidence storage with a reference from the normalized
 observation. Camera frames, raw images, full module logs, and generated media
 must not be copied into the routine diagnostics journal.
 
+## First Implementation
+
+The first implementation is a run-once collector:
+
+```powershell
+.\scripts\update-diagnostics-status.ps1
+.\scripts\read-diagnostics-status.ps1
+```
+
+It reads the diagnostic policy, driver manifest, and service inventory, then
+writes:
+
+- `.cache/agent-os/status/current.json`
+- `.cache/agent-os/status/topology.json`
+- `.cache/agent-os/events/events-YYYY-MM-DD.jsonl`
+
+The run-once shape is intentional. It lets Agent OS stabilize the normalized
+output before turning the scheduler into a long-running pulse loop.
+
 ## Initial Retention
 
 - `status-store/current`: overwrite latest state.
 - `event-journal`: keep 30 days, rotate daily, compress rotated files.
 - `snapshots`: keep 7 days, compact old snapshots when implemented.
 - `evidence/deep logs`: keep 30 days or 5 GB, whichever limit is reached first.
-
