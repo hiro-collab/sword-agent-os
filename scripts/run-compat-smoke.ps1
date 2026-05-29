@@ -401,6 +401,7 @@ $stopError = ""
 $smokeError = ""
 $checks = @()
 $integrationProbes = @()
+$organReadiness = $null
 $watcherProbe = [PSCustomObject]@{
   enabled = [bool]$RunWatcherProbe
   status = if ($RunWatcherProbe) { "pending" } else { "skipped" }
@@ -694,6 +695,16 @@ exit `$LASTEXITCODE
       aituber_client_id = $clientId
     }
   }
+
+  $organReadinessParams = @{
+    CheckEndpoints = $true
+    TimeoutMs = $TimeoutMs
+  }
+  if ($UseIsolatedPorts) {
+    $organReadinessParams.UseIsolatedPorts = $true
+  }
+  $organReadinessOutput = & (Join-Path $PSScriptRoot "check-organ-readiness.ps1") @organReadinessParams
+  $organReadiness = ($organReadinessOutput | Out-String | ConvertFrom-Json)
 }
 catch {
   $smokeError = $_.Exception.Message
@@ -762,12 +773,17 @@ $ports = @(
 $remainingPorts = @($ports | Where-Object { Test-PortListening -Port $_ })
 $failedChecks = @($checks | Where-Object { $_.status -ne "ok" })
 $failedIntegrationProbes = @($integrationProbes | Where-Object { $_.status -ne "ok" })
+$organReadinessBlocked = $false
+if ($null -ne $organReadiness -and $null -ne $organReadiness.counts) {
+  $organReadinessBlocked = [int]$organReadiness.counts.blocked -gt 0
+}
 $startExitCode = if ($null -ne $startProcess -and $startProcess.HasExited) { $startProcess.ExitCode } else { $null }
 $status = if (
   [string]::IsNullOrWhiteSpace($smokeError) -and
   [string]::IsNullOrWhiteSpace($stopError) -and
   $failedChecks.Count -eq 0 -and
   $failedIntegrationProbes.Count -eq 0 -and
+  (-not $organReadinessBlocked) -and
   ((-not $RunManualTurn) -or $manualTurn.status -eq "ok") -and
   ((-not $RunWatcherProbe) -or ($watcherProbe.status -eq "ok" -and [string]::IsNullOrWhiteSpace($watcherRestoreError))) -and
   $remainingPorts.Count -eq 0
@@ -801,6 +817,7 @@ $result = [PSCustomObject]@{
   readiness_status = [string]$readiness.status
   checks = @($checks)
   integration_probes = @($integrationProbes)
+  organ_readiness = $organReadiness
   manual_turn = $manualTurn
   watcher_probe = $watcherProbe
   remaining_ports = @($remainingPorts)

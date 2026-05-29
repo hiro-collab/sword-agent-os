@@ -26,6 +26,7 @@ the legacy profile name `thought-core-v0`:
 .\scripts\system.ps1 stop -Profile thought-core-v0 -DryRun -Force
 .\scripts\check-runtime-reflex.ps1
 .\scripts\check-conscious-readiness.ps1
+.\scripts\check-organ-readiness.ps1
 .\scripts\check-launch-readiness.ps1
 .\scripts\prepare-compat-launch.ps1 -ImportLocalConfig
 .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts
@@ -47,7 +48,10 @@ Thought Core deterministic no-external-API readiness turn and returns
 `conscious_ready` only when `assistant.message` and `turn.completed` are
 observed without using the LLM/API path. `check-launch-readiness.ps1` reports
 clone, tool, secret, asset, endpoint, and legacy-layout gaps before attempting
-a real launch.
+a real launch. `check-organ-readiness.ps1` projects per-organ validation and
+availability from the selected organ manifest; pass `-CheckEndpoints` to add
+live HTTP/TCP health checks and `-UseIsolatedPorts` when checking a smoke stack
+started on the temporary `188xx` port range.
 `prepare-compat-launch.ps1` creates ignored compatibility layout aliases and
 can import local-only config/env files from the legacy workspace without
 printing secret values. It also imports the local MediaPipe gesture model into

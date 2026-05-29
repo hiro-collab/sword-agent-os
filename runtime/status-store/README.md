@@ -28,6 +28,13 @@ The first `conscious_ready` implementation is
 readiness turn and validates the required event stream without external LLM/API
 access.
 
+The first organ availability projection is
+`scripts/check-organ-readiness.ps1`. It reports per-organ source state, local
+gaps, safe check commands, and optional live service health as `pass`,
+`degraded`, `unavailable`, `blocked`, or `not_yet_checked`-compatible
+projection data. These organ results feed `full_conscious_ready` and capability
+details, not the lower boot-health stages by themselves.
+
 A standard profile can be healthy while camera, speech, display, Home
 Assistant, TouchDesigner, VOICEVOX, or another external integration is
 unavailable. Those states should appear as capability details, not as whole-OS
