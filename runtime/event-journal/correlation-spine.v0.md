@@ -369,7 +369,7 @@ should preserve provenance with fields such as:
 - `retagged_at`: when the memory tag decision was made
 - `causal_parent_id`: event that caused or justified the retag, when available
 
-Example: a memory first stored without an issue tag, then tagged by Thought
+Example: a memory first stored without an issue ticket tag, then tagged by Thought
 Core:
 
 ```json
