@@ -6,6 +6,7 @@ param(
   [string[]]$Modes = @(),
   [ValidateSet("manifest_default", "isolated_override")]
   [string]$PortMode = "manifest_default",
+  [string]$StackStateDir = "",
   [int]$TimeoutMs = 3000,
   [switch]$NoRefreshDiagnostics,
   [switch]$AllowSideEffects,
@@ -479,6 +480,9 @@ if (-not $NoRefreshDiagnostics) {
     PortMode = $PortMode
     NoJournal = $true
     TimeoutMs = $TimeoutMs
+  }
+  if (-not [string]::IsNullOrWhiteSpace($StackStateDir)) {
+    $updateArgs.StackStateDir = $StackStateDir
   }
   if ("live" -notin $Modes) {
     $updateArgs.ManifestOnly = $true

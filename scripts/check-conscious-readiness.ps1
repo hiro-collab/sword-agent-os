@@ -50,20 +50,34 @@ if ($IncludeEvents) {
   $probeArgs += "--include-events"
 }
 
-$srcJson = ConvertTo-Json ([string]$thoughtCoreSrc) -Compress
+$envSuffix = [System.Guid]::NewGuid().ToString("N")
+$srcEnvName = "SWORD_AGENT_OS_READINESS_SRC_$envSuffix"
+$argsEnvName = "SWORD_AGENT_OS_READINESS_ARGS_$envSuffix"
 $argsJson = ConvertTo-Json ([string[]]$probeArgs) -Compress
+[Environment]::SetEnvironmentVariable($srcEnvName, [string]$thoughtCoreSrc, "Process")
+[Environment]::SetEnvironmentVariable($argsEnvName, [string]$argsJson, "Process")
 $pythonCode = @"
 import json
+import os
 import sys
 
-sys.path.insert(0, json.loads(r'''$srcJson'''))
+sys.path.insert(0, os.environ['$srcEnvName'])
 from thought_core.readiness import main
 
-raise SystemExit(main(json.loads(r'''$argsJson''')))
+raise SystemExit(main(json.loads(os.environ['$argsEnvName'])))
 "@
 
-$output = & $uv.Source run python -c $pythonCode 2>&1
-$exitCode = $LASTEXITCODE
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+  $ErrorActionPreference = "Continue"
+  $output = & $uv.Source run python -c $pythonCode 2>&1
+  $exitCode = $LASTEXITCODE
+}
+finally {
+  $ErrorActionPreference = $previousErrorActionPreference
+  [Environment]::SetEnvironmentVariable($srcEnvName, $null, "Process")
+  [Environment]::SetEnvironmentVariable($argsEnvName, $null, "Process")
+}
 $raw = ($output | ForEach-Object { [string]$_ }) -join "`n"
 
 if ($exitCode -ne 0) {
