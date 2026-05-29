@@ -351,7 +351,7 @@ function ConvertTo-CapabilityState {
   if ("degraded" -in $states) {
     return @{ state = "degraded"; freshness = $freshness; detail = "one or more required services degraded" }
   }
-  if (($states | Where-Object { $_ -eq "available" }).Count -eq $states.Count) {
+  if (@($states | Where-Object { $_ -eq "available" }).Count -eq $states.Count) {
     return @{ state = "available"; freshness = $freshness; detail = "required service evidence available" }
   }
   return @{ state = "unknown"; freshness = $freshness; detail = "required service evidence incomplete" }

@@ -38,6 +38,7 @@ The first implementation is a run-once collector:
 ```powershell
 .\scripts\update-diagnostics-status.ps1
 .\scripts\read-diagnostics-status.ps1
+.\scripts\watch-diagnostics-status.ps1
 ```
 
 It reads the diagnostic policy, driver manifest, and service inventory, then
@@ -49,6 +50,11 @@ writes:
 
 The run-once shape is intentional. It lets Agent OS stabilize the normalized
 output before turning the scheduler into a long-running pulse loop.
+
+`watch-diagnostics-status.ps1` is the first lightweight pulse loop. It repeats
+the same collector at a fixed interval for local validation and diagnostics
+viewer work. It is still read-only and should be replaced later by a native
+system-manager scheduler.
 
 ## Initial Retention
 

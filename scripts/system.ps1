@@ -7,6 +7,8 @@ param(
   [switch]$DryRun,
   [switch]$LegacyDelegate,
   [switch]$Force,
+  [ValidateSet("manifest_default", "isolated_override")]
+  [string]$PortMode = "manifest_default",
   [int]$TimeoutMs = 1200,
   [string]$WorkspaceRoot = "",
   [string]$StackStateDir = "",
@@ -196,6 +198,7 @@ if ($Command -eq "status") {
     ProfilePath = [string]$spec.profile_path
     TimeoutMs = $TimeoutMs
     WorkspaceRoot = $EffectiveWorkspaceRoot
+    PortMode = $PortMode
   }
   if (-not [string]::IsNullOrWhiteSpace($StackStateDir)) {
     $healthArgs.StackStateDir = $StackStateDir

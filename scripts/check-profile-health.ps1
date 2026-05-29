@@ -1,6 +1,8 @@
 param(
   [string]$ProfilePath = "manifests/profiles/thought-core-v0-compat.json",
   [switch]$ManifestOnly,
+  [ValidateSet("manifest_default", "isolated_override")]
+  [string]$PortMode = "manifest_default",
   [int]$TimeoutMs = 1200,
   [string]$WorkspaceRoot = "",
   [string]$StackStateDir = ""
@@ -104,6 +106,38 @@ function ConvertTo-StringArray {
     return @()
   }
   return @($Value | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+
+function Convert-UrlForPortMode {
+  param(
+    [Parameter(Mandatory = $true)][string]$Url,
+    [Parameter(Mandatory = $true)][string]$ServiceId,
+    [Parameter(Mandatory = $true)]$ServiceManifest,
+    [Parameter(Mandatory = $true)][string]$SelectedPortMode
+  )
+  if ([string]::IsNullOrWhiteSpace($Url)) {
+    return $Url
+  }
+  $modeProperty = $ServiceManifest.port_modes.PSObject.Properties[$SelectedPortMode]
+  if ($null -eq $modeProperty) {
+    return $Url
+  }
+  $servicePorts = Get-OptionalProperty -Object $modeProperty.Value -Name "service_ports"
+  if ($null -eq $servicePorts) {
+    return $Url
+  }
+  $portProperty = $servicePorts.PSObject.Properties[$ServiceId]
+  if ($null -eq $portProperty) {
+    return $Url
+  }
+  try {
+    $builder = [System.UriBuilder]::new($Url)
+    $builder.Port = [int]$portProperty.Value
+    return $builder.Uri.AbsoluteUri
+  }
+  catch {
+    return $Url
+  }
 }
 
 function Test-ProcessStartTimeMatches {
@@ -223,18 +257,23 @@ $pidMap = Read-PidMap -Path $pidFile
 
 $rows = foreach ($service in $serviceManifest.services) {
   $health = $service.health
+  $serviceId = [string]$service.service_id
+  $healthUrl = [string](Get-OptionalProperty -Object $health -Name "url" -Default "")
+  if (-not [string]::IsNullOrWhiteSpace($healthUrl)) {
+    $healthUrl = Convert-UrlForPortMode -Url $healthUrl -ServiceId $serviceId -ServiceManifest $serviceManifest -SelectedPortMode $PortMode
+  }
   $status = "manifest"
   $detail = ""
 
   if (-not $ManifestOnly) {
     switch ([string]$health.type) {
       "http" {
-        $result = Test-HttpEndpoint -Url ([string]$health.url) -Timeout $TimeoutMs
+        $result = Test-HttpEndpoint -Url $healthUrl -Timeout $TimeoutMs
         $status = if ($result.ok) { "ok" } else { "down" }
         $detail = $result.detail
       }
       "websocket" {
-        $uri = [System.Uri]::new([string]$health.url)
+        $uri = [System.Uri]::new($healthUrl)
         $port = if ($uri.Port -gt 0) { $uri.Port } elseif ($uri.Scheme -eq "wss") { 443 } else { 80 }
         $result = Test-TcpEndpoint -HostName $uri.Host -Port $port -Timeout $TimeoutMs
         $status = if ($result.ok) { "ok" } else { "down" }
@@ -255,7 +294,7 @@ $rows = foreach ($service in $serviceManifest.services) {
     $url = Get-OptionalProperty -Object $health -Name "url"
     $pidName = Get-OptionalProperty -Object $health -Name "pid_name"
     if ($null -ne $url) {
-      $detail = [string]$url
+      $detail = $healthUrl
     }
     elseif ($null -ne $pidName) {
       $detail = [string]$pidName
@@ -263,7 +302,7 @@ $rows = foreach ($service in $serviceManifest.services) {
   }
 
   [PSCustomObject]@{
-    service_id = [string]$service.service_id
+    service_id = $serviceId
     layer = [string]$service.layer
     logical_service = [string]$service.logical_service
     health_type = [string]$health.type
@@ -275,6 +314,7 @@ $rows = foreach ($service in $serviceManifest.services) {
 [PSCustomObject]@{
   profile_id = [string]$profile.id
   manifest_only = [bool]$ManifestOnly
+  port_mode = $PortMode
   checked_at = (Get-Date).ToString("o")
   process_registry = [PSCustomObject]@{
     stack_state_dir = $resolvedStackStateDir
