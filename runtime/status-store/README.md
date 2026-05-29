@@ -32,6 +32,13 @@ decision moments should be copied or referenced from the event journal, and only
 long-lived repeated context should be promoted to Thought Core memory or issue
 tickets.
 
+The topology snapshot should expose current metric records under
+`metrics.current[]` using `metric-records.v0.md`. This is where local readers
+find the latest confidence, freshness, divergence, and feedback estimates for
+rooms, entities, capabilities, camera views, and future spatial objects. Metric
+records in the snapshot are replaceable latest-state projections, not an append
+log.
+
 The first writer is `scripts/update-diagnostics-status.ps1`. It writes
 `.cache/agent-os/status/current.json` and treats it as generated local runtime
 state.

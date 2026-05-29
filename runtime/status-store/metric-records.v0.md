@@ -131,6 +131,62 @@ Metric records are placed by use:
 Do not append every routine metric sample to the event journal. Do not promote
 routine current metric values to memory by default.
 
+## Topology Snapshot Current Metrics
+
+Topology snapshots are the primary home for current metric values. A snapshot
+may carry current metric records under `metrics.current`:
+
+```json
+{
+  "schema_version": "topology_snapshot.v0",
+  "topology_snapshot_id": "topology-20260529T103540Z-abc123",
+  "generated_at": "2026-05-29T10:35:40Z",
+  "metrics": {
+    "current": [
+      {
+        "metric": "reality_divergence",
+        "subject": "capability:lighting.living_room",
+        "value": 0.72,
+        "recorded_at": "2026-05-29T10:35:35Z",
+        "stale_after": "2026-05-29T10:35:50Z",
+        "source": "thought_core",
+        "provenance": ["home_assistant", "camera_vision"],
+        "basis": "home_assistant_on_but_vision_dark",
+        "evidence_refs": [
+          "snapshot:topology-20260529T103535Z",
+          "event:lighting-conflict-abc123"
+        ]
+      },
+      {
+        "metric": "source_confidence",
+        "subject": "view:main.camera_hub",
+        "value": 0.64,
+        "recorded_at": "2026-05-29T10:35:36Z",
+        "stale_after": "2026-05-29T10:35:41Z",
+        "source": "driver:camera_vision",
+        "provenance": ["camera_vision"],
+        "basis": "low_light_hand_landmark_quality",
+        "evidence_refs": [
+          "event:camera-hub-status-def456",
+          "snapshot:topology-20260529T103535Z"
+        ]
+      }
+    ]
+  }
+}
+```
+
+The first record is a lighting conflict estimate: it says the current lighting
+capability may diverge from real-world state because Home Assistant and
+camera/vision evidence disagree. The second record is a driver-local
+confidence/freshness metric: it reports only the camera/vision driver's own
+confidence in its view.
+
+These records are current state. They can be replaced when the next topology
+snapshot is generated. If either record affects behavior, such as degraded
+execution, approval routing, or feedback mismatch, the event journal may store
+or reference the decision-time metric separately.
+
 ## Conflict Handling
 
 When sources disagree, keep the observations distinguishable. Do not silently

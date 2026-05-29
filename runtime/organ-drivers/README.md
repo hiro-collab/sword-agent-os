@@ -50,6 +50,42 @@ Every output should include:
 When evidence is missing or stale, drivers must report that explicitly. They
 must not infer `available` from absence of an error.
 
+## Metric Records
+
+Drivers may emit `metric_record` outputs for their own observations. These
+records describe the driver's local evidence; they do not decide the whole
+system's truth.
+
+Example driver-local metric:
+
+```json
+{
+  "driver_id": "camera-vision-driver",
+  "observed_at": "2026-05-29T10:35:36Z",
+  "tier": "standard",
+  "source": "camera_vision",
+  "metric_record": {
+    "metric": "source_confidence",
+    "subject": "view:main.camera_hub",
+    "value": 0.64,
+    "recorded_at": "2026-05-29T10:35:36Z",
+    "stale_after": "2026-05-29T10:35:41Z",
+    "source": "driver:camera_vision",
+    "provenance": ["camera_vision"],
+    "basis": "low_light_hand_landmark_quality",
+    "evidence_refs": ["event:camera-hub-status-def456"]
+  },
+  "freshness": "fresh",
+  "evidence": ["event:camera-hub-status-def456"]
+}
+```
+
+The status collector or topology snapshot exporter can place current metric
+records under `metrics.current[]` in `.cache/agent-os/status/topology.json`.
+Labels are computed from current Agent OS policy/config when read; initial
+driver records should store numeric values, freshness, subject, provenance,
+basis, and safe evidence references.
+
 ## Driver Tiers
 
 Tier names describe cost and freshness, not organ function.
