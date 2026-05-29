@@ -27,6 +27,59 @@ function Assert-True {
   }
 }
 
+function Test-SafeManifestText {
+  param([object]$Value)
+  if ($null -eq $Value) {
+    return $true
+  }
+  $text = [string]$Value
+  if ($text.Length -gt 480) {
+    return $false
+  }
+  if ($text -match "(?i)(api[_-]?key|x-api-key|access[_-]?token|refresh[_-]?token|secret|password|passwd|pwd|authorization\s*[:=]|bearer\s+[A-Za-z0-9._-]+)") {
+    return $false
+  }
+  if ($text -match "(?i)(^|[_ -])(system|user|assistant)?[_ -]?prompt\s*[:=]") {
+    return $false
+  }
+  if ($text -match "(^|[:=])[A-Za-z]:[\\/]") {
+    return $false
+  }
+  if ($text -match "\\\\[^\\]+\\") {
+    return $false
+  }
+  if ($text -match "(^|[:=])(/Users/|/home/|/mnt/|/var/|/tmp/|/etc/|~[\\/]|\.{1,2}[\\/])") {
+    return $false
+  }
+  if ($text -match "(?i)(^|[\\/:=])[^\\/:=]+\.(log|jsonl|pcap|har)(\b|$)") {
+    return $false
+  }
+  return $true
+}
+
+function Test-SafeManifestPath {
+  param([string]$Path)
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    return $false
+  }
+  if ([System.IO.Path]::IsPathRooted($Path)) {
+    return $false
+  }
+  $normalized = $Path -replace "\\", "/"
+  if ($normalized -match "(^|/)\.\.(/|$)") {
+    return $false
+  }
+  return Test-SafeManifestText -Value $Path
+}
+
+function Test-SafeFixtureCandidate {
+  param([string]$Path)
+  if (-not (Test-SafeManifestPath -Path $Path)) {
+    return $false
+  }
+  return ($Path -replace "\\", "/") -match "^\.cache/agent-os/fixtures/[A-Za-z0-9_.-]+\.(mp4|mov|webm|jpg|jpeg|png|webp)$"
+}
+
 $standardProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/standard.json")
 $compatProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/thought-core-v0-compat.json")
 $serviceManifest = Read-Json -Path (Resolve-ManifestPath $compatProfile.service_manifest)
@@ -246,8 +299,23 @@ foreach ($pack in @($organTestPacks.packs)) {
     if ([string]$test.type -eq "path_exists" -and $null -ne $test.PSObject.Properties["missing_result"]) {
       Assert-True ([string]$test.missing_result -in @("fail", "blocked")) "organ test $testId has invalid missing_result: $($test.missing_result)"
     }
+    if ([string]$test.type -eq "path_exists") {
+      Assert-True (Test-SafeManifestPath -Path ([string]$test.path)) "organ test $testId has unsafe path_exists path"
+    }
+    if ([string]$test.type -eq "replay_fixture") {
+      Assert-True ([string]$test.fixture_label -match "^[A-Za-z0-9_-]+$") "organ test $testId must declare a safe fixture_label"
+      foreach ($candidate in @($test.fixture_candidates | ForEach-Object { [string]$_ })) {
+        Assert-True (Test-SafeFixtureCandidate -Path $candidate) "organ test $testId has unsafe replay fixture candidate: $candidate"
+      }
+    }
     if ([string]$test.type -eq "side_effect_gate") {
       Assert-True ([bool]$test.requires_side_effect_permission) "side-effect test $testId must require side-effect permission"
+    }
+    foreach ($field in @("instructions", "evidence_policy")) {
+      $property = $test.PSObject.Properties[$field]
+      if ($null -ne $property) {
+        Assert-True (Test-SafeManifestText -Value $property.Value) "organ test $testId has unsafe text in $field"
+      }
     }
   }
 }

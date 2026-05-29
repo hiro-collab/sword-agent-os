@@ -55,6 +55,104 @@ function ConvertTo-StringArray {
   return @($Value | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 }
 
+function Test-SafePackText {
+  param([object]$Value)
+  if ($null -eq $Value) {
+    return $true
+  }
+  $text = [string]$Value
+  if ($text.Length -gt 480) {
+    return $false
+  }
+  if ($text -match "(?i)(api[_-]?key|x-api-key|access[_-]?token|refresh[_-]?token|secret|password|passwd|pwd|authorization\s*[:=]|bearer\s+[A-Za-z0-9._-]+)") {
+    return $false
+  }
+  if ($text -match "(?i)(^|[_ -])(system|user|assistant)?[_ -]?prompt\s*[:=]") {
+    return $false
+  }
+  if ($text -match "(^|[:=])[A-Za-z]:[\\/]") {
+    return $false
+  }
+  if ($text -match "\\\\[^\\]+\\") {
+    return $false
+  }
+  if ($text -match "(^|[:=])(/Users/|/home/|/mnt/|/var/|/tmp/|/etc/|~[\\/]|\.{1,2}[\\/])") {
+    return $false
+  }
+  if ($text -match "(?i)(^|[\\/:=])[^\\/:=]+\.(log|jsonl|pcap|har)(\b|$)") {
+    return $false
+  }
+  return $true
+}
+
+function Test-SafePackPath {
+  param([string]$Path)
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    return $false
+  }
+  if ([System.IO.Path]::IsPathRooted($Path)) {
+    return $false
+  }
+  $normalized = $Path -replace "\\", "/"
+  if ($normalized -match "(^|/)\.\.(/|$)") {
+    return $false
+  }
+  return Test-SafePackText -Value $Path
+}
+
+function Test-SafeFixtureCandidate {
+  param([string]$Path)
+  if (-not (Test-SafePackPath -Path $Path)) {
+    return $false
+  }
+  return ($Path -replace "\\", "/") -match "^\.cache/agent-os/fixtures/[A-Za-z0-9_.-]+\.(mp4|mov|webm|jpg|jpeg|png|webp)$"
+}
+
+function Get-FixtureLabel {
+  param(
+    [Parameter(Mandatory = $true)]$Test,
+    [Parameter(Mandatory = $true)][string]$TestId
+  )
+  $label = [string](Get-OptionalProperty -Object $Test -Name "fixture_label" -Default "")
+  if ([string]::IsNullOrWhiteSpace($label)) {
+    return $TestId
+  }
+  return $label
+}
+
+function Assert-TestPackSafety {
+  param([Parameter(Mandatory = $true)]$TestPack)
+  foreach ($pack in @($TestPack.packs)) {
+    foreach ($test in @($pack.tests)) {
+      $testId = [string]$test.id
+      $type = [string]$test.type
+      if ($type -eq "path_exists") {
+        $path = [string](Get-OptionalProperty -Object $test -Name "path" -Default "")
+        if (-not (Test-SafePackPath -Path $path)) {
+          throw "organ test $testId has unsafe path_exists path"
+        }
+      }
+      if ($type -eq "replay_fixture") {
+        $label = [string](Get-OptionalProperty -Object $test -Name "fixture_label" -Default "")
+        if ($label -notmatch "^[A-Za-z0-9_-]+$") {
+          throw "organ test $testId must declare a safe fixture_label"
+        }
+        foreach ($candidate in ConvertTo-StringArray -Value (Get-OptionalProperty -Object $test -Name "fixture_candidates" -Default @())) {
+          if (-not (Test-SafeFixtureCandidate -Path $candidate)) {
+            throw "organ test $testId has unsafe replay fixture candidate"
+          }
+        }
+      }
+      foreach ($field in @("instructions", "evidence_policy")) {
+        $value = Get-OptionalProperty -Object $test -Name $field
+        if (-not (Test-SafePackText -Value $value)) {
+          throw "organ test $testId has unsafe text in $field"
+        }
+      }
+    }
+  }
+}
+
 function New-TestResult {
   param(
     [Parameter(Mandatory = $true)][string]$PackId,
@@ -302,12 +400,13 @@ function Invoke-PackTest {
       return New-TestResult -PackId $PackId -TestId $testId -Mode $mode -Type $type -Result $probe.result -Detail "$serviceId $($probe.detail)"
     }
     "replay_fixture" {
+      $fixtureLabel = Get-FixtureLabel -Test $Test -TestId $testId
       foreach ($candidate in ConvertTo-StringArray -Value (Get-OptionalProperty -Object $Test -Name "fixture_candidates" -Default @())) {
         if (Test-Path -LiteralPath (Resolve-RepoPath $candidate) -PathType Leaf) {
-          return New-TestResult -PackId $PackId -TestId $testId -Mode $mode -Type $type -Result "pass" -Detail "local replay fixture present: $candidate"
+          return New-TestResult -PackId $PackId -TestId $testId -Mode $mode -Type $type -Result "pass" -Detail "local replay fixture present: $fixtureLabel"
         }
       }
-      return New-TestResult -PackId $PackId -TestId $testId -Mode $mode -Type $type -Result "blocked" -Detail "no local replay fixture candidate found"
+      return New-TestResult -PackId $PackId -TestId $testId -Mode $mode -Type $type -Result "blocked" -Detail "local replay fixture not available: $fixtureLabel"
     }
     "side_effect_gate" {
       if (-not $AllowSideEffects) {
@@ -329,6 +428,7 @@ function Invoke-PackTest {
 }
 
 $testPack = Read-JsonFile -Path $TestPackPath
+Assert-TestPackSafety -TestPack $testPack
 if ($Modes.Count -eq 0) {
   $Modes = ConvertTo-StringArray -Value (Get-OptionalProperty -Object $testPack -Name "default_modes" -Default @("auto"))
 }

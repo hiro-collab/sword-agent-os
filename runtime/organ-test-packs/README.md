@@ -60,3 +60,15 @@ Run it with:
 
 The runner writes no tracked files. It refreshes diagnostics in safe mode unless
 `-NoRefreshDiagnostics` is passed.
+
+## Evidence Safety
+
+Pack manifests are tracked, so they must not carry private local paths, raw
+media names, secrets, prompts, raw logs, or unredacted user content. Use stable
+fixture labels such as `mediapipe-hand-replay` in tracked text, and keep actual
+media in ignored local fixture paths under `.cache/agent-os/fixtures/`.
+
+`replay_fixture` entries must treat missing fixtures as `blocked`, not `fail`.
+Runner output reports the fixture label rather than the matched local path.
+Manual instructions and side-effect gates should describe what to verify without
+copying sensitive evidence into the manifest.

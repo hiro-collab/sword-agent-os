@@ -137,10 +137,9 @@
           "id": "mediapipe_camera_hub.hand_movie_replay_fixture",
           "mode": "replay",
           "type": "replay_fixture",
+          "fixture_label": "mediapipe-hand-replay",
           "fixture_candidates": [
-            "hand_movie.mp4",
-            ".cache/agent-os/fixtures/hand_movie.mp4",
-            "../hand_movie.mp4"
+            ".cache/agent-os/fixtures/mediapipe-hand-replay.mp4"
           ],
           "evidence_policy": "Use filename-only labels, counts, summaries, and typed evidence refs. Do not commit raw video or frames."
         },
