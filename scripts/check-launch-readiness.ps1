@@ -11,6 +11,7 @@ param(
   [int]$AituberPort = 3000,
   [int]$TouchDesignerGuiPort = 8788,
   [int]$ThoughtCorePort = 18787,
+  [switch]$UseIsolatedPorts,
   [int]$TimeoutMs = 1200
 )
 
@@ -18,6 +19,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
+$LaunchBoundParameters = @{} + $PSBoundParameters
 
 function Resolve-RepoPath {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -41,6 +43,36 @@ function Resolve-WorkspaceRoot {
 function Read-Json {
   param([Parameter(Mandatory = $true)][string]$Path)
   return Get-Content -Raw -LiteralPath (Resolve-RepoPath $Path) | ConvertFrom-Json
+}
+
+function Get-PortModePorts {
+  param(
+    [Parameter(Mandatory = $true)]$ServiceManifest,
+    [Parameter(Mandatory = $true)][string]$ModeName
+  )
+  $modeProperty = $ServiceManifest.port_modes.PSObject.Properties[$ModeName]
+  if ($null -eq $modeProperty) {
+    throw "service manifest missing port mode: $ModeName"
+  }
+  $mode = $modeProperty.Value
+  $ports = @{}
+  foreach ($property in $mode.service_ports.PSObject.Properties) {
+    $ports[$property.Name] = [int]$property.Value
+  }
+  foreach ($property in $mode.auxiliary_ports.PSObject.Properties) {
+    $ports[$property.Name] = [int]$property.Value
+  }
+  return $ports
+}
+
+function Set-PortIfUnbound {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][int]$Value
+  )
+  if (-not $LaunchBoundParameters.ContainsKey($Name)) {
+    Set-Variable -Scope Script -Name $Name -Value $Value
+  }
 }
 
 function Get-OptionalProperty {
@@ -139,6 +171,18 @@ $workspace = Resolve-WorkspaceRoot -Path $WorkspaceRoot
 $profile = Read-Json -Path $ProfilePath
 $serviceManifest = Read-Json -Path ([string]$profile.service_manifest)
 
+if ($UseIsolatedPorts) {
+  $isolatedPorts = Get-PortModePorts -ServiceManifest $serviceManifest -ModeName "isolated_override"
+  Set-PortIfUnbound -Name "HomeAssistantBridgePort" -Value $isolatedPorts["home_assistant_bridge"]
+  Set-PortIfUnbound -Name "EnvironmentStatePort" -Value $isolatedPorts["environment_state_server"]
+  Set-PortIfUnbound -Name "MediapipePort" -Value $isolatedPorts["mediapipe_camera_hub_stack"]
+  Set-PortIfUnbound -Name "MediapipeBrowserMonitorPort" -Value $isolatedPorts["mediapipe_browser_monitor"]
+  Set-PortIfUnbound -Name "VisionSnapshotProcessorPort" -Value $isolatedPorts["vision_snapshot_processor"]
+  Set-PortIfUnbound -Name "AituberPort" -Value $isolatedPorts["aituber_kit"]
+  Set-PortIfUnbound -Name "TouchDesignerGuiPort" -Value $isolatedPorts["touchdesigner_control_gui"]
+  Set-PortIfUnbound -Name "ThoughtCorePort" -Value $isolatedPorts["thought_core_api"]
+}
+
 $checks = @()
 
 foreach ($service in $serviceManifest.services) {
@@ -208,6 +252,17 @@ $warnings = @($checks | Where-Object { $_.severity -eq "warning" -and $_.status 
   checked_at = (Get-Date).ToString("o")
   status = if ($blockers.Count -gt 0) { "blocked" } elseif ($warnings.Count -gt 0) { "warning" } else { "ok" }
   workspace_root = $workspace
+  port_mode = if ($UseIsolatedPorts) { "isolated_override" } else { "manifest_default" }
+  ports = [PSCustomObject]@{
+    home_assistant_bridge = $HomeAssistantBridgePort
+    environment_state_server = $EnvironmentStatePort
+    thought_core_api = $ThoughtCorePort
+    mediapipe_camera_hub_stack = $MediapipePort
+    mediapipe_browser_monitor = $MediapipeBrowserMonitorPort
+    vision_snapshot_processor = $VisionSnapshotProcessorPort
+    aituber_kit = $AituberPort
+    touchdesigner_control_gui = $TouchDesignerGuiPort
+  }
   counts = [PSCustomObject]@{
     checks = $checks.Count
     blockers = $blockers.Count

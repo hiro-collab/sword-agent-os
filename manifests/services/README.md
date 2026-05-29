@@ -47,3 +47,18 @@ camera organ service can be `running` while gesture observation is
 `unavailable` because no camera is connected, or `degraded` because a synthetic
 video source is being used. The OS profile may still be healthy when a
 non-critical capability is `blocked` or `unavailable`.
+
+## Port Modes
+
+Service manifests may define `port_modes`.
+
+- `manifest_default` records the canonical localhost ports for the profile.
+  For the first compatibility profile, these are the old `thought-core-v0`
+  ports.
+- `isolated_override` records temporary ports used by smoke tests and
+  side-by-side development.
+
+Health and launch tools should read these port modes instead of keeping
+independent hard-coded port maps. The default ports remain the compatibility
+contract, but isolated ports are valid for routine integration evidence when
+the system under test is otherwise the same stack.

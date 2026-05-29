@@ -58,7 +58,9 @@ printing secret values. It also imports the local MediaPipe gesture model into
 the ignored organ checkout when present. `run-compat-smoke.ps1` defaults to the
 legacy `thought-core-v0` ports; pass `-UseIsolatedPorts` to temporarily move the
 stack to the `188xx` range for local port conflicts or side-by-side legacy
-testing. Its MediaPipe readiness wait is adjustable with
+testing. The default and isolated port sets are declared in
+`manifests/services/thought-core-v0-compat.json` under `port_modes`, so launch
+and readiness checks share the same source of truth. Its MediaPipe readiness wait is adjustable with
 `-MediapipeReadyTimeoutSeconds` for slow camera initialization. Pass
 `-MediapipeVideoSource testsrc` when the real camera is unavailable but the
 MediaPipe/RTSP/Camera Hub service path still needs to be smoke-tested. Pass

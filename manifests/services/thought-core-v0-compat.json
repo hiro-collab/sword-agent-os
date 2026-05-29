@@ -5,6 +5,50 @@
   "profile_id": "thought-core-v0-compat",
   "legacy_profile_id": "thought-core-v0",
   "legacy_reference": "manifests/legacy/control-plane-reference.json",
+  "port_modes": {
+    "manifest_default": {
+      "description": "Legacy-compatible fixed localhost ports. These remain the canonical compatibility defaults.",
+      "accepted_for": [
+        "standard_start",
+        "standard_health",
+        "final_compatibility_check"
+      ],
+      "conflict_policy": "Report blocked or unavailable when a port is owned by another process; do not stop unowned processes automatically.",
+      "service_ports": {
+        "home_assistant_bridge": 8787,
+        "environment_state_server": 8790,
+        "thought_core_api": 18787,
+        "mediapipe_camera_hub_stack": 8765,
+        "vision_snapshot_processor": 8776,
+        "aituber_kit": 3000,
+        "touchdesigner_control_gui": 8788
+      },
+      "auxiliary_ports": {
+        "mediapipe_browser_monitor": 8770
+      }
+    },
+    "isolated_override": {
+      "description": "Temporary localhost port override for repeatable validation, side-by-side legacy testing, and active worker coordination.",
+      "accepted_for": [
+        "integration_smoke",
+        "parallel_validation",
+        "port_conflict_debugging"
+      ],
+      "conflict_policy": "Valid operation-check evidence path, but not the published compatibility endpoint set.",
+      "service_ports": {
+        "home_assistant_bridge": 18887,
+        "environment_state_server": 18890,
+        "thought_core_api": 18888,
+        "mediapipe_camera_hub_stack": 18865,
+        "vision_snapshot_processor": 18876,
+        "aituber_kit": 18880,
+        "touchdesigner_control_gui": 18889
+      },
+      "auxiliary_ports": {
+        "mediapipe_browser_monitor": 18870
+      }
+    }
+  },
   "services": [
     {
       "service_id": "home_assistant_bridge",

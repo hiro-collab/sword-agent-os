@@ -71,6 +71,9 @@ Assert-True ("basic_runtime_reflex" -in @($standardProfile.health_model.boot_cri
 Assert-True ([string]$standardProfile.health_model.minimum_alive_stage -eq "reflex_alive") "standard profile minimum alive stage should be reflex_alive"
 Assert-True ([string]$standardProfile.health_model.minimum_ready_stage -eq "conscious_ready") "standard profile minimum ready stage should be conscious_ready"
 Assert-True ([string]$standardProfile.health_model.full_ready_stage -eq "full_conscious_ready") "standard profile full ready stage should be full_conscious_ready"
+Assert-True ([string]$standardProfile.port_policy.default_mode -eq "manifest_default") "standard profile default port mode should be manifest_default"
+Assert-True ("isolated_override" -in @($standardProfile.port_policy.accepted_validation_modes)) "standard profile must accept isolated_override validation"
+Assert-True ([string]$standardProfile.port_policy.parallel_validation_mode -eq "isolated_override") "standard profile parallel validation mode should be isolated_override"
 
 $startupStages = @($standardProfile.health_model.startup_stages | ForEach-Object { [string]$_.stage })
 foreach ($stage in @("nonresponsive", "reflex_alive", "conscious_ready", "full_conscious_ready")) {
@@ -79,10 +82,39 @@ foreach ($stage in @("nonresponsive", "reflex_alive", "conscious_ready", "full_c
 
 Assert-True ($compatProfile.required_services.Count -eq 8) "thought-core-v0-compat should require 8 services"
 Assert-True ($serviceManifest.services.Count -eq 8) "thought-core-v0-compat service inventory should define 8 services"
+Assert-True ("manifest_default" -in @($compatProfile.validation_policy.accepted_port_modes)) "compat profile must accept manifest_default port mode"
+Assert-True ("isolated_override" -in @($compatProfile.validation_policy.accepted_port_modes)) "compat profile must accept isolated_override port mode"
+Assert-True ([string]$compatProfile.validation_policy.final_standard_port_mode -eq "manifest_default") "compat final standard port mode should be manifest_default"
+Assert-True ([string]$compatProfile.validation_policy.routine_smoke_port_mode -eq "isolated_override") "compat routine smoke port mode should be isolated_override"
 
 $serviceIds = @($serviceManifest.services | ForEach-Object { $_.service_id })
 foreach ($serviceId in $compatProfile.required_services) {
   Assert-True ($serviceId -in $serviceIds) "profile requires missing service: $serviceId"
+}
+
+$endpointServiceIds = @(
+  $serviceManifest.services |
+    Where-Object {
+      $null -ne $_.health -and
+      $null -ne $_.health.PSObject.Properties["url"] -and
+      -not [string]::IsNullOrWhiteSpace([string]$_.health.url)
+    } |
+    ForEach-Object { [string]$_.service_id }
+)
+foreach ($modeName in @("manifest_default", "isolated_override")) {
+  $modeProperty = $serviceManifest.port_modes.PSObject.Properties[$modeName]
+  Assert-True ($null -ne $modeProperty) "service manifest missing port mode: $modeName"
+  $mode = $modeProperty.Value
+  Assert-True ($null -ne $mode.service_ports) "port mode $modeName missing service_ports"
+  Assert-True ($null -ne $mode.auxiliary_ports) "port mode $modeName missing auxiliary_ports"
+  foreach ($serviceId in $endpointServiceIds) {
+    $portProperty = $mode.service_ports.PSObject.Properties[$serviceId]
+    Assert-True ($null -ne $portProperty) "port mode $modeName missing service port: $serviceId"
+    $port = [int]$portProperty.Value
+    Assert-True ($port -ge 1 -and $port -le 65535) "port mode $modeName has invalid port for $serviceId"
+  }
+  $monitorPort = [int]$mode.auxiliary_ports.mediapipe_browser_monitor
+  Assert-True ($monitorPort -ge 1 -and $monitorPort -le 65535) "port mode $modeName has invalid mediapipe_browser_monitor port"
 }
 
 $organIds = @($organManifest.sources | ForEach-Object { $_.organ_id })

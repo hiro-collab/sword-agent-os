@@ -12,16 +12,6 @@ Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 
-$IsolatedPorts = @{
-  home_assistant_bridge = 18887
-  environment_state_server = 18890
-  thought_core_api = 18888
-  mediapipe_camera_hub_stack = 18865
-  vision_snapshot_processor = 18876
-  aituber_kit = 18880
-  touchdesigner_control_gui = 18889
-}
-
 function Resolve-RepoPath {
   param([Parameter(Mandatory = $true)][string]$Path)
   if ([System.IO.Path]::IsPathRooted($Path)) {
@@ -163,11 +153,24 @@ function ConvertTo-ServiceTarget {
     return $url
   }
   $serviceId = [string]$Service.service_id
-  if (-not $IsolatedPorts.ContainsKey($serviceId)) {
+  $portModes = Get-OptionalProperty -Object $serviceManifest -Name "port_modes"
+  if ($null -eq $portModes) {
+    return $url
+  }
+  $isolatedMode = Get-OptionalProperty -Object $portModes -Name "isolated_override"
+  if ($null -eq $isolatedMode) {
+    return $url
+  }
+  $servicePorts = Get-OptionalProperty -Object $isolatedMode -Name "service_ports"
+  if ($null -eq $servicePorts) {
+    return $url
+  }
+  $portProperty = $servicePorts.PSObject.Properties[$serviceId]
+  if ($null -eq $portProperty) {
     return $url
   }
   $uri = [System.UriBuilder]::new($url)
-  $uri.Port = [int]$IsolatedPorts[$serviceId]
+  $uri.Port = [int]$portProperty.Value
   return $uri.Uri.AbsoluteUri
 }
 

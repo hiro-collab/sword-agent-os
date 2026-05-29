@@ -20,6 +20,16 @@
     "memory-core",
     "approval-queue"
   ],
+  "port_policy": {
+    "default_mode": "manifest_default",
+    "accepted_validation_modes": [
+      "manifest_default",
+      "isolated_override"
+    ],
+    "parallel_validation_mode": "isolated_override",
+    "conflict_policy": "Default fixed ports are preserved as the standard contract. Port conflicts must be reported as blocked, unavailable, or degraded; runtime tooling must not kill unowned processes automatically.",
+    "notes": "Isolated override ports are first-class validation evidence for local development and multi-thread work, while manifest default ports remain the final compatibility endpoint contract."
+  },
   "health_model": {
     "startup_stages": [
       {

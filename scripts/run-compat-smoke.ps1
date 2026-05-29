@@ -57,6 +57,29 @@ function Resolve-RepoPath {
   return Join-Path $RepoRoot ($Path -replace "/", [System.IO.Path]::DirectorySeparatorChar)
 }
 
+function Read-Json {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  return Get-Content -Raw -LiteralPath (Resolve-RepoPath $Path) | ConvertFrom-Json
+}
+
+function Get-PortModePorts {
+  param([Parameter(Mandatory = $true)][string]$ModeName)
+  $serviceManifest = Read-Json -Path "manifests/services/thought-core-v0-compat.json"
+  $modeProperty = $serviceManifest.port_modes.PSObject.Properties[$ModeName]
+  if ($null -eq $modeProperty) {
+    throw "service manifest missing port mode: $ModeName"
+  }
+  $mode = $modeProperty.Value
+  $ports = @{}
+  foreach ($property in $mode.service_ports.PSObject.Properties) {
+    $ports[$property.Name] = [int]$property.Value
+  }
+  foreach ($property in $mode.auxiliary_ports.PSObject.Properties) {
+    $ports[$property.Name] = [int]$property.Value
+  }
+  return $ports
+}
+
 function New-Check {
   param(
     [Parameter(Mandatory = $true)][string]$Id,
@@ -414,14 +437,15 @@ function Set-IsolatedPortIfUnbound {
 }
 
 if ($UseIsolatedPorts) {
-  Set-IsolatedPortIfUnbound -Name "HomeAssistantBridgePort" -Value 18887
-  Set-IsolatedPortIfUnbound -Name "EnvironmentStatePort" -Value 18890
-  Set-IsolatedPortIfUnbound -Name "MediapipePort" -Value 18865
-  Set-IsolatedPortIfUnbound -Name "MediapipeBrowserMonitorPort" -Value 18870
-  Set-IsolatedPortIfUnbound -Name "VisionSnapshotProcessorPort" -Value 18876
-  Set-IsolatedPortIfUnbound -Name "AituberPort" -Value 18880
-  Set-IsolatedPortIfUnbound -Name "TouchDesignerGuiPort" -Value 18889
-  Set-IsolatedPortIfUnbound -Name "ThoughtCorePort" -Value 18888
+  $isolatedPorts = Get-PortModePorts -ModeName "isolated_override"
+  Set-IsolatedPortIfUnbound -Name "HomeAssistantBridgePort" -Value $isolatedPorts["home_assistant_bridge"]
+  Set-IsolatedPortIfUnbound -Name "EnvironmentStatePort" -Value $isolatedPorts["environment_state_server"]
+  Set-IsolatedPortIfUnbound -Name "MediapipePort" -Value $isolatedPorts["mediapipe_camera_hub_stack"]
+  Set-IsolatedPortIfUnbound -Name "MediapipeBrowserMonitorPort" -Value $isolatedPorts["mediapipe_browser_monitor"]
+  Set-IsolatedPortIfUnbound -Name "VisionSnapshotProcessorPort" -Value $isolatedPorts["vision_snapshot_processor"]
+  Set-IsolatedPortIfUnbound -Name "AituberPort" -Value $isolatedPorts["aituber_kit"]
+  Set-IsolatedPortIfUnbound -Name "TouchDesignerGuiPort" -Value $isolatedPorts["touchdesigner_control_gui"]
+  Set-IsolatedPortIfUnbound -Name "ThoughtCorePort" -Value $isolatedPorts["thought_core_api"]
 }
 
 if (-not (Test-Path -LiteralPath $SmokeRoot -PathType Container)) {
@@ -860,7 +884,7 @@ $result = [PSCustomObject]@{
   profile = $Profile
   duration_seconds = $DurationSeconds
   stack_state_dir = Resolve-RepoPath $StackStateDir
-  port_mode = if ($UseIsolatedPorts) { "isolated_override" } else { "legacy_default" }
+  port_mode = if ($UseIsolatedPorts) { "isolated_override" } else { "manifest_default" }
   mediapipe_ready_timeout_seconds = $MediapipeReadyTimeoutSeconds
   mediapipe_video_source = $MediapipeVideoSource
   watcher_aituber_http_timeout_seconds = $WatcherAituberHttpTimeoutSeconds

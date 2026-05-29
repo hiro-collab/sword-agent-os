@@ -41,6 +41,15 @@
     "aituber-only",
     "camera-debug"
   ],
+  "validation_policy": {
+    "accepted_port_modes": [
+      "manifest_default",
+      "isolated_override"
+    ],
+    "final_standard_port_mode": "manifest_default",
+    "routine_smoke_port_mode": "isolated_override",
+    "notes": "The legacy fixed ports remain the compatibility target. Isolated override ports are valid for integration-main smoke checks, parallel worker runs, and port-conflict diagnosis."
+  },
   "minimum_e2e": {
     "manual_turn": "uv run sword-thought-core-handoff --text \"電気つけて\" --session-id living_room_main --turn-id turn_manual_001 --print-events",
     "health_targets": [
