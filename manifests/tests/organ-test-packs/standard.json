@@ -28,6 +28,20 @@
           "expect": "exists"
         },
         {
+          "id": "home_assistant_bridge.action_catalog_contract",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/action/home-assistant-server/config/home-control.example.yaml",
+          "expect": "exists"
+        },
+        {
+          "id": "home_assistant_bridge.reversible_feedback_contract",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/action/home-assistant-server/docs/integration-contract.md",
+          "expect": "exists"
+        },
+        {
           "id": "home_assistant_bridge.diagnostics_service",
           "mode": "auto",
           "type": "diagnostics_service",
@@ -71,6 +85,20 @@
           "expect": "exists"
         },
         {
+          "id": "environment_state_server.source_separation_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/environment/environment-state-server/src/environment_state_server/state.py",
+          "expect": "exists"
+        },
+        {
+          "id": "environment_state_server.feedback_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/environment/environment-state-server/src/environment_state_server/feedback.py",
+          "expect": "exists"
+        },
+        {
           "id": "environment_state_server.diagnostics_service",
           "mode": "auto",
           "type": "diagnostics_service",
@@ -110,6 +138,20 @@
           "mode": "auto",
           "type": "path_exists",
           "path": "organs/reflex/mediapipe-sword-sign",
+          "expect": "exists"
+        },
+        {
+          "id": "mediapipe_camera_hub.replay_server_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/reflex/mediapipe-sword-sign/apps/serve_camera_hub.py",
+          "expect": "exists"
+        },
+        {
+          "id": "mediapipe_camera_hub.replay_summary_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/reflex/mediapipe-sword-sign/apps/extract_debug_frames.py",
           "expect": "exists"
         },
         {
@@ -265,6 +307,20 @@
           "expect": "exists"
         },
         {
+          "id": "aituber_kit.projection_visual_route_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/expression/aituber-kit/src/pages/projection-visual.tsx",
+          "expect": "exists"
+        },
+        {
+          "id": "aituber_kit.projection_visual_context_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/expression/aituber-kit/src/components/cubeVaultBackground.tsx",
+          "expect": "exists"
+        },
+        {
           "id": "aituber_kit.vrm_dir",
           "mode": "auto",
           "type": "path_exists",
@@ -315,6 +371,13 @@
           "expect": "exists"
         },
         {
+          "id": "display_runtime.status_server_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/display/touchdesigner-ai-controller/tools/server.js",
+          "expect": "exists"
+        },
+        {
           "id": "display_runtime.diagnostics_service",
           "mode": "auto",
           "type": "diagnostics_service",
@@ -333,6 +396,14 @@
           "mode": "live",
           "type": "http_health",
           "service_id": "touchdesigner_control_gui",
+          "expect": "http_2xx"
+        },
+        {
+          "id": "display_runtime.status_api_live",
+          "mode": "live",
+          "type": "http_health",
+          "service_id": "touchdesigner_control_gui",
+          "path": "/api/status",
           "expect": "http_2xx"
         },
         {

@@ -108,6 +108,24 @@ function Test-SafeFixtureCandidate {
   return ($Path -replace "\\", "/") -match "^\.cache/agent-os/fixtures/[A-Za-z0-9_.-]+\.(mp4|mov|webm|jpg|jpeg|png|webp)$"
 }
 
+function Test-SafeHttpPath {
+  param([string]$Path)
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    return $true
+  }
+  $normalized = $Path -replace "\\", "/"
+  if ($normalized -notmatch "^/[A-Za-z0-9._~!`$&'()*+,;=:@/-]+$") {
+    return $false
+  }
+  if ($normalized -match "(^|/)\.\.(/|$)") {
+    return $false
+  }
+  if ($normalized -match "//") {
+    return $false
+  }
+  return $true
+}
+
 function Get-FixtureLabel {
   param(
     [Parameter(Mandatory = $true)]$Test,
@@ -130,6 +148,12 @@ function Assert-TestPackSafety {
         $path = [string](Get-OptionalProperty -Object $test -Name "path" -Default "")
         if (-not (Test-SafePackPath -Path $path)) {
           throw "organ test $testId has unsafe path_exists path"
+        }
+      }
+      if ($type -eq "http_health") {
+        $path = [string](Get-OptionalProperty -Object $test -Name "path" -Default "")
+        if (-not (Test-SafeHttpPath -Path $path)) {
+          throw "organ test $testId has unsafe http_health path"
         }
       }
       if ($type -eq "replay_fixture") {
@@ -223,14 +247,27 @@ function Convert-ServiceUrlForPortMode {
 function Get-ServiceHealthUrl {
   param(
     [Parameter(Mandatory = $true)]$ServiceManifest,
-    [Parameter(Mandatory = $true)][string]$ServiceId
+    [Parameter(Mandatory = $true)][string]$ServiceId,
+    [string]$Path = ""
   )
   $service = Get-ServiceById -ServiceManifest $ServiceManifest -ServiceId $ServiceId
   if ($null -eq $service) {
     return ""
   }
   $url = [string](Get-OptionalProperty -Object $service.health -Name "url" -Default "")
-  return Convert-ServiceUrlForPortMode -Url $url -ServiceId $ServiceId -ServiceManifest $ServiceManifest -SelectedPortMode $PortMode
+  $url = Convert-ServiceUrlForPortMode -Url $url -ServiceId $ServiceId -ServiceManifest $ServiceManifest -SelectedPortMode $PortMode
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    return $url
+  }
+  try {
+    $builder = [System.UriBuilder]::new($url)
+    $builder.Path = $Path.TrimStart("/")
+    $builder.Query = ""
+    return $builder.Uri.AbsoluteUri
+  }
+  catch {
+    return $url
+  }
 }
 
 function Test-HttpHealth {
@@ -389,7 +426,8 @@ function Invoke-PackTest {
     }
     "http_health" {
       $serviceId = [string]$Test.service_id
-      $url = Get-ServiceHealthUrl -ServiceManifest $ServiceManifest -ServiceId $serviceId
+      $path = [string](Get-OptionalProperty -Object $Test -Name "path" -Default "")
+      $url = Get-ServiceHealthUrl -ServiceManifest $ServiceManifest -ServiceId $serviceId -Path $path
       $probe = Test-HttpHealth -Url $url
       return New-TestResult -PackId $PackId -TestId $testId -Mode $mode -Type $type -Result $probe.result -Detail "$serviceId $($probe.detail)"
     }

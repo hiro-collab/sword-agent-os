@@ -80,6 +80,24 @@ function Test-SafeFixtureCandidate {
   return ($Path -replace "\\", "/") -match "^\.cache/agent-os/fixtures/[A-Za-z0-9_.-]+\.(mp4|mov|webm|jpg|jpeg|png|webp)$"
 }
 
+function Test-SafeHttpPath {
+  param([string]$Path)
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    return $true
+  }
+  $normalized = $Path -replace "\\", "/"
+  if ($normalized -notmatch "^/[A-Za-z0-9._~!`$&'()*+,;=:@/-]+$") {
+    return $false
+  }
+  if ($normalized -match "(^|/)\.\.(/|$)") {
+    return $false
+  }
+  if ($normalized -match "//") {
+    return $false
+  }
+  return $true
+}
+
 $standardProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/standard.json")
 $compatProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/thought-core-v0-compat.json")
 $serviceManifest = Read-Json -Path (Resolve-ManifestPath $compatProfile.service_manifest)
@@ -301,6 +319,9 @@ foreach ($pack in @($organTestPacks.packs)) {
     }
     if ([string]$test.type -eq "path_exists") {
       Assert-True (Test-SafeManifestPath -Path ([string]$test.path)) "organ test $testId has unsafe path_exists path"
+    }
+    if ([string]$test.type -eq "http_health" -and $null -ne $test.PSObject.Properties["path"]) {
+      Assert-True (Test-SafeHttpPath -Path ([string]$test.path)) "organ test $testId has unsafe http_health path"
     }
     if ([string]$test.type -eq "replay_fixture") {
       Assert-True ([string]$test.fixture_label -match "^[A-Za-z0-9_-]+$") "organ test $testId must declare a safe fixture_label"
