@@ -44,4 +44,4 @@ The first correlation contract is
 reflex/autonomic action, recognized input, conscious interpretation, structured
 intent, action-boundary decision, and execution result as separate append-only
 events connected by ids such as `causal_parent_id`, `episode_id`, `turn_id`,
-`issue_id`, `interpretation_id`, and `action_id`.
+`issue_ticket_id`, `interpretation_id`, and `action_id`.
