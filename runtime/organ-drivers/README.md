@@ -38,6 +38,11 @@ Drivers may produce five read-only output types:
 - `health_evidence`: liveness and health observations with timestamps,
   freshness, and source references.
 
+The first neural-monitoring coverage map for selected services is
+[`neural-monitoring-driver-coverage.v0.md`](neural-monitoring-driver-coverage.v0.md).
+It lists the status, topology, and capability evidence paths that are ready,
+need live verification, or still need implementation.
+
 Every output should include:
 
 - `driver_id`
