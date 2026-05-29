@@ -24,6 +24,7 @@ the legacy profile name `thought-core-v0`:
 .\scripts\system.ps1 start -Profile thought-core-v0 -DryRun
 .\scripts\system.ps1 start -Profile thought-core-v0 -LegacyDelegate -DryRun -SkipVoicevoxCheck
 .\scripts\system.ps1 stop -Profile thought-core-v0 -DryRun -Force
+.\scripts\check-runtime-reflex.ps1
 .\scripts\check-launch-readiness.ps1
 .\scripts\prepare-compat-launch.ps1 -ImportLocalConfig
 .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts
@@ -37,8 +38,12 @@ the legacy profile name `thought-core-v0`:
 `status` is native to this repository and reads Agent OS manifests. `start` and
 `stop` are compatibility delegates to the bootstrapped control-plane checkout
 until the runtime becomes fully native; non-dry-run delegation requires
-`-LegacyDelegate`. `check-launch-readiness.ps1` reports clone, tool, secret,
-asset, endpoint, and legacy-layout gaps before attempting a real launch.
+`-LegacyDelegate`. `check-runtime-reflex.ps1` is the lowest-level liveness
+probe: it reads the standard profile, checks that boot-critical runtime
+component skeletons exist, and returns `reflex_alive` when the OS substrate can
+answer a simple status reflex. `check-launch-readiness.ps1` reports clone,
+tool, secret, asset, endpoint, and legacy-layout gaps before attempting a real
+launch.
 `prepare-compat-launch.ps1` creates ignored compatibility layout aliases and
 can import local-only config/env files from the legacy workspace without
 printing secret values. It also imports the local MediaPipe gesture model into

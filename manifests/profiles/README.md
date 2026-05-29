@@ -23,6 +23,10 @@ Startup is staged:
 - `conscious_ready`: the OS can complete a minimum text turn, receive Thought
   Core response events, and project the result into status and event history.
 
+The initial reflex probe is `scripts/check-runtime-reflex.ps1`. It is
+deliberately cheap: read the standard profile, confirm boot-critical runtime
+component skeletons exist, and return the current startup stage as JSON.
+
 Organ services such as camera, microphone, speech output, Home Assistant,
 AITuber Kit, TouchDesigner, VOICEVOX, and other external-device integrations are
 standard capabilities, but they can report `blocked`, `unavailable`, or

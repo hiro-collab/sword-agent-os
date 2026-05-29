@@ -14,6 +14,10 @@ availability.
 - Capability availability reports whether a specific organ service ability is
   `available`, `blocked`, `unavailable`, or `degraded`.
 
+The first `reflex_alive` implementation is `scripts/check-runtime-reflex.ps1`.
+It returns JSON suitable for status projection before full Thought Core startup
+is required.
+
 A standard profile can be healthy while camera, speech, display, Home
 Assistant, TouchDesigner, VOICEVOX, or another external integration is
 unavailable. Those states should appear as capability details, not as whole-OS
