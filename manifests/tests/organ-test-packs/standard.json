@@ -56,6 +56,22 @@
           "expect": "present"
         },
         {
+          "id": "home_assistant_bridge.action_boundary_contract",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/check-runtime-organ-contracts.ps1",
+            "-Scope",
+            "action_boundary"
+          ],
+          "expect_exit_code": 0
+        },
+        {
           "id": "home_assistant_bridge.health_live",
           "mode": "live",
           "type": "http_health",
@@ -111,6 +127,22 @@
           "type": "diagnostics_capability",
           "capability": "environment_state",
           "expect": "present"
+        },
+        {
+          "id": "environment_state_server.projection_feedback_contract",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/check-runtime-organ-contracts.ps1",
+            "-Scope",
+            "environment_state"
+          ],
+          "expect_exit_code": 0
         },
         {
           "id": "environment_state_server.health_live",
@@ -272,6 +304,22 @@
           "expect": "present"
         },
         {
+          "id": "thought_core_api.runtime_contracts",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/check-runtime-organ-contracts.ps1",
+            "-Scope",
+            "thought_core"
+          ],
+          "expect_exit_code": 0
+        },
+        {
           "id": "thought_core_api.conscious_readiness",
           "mode": "deep",
           "type": "command",
@@ -282,6 +330,22 @@
             "Bypass",
             "-File",
             "scripts/check-conscious-readiness.ps1"
+          ],
+          "expect_exit_code": 0
+        },
+        {
+          "id": "thought_core_api.event_correlation_contract",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/check-runtime-organ-contracts.ps1",
+            "-Scope",
+            "event_correlation"
           ],
           "expect_exit_code": 0
         },
@@ -440,6 +504,22 @@
           "type": "diagnostics_capability",
           "capability": "topology_rendering",
           "expect": "present"
+        },
+        {
+          "id": "system_house_renderer.diagnostics_metric_contract",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/check-runtime-organ-contracts.ps1",
+            "-Scope",
+            "diagnostics_metrics"
+          ],
+          "expect_exit_code": 0
         },
         {
           "id": "system_house_renderer.viewer_manual",
