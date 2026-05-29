@@ -49,8 +49,12 @@ Use link fields to build the chain:
 - `causal_parent_id`: immediate event that caused or triggered this event
 - `episode_id`: longer experience unit for diagnostics and memory candidates
 - `turn_id`: one user/system interaction flow, when available
-- `issue_id`: durable semantic issue across turns, retries, and feedback loops,
-  when known
+- `issue_ticket_id`: durable ticket identity across turns, retries, feedback
+  loops, and memory entries, when known
+- `issue_ticket_ids`: plural/list form for memories or events that legitimately
+  belong to multiple tickets
+- `ticket_status`: latest status assertion for an issue ticket at this event or
+  metadata revision: `open`, `in_progress`, `blocked`, `resolved`, or `closed`
 - `trace_id`: technical trace across services/processes, when available
 - `observation_id`: source observation id, when available
 - `interpretation_id`: conscious interpretation id, when available
@@ -64,15 +68,15 @@ Use link fields to build the chain:
 chain such as reflex input or action execution. `turn_id` marks one Thought Core
 conscious processing turn.
 
-`issue_id` identifies a continuing semantic problem, request, or unresolved
-matter across multiple turns, retries, and feedback loops. Thought Core owns
-creation, preservation, split, merge, and retag decisions because issue
-continuity depends on interpretation. Lower-level modules may carry a supplied
-`issue_id`, but must not infer it from raw gesture, button, speech, sensor, or
-status input.
+`issue_ticket_id` identifies a continuing semantic problem, request, or
+unresolved matter across multiple turns, retries, feedback loops, diagnostics,
+and memory entries. Thought Core owns creation, preservation, split, merge,
+status, and retag decisions because ticket continuity depends on
+interpretation. Lower-level modules may carry a supplied `issue_ticket_id`, but
+must not infer it from raw gesture, button, speech, sensor, or status input.
 
 Do not overload `turn_id` for reflex-only observations that have not yet become
-a turn. Do not overload `episode_id` or `turn_id` for long-lived issue
+a turn. Do not overload `episode_id` or `turn_id` for long-lived issue ticket
 continuity.
 
 ## Source Fields
@@ -162,7 +166,7 @@ Example: gesture-opened microphone leading to a Home Assistant light action.
     "source_component": "thought_core_api",
     "episode_id": "ep_living_room_20260529_1800",
     "turn_id": "turn_living_room_001",
-    "issue_id": "issue_living_room_light_001",
+    "issue_ticket_id": "ticket_living_room_light_001",
     "interpretation_id": "interp_living_room_001",
     "authority_domain": "thought",
     "summary": "Thought Core interpreted input as a request to turn on the light",
@@ -179,7 +183,7 @@ Example: gesture-opened microphone leading to a Home Assistant light action.
     "source_component": "thought_core_api",
     "episode_id": "ep_living_room_20260529_1800",
     "turn_id": "turn_living_room_001",
-    "issue_id": "issue_living_room_light_001",
+    "issue_ticket_id": "ticket_living_room_light_001",
     "interpretation_id": "interp_living_room_001",
     "intent_id": "intent_light_on_001",
     "authority_domain": "thought",
@@ -197,7 +201,7 @@ Example: gesture-opened microphone leading to a Home Assistant light action.
     "source_component": "action_boundary",
     "episode_id": "ep_living_room_20260529_1800",
     "turn_id": "turn_living_room_001",
-    "issue_id": "issue_living_room_light_001",
+    "issue_ticket_id": "ticket_living_room_light_001",
     "intent_id": "intent_light_on_001",
     "action_id": "action_light_on_001",
     "authority_domain": "action_boundary",
@@ -215,7 +219,7 @@ Example: gesture-opened microphone leading to a Home Assistant light action.
     "source_component": "home_assistant_bridge",
     "episode_id": "ep_living_room_20260529_1800",
     "turn_id": "turn_living_room_001",
-    "issue_id": "issue_living_room_light_001",
+    "issue_ticket_id": "ticket_living_room_light_001",
     "action_id": "action_light_on_001",
     "authority_domain": "execution",
     "summary": "Home Assistant light action executed",
@@ -224,11 +228,11 @@ Example: gesture-opened microphone leading to a Home Assistant light action.
 ]
 ```
 
-## Multiple Turns, One Issue
+## Multiple Turns, One Ticket
 
 If the result is unsatisfactory and a later turn retries the same unresolved
 problem, create a new `turn_id` and new append-only events while preserving the
-same `issue_id`. This trimmed example shows the identity boundary:
+same `issue_ticket_id`. This trimmed example shows the identity boundary:
 
 ```json
 [
@@ -237,7 +241,7 @@ same `issue_id`. This trimmed example shows the identity boundary:
     "event_id": "evt_interpretation_001",
     "event_type": "conscious.interpretation",
     "turn_id": "turn_living_room_001",
-    "issue_id": "issue_living_room_light_001",
+    "issue_ticket_id": "ticket_living_room_light_001",
     "interpretation_id": "interp_living_room_001",
     "summary": "Thought Core interpreted the request as living room light on"
   },
@@ -247,9 +251,9 @@ same `issue_id`. This trimmed example shows the identity boundary:
     "event_type": "execution.result",
     "causal_parent_id": "evt_boundary_001",
     "turn_id": "turn_living_room_001",
-    "issue_id": "issue_living_room_light_001",
+    "issue_ticket_id": "ticket_living_room_light_001",
     "action_id": "action_light_on_001",
-    "summary": "Home Assistant reported success, but the issue remains open"
+    "summary": "Home Assistant reported success, but the ticket remains open"
   },
   {
     "schema_version": "event.correlation.v0",
@@ -264,18 +268,89 @@ same `issue_id`. This trimmed example shows the identity boundary:
     "event_type": "conscious.interpretation",
     "causal_parent_id": "evt_input_recognized_002",
     "turn_id": "turn_living_room_002",
-    "issue_id": "issue_living_room_light_001",
+    "issue_ticket_id": "ticket_living_room_light_001",
     "interpretation_id": "interp_living_room_002",
-    "summary": "Thought Core attached the follow-up to the same light issue"
+    "summary": "Thought Core attached the follow-up to the same light ticket"
   }
 ]
 ```
 
-## Memory Issue Tags
+## Ticket Status
 
-The append-only event journal remains separate from learned memory. `issue_id`
-on events tracks semantic continuity when known. `issue_id` on memories is a
-memory index/tag controlled by Thought Core.
+Issue tickets use append-only status transitions. Initial vocabulary:
+
+- `open`
+- `in_progress`
+- `blocked`
+- `resolved`
+- `closed`
+
+Do not rewrite old journal events to change status. Write a new
+`ticket.status_changed` event, or a new memory-ticket metadata revision, with
+the previous and new status.
+
+Example: one ticket starts `open`, moves to `in_progress`, and resolves after a
+second turn:
+
+```json
+[
+  {
+    "schema_version": "event.correlation.v0",
+    "event_id": "evt_ticket_status_001",
+    "event_type": "ticket.status_changed",
+    "turn_id": "turn_living_room_001",
+    "issue_ticket_id": "ticket_living_room_light_001",
+    "previous_ticket_status": null,
+    "new_ticket_status": "open",
+    "summary": "Thought Core opened a light-control ticket"
+  },
+  {
+    "schema_version": "event.correlation.v0",
+    "event_id": "evt_ticket_status_002",
+    "event_type": "ticket.status_changed",
+    "causal_parent_id": "evt_intent_001",
+    "turn_id": "turn_living_room_001",
+    "issue_ticket_id": "ticket_living_room_light_001",
+    "previous_ticket_status": "open",
+    "new_ticket_status": "in_progress",
+    "summary": "Action execution started for the light-control ticket"
+  },
+  {
+    "schema_version": "event.correlation.v0",
+    "event_id": "evt_interpretation_002",
+    "event_type": "conscious.interpretation",
+    "turn_id": "turn_living_room_002",
+    "issue_ticket_id": "ticket_living_room_light_001",
+    "interpretation_id": "interp_living_room_002",
+    "summary": "Thought Core interpreted feedback for the same ticket"
+  },
+  {
+    "schema_version": "event.correlation.v0",
+    "event_id": "evt_ticket_status_003",
+    "event_type": "ticket.status_changed",
+    "causal_parent_id": "evt_execution_002",
+    "turn_id": "turn_living_room_002",
+    "issue_ticket_id": "ticket_living_room_light_001",
+    "previous_ticket_status": "in_progress",
+    "new_ticket_status": "resolved",
+    "summary": "Thought Core marked the light-control ticket resolved"
+  }
+]
+```
+
+Diagnostics should show the latest append-only status per `issue_ticket_id`.
+Tickets with `open`, `in_progress`, or `blocked` are unresolved; tickets with
+`resolved` or `closed` are resolved/closed. Timeline views should still expose
+the status history so a resolved ticket can be audited without rewriting older
+events.
+
+## Memory Issue Ticket Tags
+
+The append-only event journal remains separate from learned memory.
+`issue_ticket_id` on events tracks semantic continuity when known.
+`issue_ticket_id` or `issue_ticket_ids` on memories are memory index tags
+controlled by Thought Core. A memory may belong to multiple issue tickets when
+that is semantically useful.
 
 Retagging memory should be recorded as a new memory-index event or metadata
 revision, not by rewriting old journal events. Future split and merge workflows
@@ -283,10 +358,12 @@ should preserve provenance with fields such as:
 
 - `memory_id`: memory record being indexed
 - `memory_revision_id`: metadata revision or memory-index event revision
-- `previous_issue_id`: issue tag before this change, or `null`
-- `new_issue_id`: issue tag after this change, or `null`
-- `split_from_issue_id`: original issue when the memory is split out
-- `merged_from_issue_ids`: issues merged into the new tag
+- `previous_issue_ticket_ids`: issue ticket tags before this change, or `[]`
+- `new_issue_ticket_ids`: issue ticket tags after this change, or `[]`
+- `split_from_issue_ticket_id`: original ticket when the memory is split out
+- `merged_from_issue_ticket_ids`: tickets merged into the new tag set
+- `previous_ticket_status`: status before this metadata revision, when changed
+- `new_ticket_status`: status after this metadata revision, when changed
 - `retag_reason`: redacted reason for diagnostics
 - `retagged_by`: component or actor that made the decision
 - `retagged_at`: when the memory tag decision was made
@@ -300,37 +377,60 @@ Core:
   {
     "schema_version": "event.correlation.v0",
     "event_id": "evt_memory_index_001",
-    "event_type": "memory.issue_tagged",
+    "event_type": "memory.issue_ticket_tagged",
     "memory_id": "mem_living_room_dark_001",
     "memory_revision_id": "memrev_living_room_dark_001",
-    "previous_issue_id": null,
-    "new_issue_id": "issue_living_room_light_001",
-    "retag_reason": "Thought Core linked an untagged memory to the active light issue",
+    "previous_issue_ticket_ids": [],
+    "new_issue_ticket_ids": ["ticket_living_room_light_001"],
+    "retag_reason": "Thought Core linked an untagged memory to the active light ticket",
     "retagged_by": "thought_core_api",
     "causal_parent_id": "evt_interpretation_002",
-    "summary": "Memory tagged with active light issue"
+    "summary": "Memory tagged with active light ticket"
   }
 ]
 ```
 
-Example: a memory moved from one issue tag to another:
+Example: a memory moved from one issue ticket to another:
 
 ```json
 [
   {
     "schema_version": "event.correlation.v0",
     "event_id": "evt_memory_index_002",
-    "event_type": "memory.issue_retagged",
+    "event_type": "memory.issue_ticket_retagged",
     "memory_id": "mem_living_room_dark_001",
     "memory_revision_id": "memrev_living_room_dark_002",
-    "previous_issue_id": "issue_living_room_light_001",
-    "new_issue_id": "issue_lamp_hardware_001",
-    "split_from_issue_id": "issue_living_room_light_001",
-    "merged_from_issue_ids": [],
-    "retag_reason": "Thought Core narrowed the memory to a lamp hardware issue",
+    "previous_issue_ticket_ids": ["ticket_living_room_light_001"],
+    "new_issue_ticket_ids": ["ticket_lamp_hardware_001"],
+    "split_from_issue_ticket_id": "ticket_living_room_light_001",
+    "merged_from_issue_ticket_ids": [],
+    "retag_reason": "Thought Core narrowed the memory to a lamp hardware ticket",
     "retagged_by": "thought_core_api",
     "causal_parent_id": "evt_interpretation_003",
-    "summary": "Memory issue tag moved with provenance"
+    "summary": "Memory issue ticket tag moved with provenance"
+  }
+]
+```
+
+Example: one memory belongs to two issue tickets:
+
+```json
+[
+  {
+    "schema_version": "event.correlation.v0",
+    "event_id": "evt_memory_index_003",
+    "event_type": "memory.issue_ticket_tagged",
+    "memory_id": "mem_replay_light_failure_001",
+    "memory_revision_id": "memrev_replay_light_failure_001",
+    "previous_issue_ticket_ids": ["ticket_gesture_instability_001"],
+    "new_issue_ticket_ids": [
+      "ticket_gesture_instability_001",
+      "ticket_living_room_light_001"
+    ],
+    "retag_reason": "Thought Core linked the replay observation to both gesture instability and light action failure",
+    "retagged_by": "thought_core_api",
+    "causal_parent_id": "evt_interpretation_004",
+    "summary": "Memory indexed under gesture instability and light failure tickets"
   }
 ]
 ```
