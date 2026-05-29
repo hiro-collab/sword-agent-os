@@ -62,6 +62,12 @@ foreach ($component in $standardProfile.required_runtime) {
   Assert-True ($component -in $known) "standard profile has unknown runtime component: $component"
 }
 
+foreach ($component in $standardProfile.health_model.boot_critical_runtime) {
+  Assert-True ($component -in $standardProfile.required_runtime) "boot-critical runtime is not required by standard profile: $component"
+}
+
+Assert-True ("minimum_turn_processing" -in @($standardProfile.health_model.boot_critical_capabilities)) "standard profile must keep minimum_turn_processing boot-critical"
+
 Assert-True ($compatProfile.required_services.Count -eq 8) "thought-core-v0-compat should require 8 services"
 Assert-True ($serviceManifest.services.Count -eq 8) "thought-core-v0-compat service inventory should define 8 services"
 

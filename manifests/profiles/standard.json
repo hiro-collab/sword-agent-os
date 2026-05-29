@@ -19,5 +19,29 @@
     "communication-governance",
     "memory-core",
     "approval-queue"
-  ]
+  ],
+  "health_model": {
+    "boot_critical_runtime": [
+      "turn-router",
+      "status-store",
+      "process-registry",
+      "event-journal",
+      "communication-governance",
+      "memory-core",
+      "approval-queue"
+    ],
+    "boot_critical_capabilities": [
+      "minimum_turn_processing"
+    ],
+    "standard_capabilities": [
+      "speech-input",
+      "reflex",
+      "environment",
+      "action",
+      "expression",
+      "display",
+      "diagnostics"
+    ],
+    "availability_policy": "Standard organ capabilities may be blocked, unavailable, or degraded without making OS boot unhealthy unless a profile explicitly marks them boot-critical."
+  }
 }
