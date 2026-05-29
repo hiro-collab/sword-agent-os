@@ -7,7 +7,7 @@
   "target_path": "control-plane/sword-voice-agent",
   "repo_url": "https://github.com/hiro-collab/sword-voice-agent.git",
   "branch": "codex/initial-sword-voice-agent",
-  "commit": "da719d6a3bce5ba6be7cb16785e3a6737f74bc83",
+  "commit": "818135654006c90d58a3dee4f9029949b3c5c27d",
   "adoption": "reference_source",
   "standard_profile": {
     "profile_id": "thought-core-v0",

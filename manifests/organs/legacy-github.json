@@ -23,7 +23,7 @@
       "target_path": "organs/reflex/mediapipe-sword-sign",
       "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
       "branch": "feature/camera-hub-topic-envelope",
-      "commit": "e63fa59a287553f1f0a0b1688920dc3e2ce6eddf",
+      "commit": "0e53c80d04cea0c099c8b8acca7740cd9c1a94e7",
       "adoption": "standard_candidate",
       "legacy_path": "organs/reflex/mediapipe-sword-sign",
       "notes": "Camera Hub, gesture inference, and reflex topic surface."
@@ -95,7 +95,7 @@
       "target_path": "organs/expression/aituber-kit",
       "repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "branch": "experiment/aituber-gesture-voice-bridge",
-      "commit": "d5129b5162cf7736587f50b1d697632adfd84242",
+      "commit": "cdb6d4457ac6260ba3d0b0b451e54dce3fbc24f9",
       "adoption": "standard_candidate",
       "legacy_path": "organs/expression/aituber-kit",
       "notes": "Projection Visual, HUD, avatar speech queue, and AITuber UI. Use the fork remote, not upstream origin."
@@ -126,4 +126,3 @@
     }
   ]
 }
-

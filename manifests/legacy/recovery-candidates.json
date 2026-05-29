@@ -10,7 +10,7 @@
       "branch": "codex-gesture-latency-instrumentation",
       "commit": "6bc61fbbfe1bff5b7e1d20923e696465ed55a852",
       "selected_baseline_branch": "feature/camera-hub-topic-envelope",
-      "selected_baseline_commit": "e63fa59bf29a2f9f781250bd95f8a03f9d8de46b",
+      "selected_baseline_commit": "0e53c80d04cea0c099c8b8acca7740cd9c1a94e7",
       "handling": "inspect-and-recover-feature-elements",
       "recoverable_elements": [
         "latency measurement",
@@ -26,7 +26,7 @@
       "branch": "codex/add-gesture-monitor-gui",
       "commit": "5cf3fc1d8db05c44410d52505bd12a3002b180e3",
       "selected_baseline_branch": "feature/camera-hub-topic-envelope",
-      "selected_baseline_commit": "e63fa59bf29a2f9f781250bd95f8a03f9d8de46b",
+      "selected_baseline_commit": "0e53c80d04cea0c099c8b8acca7740cd9c1a94e7",
       "handling": "inspect-and-recover-feature-elements",
       "recoverable_elements": [
         "HUD/status display",
@@ -41,7 +41,7 @@
       "branch": "feature/camera-hub-room-light",
       "commit": "d5745cd2c6d288f1b297183e57d3152166599a52",
       "selected_baseline_branch": "feature/camera-hub-topic-envelope",
-      "selected_baseline_commit": "e63fa59bf29a2f9f781250bd95f8a03f9d8de46b",
+      "selected_baseline_commit": "0e53c80d04cea0c099c8b8acca7740cd9c1a94e7",
       "handling": "inspect-and-recover-feature-elements",
       "recoverable_elements": [
         "room light prototype"
