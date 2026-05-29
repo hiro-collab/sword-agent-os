@@ -92,6 +92,9 @@ Use these to preserve semantics without leaking payload:
 Routine diagnostics should prefer `summary_only` or `redacted_fields`. Raw
 conversation text, raw camera frames/images, generated media, local private
 paths, tokens, and full logs must not be copied into routine event summaries.
+For local replay media, event summaries may use filename-only labels or stable
+observation ids; absolute video paths, extracted frame paths, and frame payloads
+belong in local-only evidence or ledgers, not routine retained events.
 
 ## Example Chain
 
