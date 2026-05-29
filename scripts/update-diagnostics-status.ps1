@@ -376,6 +376,81 @@ function ConvertTo-CapabilityState {
   return @{ state = "unknown"; freshness = $freshness; detail = "required service evidence incomplete" }
 }
 
+function Test-StaticDriverEvidence {
+  param(
+    [Parameter(Mandatory = $true)]$Driver,
+    [Parameter(Mandatory = $true)][string]$Root,
+    [Parameter(Mandatory = $true)][bool]$ManifestOnlyMode
+  )
+  $evidence = @(Get-OptionalProperty -Object $Driver -Name "static_evidence" -Default @())
+  if ($evidence.Count -eq 0) {
+    return $null
+  }
+  if ($ManifestOnlyMode) {
+    return @{
+      state = "unknown"
+      freshness = "missing"
+      confidence = "low"
+      detail = "static evidence not probed in manifest-only mode"
+    }
+  }
+
+  $present = @()
+  $missingRequired = @()
+  $missingOptional = @()
+  foreach ($entry in $evidence) {
+    $id = [string](Get-OptionalProperty -Object $entry -Name "id" -Default "")
+    if ([string]::IsNullOrWhiteSpace($id)) {
+      $id = "unnamed_static_evidence"
+    }
+    $type = [string](Get-OptionalProperty -Object $entry -Name "type" -Default "")
+    $path = [string](Get-OptionalProperty -Object $entry -Name "path" -Default "")
+    $required = [bool](Get-OptionalProperty -Object $entry -Name "required" -Default $true)
+    $ok = $false
+    if ($type -eq "path_exists" -and -not [string]::IsNullOrWhiteSpace($path)) {
+      $resolved = if ([System.IO.Path]::IsPathRooted($path)) {
+        $path
+      }
+      else {
+        Join-Path $Root ($path -replace "/", [System.IO.Path]::DirectorySeparatorChar)
+      }
+      $ok = Test-Path -LiteralPath $resolved
+    }
+    if ($ok) {
+      $present += $id
+    }
+    elseif ($required) {
+      $missingRequired += $id
+    }
+    else {
+      $missingOptional += $id
+    }
+  }
+
+  if ($missingRequired.Count -gt 0) {
+    return @{
+      state = "unavailable"
+      freshness = "fresh"
+      confidence = "medium"
+      detail = "missing required static evidence: $($missingRequired -join ', ')"
+    }
+  }
+  if ($missingOptional.Count -gt 0) {
+    return @{
+      state = "degraded"
+      freshness = "fresh"
+      confidence = "medium"
+      detail = "static evidence available with optional gaps: $($missingOptional -join ', ')"
+    }
+  }
+  return @{
+    state = "available"
+    freshness = "fresh"
+    confidence = "medium"
+    detail = "static evidence available: $($present -join ', ')"
+  }
+}
+
 function Convert-ConfidenceToMetricValue {
   param([object]$Value)
   if ($null -eq $Value) {
@@ -780,7 +855,18 @@ foreach ($driver in @($driverManifest.organ_drivers)) {
       $targetStates += $serviceStateMap[$targetService]
     }
   }
-  $capabilityState = ConvertTo-CapabilityState -ServiceStates $targetStates
+  $staticEvidenceState = if ($targetStates.Count -eq 0) {
+    Test-StaticDriverEvidence -Driver $driver -Root $workspace -ManifestOnlyMode ([bool]$ManifestOnly)
+  }
+  else {
+    $null
+  }
+  $capabilityState = if ($null -ne $staticEvidenceState) {
+    $staticEvidenceState
+  }
+  else {
+    ConvertTo-CapabilityState -ServiceStates $targetStates
+  }
   foreach ($capability in (ConvertTo-StringArray -Value (Get-OptionalProperty -Object $driver -Name "capabilities" -Default @()))) {
     $capabilityIndex += 1
     $capabilities += [PSCustomObject]@{
@@ -791,7 +877,7 @@ foreach ($driver in @($driverManifest.organ_drivers)) {
       service_ids = @($targetServices)
       state = [string]$capabilityState.state
       freshness = [string]$capabilityState.freshness
-      confidence = if ($targetStates.Count -gt 0 -and -not $ManifestOnly) { "medium" } else { "low" }
+      confidence = if ($null -ne $staticEvidenceState) { [string]$staticEvidenceState.confidence } elseif ($targetStates.Count -gt 0 -and -not $ManifestOnly) { "medium" } else { "low" }
       summary = "capability $capability observed as $($capabilityState.state)"
       observed_at = $now.ToString("o")
       received_at = $now.ToString("o")

@@ -27,6 +27,19 @@ function Assert-True {
   }
 }
 
+function Get-OptionalProperty {
+  param(
+    [Parameter(Mandatory = $true)]$Object,
+    [Parameter(Mandatory = $true)][string]$Name,
+    [object]$Default = $null
+  )
+  $property = $Object.PSObject.Properties[$Name]
+  if ($null -eq $property -or $null -eq $property.Value) {
+    return $Default
+  }
+  return $property.Value
+}
+
 function Test-SafeManifestText {
   param([object]$Value)
   if ($null -eq $Value) {
@@ -283,6 +296,12 @@ foreach ($organDriver in $driverManifest.organ_drivers) {
   }
   foreach ($genericDriverId in @($organDriver.composes | ForEach-Object { [string]$_ })) {
     Assert-True ($genericDriverId -in $genericDriverIds) "organ driver $($organDriver.driver_id) composes unknown generic driver: $genericDriverId"
+  }
+  foreach ($evidence in @(Get-OptionalProperty -Object $organDriver -Name "static_evidence" -Default @())) {
+    $evidenceId = [string](Get-OptionalProperty -Object $evidence -Name "id" -Default "")
+    Assert-True ($evidenceId -match "^[A-Za-z0-9_.-]+$") "organ driver $($organDriver.driver_id) has static evidence with unsafe id: $evidenceId"
+    Assert-True ([string](Get-OptionalProperty -Object $evidence -Name "type" -Default "") -eq "path_exists") "organ driver $($organDriver.driver_id) has unsupported static evidence type"
+    Assert-True (Test-SafeManifestPath -Path ([string](Get-OptionalProperty -Object $evidence -Name "path" -Default ""))) "organ driver $($organDriver.driver_id) has unsafe static evidence path"
   }
   Assert-True (@($organDriver.capabilities).Count -gt 0) "organ driver $($organDriver.driver_id) must declare capabilities"
 }

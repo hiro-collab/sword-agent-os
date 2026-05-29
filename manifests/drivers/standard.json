@@ -367,6 +367,32 @@
       "composes": [
         "generic-git-checkout"
       ],
+      "static_evidence": [
+        {
+          "id": "renderer_package",
+          "type": "path_exists",
+          "path": "organs/diagnostics/system-house-renderer/pyproject.toml",
+          "required": true
+        },
+        {
+          "id": "renderer_cli",
+          "type": "path_exists",
+          "path": "organs/diagnostics/system-house-renderer/src/system_house_renderer/cli.py",
+          "required": true
+        },
+        {
+          "id": "topology_input_loader",
+          "type": "path_exists",
+          "path": "organs/diagnostics/system-house-renderer/src/system_house_renderer/loader.py",
+          "required": true
+        },
+        {
+          "id": "html_preview_renderer",
+          "type": "path_exists",
+          "path": "organs/diagnostics/system-house-renderer/src/system_house_renderer/preview.py",
+          "required": true
+        }
+      ],
       "event_sources": [],
       "topology_outputs": [
         "static viewer output",
