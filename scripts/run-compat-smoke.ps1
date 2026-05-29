@@ -81,8 +81,26 @@ function Test-HttpEndpoint {
   try {
     $timeoutSeconds = [Math]::Max(1, [int][Math]::Ceiling($TimeoutMs / 1000))
     $response = Invoke-WebRequest -Uri $Url -Method Get -TimeoutSec $timeoutSeconds -UseBasicParsing
-    $ok = $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
-    return New-Check -Id $Id -Status $(if ($ok) { "ok" } else { "down" }) -Target $Url -Detail "http $($response.StatusCode)"
+    $status = if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) { "ok" } else { "down" }
+    $detail = "http $($response.StatusCode)"
+    if ($Url -match "/health/?$" -and -not [string]::IsNullOrWhiteSpace([string]$response.Content)) {
+      try {
+        $payload = $response.Content | ConvertFrom-Json
+        $okProperty = $payload.PSObject.Properties["ok"]
+        $statusProperty = $payload.PSObject.Properties["status"]
+        if ($null -ne $okProperty -and $okProperty.Value -eq $false) {
+          $status = "degraded"
+          $detail = "$detail; payload ok=false"
+        }
+        elseif ($null -ne $statusProperty -and [string]$statusProperty.Value -notin @("ok", "healthy", "ready")) {
+          $status = "degraded"
+          $detail = "$detail; payload status=$($statusProperty.Value)"
+        }
+      }
+      catch {
+      }
+    }
+    return New-Check -Id $Id -Status $status -Target $Url -Detail $detail
   }
   catch {
     $responseProperty = $_.Exception.PSObject.Properties["Response"]
@@ -117,6 +135,53 @@ function Test-TcpEndpoint {
   }
   finally {
     $client.Dispose()
+  }
+}
+
+function Test-WebSocketEndpoint {
+  param(
+    [Parameter(Mandatory = $true)][string]$Id,
+    [Parameter(Mandatory = $true)][string]$Url
+  )
+
+  $socket = [System.Net.WebSockets.ClientWebSocket]::new()
+  $cts = [System.Threading.CancellationTokenSource]::new()
+  try {
+    $cts.CancelAfter($TimeoutMs)
+    $task = $socket.ConnectAsync([System.Uri]::new($Url), $cts.Token)
+    if (-not $task.Wait($TimeoutMs)) {
+      return New-Check -Id $Id -Status "down" -Target $Url -Detail "timeout"
+    }
+    if ($task.IsFaulted) {
+      $message = if ($null -ne $task.Exception -and $null -ne $task.Exception.InnerException) {
+        $task.Exception.InnerException.Message
+      }
+      else {
+        "websocket handshake failed"
+      }
+      return New-Check -Id $Id -Status "down" -Target $Url -Detail $message
+    }
+    if ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+      try {
+        $closeTask = $socket.CloseAsync(
+          [System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure,
+          "smoke probe",
+          [System.Threading.CancellationToken]::None
+        )
+        [void]$closeTask.Wait([Math]::Min($TimeoutMs, 500))
+      }
+      catch {
+      }
+      return New-Check -Id $Id -Status "ok" -Target $Url -Detail "websocket handshake"
+    }
+    return New-Check -Id $Id -Status "down" -Target $Url -Detail "websocket state $($socket.State)"
+  }
+  catch {
+    return New-Check -Id $Id -Status "down" -Target $Url -Detail $_.Exception.Message
+  }
+  finally {
+    $cts.Dispose()
+    $socket.Dispose()
   }
 }
 
@@ -459,8 +524,8 @@ try {
   $checks += Test-HttpEndpoint -Id "home_assistant_bridge" -Url "http://127.0.0.1:$HomeAssistantBridgePort/health"
   $checks += Test-HttpEndpoint -Id "environment_state_server" -Url "http://127.0.0.1:$EnvironmentStatePort/health"
   $checks += Test-HttpEndpoint -Id "thought_core_api" -Url "http://127.0.0.1:$ThoughtCorePort/health"
-  $checks += Test-TcpEndpoint -Id "mediapipe_camera_hub_stack" -HostName "127.0.0.1" -Port $MediapipePort
-  $checks += Test-TcpEndpoint -Id "vision_snapshot_processor" -HostName "127.0.0.1" -Port $VisionSnapshotProcessorPort
+  $checks += Test-WebSocketEndpoint -Id "mediapipe_camera_hub_stack" -Url "ws://127.0.0.1:$MediapipePort"
+  $checks += Test-WebSocketEndpoint -Id "vision_snapshot_processor" -Url "ws://127.0.0.1:$VisionSnapshotProcessorPort"
   $checks += Test-HttpEndpoint -Id "aituber_kit" -Url "http://127.0.0.1:$AituberPort"
   $checks += Test-HttpEndpoint -Id "touchdesigner_control_gui" -Url "http://127.0.0.1:$TouchDesignerGuiPort"
   if ($RequireVoicevox) {

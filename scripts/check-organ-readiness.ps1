@@ -192,19 +192,81 @@ function Test-TcpEndpoint {
   }
 }
 
+function Test-WebSocketEndpoint {
+  param([Parameter(Mandatory = $true)][string]$Url)
+  $socket = [System.Net.WebSockets.ClientWebSocket]::new()
+  $cts = [System.Threading.CancellationTokenSource]::new()
+  try {
+    $cts.CancelAfter($TimeoutMs)
+    $task = $socket.ConnectAsync([System.Uri]::new($Url), $cts.Token)
+    if (-not $task.Wait($TimeoutMs)) {
+      return @{ ok = $false; detail = "timeout" }
+    }
+    if ($task.IsFaulted) {
+      $message = if ($null -ne $task.Exception -and $null -ne $task.Exception.InnerException) {
+        $task.Exception.InnerException.Message
+      }
+      else {
+        "websocket handshake failed"
+      }
+      return @{ ok = $false; detail = $message }
+    }
+    if ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+      try {
+        $closeTask = $socket.CloseAsync(
+          [System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure,
+          "readiness probe",
+          [System.Threading.CancellationToken]::None
+        )
+        [void]$closeTask.Wait([Math]::Min($TimeoutMs, 500))
+      }
+      catch {
+      }
+      return @{ ok = $true; detail = "websocket handshake" }
+    }
+    return @{ ok = $false; detail = "websocket state $($socket.State)" }
+  }
+  catch {
+    return @{ ok = $false; detail = $_.Exception.Message }
+  }
+  finally {
+    $cts.Dispose()
+    $socket.Dispose()
+  }
+}
+
 function Test-HttpEndpoint {
   param([Parameter(Mandatory = $true)][string]$Url)
   try {
     $timeoutSeconds = [Math]::Max(1, [int][Math]::Ceiling($TimeoutMs / 1000))
     $response = Invoke-WebRequest -Uri $Url -Method Get -TimeoutSec $timeoutSeconds -UseBasicParsing
-    return @{ ok = ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500); detail = "http $($response.StatusCode)" }
+    $status = if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) { "ok" } else { "down" }
+    $detail = "http $($response.StatusCode)"
+    if ($Url -match "/health/?$" -and -not [string]::IsNullOrWhiteSpace([string]$response.Content)) {
+      try {
+        $payload = $response.Content | ConvertFrom-Json
+        $okProperty = $payload.PSObject.Properties["ok"]
+        $statusProperty = $payload.PSObject.Properties["status"]
+        if ($null -ne $okProperty -and $okProperty.Value -eq $false) {
+          $status = "degraded"
+          $detail = "$detail; payload ok=false"
+        }
+        elseif ($null -ne $statusProperty -and [string]$statusProperty.Value -notin @("ok", "healthy", "ready")) {
+          $status = "degraded"
+          $detail = "$detail; payload status=$($statusProperty.Value)"
+        }
+      }
+      catch {
+      }
+    }
+    return @{ ok = ($status -eq "ok"); status = $status; detail = $detail }
   }
   catch {
     $response = Get-OptionalProperty -Object $_.Exception -Name "Response"
     if ($null -ne $response -and $null -ne $response.StatusCode) {
-      return @{ ok = $false; detail = "http $([int]$response.StatusCode)" }
+      return @{ ok = $false; status = "down"; detail = "http $([int]$response.StatusCode)" }
     }
-    return @{ ok = $false; detail = $_.Exception.Message }
+    return @{ ok = $false; status = "down"; detail = $_.Exception.Message }
   }
 }
 
@@ -227,23 +289,22 @@ function Test-ServiceHealth {
   switch ($healthType) {
     "http" {
       $result = Test-HttpEndpoint -Url $target
+      $serviceStatus = if ($result.ContainsKey("status")) { [string]$result["status"] } elseif ($result.ok) { "ok" } else { "down" }
       return [PSCustomObject]@{
         service_id = [string]$Service.service_id
         health_type = $healthType
-        status = if ($result.ok) { "ok" } else { "down" }
+        status = $serviceStatus
         target = $target
         detail = $result.detail
       }
     }
     "websocket" {
-      $uri = [System.Uri]::new($target)
-      $port = if ($uri.Port -gt 0) { $uri.Port } elseif ($uri.Scheme -eq "wss") { 443 } else { 80 }
-      $result = Test-TcpEndpoint -HostName $uri.Host -Port $port
+      $result = Test-WebSocketEndpoint -Url $target
       return [PSCustomObject]@{
         service_id = [string]$Service.service_id
         health_type = $healthType
         status = if ($result.ok) { "ok" } else { "down" }
-        target = "$($uri.Host):$port"
+        target = $target
         detail = $result.detail
       }
     }
@@ -393,6 +454,7 @@ foreach ($source in @($organManifest.sources)) {
   $warnings = @($checks | Where-Object { $_.severity -eq "warning" -and $_.status -ne "ok" -and $_.status -ne "exact" })
   $gaps = @($checks | Where-Object { $_.severity -eq "gap" -and $_.status -ne "ok" })
   $downServices = @($serviceHealth | Where-Object { $_.status -in @("down", "unknown") })
+  $impairedServices = @($serviceHealth | Where-Object { $_.status -in @("down", "unknown", "degraded") })
   $okServices = @($serviceHealth | Where-Object { $_.status -eq "ok" })
 
   $validationResult = "pass"
@@ -409,12 +471,16 @@ foreach ($source in @($organManifest.sources)) {
     $validationResult = "degraded"
     $availabilityState = "degraded"
   }
+  elseif ($CheckEndpoints -and $impairedServices.Count -gt 0) {
+    $validationResult = "degraded"
+    $availabilityState = "degraded"
+  }
   elseif ($warnings.Count -gt 0 -or $gaps.Count -gt 0) {
     $validationResult = "degraded"
     $availabilityState = "degraded"
   }
 
-  $ladderLevel = if ($CheckEndpoints -and $serviceHealth.Count -gt 0 -and $downServices.Count -eq 0) { 5 } elseif ($checks.Count -gt 1) { 3 } else { 1 }
+  $ladderLevel = if ($CheckEndpoints -and $serviceHealth.Count -gt 0 -and $impairedServices.Count -eq 0) { 5 } elseif ($checks.Count -gt 1) { 3 } else { 1 }
   $ladderName = switch ($ladderLevel) {
     5 { "service_health_probe" }
     3 { "static_contract_and_local_gap_inventory" }
