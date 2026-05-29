@@ -39,6 +39,7 @@ The first implementation is a run-once collector:
 .\scripts\update-diagnostics-status.ps1
 .\scripts\read-diagnostics-status.ps1
 .\scripts\watch-diagnostics-status.ps1
+.\scripts\check-neural-monitoring-contract.ps1
 ```
 
 It reads the diagnostic policy, driver manifest, and service inventory, then
@@ -58,6 +59,15 @@ pulses do not make browser monitors or Camera Hub clients appear to connect and
 disconnect. Use `-WebSocketProbeMode strict` for an explicit handshake check.
 It is still read-only and should be replaced later by a native system-manager
 scheduler.
+
+`check-neural-monitoring-contract.ps1` verifies the first nervous-system
+contract: required services and driver capabilities appear in diagnostics
+status, topology has a snapshot id, and current metric records are present under
+`metrics.current[]` without unsafe subjects, unsupported evidence refs, or
+invalid numeric values.
+
+The broader bring-up and behavior-test checklist is
+[`neural-monitoring-test-plan.v0.md`](neural-monitoring-test-plan.v0.md).
 
 ## Initial Retention
 

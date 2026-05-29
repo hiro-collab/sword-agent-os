@@ -230,6 +230,8 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-compat-smo
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/update-diagnostics-status.ps1") -PathType Leaf) "diagnostics status writer missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/read-diagnostics-status.ps1") -PathType Leaf) "diagnostics status reader missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/watch-diagnostics-status.ps1") -PathType Leaf) "diagnostics status watcher missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-neural-monitoring-contract.ps1") -PathType Leaf) "neural monitoring contract checker missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/diagnostic-scheduler/neural-monitoring-test-plan.v0.md") -PathType Leaf) "neural monitoring test plan missing"
 
 foreach ($candidate in $recoveryCandidates.candidates) {
   Assert-True (-not [string]::IsNullOrWhiteSpace([string]$candidate.repo_url)) "recovery candidate $($candidate.id) missing repo_url"

@@ -376,6 +376,109 @@ function ConvertTo-CapabilityState {
   return @{ state = "unknown"; freshness = $freshness; detail = "required service evidence incomplete" }
 }
 
+function Convert-ConfidenceToMetricValue {
+  param([object]$Value)
+  if ($null -eq $Value) {
+    return 0.2
+  }
+  if ($Value -is [int] -or $Value -is [long] -or $Value -is [double] -or $Value -is [decimal]) {
+    return [Math]::Max(0.0, [Math]::Min(1.0, [double]$Value))
+  }
+  switch (([string]$Value).ToLowerInvariant()) {
+    "high" { return 0.9 }
+    "medium" { return 0.6 }
+    "low" { return 0.35 }
+    "unknown" { return 0.2 }
+    default { return 0.2 }
+  }
+}
+
+function Get-StaleAfterTimestamp {
+  param(
+    [Parameter(Mandatory = $true)][string]$RecordedAt,
+    [object]$StaleAfterSeconds
+  )
+  $seconds = 30
+  try {
+    $seconds = [Math]::Max(1, [int]$StaleAfterSeconds)
+  }
+  catch {
+    $seconds = 30
+  }
+  try {
+    return ([DateTimeOffset]::Parse($RecordedAt)).AddSeconds($seconds).ToString("o")
+  }
+  catch {
+    return ([DateTimeOffset]::Now).AddSeconds($seconds).ToString("o")
+  }
+}
+
+function New-MetricRecord {
+  param(
+    [Parameter(Mandatory = $true)][string]$Metric,
+    [Parameter(Mandatory = $true)][string]$Subject,
+    [Parameter(Mandatory = $true)][double]$Value,
+    [Parameter(Mandatory = $true)][string]$RecordedAt,
+    [Parameter(Mandatory = $true)][string]$StaleAfter,
+    [Parameter(Mandatory = $true)][string]$Source,
+    [string[]]$Provenance = @(),
+    [Parameter(Mandatory = $true)][string]$Basis,
+    [string[]]$EvidenceRefs = @()
+  )
+  [PSCustomObject]@{
+    metric = $Metric
+    subject = $Subject
+    value = [Math]::Round([Math]::Max(0.0, [Math]::Min(1.0, $Value)), 4)
+    recorded_at = $RecordedAt
+    stale_after = $StaleAfter
+    source = $Source
+    provenance = @($Provenance | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    basis = $Basis
+    evidence_refs = @($EvidenceRefs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+  }
+}
+
+function New-CurrentMetricRecords {
+  param(
+    [object[]]$Services = @(),
+    [object[]]$Capabilities = @(),
+    [Parameter(Mandatory = $true)][string]$TopologySnapshotId
+  )
+  $records = @()
+  foreach ($service in @($Services | Sort-Object service_id)) {
+    $serviceId = [string]$service.service_id
+    $recordedAt = [string]$service.observed_at
+    $driverId = [string]$service.driver_id
+    $source = if ([string]::IsNullOrWhiteSpace($driverId)) { "diagnostics.status-store" } else { "driver:$driverId" }
+    $records += New-MetricRecord `
+      -Metric "source_confidence" `
+      -Subject "service:$serviceId" `
+      -Value (Convert-ConfidenceToMetricValue -Value $service.confidence) `
+      -RecordedAt $recordedAt `
+      -StaleAfter (Get-StaleAfterTimestamp -RecordedAt $recordedAt -StaleAfterSeconds $service.stale_after_seconds) `
+      -Source $source `
+      -Provenance @([string]$service.layer, $driverId, $serviceId) `
+      -Basis "service_health_$($service.state)_$($service.freshness)" `
+      -EvidenceRefs @("snapshot:$TopologySnapshotId")
+  }
+  foreach ($capability in @($Capabilities | Sort-Object driver_id, capability)) {
+    $capabilityName = [string]$capability.capability
+    $recordedAt = [string]$capability.observed_at
+    $driverId = [string]$capability.driver_id
+    $records += New-MetricRecord `
+      -Metric "state_confidence" `
+      -Subject "capability:$capabilityName" `
+      -Value (Convert-ConfidenceToMetricValue -Value $capability.confidence) `
+      -RecordedAt $recordedAt `
+      -StaleAfter (Get-StaleAfterTimestamp -RecordedAt $recordedAt -StaleAfterSeconds $capability.stale_after_seconds) `
+      -Source "diagnostics.status-store" `
+      -Provenance (@($driverId) + @($capability.service_ids | ForEach-Object { [string]$_ })) `
+      -Basis "capability_from_service_evidence_$($capability.state)_$($capability.freshness)" `
+      -EvidenceRefs @("snapshot:$TopologySnapshotId")
+  }
+  return @($records)
+}
+
 function New-DigestInput {
   param([Parameter(Mandatory = $true)]$Status)
   $services = @($Status.services | Sort-Object service_id | ForEach-Object {
@@ -656,6 +759,7 @@ foreach ($service in @($serviceManifest.services)) {
     state = [string]$probe.state
     freshness = [string]$probe.freshness
     confidence = if ($ManifestOnly) { "low" } elseif ($healthType -eq "websocket" -and $WebSocketProbeMode -eq "process") { "medium" } elseif ([string]$probe.state -eq "available") { "high" } else { "medium" }
+    summary = "service $serviceId observed as $($probe.state)"
     observed_at = $now.ToString("o")
     received_at = $now.ToString("o")
     stale_after_seconds = if ($healthType -eq "process" -or ($healthType -eq "websocket" -and $WebSocketProbeMode -eq "process")) { 10 } else { 30 }
@@ -688,6 +792,7 @@ foreach ($driver in @($driverManifest.organ_drivers)) {
       state = [string]$capabilityState.state
       freshness = [string]$capabilityState.freshness
       confidence = if ($targetStates.Count -gt 0 -and -not $ManifestOnly) { "medium" } else { "low" }
+      summary = "capability $capability observed as $($capabilityState.state)"
       observed_at = $now.ToString("o")
       received_at = $now.ToString("o")
       stale_after_seconds = 30
@@ -737,8 +842,12 @@ $status | Add-Member -NotePropertyName "stores" -NotePropertyValue ([PSCustomObj
   event_journal = $eventJournalPath
 })
 
+$topologySnapshotId = "topology_$($now.UtcDateTime.ToString("yyyyMMddTHHmmssfffZ"))"
+$currentMetrics = New-CurrentMetricRecords -Services @($services) -Capabilities @($capabilities) -TopologySnapshotId $topologySnapshotId
+
 $topology = [PSCustomObject]@{
   schema_version = "diagnostics.topology.v0"
+  topology_snapshot_id = $topologySnapshotId
   generated_at = $now.ToString("o")
   profile_id = [string]$profile.id
   port_mode = $PortMode
@@ -774,6 +883,9 @@ $topology = [PSCustomObject]@{
       }
     }
   })
+  metrics = [PSCustomObject]@{
+    current = @($currentMetrics)
+  }
 }
 
 $events = @(New-StateChangeEvents -PreviousStatus $previousStatus -CurrentStatus $status -Now $now)
