@@ -25,12 +25,14 @@ implementation.
 
 ## Driver Outputs
 
-Drivers may produce four read-only output types:
+Drivers may produce five read-only output types:
 
 - `topology_observation`: observed services, ports, processes, endpoints,
   local files, and peer relationships.
 - `capability_evidence`: evidence used to map a capability to `available`,
   `degraded`, `unavailable`, `blocked`, or `unknown`.
+- `metric_record`: source-local confidence, freshness, quality, or staleness
+  estimates using `runtime/status-store/metric-records.v0.md`.
 - `event_projection`: normalized event summaries derived from module logs or
   event streams.
 - `health_evidence`: liveness and health observations with timestamps,

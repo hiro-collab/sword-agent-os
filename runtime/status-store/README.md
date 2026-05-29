@@ -3,6 +3,12 @@
 Status store holds current runtime projections. It is for latest state, not
 historical truth.
 
+The first metric record contract is
+[`metric-records.v0.md`](metric-records.v0.md). It defines lightweight numeric
+records for confidence, divergence, freshness, and feedback estimates used by
+topology snapshots, diagnostics, event-journal decisions, and Thought Core
+promotion.
+
 ## Latest-State Policy
 
 Status store is the hot path for diagnostics viewers and other local readers.
@@ -20,6 +26,11 @@ decide whether a status is fresh enough for the current view.
 
 The first target size for `status-store/current.json` is under 1 MB. Heavier
 details should be represented as evidence references, not embedded payloads.
+
+Current metric values belong in status/topology projections. Only notable
+decision moments should be copied or referenced from the event journal, and only
+long-lived repeated context should be promoted to Thought Core memory or issue
+tickets.
 
 The first writer is `scripts/update-diagnostics-status.ps1`. It writes
 `.cache/agent-os/status/current.json` and treats it as generated local runtime
