@@ -1,0 +1,150 @@
+{
+  "schema_version": "diagnostics.policy.v0",
+  "id": "standard-diagnostics",
+  "description": "Read-only diagnostic pulse, storage, and retention policy for the first Agent OS standard baseline.",
+  "profile_id": "thought-core-v0-compat",
+  "driver_manifest": "manifests/drivers/standard.json",
+  "safety": {
+    "read_only": true,
+    "may_execute_actions": false,
+    "may_start_processes": false,
+    "may_stop_processes": false,
+    "may_delete_memory": false,
+    "may_print_secrets": false
+  },
+  "tiers": [
+    {
+      "tier": "instant",
+      "initial_interval_seconds": 1,
+      "purpose": "Read already materialized counters, timestamps, and driver cache.",
+      "status_store_policy": "overwrite_latest",
+      "event_journal_policy": "append_only_state_change_warning_recovery_stale_or_sampled_heartbeat"
+    },
+    {
+      "tier": "light",
+      "initial_interval_seconds": 3,
+      "purpose": "Read cheap local state such as PID records, port listeners, and status files.",
+      "status_store_policy": "overwrite_latest",
+      "event_journal_policy": "append_only_state_change_warning_recovery_stale_or_sampled_heartbeat"
+    },
+    {
+      "tier": "standard",
+      "initial_interval_seconds": 15,
+      "purpose": "Probe routine health endpoints and WebSocket handshakes.",
+      "status_store_policy": "overwrite_latest",
+      "event_journal_policy": "append_only_state_change_warning_recovery_stale_or_sampled_heartbeat"
+    },
+    {
+      "tier": "snapshot",
+      "initial_interval_seconds": 180,
+      "purpose": "Refresh heavier state such as topology, local assets, entity summaries, and readiness summaries.",
+      "status_store_policy": "overwrite_latest",
+      "event_journal_policy": "append_snapshot_digest_and_state_change_only"
+    },
+    {
+      "tier": "deep",
+      "initial_interval_seconds": null,
+      "purpose": "Run expensive checks such as real hardware E2E, full smoke, remote verification, and TOE expansion.",
+      "status_store_policy": "update_when_requested",
+      "event_journal_policy": "append_deep_check_summary_and_evidence_reference"
+    }
+  ],
+  "stores": {
+    "status_store": {
+      "path": ".cache/agent-os/status/current.json",
+      "mode": "overwrite_latest",
+      "target_max_bytes": 1048576
+    },
+    "topology_store": {
+      "path": ".cache/agent-os/status/topology.json",
+      "mode": "overwrite_latest",
+      "target_max_bytes": 5242880
+    },
+    "event_journal": {
+      "path_pattern": ".cache/agent-os/events/events-%Y-%m-%d.jsonl",
+      "mode": "append_normalized_events",
+      "retention_days": 30,
+      "rotation": "daily",
+      "compression": "compress_after_rotation",
+      "target_max_uncompressed_bytes_per_day": 314572800,
+      "normal_success_heartbeat_seconds": 900,
+      "append_policy": "Do not append every successful routine pulse. Append changes, warnings, recoveries, stale transitions, blocked transitions, and sampled heartbeats."
+    },
+    "snapshots": {
+      "path_pattern": ".cache/agent-os/snapshots/%Y-%m-%d/%H%M%S.json",
+      "mode": "append_snapshot_or_digest",
+      "retention_days": 7,
+      "target_max_uncompressed_bytes_per_day": 104857600,
+      "compaction": "keep full recent snapshots; compact or thin older snapshots when implemented"
+    },
+    "evidence": {
+      "path_pattern": ".cache/agent-os/evidence/%Y-%m-%d/",
+      "mode": "append_referenced_evidence",
+      "retention_days": 30,
+      "max_total_bytes": 5368709120,
+      "cap_priority": "max_total_bytes_before_age",
+      "allowed_content": [
+        "redacted summaries",
+        "small structured evidence",
+        "references to module-owned logs",
+        "manual deep-check logs"
+      ],
+      "prohibited_routine_content": [
+        "raw camera frames",
+        "raw vision images",
+        "generated audio or video media",
+        "unredacted secrets",
+        "full module logs copied on every pulse"
+      ]
+    }
+  },
+  "observation_envelope": {
+    "required_fields": [
+      "observation_id",
+      "driver_id",
+      "observed_at",
+      "received_at",
+      "tier",
+      "source",
+      "state",
+      "freshness",
+      "confidence",
+      "summary"
+    ],
+    "recommended_fields": [
+      "service_id",
+      "organ_id",
+      "capability",
+      "source_emitted_at",
+      "stale_after_seconds",
+      "evidence_ref",
+      "sequence"
+    ],
+    "state_values": [
+      "available",
+      "degraded",
+      "unavailable",
+      "blocked",
+      "unknown"
+    ],
+    "freshness_values": [
+      "fresh",
+      "stale",
+      "missing",
+      "unknown"
+    ]
+  },
+  "freshness_policy": {
+    "state_and_freshness_are_separate": true,
+    "do_not_show_stale_available_as_currently_available": true,
+    "missing_required_evidence_state": "unknown",
+    "missing_required_evidence_freshness": "missing"
+  },
+  "viewer_policy": {
+    "read_only": true,
+    "preferred_update_mode": "delta_stream_or_versioned_poll",
+    "avoid_full_status_poll_when_unchanged": true,
+    "default_poll_seconds_when_no_stream": 1
+  }
+}
+

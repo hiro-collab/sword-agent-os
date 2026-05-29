@@ -3,6 +3,24 @@
 Status store holds current runtime projections. It is for latest state, not
 historical truth.
 
+## Latest-State Policy
+
+Status store is the hot path for diagnostics viewers and other local readers.
+Routine diagnostic pulses should overwrite the latest projection rather than
+append history here.
+
+Every projected observation should keep state separate from freshness:
+
+- `state`: `available`, `degraded`, `unavailable`, `blocked`, or `unknown`.
+- `freshness`: `fresh`, `stale`, `missing`, or `unknown`.
+
+A stale `available` observation must not be displayed as currently available.
+Readers should use `observed_at`, `received_at`, and `stale_after_seconds` to
+decide whether a status is fresh enough for the current view.
+
+The first target size for `status-store/current.json` is under 1 MB. Heavier
+details should be represented as evidence references, not embedded payloads.
+
 ## Health Projection
 
 Status projections should keep OS boot health separate from body capability

@@ -16,6 +16,8 @@
     "status-store",
     "process-registry",
     "event-journal",
+    "diagnostic-scheduler",
+    "organ-drivers",
     "communication-governance",
     "memory-core",
     "approval-queue"

@@ -1,0 +1,362 @@
+{
+  "schema_version": "organ-drivers.v0",
+  "id": "standard-organ-drivers",
+  "description": "Read-only driver contracts for observing current Agent OS organ services and normalizing their evidence.",
+  "profile_id": "thought-core-v0-compat",
+  "service_manifest": "manifests/services/thought-core-v0-compat.json",
+  "diagnostic_policy": "manifests/diagnostics/standard.json",
+  "driver_contract": {
+    "default_safety": {
+      "read_only": true,
+      "may_execute_actions": false,
+      "may_start_processes": false,
+      "may_stop_processes": false,
+      "may_delete_memory": false,
+      "may_print_secrets": false
+    },
+    "tiers": [
+      "instant",
+      "light",
+      "standard",
+      "snapshot",
+      "deep"
+    ],
+    "output_types": [
+      "topology_observation",
+      "capability_evidence",
+      "event_projection",
+      "health_evidence"
+    ],
+    "capability_states": [
+      "available",
+      "degraded",
+      "unavailable",
+      "blocked",
+      "unknown"
+    ],
+    "missing_evidence_policy": "Do not report a capability as available when fresh required evidence is missing."
+  },
+  "generic_drivers": [
+    {
+      "driver_id": "generic-process-port",
+      "driver_class": "generic",
+      "tiers": [
+        "light"
+      ],
+      "outputs": [
+        "topology_observation",
+        "health_evidence"
+      ],
+      "reads": [
+        "process table",
+        "TCP listener table",
+        "stack PID records"
+      ],
+      "notes": "Identifies process and port evidence without stopping unowned processes."
+    },
+    {
+      "driver_id": "generic-http-health",
+      "driver_class": "generic",
+      "tiers": [
+        "standard"
+      ],
+      "outputs": [
+        "health_evidence"
+      ],
+      "reads": [
+        "HTTP health endpoints"
+      ],
+      "notes": "Treats HTTP 200 with unhealthy health payload as degraded, not healthy."
+    },
+    {
+      "driver_id": "generic-websocket-health",
+      "driver_class": "generic",
+      "tiers": [
+        "standard"
+      ],
+      "outputs": [
+        "health_evidence"
+      ],
+      "reads": [
+        "WebSocket handshake endpoints"
+      ],
+      "notes": "Requires an actual WebSocket handshake rather than TCP port openness."
+    },
+    {
+      "driver_id": "generic-jsonl-event-tail",
+      "driver_class": "generic",
+      "tiers": [
+        "instant",
+        "light"
+      ],
+      "outputs": [
+        "event_projection"
+      ],
+      "reads": [
+        "JSONL event files",
+        "audit JSONL files"
+      ],
+      "notes": "Tails recent append-only events and projects them into a common summary shape."
+    },
+    {
+      "driver_id": "generic-git-checkout",
+      "driver_class": "generic",
+      "tiers": [
+        "snapshot",
+        "deep"
+      ],
+      "outputs": [
+        "topology_observation",
+        "capability_evidence"
+      ],
+      "reads": [
+        "local git checkout",
+        "remote refs when deep verification is explicitly requested"
+      ],
+      "notes": "Snapshot checks local branch, commit, and dirty state; remote verification is deep."
+    }
+  ],
+  "organ_drivers": [
+    {
+      "driver_id": "home-assistant-bridge-driver",
+      "driver_class": "organ",
+      "organ_id": "home-assistant-server",
+      "target_services": [
+        "home_assistant_bridge"
+      ],
+      "capabilities": [
+        "home_action"
+      ],
+      "composes": [
+        "generic-process-port",
+        "generic-http-health",
+        "generic-jsonl-event-tail"
+      ],
+      "event_sources": [
+        ".cache/home_control/events.jsonl"
+      ],
+      "topology_outputs": [
+        "bridge endpoint",
+        "Home Assistant base URL",
+        "allowlisted action catalog"
+      ],
+      "capability_evidence": [
+        "bridge health ok",
+        "Home Assistant API reachable through bridge",
+        "action catalog present",
+        "approval requirement known for requested action"
+      ],
+      "deep_checks": [
+        "real reversible action E2E such as light_on then light_off, explicit approval required"
+      ]
+    },
+    {
+      "driver_id": "camera-hub-driver",
+      "driver_class": "organ",
+      "organ_id": "mediapipe-sword-sign",
+      "target_services": [
+        "mediapipe_camera_hub_stack"
+      ],
+      "capabilities": [
+        "camera_reflex",
+        "gesture_state"
+      ],
+      "composes": [
+        "generic-process-port",
+        "generic-websocket-health",
+        "generic-git-checkout"
+      ],
+      "event_sources": [
+        ".cache/home-control-stack/mediapipe-status.json"
+      ],
+      "topology_outputs": [
+        "camera hub websocket endpoint",
+        "RTSP/MediaMTX path",
+        "video source mode"
+      ],
+      "capability_evidence": [
+        "camera hub websocket handshake ok",
+        "video source mode known",
+        "gesture model present when gesture classification is expected"
+      ],
+      "deep_checks": [
+        "real camera E2E",
+        "model inference validation"
+      ]
+    },
+    {
+      "driver_id": "environment-state-driver",
+      "driver_class": "organ",
+      "organ_id": "environment-state-server",
+      "target_services": [
+        "environment_state_server"
+      ],
+      "capabilities": [
+        "environment_state"
+      ],
+      "composes": [
+        "generic-process-port",
+        "generic-http-health"
+      ],
+      "event_sources": [
+        ".cache/home-control-stack/feedback",
+        ".cache/environment_state_server"
+      ],
+      "topology_outputs": [
+        "environment health endpoint",
+        "environment current state endpoint"
+      ],
+      "capability_evidence": [
+        "health ok",
+        "state endpoint reachable with configured token when standard probe is allowed"
+      ]
+    },
+    {
+      "driver_id": "vision-snapshot-driver",
+      "driver_class": "organ",
+      "organ_id": "vision-snapshot-processor",
+      "target_services": [
+        "vision_snapshot_processor"
+      ],
+      "capabilities": [
+        "vision_snapshot",
+        "room_light_estimate"
+      ],
+      "composes": [
+        "generic-process-port",
+        "generic-websocket-health"
+      ],
+      "event_sources": [
+        ".cache/home-control-stack/logs"
+      ],
+      "topology_outputs": [
+        "vision websocket endpoint",
+        "camera/reflex topic dependency"
+      ],
+      "capability_evidence": [
+        "websocket handshake ok",
+        "latest snapshot freshness known"
+      ]
+    },
+    {
+      "driver_id": "thought-core-driver",
+      "driver_class": "organ",
+      "organ_id": "sword-voice-agent-control-plane",
+      "target_services": [
+        "thought_core_api",
+        "thought_core_watcher"
+      ],
+      "capabilities": [
+        "minimum_turn_processing",
+        "turn_routing",
+        "expression_forwarding"
+      ],
+      "composes": [
+        "generic-process-port",
+        "generic-http-health",
+        "generic-jsonl-event-tail"
+      ],
+      "event_sources": [
+        ".cache/sword_voice_agent/events.jsonl",
+        ".cache/home-control-stack/thought-core-watcher/events.jsonl"
+      ],
+      "topology_outputs": [
+        "Thought Core API endpoint",
+        "watcher handoff path",
+        "AITuber client forwarding path"
+      ],
+      "capability_evidence": [
+        "deterministic conscious readiness turn ok",
+        "watcher completed turn when watcher capability is checked",
+        "AITuber forward observed when expression path is checked"
+      ]
+    },
+    {
+      "driver_id": "aituber-kit-driver",
+      "driver_class": "organ",
+      "organ_id": "aituber-kit",
+      "target_services": [
+        "aituber_kit"
+      ],
+      "capabilities": [
+        "expression_projection",
+        "conversation_log_projection"
+      ],
+      "composes": [
+        "generic-process-port",
+        "generic-http-health",
+        "generic-jsonl-event-tail"
+      ],
+      "event_sources": [
+        "browser_runtime_state",
+        ".next runtime logs when available"
+      ],
+      "topology_outputs": [
+        "AITuber HTTP endpoint",
+        "direct_send API",
+        "Thought Core chat API",
+        "VRM asset availability"
+      ],
+      "capability_evidence": [
+        "HTTP root responds",
+        "direct_send POST/GET probe ok when standard probe is allowed",
+        "VRM assets present for avatar rendering"
+      ]
+    },
+    {
+      "driver_id": "touchdesigner-control-driver",
+      "driver_class": "organ",
+      "organ_id": "touchdesigner-ai-controller",
+      "target_services": [
+        "touchdesigner_control_gui"
+      ],
+      "capabilities": [
+        "display_projection",
+        "touchdesigner_udp_projection"
+      ],
+      "composes": [
+        "generic-process-port",
+        "generic-http-health"
+      ],
+      "event_sources": [
+        "local display GUI state"
+      ],
+      "topology_outputs": [
+        "control GUI endpoint",
+        "TouchDesigner UDP target",
+        "TOE project path"
+      ],
+      "capability_evidence": [
+        "control GUI HTTP ok",
+        "TOE static inspection snapshot fresh enough",
+        "projector or visual output evidence when display projection is required"
+      ],
+      "deep_checks": [
+        "toeexpand inspection",
+        "projector or visual confirmation"
+      ]
+    },
+    {
+      "driver_id": "diagnostics-view-driver",
+      "driver_class": "organ",
+      "organ_id": "system-house-renderer",
+      "target_services": [],
+      "capabilities": [
+        "diagnostics_view",
+        "topology_rendering"
+      ],
+      "composes": [
+        "generic-git-checkout"
+      ],
+      "event_sources": [],
+      "topology_outputs": [
+        "static viewer output",
+        "future read-only local viewer endpoint"
+      ],
+      "capability_evidence": [
+        "renderer CLI available",
+        "viewer input schema readable"
+      ]
+    }
+  ]
+}

@@ -10,6 +10,9 @@ approval queue.
 - `status-store/`: holds current runtime projections.
 - `process-registry/`: tracks managed runtime processes for lifecycle control.
 - `event-journal/`: stores append-only runtime history after redaction.
+- `diagnostic-scheduler/`: owns read-only observation pulse timing.
+- `organ-drivers/`: translates organ-specific evidence into common status,
+  event, topology, and capability observations.
 - `communication-governance/`: observes and controls organ-to-organ
   communication boundaries.
 - `memory-core/`: owns durable memory semantics and forgetting.
