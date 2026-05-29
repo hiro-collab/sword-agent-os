@@ -74,6 +74,10 @@ gaps, safe check commands, and optional live service health as `pass`,
 `degraded`, `unavailable`, `blocked`, or `not_yet_checked`-compatible
 projection data. These organ results feed `full_conscious_ready` and capability
 details, not the lower boot-health stages by themselves.
+The checker also reports `availability_state` separately from
+`validation_result`: source-reference warnings such as a clean checkout being
+ahead of the manifest can degrade validation while the organ remains
+functionally available.
 
 A standard profile can be healthy while camera, speech, display, Home
 Assistant, TouchDesigner, VOICEVOX, or another external integration is

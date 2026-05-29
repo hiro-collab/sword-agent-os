@@ -480,7 +480,6 @@ foreach ($source in @($organManifest.sources)) {
   }
   elseif ($warnings.Count -gt 0 -or $gaps.Count -gt 0) {
     $validationResult = "degraded"
-    $availabilityState = "degraded"
   }
 
   $ladderLevel = if ($CheckEndpoints -and $serviceHealth.Count -gt 0 -and $impairedServices.Count -eq 0) { 5 } elseif ($checks.Count -gt 1) { 3 } else { 1 }
@@ -527,6 +526,13 @@ $counts = [PSCustomObject]@{
   excluded = $excluded.Count
 }
 
+$availabilityCounts = [PSCustomObject]@{
+  available = @($rows | Where-Object { $_.availability_state -eq "available" }).Count
+  degraded = @($rows | Where-Object { $_.availability_state -eq "degraded" }).Count
+  unavailable = @($rows | Where-Object { $_.availability_state -eq "unavailable" }).Count
+  blocked = @($rows | Where-Object { $_.availability_state -eq "blocked" }).Count
+}
+
 $status = if ($counts.blocked -gt 0) {
   "blocked"
 }
@@ -537,14 +543,29 @@ else {
   "ok"
 }
 
+$availabilityStatus = if ($availabilityCounts.blocked -gt 0) {
+  "blocked"
+}
+elseif ($availabilityCounts.unavailable -gt 0) {
+  "unavailable"
+}
+elseif ($availabilityCounts.degraded -gt 0) {
+  "degraded"
+}
+else {
+  "available"
+}
+
 [PSCustomObject]@{
   status = $status
+  availability_status = $availabilityStatus
   checked_at = (Get-Date).ToString("o")
   check_endpoints = [bool]$CheckEndpoints
   port_mode = if ($UseIsolatedPorts) { "isolated_override" } else { "manifest_default" }
   validation_result_values = @("pass", "degraded", "unavailable", "blocked", "not_yet_checked")
   availability_state_values = @("available", "degraded", "unavailable", "blocked")
   counts = $counts
+  availability_counts = $availabilityCounts
   organs = @($rows)
   excluded = @($excluded)
 } | ConvertTo-Json -Depth 9

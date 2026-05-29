@@ -54,6 +54,10 @@ a real launch. `check-organ-readiness.ps1` projects per-organ validation and
 availability from the selected organ manifest; pass `-CheckEndpoints` to add
 live HTTP/TCP health checks and `-UseIsolatedPorts` when checking a smoke stack
 started on the temporary `188xx` port range.
+It keeps source/manifest validation separate from functional availability:
+local checkouts that are ahead of the manifest remain validation warnings, but
+do not make a live organ unavailable when its required paths and endpoint checks
+are otherwise healthy.
 `run-organ-test-packs.ps1` reads the standard organ test pack manifest and
 runs the safe `auto` checks by default. Add `-Modes auto,replay`, `-Modes
 auto,live -PortMode isolated_override`, or `-Modes auto,manual,deep` to include
