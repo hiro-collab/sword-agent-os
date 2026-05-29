@@ -1,6 +1,9 @@
 param(
   [string]$HostName = "127.0.0.1",
   [int]$Port = 8799,
+  [ValidateSet("", "manifest_default", "isolated_override")]
+  [string]$PortMode = "",
+  [string]$StackStateDir = "",
   [switch]$OpenBrowser,
   [switch]$ReuseExisting
 )
@@ -20,6 +23,12 @@ $arguments = @{
   HostName = $HostName
   Port = $Port
 }
+if (-not [string]::IsNullOrWhiteSpace($PortMode)) {
+  $arguments.PortMode = $PortMode
+}
+if (-not [string]::IsNullOrWhiteSpace($StackStateDir)) {
+  $arguments.StackStateDir = $StackStateDir
+}
 if ($OpenBrowser) {
   $arguments.OpenBrowser = $true
 }
@@ -28,6 +37,6 @@ if ($ReuseExisting) {
 }
 
 & $target @arguments
-if ($LASTEXITCODE -is [int]) {
+if ((Test-Path Variable:LASTEXITCODE) -and $LASTEXITCODE -is [int]) {
   exit $LASTEXITCODE
 }

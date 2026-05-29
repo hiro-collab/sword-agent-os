@@ -89,6 +89,12 @@ Agent OS wrapper so the workspace root is correct:
 .\scripts\start-launcher.ps1 -OpenBrowser
 ```
 
+For the temporary isolated validation stack, run:
+
+```powershell
+.\scripts\start-launcher.ps1 -PortMode isolated_override -StackStateDir .cache\home-control-stack-live -OpenBrowser
+```
+
 or:
 
 ```bat

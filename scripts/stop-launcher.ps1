@@ -26,6 +26,6 @@ if ($Force) {
 }
 
 & $target @arguments
-if ($LASTEXITCODE -is [int]) {
+if ((Test-Path Variable:LASTEXITCODE) -and $LASTEXITCODE -is [int]) {
   exit $LASTEXITCODE
 }
