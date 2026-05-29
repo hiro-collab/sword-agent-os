@@ -87,16 +87,36 @@ function Test-SafeMetricText {
     return $true
   }
   $text = [string]$Value
-  if ($text -match "(?i)(api[_-]?key|access[_-]?token|secret|password|bearer\s+[A-Za-z0-9._-]+)") {
+  if ($text.Length -gt 240) {
     return $false
   }
-  if ($text -match "^[A-Za-z]:\\") {
+  if ($text -match "[\r\n]") {
+    return $false
+  }
+  if ($text -match "(?i)(api[_-]?key|x-api-key|access[_-]?token|refresh[_-]?token|secret|password|passwd|pwd|authorization\s*[:=]|bearer\s+[A-Za-z0-9._-]+)") {
+    return $false
+  }
+  if ($text -match "(?i)(^|[_ -])(system|user|assistant)?[_ -]?prompt\s*[:=]") {
+    return $false
+  }
+  if ($text -match "(^|[:=])[A-Za-z]:[\\/]") {
     return $false
   }
   if ($text -match "\\\\[^\\]+\\") {
     return $false
   }
+  if ($text -match "(^|[:=])(/Users/|/home/|/mnt/|/var/|/tmp/|/etc/|~[\\/]|\.{1,2}[\\/])") {
+    return $false
+  }
+  if ($text -match "(?i)(^|[\\/:=])[^\\/:=]+\.(mp4|mov|avi|mkv|webm|jpg|jpeg|png|gif|bmp|webp|heic|svg|wav|mp3|flac|ogg|log|jsonl|pcap|har)(\b|$)") {
+    return $false
+  }
   return $true
+}
+
+function Test-EvidenceRefShape {
+  param([Parameter(Mandatory = $true)][string]$Ref)
+  return $Ref -match "^(event|snapshot|turn|action):[A-Za-z0-9_.-]+$"
 }
 
 function Test-MetricRecord {
@@ -145,6 +165,9 @@ function Test-MetricRecord {
   foreach ($ref in ConvertTo-StringArray -Value (Get-OptionalProperty -Object $Metric -Name "evidence_refs" -Default @())) {
     if ($ref -notmatch "^(event|snapshot|turn|action):") {
       Add-Issue -Issues $Issues -Severity "error" -Code "metric.invalid_evidence_ref" -Subject $subject -Message "evidence_ref must start with event:, snapshot:, turn:, or action:: $ref"
+    }
+    elseif (-not (Test-EvidenceRefShape -Ref $ref)) {
+      Add-Issue -Issues $Issues -Severity "error" -Code "metric.invalid_evidence_ref_shape" -Subject $subject -Message "evidence_ref must use an allowed prefix plus a compact id made from letters, numbers, dot, underscore, or dash: $ref"
     }
     if (-not (Test-SafeMetricText -Value $ref)) {
       Add-Issue -Issues $Issues -Severity "error" -Code "metric.unsafe_evidence_ref" -Subject $subject -Message "evidence_ref appears to contain a secret, raw credential, or local path"
