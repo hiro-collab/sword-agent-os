@@ -43,6 +43,7 @@ Run these before claiming the monitoring layer is healthy:
 .\scripts\validate-manifests.ps1
 .\scripts\update-diagnostics-status.ps1 -ManifestOnly -NoJournal
 .\scripts\check-neural-monitoring-contract.ps1
+.\scripts\run-organ-test-packs.ps1
 ```
 
 When the stack is live, run the same checks without `-ManifestOnly`. Use the
@@ -61,6 +62,7 @@ make browser monitors appear to connect and disconnect.
 | Reversible home action | deep/manual | Action boundary emits preview/execute decision; Home Assistant bridge executes or dry-runs; environment/vision feedback is recorded. |
 | Gesture reflex route | deep/manual or replay | MediaPipe detects gesture, reflex state is visible, and projection visual/input affordance reacts as autonomic behavior. |
 | Metric record validation | standard/snapshot | `check-neural-monitoring-contract.ps1` passes with current metrics in topology. |
+| Organ test pack validation | standard/deep | `run-organ-test-packs.ps1` runs selected pack modes and reports `pass`, `blocked`, `manual`, or `skipped` without treating missing hardware as a contract failure. |
 | Event journal placement | standard/snapshot | Routine success overwrites current status; only changes, warnings, recoveries, stale transitions, conflict, blocked/degraded, or sampled heartbeat append. |
 | Security/data safety | standard/deep | Metric records and journal entries do not embed secrets, raw media, full logs, prompts, or private paths. |
 

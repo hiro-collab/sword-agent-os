@@ -28,6 +28,7 @@ the legacy profile name `thought-core-v0`:
 .\scripts\check-conscious-readiness.ps1
 .\scripts\check-organ-readiness.ps1
 .\scripts\check-launch-readiness.ps1
+.\scripts\run-organ-test-packs.ps1
 .\scripts\start-launcher.ps1 -OpenBrowser
 .\scripts\prepare-compat-launch.ps1 -ImportLocalConfig
 .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts
@@ -53,6 +54,11 @@ a real launch. `check-organ-readiness.ps1` projects per-organ validation and
 availability from the selected organ manifest; pass `-CheckEndpoints` to add
 live HTTP/TCP health checks and `-UseIsolatedPorts` when checking a smoke stack
 started on the temporary `188xx` port range.
+`run-organ-test-packs.ps1` reads the standard organ test pack manifest and
+runs the safe `auto` checks by default. Add `-Modes auto,replay`, `-Modes
+auto,live -PortMode isolated_override`, or `-Modes auto,manual,deep` to include
+fixture, live-service, manual, or deeper checks; side-effecting live actions
+remain gated behind `-AllowSideEffects`.
 `prepare-compat-launch.ps1` creates ignored compatibility layout aliases and
 can import local-only config/env files from the legacy workspace without
 printing secret values. It also imports the local MediaPipe gesture model into

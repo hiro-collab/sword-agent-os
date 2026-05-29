@@ -37,6 +37,7 @@ $authorityManifest = Read-Json -Path (Resolve-ManifestPath "manifests/authoritie
 $memoryStewardshipPolicy = Read-Json -Path (Resolve-ManifestPath "policies/data-safety/memory-stewardship.json")
 $driverManifest = Read-Json -Path (Resolve-ManifestPath "manifests/drivers/standard.json")
 $diagnosticPolicy = Read-Json -Path (Resolve-ManifestPath "manifests/diagnostics/standard.json")
+$organTestPacks = Read-Json -Path (Resolve-ManifestPath "manifests/tests/organ-test-packs/standard.json")
 
 $runtimeDirs = @(
   "runtime/routers/turn-router",
@@ -45,6 +46,7 @@ $runtimeDirs = @(
   "runtime/event-journal",
   "runtime/diagnostic-scheduler",
   "runtime/organ-drivers",
+  "runtime/organ-test-packs",
   "runtime/communication-governance",
   "runtime/memory-core",
   "runtime/approval-queue"
@@ -139,6 +141,10 @@ Assert-True ([string]$driverManifest.service_manifest -eq [string]$compatProfile
 Assert-True ([string]$driverManifest.diagnostic_policy -eq "manifests/diagnostics/standard.json") "driver manifest must reference standard diagnostics policy"
 Assert-True ([string]$diagnosticPolicy.profile_id -eq [string]$compatProfile.id) "diagnostic policy profile_id must match compat profile id"
 Assert-True ([string]$diagnosticPolicy.driver_manifest -eq "manifests/drivers/standard.json") "diagnostic policy must reference standard driver manifest"
+Assert-True ([string]$organTestPacks.schema_version -eq "organ-test-packs.v0") "organ test packs schema_version must be organ-test-packs.v0"
+Assert-True ([string]$organTestPacks.profile_id -eq [string]$compatProfile.id) "organ test packs profile_id must match compat profile id"
+Assert-True ([string]$organTestPacks.service_manifest -eq [string]$compatProfile.service_manifest) "organ test packs must reference compat service manifest"
+Assert-True ([string]$organTestPacks.driver_manifest -eq "manifests/drivers/standard.json") "organ test packs must reference standard driver manifest"
 Assert-True ([bool]$driverManifest.driver_contract.default_safety.read_only) "driver default safety must be read-only"
 Assert-True (-not [bool]$driverManifest.driver_contract.default_safety.may_execute_actions) "diagnostic drivers must not execute actions"
 Assert-True (-not [bool]$driverManifest.driver_contract.default_safety.may_stop_processes) "diagnostic drivers must not stop processes"
@@ -210,6 +216,43 @@ foreach ($organDriver in $driverManifest.organ_drivers) {
   Assert-True (@($organDriver.capabilities).Count -gt 0) "organ driver $($organDriver.driver_id) must declare capabilities"
 }
 
+$validTestModes = @("auto", "replay", "live", "manual", "deep")
+$validTestTypes = @("path_exists", "diagnostics_service", "diagnostics_capability", "http_health", "websocket_health", "replay_fixture", "side_effect_gate", "manual_check", "command")
+$declaredCapabilities = @($driverManifest.organ_drivers | ForEach-Object { $_.capabilities } | ForEach-Object { [string]$_ })
+$testIds = @()
+Assert-True (@($organTestPacks.packs).Count -ge 8) "organ test packs should cover the selected standard organs"
+foreach ($pack in @($organTestPacks.packs)) {
+  $packOrganId = [string]$pack.organ_id
+  Assert-True (-not [string]::IsNullOrWhiteSpace($packOrganId)) "organ test pack missing organ_id"
+  Assert-True (@($pack.tests).Count -gt 0) "organ test pack $packOrganId must declare tests"
+  foreach ($serviceId in @($pack.service_ids | ForEach-Object { [string]$_ })) {
+    Assert-True ($serviceId -in $serviceIds) "organ test pack $packOrganId references unknown service: $serviceId"
+  }
+  foreach ($capability in @($pack.capabilities | ForEach-Object { [string]$_ })) {
+    Assert-True ($capability -in $declaredCapabilities) "organ test pack $packOrganId references unknown capability: $capability"
+  }
+  foreach ($test in @($pack.tests)) {
+    $testId = [string]$test.id
+    Assert-True (-not [string]::IsNullOrWhiteSpace($testId)) "organ test pack $packOrganId has test missing id"
+    $testIds += $testId
+    Assert-True ([string]$test.mode -in $validTestModes) "organ test $testId has invalid mode: $($test.mode)"
+    Assert-True ([string]$test.type -in $validTestTypes) "organ test $testId has invalid type: $($test.type)"
+    if ([string]$test.type -in @("diagnostics_service", "http_health", "websocket_health")) {
+      Assert-True ([string]$test.service_id -in $serviceIds) "organ test $testId references unknown service: $($test.service_id)"
+    }
+    if ([string]$test.type -eq "diagnostics_capability") {
+      Assert-True ([string]$test.capability -in $declaredCapabilities) "organ test $testId references unknown capability: $($test.capability)"
+    }
+    if ([string]$test.type -eq "path_exists" -and $null -ne $test.PSObject.Properties["missing_result"]) {
+      Assert-True ([string]$test.missing_result -in @("fail", "blocked")) "organ test $testId has invalid missing_result: $($test.missing_result)"
+    }
+    if ([string]$test.type -eq "side_effect_gate") {
+      Assert-True ([bool]$test.requires_side_effect_permission) "side-effect test $testId must require side-effect permission"
+    }
+  }
+}
+Assert-True (($testIds | Select-Object -Unique).Count -eq $testIds.Count) "organ test ids must be unique"
+
 foreach ($source in $organManifest.sources) {
   Assert-True (-not [string]::IsNullOrWhiteSpace([string]$source.repo_url)) "organ $($source.organ_id) missing repo_url"
   Assert-True (-not [string]::IsNullOrWhiteSpace([string]$source.branch)) "organ $($source.organ_id) missing branch"
@@ -231,7 +274,9 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/update-diagnos
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/read-diagnostics-status.ps1") -PathType Leaf) "diagnostics status reader missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/watch-diagnostics-status.ps1") -PathType Leaf) "diagnostics status watcher missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-neural-monitoring-contract.ps1") -PathType Leaf) "neural monitoring contract checker missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-organ-test-packs.ps1") -PathType Leaf) "organ test pack runner missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/diagnostic-scheduler/neural-monitoring-test-plan.v0.md") -PathType Leaf) "neural monitoring test plan missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/organ-test-packs/README.md") -PathType Leaf) "organ test pack runtime README missing"
 
 foreach ($candidate in $recoveryCandidates.candidates) {
   Assert-True (-not [string]::IsNullOrWhiteSpace([string]$candidate.repo_url)) "recovery candidate $($candidate.id) missing repo_url"

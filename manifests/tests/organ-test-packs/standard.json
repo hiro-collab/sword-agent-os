@@ -1,0 +1,383 @@
+{
+  "schema_version": "organ-test-packs.v0",
+  "id": "standard-organ-test-packs",
+  "profile_id": "thought-core-v0-compat",
+  "description": "Initial black-box test packs for the selected Agent OS standard cell organs.",
+  "service_manifest": "manifests/services/thought-core-v0-compat.json",
+  "driver_manifest": "manifests/drivers/standard.json",
+  "default_modes": ["auto"],
+  "safety": {
+    "default_read_only": true,
+    "side_effects_require_explicit_flag": true,
+    "do_not_commit_replay_media": true,
+    "routine_records_must_not_embed_raw_media": true
+  },
+  "result_values": ["pass", "fail", "blocked", "manual", "skipped"],
+  "packs": [
+    {
+      "organ_id": "home-assistant-server",
+      "role": "action/home-control",
+      "service_ids": ["home_assistant_bridge"],
+      "capabilities": ["home_action"],
+      "tests": [
+        {
+          "id": "home_assistant_bridge.checkout",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/action/home-assistant-server",
+          "expect": "exists"
+        },
+        {
+          "id": "home_assistant_bridge.diagnostics_service",
+          "mode": "auto",
+          "type": "diagnostics_service",
+          "service_id": "home_assistant_bridge",
+          "expect": "present"
+        },
+        {
+          "id": "home_assistant_bridge.home_action_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "home_action",
+          "expect": "present"
+        },
+        {
+          "id": "home_assistant_bridge.health_live",
+          "mode": "live",
+          "type": "http_health",
+          "service_id": "home_assistant_bridge",
+          "expect": "http_2xx"
+        },
+        {
+          "id": "home_assistant_bridge.reversible_light_action",
+          "mode": "live",
+          "type": "side_effect_gate",
+          "requires_side_effect_permission": true,
+          "instructions": "Run an allowlisted reversible light on/off action through the bridge and compare Home Assistant/environment feedback."
+        }
+      ]
+    },
+    {
+      "organ_id": "environment-state-server",
+      "role": "environment/state",
+      "service_ids": ["environment_state_server"],
+      "capabilities": ["environment_state"],
+      "tests": [
+        {
+          "id": "environment_state_server.checkout",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/environment/environment-state-server",
+          "expect": "exists"
+        },
+        {
+          "id": "environment_state_server.diagnostics_service",
+          "mode": "auto",
+          "type": "diagnostics_service",
+          "service_id": "environment_state_server",
+          "expect": "present"
+        },
+        {
+          "id": "environment_state_server.environment_state_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "environment_state",
+          "expect": "present"
+        },
+        {
+          "id": "environment_state_server.health_live",
+          "mode": "live",
+          "type": "http_health",
+          "service_id": "environment_state_server",
+          "expect": "http_2xx"
+        },
+        {
+          "id": "environment_state_server.source_separation_manual",
+          "mode": "manual",
+          "type": "manual_check",
+          "instructions": "Confirm Home Assistant-derived state and camera/vision-derived state remain distinguishable in environment projections."
+        }
+      ]
+    },
+    {
+      "organ_id": "mediapipe-sword-sign",
+      "role": "reflex/camera-gesture",
+      "service_ids": ["mediapipe_camera_hub_stack"],
+      "capabilities": ["camera_reflex", "gesture_state"],
+      "tests": [
+        {
+          "id": "mediapipe_camera_hub.checkout",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/reflex/mediapipe-sword-sign",
+          "expect": "exists"
+        },
+        {
+          "id": "mediapipe_camera_hub.diagnostics_service",
+          "mode": "auto",
+          "type": "diagnostics_service",
+          "service_id": "mediapipe_camera_hub_stack",
+          "expect": "present"
+        },
+        {
+          "id": "mediapipe_camera_hub.camera_reflex_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "camera_reflex",
+          "expect": "present"
+        },
+        {
+          "id": "mediapipe_camera_hub.gesture_state_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "gesture_state",
+          "expect": "present"
+        },
+        {
+          "id": "mediapipe_camera_hub.hand_movie_replay_fixture",
+          "mode": "replay",
+          "type": "replay_fixture",
+          "fixture_candidates": [
+            "hand_movie.mp4",
+            ".cache/agent-os/fixtures/hand_movie.mp4",
+            "../hand_movie.mp4"
+          ],
+          "evidence_policy": "Use filename-only labels, counts, summaries, and typed evidence refs. Do not commit raw video or frames."
+        },
+        {
+          "id": "mediapipe_camera_hub.websocket_live",
+          "mode": "live",
+          "type": "websocket_health",
+          "service_id": "mediapipe_camera_hub_stack",
+          "expect": "connects"
+        }
+      ]
+    },
+    {
+      "organ_id": "vision-snapshot-processor",
+      "role": "environment/vision",
+      "service_ids": ["vision_snapshot_processor"],
+      "capabilities": ["vision_snapshot", "room_light_estimate"],
+      "tests": [
+        {
+          "id": "vision_snapshot_processor.checkout",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/environment/vision-snapshot-processor",
+          "expect": "exists"
+        },
+        {
+          "id": "vision_snapshot_processor.diagnostics_service",
+          "mode": "auto",
+          "type": "diagnostics_service",
+          "service_id": "vision_snapshot_processor",
+          "expect": "present"
+        },
+        {
+          "id": "vision_snapshot_processor.vision_snapshot_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "vision_snapshot",
+          "expect": "present"
+        },
+        {
+          "id": "vision_snapshot_processor.room_light_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "room_light_estimate",
+          "expect": "present"
+        },
+        {
+          "id": "vision_snapshot_processor.websocket_live",
+          "mode": "live",
+          "type": "websocket_health",
+          "service_id": "vision_snapshot_processor",
+          "expect": "connects"
+        }
+      ]
+    },
+    {
+      "organ_id": "sword-voice-agent-control-plane",
+      "role": "thought-core/control-plane",
+      "service_ids": ["thought_core_api", "thought_core_watcher"],
+      "capabilities": ["minimum_turn_processing", "turn_routing", "expression_forwarding"],
+      "tests": [
+        {
+          "id": "thought_core_api.checkout",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "control-plane/sword-voice-agent",
+          "expect": "exists"
+        },
+        {
+          "id": "thought_core_api.diagnostics_service",
+          "mode": "auto",
+          "type": "diagnostics_service",
+          "service_id": "thought_core_api",
+          "expect": "present"
+        },
+        {
+          "id": "thought_core_watcher.diagnostics_service",
+          "mode": "auto",
+          "type": "diagnostics_service",
+          "service_id": "thought_core_watcher",
+          "expect": "present"
+        },
+        {
+          "id": "thought_core_api.minimum_turn_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "minimum_turn_processing",
+          "expect": "present"
+        },
+        {
+          "id": "thought_core_api.conscious_readiness",
+          "mode": "deep",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/check-conscious-readiness.ps1"
+          ],
+          "expect_exit_code": 0
+        },
+        {
+          "id": "thought_core_api.issue_ticket_loop_manual",
+          "mode": "manual",
+          "type": "manual_check",
+          "instructions": "Run repeated turns for the same unresolved issue and confirm the same issue ticket id can span turns."
+        }
+      ]
+    },
+    {
+      "organ_id": "aituber-kit",
+      "role": "expression/runtime",
+      "service_ids": ["aituber_kit"],
+      "capabilities": ["expression_projection", "conversation_log_projection"],
+      "tests": [
+        {
+          "id": "aituber_kit.checkout",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/expression/aituber-kit",
+          "expect": "exists"
+        },
+        {
+          "id": "aituber_kit.vrm_dir",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/expression/aituber-kit/public/vrm",
+          "missing_result": "blocked",
+          "expect": "exists"
+        },
+        {
+          "id": "aituber_kit.diagnostics_service",
+          "mode": "auto",
+          "type": "diagnostics_service",
+          "service_id": "aituber_kit",
+          "expect": "present"
+        },
+        {
+          "id": "aituber_kit.expression_projection_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "expression_projection",
+          "expect": "present"
+        },
+        {
+          "id": "aituber_kit.http_live",
+          "mode": "live",
+          "type": "http_health",
+          "service_id": "aituber_kit",
+          "expect": "http_2xx"
+        },
+        {
+          "id": "aituber_kit.projection_visual_manual",
+          "mode": "manual",
+          "type": "manual_check",
+          "instructions": "Confirm VRM renders, Projection Visual shows reflex/environment context, and gesture-triggered mic activation is represented as system-autonomic/reflex behavior."
+        }
+      ]
+    },
+    {
+      "organ_id": "touchdesigner-ai-controller",
+      "role": "display/projection",
+      "service_ids": ["touchdesigner_control_gui"],
+      "capabilities": ["display_projection", "touchdesigner_udp_projection"],
+      "tests": [
+        {
+          "id": "display_runtime.checkout",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/display/touchdesigner-ai-controller",
+          "expect": "exists"
+        },
+        {
+          "id": "display_runtime.diagnostics_service",
+          "mode": "auto",
+          "type": "diagnostics_service",
+          "service_id": "touchdesigner_control_gui",
+          "expect": "present"
+        },
+        {
+          "id": "display_runtime.display_projection_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "display_projection",
+          "expect": "present"
+        },
+        {
+          "id": "display_runtime.http_live",
+          "mode": "live",
+          "type": "http_health",
+          "service_id": "touchdesigner_control_gui",
+          "expect": "http_2xx"
+        },
+        {
+          "id": "display_runtime.projection_manual",
+          "mode": "manual",
+          "type": "manual_check",
+          "instructions": "Confirm Display Runtime GUI status and TouchDesigner/projector behavior when hardware is available."
+        }
+      ]
+    },
+    {
+      "organ_id": "system-house-renderer",
+      "role": "diagnostics/topology-view",
+      "service_ids": [],
+      "capabilities": ["diagnostics_view", "topology_rendering"],
+      "tests": [
+        {
+          "id": "system_house_renderer.checkout",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/diagnostics/system-house-renderer",
+          "expect": "exists"
+        },
+        {
+          "id": "system_house_renderer.diagnostics_view_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "diagnostics_view",
+          "expect": "present"
+        },
+        {
+          "id": "system_house_renderer.topology_rendering_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "topology_rendering",
+          "expect": "present"
+        },
+        {
+          "id": "system_house_renderer.viewer_manual",
+          "mode": "manual",
+          "type": "manual_check",
+          "instructions": "Confirm topology/status viewer can display the current system shape read-only."
+        }
+      ]
+    }
+  ]
+}

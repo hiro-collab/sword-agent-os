@@ -13,6 +13,8 @@ approval queue.
 - `diagnostic-scheduler/`: owns read-only observation pulse timing.
 - `organ-drivers/`: translates organ-specific evidence into common status,
   event, topology, and capability observations.
+- `organ-test-packs/`: defines how organ capability tests are declared and
+  executed without embedding organ internals into the OS core.
 - `communication-governance/`: observes and controls organ-to-organ
   communication boundaries.
 - `memory-core/`: owns durable memory semantics and forgetting.
