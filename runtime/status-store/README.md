@@ -23,6 +23,11 @@ is required.
 path. `full_conscious_ready` can project configured external model/API access
 and broader integration checks.
 
+The first `conscious_ready` implementation is
+`scripts/check-conscious-readiness.ps1`, which delegates to the Thought Core
+readiness turn and validates the required event stream without external LLM/API
+access.
+
 A standard profile can be healthy while camera, speech, display, Home
 Assistant, TouchDesigner, VOICEVOX, or another external integration is
 unavailable. Those states should appear as capability details, not as whole-OS

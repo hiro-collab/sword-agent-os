@@ -37,6 +37,11 @@ devices, display targets, and home devices belong to `full_conscious_ready` or
 profile-specific smoke/E2E checks unless a deployment explicitly marks them
 boot-critical.
 
+The initial `conscious_ready` probe is
+`scripts/check-conscious-readiness.ps1`. It calls the Thought Core deterministic
+readiness turn and requires `assistant.message` plus `turn.completed` without
+using external LLM/API access.
+
 `full_conscious_ready` may be too heavy for every routine status check, but it
 is expected to be useful during initial migration, hardware bring-up, and
 regression checks of the full configured stack.
