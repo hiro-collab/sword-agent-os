@@ -10,13 +10,18 @@ availability.
 
 - Boot health reports whether boot-critical runtime services, the basic runtime
   reflex, and the minimum turn-processing path are usable.
-- Startup stage reports `nonresponsive`, `reflex_alive`, or `conscious_ready`.
+- Startup stage reports `nonresponsive`, `reflex_alive`, `conscious_ready`, or
+  `full_conscious_ready`.
 - Capability availability reports whether a specific organ service ability is
   `available`, `blocked`, `unavailable`, or `degraded`.
 
 The first `reflex_alive` implementation is `scripts/check-runtime-reflex.ps1`.
 It returns JSON suitable for status projection before full Thought Core startup
 is required.
+
+`conscious_ready` should project a deterministic no-external-API minimum turn
+path. `full_conscious_ready` can project configured external model/API access
+and broader integration checks.
 
 A standard profile can be healthy while camera, speech, display, Home
 Assistant, TouchDesigner, VOICEVOX, or another external integration is

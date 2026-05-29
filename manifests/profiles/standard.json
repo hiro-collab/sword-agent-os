@@ -32,7 +32,11 @@
       },
       {
         "stage": "conscious_ready",
-        "meaning": "The OS can process a minimum text turn, return Thought Core response events, and project the result into status and event history."
+        "meaning": "The OS can process a deterministic minimum text turn without requiring external AI/API access, return response events, and project the result into status and event history."
+      },
+      {
+        "stage": "full_conscious_ready",
+        "meaning": "The OS can complete the configured full turn path with external AI/API access and expected integration surfaces such as expression forwarding or compatibility E2E probes."
       }
     ],
     "boot_critical_runtime": [
@@ -50,6 +54,11 @@
     ],
     "minimum_alive_stage": "reflex_alive",
     "minimum_ready_stage": "conscious_ready",
+    "full_ready_stage": "full_conscious_ready",
+    "readiness_policy": {
+      "conscious_ready": "Must be testable without external LLM/API access, network-dependent model calls, audio devices, display targets, or home devices.",
+      "full_conscious_ready": "May depend on configured secrets, external LLM/API access, network state, and optional organ service integrations."
+    },
     "standard_capabilities": [
       "speech-input",
       "reflex",

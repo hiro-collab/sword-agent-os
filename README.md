@@ -65,4 +65,6 @@ was observed, then restores the previous handoff cache. The smoke runner passes
 a longer watcher-to-AITuber HTTP timeout by default; override it with
 `-WatcherAituberHttpTimeoutSeconds` when needed. Add
 `-RequireWatcherAituberForward` when the AITuber forwarding path should be a hard
-smoke-test requirement.
+smoke-test requirement. These compatibility smoke checks belong to
+`full_conscious_ready`; the lower `conscious_ready` stage should be testable
+without external AI/API access or optional organ service integrations.

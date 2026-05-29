@@ -70,6 +70,12 @@ Assert-True ("minimum_turn_processing" -in @($standardProfile.health_model.boot_
 Assert-True ("basic_runtime_reflex" -in @($standardProfile.health_model.boot_critical_capabilities)) "standard profile must keep basic_runtime_reflex boot-critical"
 Assert-True ([string]$standardProfile.health_model.minimum_alive_stage -eq "reflex_alive") "standard profile minimum alive stage should be reflex_alive"
 Assert-True ([string]$standardProfile.health_model.minimum_ready_stage -eq "conscious_ready") "standard profile minimum ready stage should be conscious_ready"
+Assert-True ([string]$standardProfile.health_model.full_ready_stage -eq "full_conscious_ready") "standard profile full ready stage should be full_conscious_ready"
+
+$startupStages = @($standardProfile.health_model.startup_stages | ForEach-Object { [string]$_.stage })
+foreach ($stage in @("nonresponsive", "reflex_alive", "conscious_ready", "full_conscious_ready")) {
+  Assert-True ($stage -in $startupStages) "standard profile missing startup stage: $stage"
+}
 
 Assert-True ($compatProfile.required_services.Count -eq 8) "thought-core-v0-compat should require 8 services"
 Assert-True ($serviceManifest.services.Count -eq 8) "thought-core-v0-compat service inventory should define 8 services"
