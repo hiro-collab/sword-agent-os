@@ -10,6 +10,10 @@ param(
   [int]$AituberPort = 3000,
   [int]$TouchDesignerGuiPort = 8788,
   [int]$ThoughtCorePort = 18787,
+  [int]$MediapipeReadyTimeoutSeconds = 90,
+  [ValidateSet("dshow", "testsrc")]
+  [string]$MediapipeVideoSource = "dshow",
+  [double]$WatcherAituberHttpTimeoutSeconds = 5.0,
   [int]$TimeoutMs = 10000,
   [switch]$RunManualTurn,
   [string]$ManualTurnText = "こんにちは。起動確認です。",
@@ -18,6 +22,10 @@ param(
   [int]$ManualTurnTimeoutSeconds = 90,
   [switch]$RunSafeIntegrationProbes,
   [string]$HomeControlDryRunActionId = "light_on",
+  [switch]$RunWatcherProbe,
+  [switch]$RequireWatcherAituberForward,
+  [string]$WatcherProbeText = "こんにちは。watcher経路の起動確認です。",
+  [int]$WatcherProbeTimeoutSeconds = 90,
   [switch]$UseIsolatedPorts,
   [switch]$RequireVoicevox
 )
@@ -223,6 +231,9 @@ function Add-PortArguments {
   Add-Argument -Arguments $Arguments -Name "-AituberPort" -Value ([string]$AituberPort)
   Add-Argument -Arguments $Arguments -Name "-TouchDesignerGuiPort" -Value ([string]$TouchDesignerGuiPort)
   Add-Argument -Arguments $Arguments -Name "-ThoughtCorePort" -Value ([string]$ThoughtCorePort)
+  Add-Argument -Arguments $Arguments -Name "-MediapipeReadyTimeoutSeconds" -Value ([string]$MediapipeReadyTimeoutSeconds)
+  Add-Argument -Arguments $Arguments -Name "-MediapipeVideoSource" -Value $MediapipeVideoSource
+  Add-Argument -Arguments $Arguments -Name "-ThoughtCoreWatchAituberHttpTimeout" -Value ([string]$WatcherAituberHttpTimeoutSeconds)
 }
 
 function Resolve-ToolPath {
@@ -240,6 +251,91 @@ function Resolve-ToolPath {
 function ConvertTo-PowerShellSingleQuotedString {
   param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Value)
   return "'{0}'" -f ($Value -replace "'", "''")
+}
+
+function Write-Utf8JsonFile {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][object]$Value
+  )
+  $parent = Split-Path -Parent $Path
+  if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+  }
+  $json = $Value | ConvertTo-Json -Depth 8
+  $encoding = [System.Text.UTF8Encoding]::new($false)
+  [System.IO.File]::WriteAllText($Path, $json, $encoding)
+}
+
+function Write-Utf8TextFile {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Value
+  )
+  $parent = Split-Path -Parent $Path
+  if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+  }
+  $encoding = [System.Text.UTF8Encoding]::new($false)
+  [System.IO.File]::WriteAllText($Path, $Value, $encoding)
+}
+
+function Get-ObjectProperty {
+  param(
+    [object]$Object,
+    [Parameter(Mandatory = $true)][string]$Name
+  )
+  if ($null -eq $Object) {
+    return $null
+  }
+  $property = $Object.PSObject.Properties[$Name]
+  if ($null -eq $property) {
+    return $null
+  }
+  return $property.Value
+}
+
+function Get-WatcherProbeObservation {
+  param(
+    [Parameter(Mandatory = $true)][string]$EventsPath,
+    [Parameter(Mandatory = $true)][string]$TurnId
+  )
+
+  $completed = $false
+  $forwardError = ""
+  $eventCount = 0
+  if (Test-Path -LiteralPath $EventsPath -PathType Leaf) {
+    foreach ($line in (Get-Content -LiteralPath $EventsPath -Tail 300 -ErrorAction SilentlyContinue)) {
+      if ([string]::IsNullOrWhiteSpace($line)) {
+        continue
+      }
+      try {
+        $event = $line | ConvertFrom-Json
+      }
+      catch {
+        continue
+      }
+      if ([string](Get-ObjectProperty -Object $event -Name "turn_id") -ne $TurnId) {
+        continue
+      }
+      $eventCount += 1
+      $type = [string](Get-ObjectProperty -Object $event -Name "type")
+      $payload = Get-ObjectProperty -Object $event -Name "payload"
+      $eventType = [string](Get-ObjectProperty -Object $payload -Name "event_type")
+      if ($type -eq "thought_core.completed" -or $type -eq "thought_core.response" -or ($type -eq "thought_core.stream_event" -and $eventType -eq "turn.completed")) {
+        $completed = $true
+      }
+      if ($type -eq "aituber.forward_error" -and [string]::IsNullOrWhiteSpace($forwardError)) {
+        $forwardError = [string](Get-ObjectProperty -Object $payload -Name "error")
+      }
+    }
+  }
+
+  return [PSCustomObject]@{
+    thought_core_completed = $completed
+    aituber_forward_error = $forwardError
+    event_count = $eventCount
+  }
 }
 
 function Set-IsolatedPortIfUnbound {
@@ -305,6 +401,28 @@ $stopError = ""
 $smokeError = ""
 $checks = @()
 $integrationProbes = @()
+$watcherProbe = [PSCustomObject]@{
+  enabled = [bool]$RunWatcherProbe
+  status = if ($RunWatcherProbe) { "pending" } else { "skipped" }
+  detail = ""
+  turn_id = ""
+  thought_core_completed = $false
+  aituber_forward_observed = $false
+  aituber_forward_error = ""
+  require_aituber_forward = [bool]$RequireWatcherAituberForward
+  events_path = (Resolve-RepoPath -Path (Join-Path $StackStateDir "thought-core-watcher\events.jsonl"))
+  handoff_json = ""
+  aituber_client_id = "thought-core"
+}
+$watcherRestoreError = ""
+$watcherBackup = [PSCustomObject]@{
+  json_path = ""
+  text_path = ""
+  json_backup = ""
+  text_backup = ""
+  json_existed = $false
+  text_existed = $false
+}
 $manualTurn = [PSCustomObject]@{
   enabled = [bool]$RunManualTurn
   status = if ($RunManualTurn) { "pending" } else { "skipped" }
@@ -422,7 +540,7 @@ exit `$LASTEXITCODE
     }
 
     $clientId = "sword-smoke"
-    $messageUrl = "http://127.0.0.1:$AituberPort/api/messages?clientId=$clientId&type=direct_send"
+    $messageUrl = "http://127.0.0.1:$AituberPort/api/messages/?clientId=$clientId&type=direct_send"
     $integrationProbes += Invoke-JsonProbe `
       -Id "aituber_direct_send_post" `
       -Method "POST" `
@@ -468,6 +586,114 @@ exit `$LASTEXITCODE
         }
     }
   }
+
+  if ($RunWatcherProbe) {
+    $watcherTurnId = "turn_watcher_smoke_{0}" -f (Get-Date -Format "yyyyMMdd_HHmmss")
+    $handoffDir = Resolve-RepoPath "organs\voice\ai-talk-core\.cache\codex"
+    $handoffJson = Join-Path $handoffDir "web_latest.json"
+    $handoffText = Join-Path $handoffDir "web_latest.txt"
+    $watcherBackup = [PSCustomObject]@{
+      json_path = $handoffJson
+      text_path = $handoffText
+      json_backup = Join-Path $SmokeRoot "web_latest-$timestamp.json.bak"
+      text_backup = Join-Path $SmokeRoot "web_latest-$timestamp.txt.bak"
+      json_existed = Test-Path -LiteralPath $handoffJson -PathType Leaf
+      text_existed = Test-Path -LiteralPath $handoffText -PathType Leaf
+    }
+    if ($watcherBackup.json_existed) {
+      Copy-Item -LiteralPath $handoffJson -Destination $watcherBackup.json_backup -Force
+    }
+    if ($watcherBackup.text_existed) {
+      Copy-Item -LiteralPath $handoffText -Destination $watcherBackup.text_backup -Force
+    }
+
+    Write-Utf8JsonFile -Path $handoffJson -Value @{
+      transcript = $WatcherProbeText
+      command = $WatcherProbeText
+      turn_id = $watcherTurnId
+    }
+    Write-Utf8TextFile -Path $handoffText -Value "Voice transcript:`n$WatcherProbeText`n"
+
+    $clientId = "thought-core"
+    $queueUrl = "http://127.0.0.1:$AituberPort/api/messages/?clientId=$clientId&type=direct_send"
+    $eventsPath = Resolve-RepoPath (Join-Path $StackStateDir "thought-core-watcher\events.jsonl")
+    $watcherPollSeconds = 2
+    $watcherAttempts = [Math]::Max(1, [int][Math]::Ceiling([Math]::Max(1, $WatcherProbeTimeoutSeconds) / $watcherPollSeconds))
+    $watcherRequestTimeoutSeconds = [Math]::Min(3, [Math]::Max(1, [int][Math]::Ceiling($TimeoutMs / 1000)))
+    $probeStatus = "failed"
+    $probeDetail = "timed out waiting for watcher Thought Core completion"
+    $thoughtCoreCompleted = $false
+    $aituberForwardObserved = $false
+    $aituberForwardError = ""
+    $watcherEventCount = 0
+    for ($watcherAttempt = 0; $watcherAttempt -lt $watcherAttempts; $watcherAttempt += 1) {
+      Start-Sleep -Seconds $watcherPollSeconds
+      $observation = Get-WatcherProbeObservation -EventsPath $eventsPath -TurnId $watcherTurnId
+      $thoughtCoreCompleted = [bool]$observation.thought_core_completed
+      $watcherEventCount = [int]$observation.event_count
+      if (-not [string]::IsNullOrWhiteSpace([string]$observation.aituber_forward_error)) {
+        $aituberForwardError = [string]$observation.aituber_forward_error
+      }
+      try {
+        $response = Invoke-WebRequest -Uri $queueUrl -Method GET -TimeoutSec $watcherRequestTimeoutSeconds -UseBasicParsing
+        $payload = $response.Content | ConvertFrom-Json
+        if ($null -ne $payload -and $null -ne $payload.messages -and @($payload.messages).Count -gt 0) {
+          $aituberForwardObserved = $true
+        }
+      }
+      catch {
+        if (-not $thoughtCoreCompleted) {
+          $probeDetail = $_.Exception.Message
+        }
+      }
+
+      if ($thoughtCoreCompleted -and (-not $RequireWatcherAituberForward -or $aituberForwardObserved)) {
+        $probeStatus = "ok"
+        if ($RequireWatcherAituberForward) {
+          $probeDetail = "watcher completed Thought Core turn and AITuber forward was observed"
+        }
+        elseif ($aituberForwardObserved) {
+          $probeDetail = "watcher completed Thought Core turn and AITuber forward was observed"
+        }
+        elseif (-not [string]::IsNullOrWhiteSpace($aituberForwardError)) {
+          $probeDetail = "watcher completed Thought Core turn; AITuber forward strict check disabled; forward_error observed: $aituberForwardError"
+        }
+        else {
+          $probeDetail = "watcher completed Thought Core turn; AITuber forward strict check disabled"
+        }
+        break
+      }
+    }
+
+    if ($probeStatus -ne "ok") {
+      if ($thoughtCoreCompleted -and $RequireWatcherAituberForward -and -not $aituberForwardObserved) {
+        if (-not [string]::IsNullOrWhiteSpace($aituberForwardError)) {
+          $probeDetail = "watcher completed Thought Core turn but AITuber forward was not observed; forward_error: $aituberForwardError"
+        }
+        else {
+          $probeDetail = "watcher completed Thought Core turn but AITuber forward was not observed"
+        }
+      }
+      elseif ($watcherEventCount -gt 0) {
+        $probeDetail = "watcher events observed but Thought Core completion was not observed"
+      }
+    }
+
+    $watcherProbe = [PSCustomObject]@{
+      enabled = $true
+      status = $probeStatus
+      detail = $probeDetail
+      turn_id = $watcherTurnId
+      thought_core_completed = $thoughtCoreCompleted
+      aituber_forward_observed = $aituberForwardObserved
+      aituber_forward_error = $aituberForwardError
+      require_aituber_forward = [bool]$RequireWatcherAituberForward
+      watcher_event_count = $watcherEventCount
+      events_path = $eventsPath
+      handoff_json = $handoffJson
+      aituber_client_id = $clientId
+    }
+  }
 }
 catch {
   $smokeError = $_.Exception.Message
@@ -501,6 +727,26 @@ finally {
       Stop-Process -Id $startProcess.Id -Force -ErrorAction SilentlyContinue
     }
   }
+
+  if ($RunWatcherProbe -and -not [string]::IsNullOrWhiteSpace($watcherBackup.json_path)) {
+    try {
+      if ($watcherBackup.json_existed) {
+        Copy-Item -LiteralPath $watcherBackup.json_backup -Destination $watcherBackup.json_path -Force
+      }
+      elseif (Test-Path -LiteralPath $watcherBackup.json_path -PathType Leaf) {
+        Remove-Item -LiteralPath $watcherBackup.json_path -Force
+      }
+      if ($watcherBackup.text_existed) {
+        Copy-Item -LiteralPath $watcherBackup.text_backup -Destination $watcherBackup.text_path -Force
+      }
+      elseif (Test-Path -LiteralPath $watcherBackup.text_path -PathType Leaf) {
+        Remove-Item -LiteralPath $watcherBackup.text_path -Force
+      }
+    }
+    catch {
+      $watcherRestoreError = $_.Exception.Message
+    }
+  }
 }
 
 $ports = @(
@@ -523,6 +769,7 @@ $status = if (
   $failedChecks.Count -eq 0 -and
   $failedIntegrationProbes.Count -eq 0 -and
   ((-not $RunManualTurn) -or $manualTurn.status -eq "ok") -and
+  ((-not $RunWatcherProbe) -or ($watcherProbe.status -eq "ok" -and [string]::IsNullOrWhiteSpace($watcherRestoreError))) -and
   $remainingPorts.Count -eq 0
 ) { "ok" } else { "failed" }
 
@@ -533,9 +780,13 @@ $result = [PSCustomObject]@{
   duration_seconds = $DurationSeconds
   stack_state_dir = Resolve-RepoPath $StackStateDir
   port_mode = if ($UseIsolatedPorts) { "isolated_override" } else { "legacy_default" }
+  mediapipe_ready_timeout_seconds = $MediapipeReadyTimeoutSeconds
+  mediapipe_video_source = $MediapipeVideoSource
+  watcher_aituber_http_timeout_seconds = $WatcherAituberHttpTimeoutSeconds
   errors = [PSCustomObject]@{
     smoke = $smokeError
     stop = $stopError
+    watcher_restore = $watcherRestoreError
   }
   ports = [PSCustomObject]@{
     home_assistant_bridge = $HomeAssistantBridgePort
@@ -551,6 +802,7 @@ $result = [PSCustomObject]@{
   checks = @($checks)
   integration_probes = @($integrationProbes)
   manual_turn = $manualTurn
+  watcher_probe = $watcherProbe
   remaining_ports = @($remainingPorts)
   processes = [PSCustomObject]@{
     start_pid = if ($null -ne $startProcess) { $startProcess.Id } else { $null }

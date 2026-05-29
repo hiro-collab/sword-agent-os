@@ -29,6 +29,9 @@ the legacy profile name `thought-core-v0`:
 .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts
 .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManualTurn
 .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManualTurn -RunSafeIntegrationProbes
+.\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManualTurn -RunSafeIntegrationProbes -RunWatcherProbe
+.\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes -RunWatcherProbe
+.\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunWatcherProbe -RequireWatcherAituberForward
 ```
 
 `status` is native to this repository and reads Agent OS manifests. `start` and
@@ -42,8 +45,19 @@ printing secret values. It also imports the local MediaPipe gesture model into
 the ignored organ checkout when present. `run-compat-smoke.ps1` defaults to the
 legacy `thought-core-v0` ports; pass `-UseIsolatedPorts` to temporarily move the
 stack to the `188xx` range for local port conflicts or side-by-side legacy
-testing. Pass `-RunManualTurn` to add a non-action Thought Core turn after the
-service probes. Pass `-RunSafeIntegrationProbes` to add token-protected
+testing. Its MediaPipe readiness wait is adjustable with
+`-MediapipeReadyTimeoutSeconds` for slow camera initialization. Pass
+`-MediapipeVideoSource testsrc` when the real camera is unavailable but the
+MediaPipe/RTSP/Camera Hub service path still needs to be smoke-tested. Pass
+`-RunManualTurn` to add a non-action Thought Core turn after the service probes.
+Pass `-RunSafeIntegrationProbes` to add token-protected
 environment state, AITuber direct_send, and Home Assistant `dry_run` checks
 without executing a real home action. Environment state liveness uses
 `/health`; `/environment/current` remains the token-protected state API.
+`-RunWatcherProbe` writes a temporary safe ai-talk-core handoff, waits for the
+watcher to complete a Thought Core turn, reports whether AITuber Kit forwarding
+was observed, then restores the previous handoff cache. The smoke runner passes
+a longer watcher-to-AITuber HTTP timeout by default; override it with
+`-WatcherAituberHttpTimeoutSeconds` when needed. Add
+`-RequireWatcherAituberForward` when the AITuber forwarding path should be a hard
+smoke-test requirement.
