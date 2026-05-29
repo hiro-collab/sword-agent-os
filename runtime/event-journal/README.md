@@ -44,4 +44,14 @@ The first correlation contract is
 reflex/autonomic action, recognized input, conscious interpretation, structured
 intent, action-boundary decision, and execution result as separate append-only
 events connected by ids such as `causal_parent_id`, `episode_id`, `turn_id`,
-`issue_ticket_id`, `interpretation_id`, and `action_id`.
+`issue_ticket_id`, `interpretation_id`, and `action_id`. Ticket labels start
+with lightweight `tags`, `keywords`, `keyphrases`, and optional `work_notes`
+rather than mandatory polished titles or summaries. Topology references are
+optional consumer hints from `.cache/agent-os/status/topology.json`, not startup
+dependencies.
+
+Metric records use `runtime/status-store/metric-records.v0.md` as the
+source-of-truth shape. The event journal should include those metric records
+only for behavior-relevant moments such as degraded execution, blocked or
+approval-routed execution, source conflict, or feedback mismatch; routine
+current metric values belong in status-store/topology snapshots.

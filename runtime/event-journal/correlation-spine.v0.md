@@ -55,6 +55,52 @@ Use link fields to build the chain:
   belong to multiple tickets
 - `ticket_status`: latest status assertion for an issue ticket at this event or
   metadata revision: `open`, `in_progress`, `blocked`, `resolved`, or `closed`
+- `tags`: structured `namespace:value` labels for known dimensions, when useful
+- `keywords`: free terms for concepts not yet standardized
+- `keyphrases`: free phrases for fuzzy descriptions
+- `work_notes`: optional operational notes for the active ticket or memory
+  ticket revision
+- `tag_source_refs`: optional references to topology snapshots/summaries or
+  other evidence used to choose tags
+- `topology_snapshot_id`: optional id of the topology provider snapshot used
+  when interpreting or labeling the ticket
+- `topology_freshness_state`: optional freshness state from the snapshot, such
+  as `fresh`, `stale`, `partial`, `missing`, or `unknown`
+- `topology_source_layers`: optional source layers that support this tag or
+  topology reference, such as `home_assistant`, `environment_state`,
+  `camera_vision`, or `agent_os`
+- `topology_ref`: optional stable topology reference for the primary topology
+  object related to this event, ticket, or memory-ticket revision
+- `topology_ref_kind`: optional kind for the topology reference, such as
+  `room`, `zone`, `device`, `camera_view`, `object_instance`, or
+  `spatial_relation`
+- `topology_confidence`: optional confidence for observed or inferred topology
+  references
+- `topology_observed_at`: optional timestamp for observed spatial/topology
+  evidence
+- `topology_conflict_state`: optional disagreement state such as `none`,
+  `conflict`, `degraded`, `needs_confirmation`, or `sources_disagree`
+- `topology_evidence_refs`: optional references to the observations or source
+  records that support a topology ref, tag, or conflict
+- `state_confidence`: optional confidence estimate for the current inferred
+  state, usually stored or derived by Thought Core rather than copied directly
+  from a driver observation
+- `source_confidence`: optional confidence estimate for the source or source
+  layer used; drivers may report local observation confidence here or in their
+  own source records
+- `freshness`: optional freshness estimate when a record uses a non-topology
+  source or combines multiple source ages; drivers may report local freshness,
+  while Thought Core may derive cross-source freshness judgments
+- `reality_divergence`: optional estimate of how far internal state may be from
+  real-world state, usually a Thought Core/system-level judgment
+- `expected_effect`: optional redacted expected outcome for an action or retry
+- `observed_effect`: optional redacted observed outcome after action/feedback
+- `feedback_match`: optional estimate such as `matched`, `mismatch`,
+  `partial`, `unknown`, or a bounded confidence score
+- `retry_or_confirmation_need`: optional derived judgment that a retry,
+  confirmation, approval, or no extra action is needed
+- `metrics`: optional array of lightweight metric records when confidence,
+  divergence, staleness, or feedback estimates should be kept with provenance
 - `trace_id`: technical trace across services/processes, when available
 - `observation_id`: source observation id, when available
 - `interpretation_id`: conscious interpretation id, when available
@@ -63,6 +109,27 @@ Use link fields to build the chain:
 - `approval_id`: approval queue id, when review is required
 - `correction_of_event_id`: prior event corrected by this event
 - `supersedes_event_id`: prior event replaced by this event
+
+Metric records follow the source-of-truth contract in
+`runtime/status-store/metric-records.v0.md`. Event journal, memory, and ticket
+records should reuse that shape only when the metric affects behavior or has
+long-lived meaning. Initial metric records stay lightweight: use a numeric
+`value` plus `metric`, `subject`, `recorded_at`, `stale_after`, `source`,
+`provenance`, `basis`, and `evidence_refs` when those fields are available.
+`stale_after` is driver-defined metadata carried into the record. `subject` is
+a readable tag-like identifier such as `room:living_room`,
+`entity:light.living_room`, `capability:lighting.living_room`, or
+`action:turn_on_light`; it does not need strict URI semantics in v0, but should
+remain compatible with later topology node mapping. `evidence_refs` start as
+lightweight typed references such as `event:...`, `snapshot:...`, `turn:...`,
+and `action:...`; a heavy evidence registry is deferred.
+
+Metric labels are policy/config-derived at read time for the initial contract.
+Do not require `recorded_label`, `current_label`, or relabel history in v0, and
+do not silently redefine thresholds in Thought Core. If thresholds are
+unsuitable, Thought Core can emit a proposal for an Agent OS policy/config
+change. Historical label storage and relabel history are a separate future
+design slice if audit needs require them.
 
 `causal_parent_id` is local and immediate. `episode_id` groups a short runtime
 chain such as reflex input or action execution. `turn_id` marks one Thought Core
@@ -344,6 +411,184 @@ Tickets with `open`, `in_progress`, or `blocked` are unresolved; tickets with
 the status history so a resolved ticket can be audited without rewriting older
 events.
 
+## Ticket Labels
+
+Issue-ticket records should start with lightweight semantic labels, not
+mandatory polished titles or summaries. `title` and richer display summaries can
+be generated later for UI/readability; they are not source-of-truth fields in
+v0.
+
+Use these fields when Thought Core has enough semantic context:
+
+- `tags`: structured entries in `namespace:value` form, such as
+  `room:living_room`, `capability:lighting`, `modality:voice`, `organ:reflex`,
+  or `symptom:no_expected_reflection`
+- `keywords`: free terms for concepts not yet standardized
+- `keyphrases`: free phrases for fuzzy descriptions
+- `work_notes`: optional operational notes, kept concise and redacted for
+  routine diagnostics
+- `label_revision_id`: optional metadata revision id for append-only label
+  changes
+
+Validate tag shape only: each tag should be a stable `namespace:value` string.
+Do not reject a tag only because the namespace or value is missing from a
+standard dictionary. Standard tag registry/promotion is future work; common
+tags can be standardized later based on actual use.
+
+Topology snapshots and summaries are sources of tag candidates, not a closed
+dictionary. Thought Core should consume topology through a read-only topology
+context provider rather than scraping organs directly. The provider may expose
+internal topology such as organs, services, drivers, capabilities, event routes,
+and action boundaries, plus environment topology such as rooms, devices,
+sensors, physical areas, external systems, and people/actors when those systems
+exist. Prefer stable topology ids when available, but Thought Core must still
+be able to create tags when topology is incomplete.
+
+The first topology provider output is expected to be a snapshot file:
+`.cache/agent-os/status/topology.json`. Consumers must not introduce a hard
+startup dependency on a topology service or snapshot in v0. They should tolerate
+missing snapshots, stale snapshots, partial topology, unknown tags, and unknown
+`topology_ref` values. When present, consumers may reference the snapshot with
+`topology_snapshot_id`, record whether that topology was fresh/stale/advisory
+with `topology_freshness_state`, reference specific topology objects with
+`topology_ref`, and record tag candidate provenance with `tag_source_refs`.
+Fresh topology is never required to create tags; missing, stale, or partial
+topology is degraded context, not a hard failure.
+
+One snapshot may combine source layers such as Home Assistant, Environment
+State, camera/vision observations, and Agent OS topology. Consumers should
+preserve layer/source provenance when it matters, because the layers have
+different authority, freshness, confidence, and failure modes. For example,
+`room:living_room` may be supported by both Home Assistant area data and vision
+observations, while `symptom:no_expected_reflection` may come from environment
+or vision feedback. Do not assume every topology ref has the same authority, and
+do not treat environment/vision observations as overwriting Home Assistant
+device topology unless an explicit fusion rule says so.
+
+Future topology refs and tags may point at object instances, camera views,
+rooms, zones, coordinate/location reference systems, and spatial relations.
+These are references to topology evidence, not unqualified truth. Preserve
+source layer, freshness, observation time, and confidence when available,
+especially for camera/vision-derived spatial tags.
+
+When topology sources disagree, preserve the conflict rather than silently
+fusing sources into one truth. For example, if Home Assistant reports a light on
+while camera/vision says the room appears dark, Thought Core may create tags
+such as `source_conflict`, `needs_confirmation`, `vision:room_dark`, and
+`home_assistant:light_on`; the ticket/event should keep `topology_conflict_state`
+and `topology_evidence_refs` so diagnostics can see that the tags came from a
+disagreement.
+
+Thought Core may also use confidence and divergence estimates for ticket tags,
+retries, confirmation decisions, and memory retagging. Keep these estimates
+optional and evolvable. Useful concepts include source confidence, state
+confidence, freshness, internal-state versus real-world divergence, expected
+effect, observed effect, and whether feedback matched the expected effect.
+Drivers should report local observation confidence and freshness when available;
+Thought Core may store or derive system-level judgments such as state
+confidence, reality divergence, feedback match, and retry or confirmation need.
+Those derived judgments are not raw driver observations and should keep evidence
+references when available.
+Place metric records by use, not as a single universal log. Routine current
+values belong in topology snapshots. Event journal entries should keep metric
+records when a metric affects behavior, such as degraded execution,
+block/approval routing, or feedback mismatch. Promote only repeated or
+meaningful issues into Thought Core memory or issue tickets; routine current
+values should not become long-term memory by default.
+Conflicting or stale evidence is a risk signal, not automatically a hard stop:
+ordinary low-risk capabilities may proceed in degraded mode with stronger
+post-action feedback checks, while high-risk operations can escalate to
+confirmation, approval, or blocked status by policy.
+
+Retagging or label edits should be represented as append-only ticket or
+memory-ticket metadata revisions.
+
+Example ticket label record:
+
+```json
+{
+  "schema_version": "event.correlation.v0",
+  "event_id": "evt_ticket_labels_001",
+  "event_type": "ticket.labels_updated",
+  "issue_ticket_id": "ticket_living_room_light_001",
+  "label_revision_id": "ticket_label_rev_living_room_light_001",
+  "ticket_status": "open",
+  "tags": [
+    "room:living_room",
+    "capability:lighting",
+    "modality:voice",
+    "organ:home_assistant"
+  ],
+  "keywords": ["light", "living-room", "voice-control"],
+  "keyphrases": ["living room still dark", "voice request did not reflect"],
+  "work_notes": "Check whether the Home Assistant entity accepted the command but the physical light state did not update.",
+  "tag_source_refs": [
+    "topology://environment/rooms/living_room",
+    "topology://agent-os/organs/home_assistant"
+  ],
+  "topology_snapshot_id": "topology_snapshot_20260529_1840",
+  "topology_freshness_state": "fresh",
+  "topology_source_layers": ["home_assistant", "camera_vision"],
+  "topology_ref": "topology://environment/rooms/living_room",
+  "topology_ref_kind": "room",
+  "topology_confidence": 0.86,
+  "topology_observed_at": "2026-05-29T18:40:00+09:00",
+  "topology_conflict_state": "sources_disagree",
+  "topology_evidence_refs": [
+    "topology://home_assistant/entities/light.living_room",
+    "topology://camera_vision/observations/living_room_dark_001"
+  ],
+  "metrics": [
+    {
+      "metric": "state_confidence",
+      "subject": "room:living_room",
+      "value": 0.62,
+      "recorded_at": "2026-05-29T18:40:02+09:00",
+      "stale_after": "2026-05-29T18:45:02+09:00",
+      "source": "thought_core",
+      "provenance": ["home_assistant", "camera_vision"],
+      "basis": "home_assistant_on_camera_dark_conflict",
+      "evidence_refs": [
+        "snapshot:topology_snapshot_20260529_1840",
+        "event:evt_ticket_labels_001"
+      ]
+    },
+    {
+      "metric": "reality_divergence",
+      "subject": "capability:lighting.living_room",
+      "value": 0.71,
+      "recorded_at": "2026-05-29T18:40:02+09:00",
+      "stale_after": "2026-05-29T18:45:02+09:00",
+      "source": "thought_core",
+      "provenance": ["home_assistant", "camera_vision"],
+      "basis": "possible_light_state_mismatch",
+      "evidence_refs": [
+        "snapshot:topology_snapshot_20260529_1840",
+        "action:turn_on_light_001"
+      ]
+    },
+    {
+      "metric": "feedback_match",
+      "subject": "action:turn_on_light",
+      "value": 0.2,
+      "recorded_at": "2026-05-29T18:40:02+09:00",
+      "stale_after": "2026-05-29T18:45:02+09:00",
+      "source": "thought_core",
+      "provenance": ["camera_vision", "action_feedback"],
+      "basis": "vision_still_reports_room_dark",
+      "evidence_refs": [
+        "event:evt_ticket_labels_001",
+        "action:turn_on_light_001"
+      ]
+    }
+  ],
+  "expected_effect": "Living room light becomes visibly on",
+  "observed_effect": "Vision still reports room dark",
+  "retry_or_confirmation_need": "retry_with_feedback_check",
+  "summary": "Ticket labels updated with structured tags and fallback terms"
+}
+```
+
 ## Memory Issue Ticket Tags
 
 The append-only event journal remains separate from learned memory.
@@ -368,6 +613,13 @@ should preserve provenance with fields such as:
 - `retagged_by`: component or actor that made the decision
 - `retagged_at`: when the memory tag decision was made
 - `causal_parent_id`: event that caused or justified the retag, when available
+
+Ordinary ticket/memory tag cleanup is autonomous by default. Thought Core and
+memory maintenance may add, remove, replace, merge, or split tags, and may
+attach or detach `issue_ticket_id` / `issue_ticket_ids` without requiring human
+approval for routine cleanup. The requirement is append-only provenance, not
+manual approval. Security/data-safety may later define audit emphasis for
+policy-sensitive tags, but that should not block ordinary retagging.
 
 Example: a memory first stored without an issue ticket tag, then tagged by Thought
 Core:
