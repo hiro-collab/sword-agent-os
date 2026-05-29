@@ -33,3 +33,15 @@ The first writer is `scripts/update-diagnostics-status.ps1`. It appends to
 `.cache/agent-os/events/events-YYYY-MM-DD.jsonl` only when status meaning
 changes, when a new service/capability is observed, or when the status is first
 initialized.
+
+## Correlation Spine
+
+Event journal links runtime history with explicit causal fields instead of
+treating every input as an immediate user command.
+
+The first correlation contract is
+`runtime/event-journal/correlation-spine.v0.md`. It keeps reflex observation,
+reflex/autonomic action, recognized input, conscious interpretation, structured
+intent, action-boundary decision, and execution result as separate append-only
+events connected by ids such as `causal_parent_id`, `episode_id`, `turn_id`,
+`issue_id`, `interpretation_id`, and `action_id`.
