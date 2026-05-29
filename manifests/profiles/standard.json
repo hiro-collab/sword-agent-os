@@ -21,6 +21,20 @@
     "approval-queue"
   ],
   "health_model": {
+    "startup_stages": [
+      {
+        "stage": "nonresponsive",
+        "meaning": "No basic runtime reflex response is available; treat the OS as not alive enough to operate."
+      },
+      {
+        "stage": "reflex_alive",
+        "meaning": "The OS substrate can return a simple liveness or status reflex without requiring full thought-core turn processing."
+      },
+      {
+        "stage": "conscious_ready",
+        "meaning": "The OS can process a minimum text turn, return Thought Core response events, and project the result into status and event history."
+      }
+    ],
     "boot_critical_runtime": [
       "turn-router",
       "status-store",
@@ -31,8 +45,11 @@
       "approval-queue"
     ],
     "boot_critical_capabilities": [
+      "basic_runtime_reflex",
       "minimum_turn_processing"
     ],
+    "minimum_alive_stage": "reflex_alive",
+    "minimum_ready_stage": "conscious_ready",
     "standard_capabilities": [
       "speech-input",
       "reflex",

@@ -67,6 +67,9 @@ foreach ($component in $standardProfile.health_model.boot_critical_runtime) {
 }
 
 Assert-True ("minimum_turn_processing" -in @($standardProfile.health_model.boot_critical_capabilities)) "standard profile must keep minimum_turn_processing boot-critical"
+Assert-True ("basic_runtime_reflex" -in @($standardProfile.health_model.boot_critical_capabilities)) "standard profile must keep basic_runtime_reflex boot-critical"
+Assert-True ([string]$standardProfile.health_model.minimum_alive_stage -eq "reflex_alive") "standard profile minimum alive stage should be reflex_alive"
+Assert-True ([string]$standardProfile.health_model.minimum_ready_stage -eq "conscious_ready") "standard profile minimum ready stage should be conscious_ready"
 
 Assert-True ($compatProfile.required_services.Count -eq 8) "thought-core-v0-compat should require 8 services"
 Assert-True ($serviceManifest.services.Count -eq 8) "thought-core-v0-compat service inventory should define 8 services"
