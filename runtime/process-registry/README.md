@@ -44,6 +44,24 @@ For start/stop compatibility planning, use:
 .\scripts\system.ps1 stop -Profile thought-core-v0 -DryRun -Force
 ```
 
+Launch GUI surfaces should call the Agent OS facade first, not the legacy
+control-plane script directly. `manifest_default` is the compatibility contract;
+`isolated_override` is an explicit local-conflict or side-by-side validation
+mode. When `system.ps1` is called with `-PortMode isolated_override`, it maps
+the service-manifest port mode into the legacy delegate's concrete port
+arguments.
+
+```powershell
+.\scripts\system.ps1 start -Profile thought-core-v0 -PortMode manifest_default -DryRun
+.\scripts\system.ps1 start -Profile thought-core-v0 -PortMode isolated_override -DryRun
+.\scripts\system.ps1 status -Profile thought-core-v0 -PortMode isolated_override
+```
+
+`system.ps1 status` labels WebSocket services as process-registry evidence
+without a routine WebSocket probe. Strict WebSocket capability truth belongs to
+diagnostics/status-store or an explicit deep check, while routine diagnostics
+can use process evidence to avoid making monitor UIs look unstable.
+
 Actual start/stop execution is still delegated to the bootstrapped legacy
 control-plane checkout and requires `-LegacyDelegate`.
 

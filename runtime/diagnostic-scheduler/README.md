@@ -17,9 +17,9 @@ Tier names describe cost and freshness, not organ function.
 | --- | ---: | --- |
 | `instant` | 1 second | Read already materialized counters, timestamps, and driver cache. |
 | `light` | 3 seconds | Check cheap local state such as known PID, port, and status files. |
-| `standard` | 15 seconds | Probe routine health endpoints and WebSocket handshakes. |
+| `standard` | 15 seconds | Probe routine HTTP health endpoints and use non-disruptive cached/process evidence for WebSocket services. |
 | `snapshot` | 3 minutes | Refresh heavier state such as topology, assets, entity summaries, and readiness summaries. |
-| `deep` | manual, startup, or anomaly-triggered | Run expensive checks such as real hardware E2E, full smoke, remote verification, and TOE expansion. |
+| `deep` | manual, startup, or anomaly-triggered | Run expensive checks such as strict WebSocket handshakes, real hardware E2E, full smoke, remote verification, and TOE expansion. |
 
 ## Storage Shape
 
@@ -53,8 +53,11 @@ output before turning the scheduler into a long-running pulse loop.
 
 `watch-diagnostics-status.ps1` is the first lightweight pulse loop. It repeats
 the same collector at a fixed interval for local validation and diagnostics
-viewer work. It is still read-only and should be replaced later by a native
-system-manager scheduler.
+viewer work. Its default WebSocket probe mode is process evidence so frequent
+pulses do not make browser monitors or Camera Hub clients appear to connect and
+disconnect. Use `-WebSocketProbeMode strict` for an explicit handshake check.
+It is still read-only and should be replaced later by a native system-manager
+scheduler.
 
 ## Initial Retention
 

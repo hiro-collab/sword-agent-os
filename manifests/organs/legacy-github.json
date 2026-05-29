@@ -110,7 +110,7 @@
       "commit": "2c58ef489099d8fde2f4b2903089dafe92968de7",
       "adoption": "standard_candidate",
       "legacy_path": "organs/display/touchdesigner-ai-controller",
-      "notes": "TouchDesigner control GUI, UDP visual trigger, and display bridge."
+      "notes": "Display runtime GUI, TouchDesigner UDP visual trigger, and display bridge."
     },
     {
       "organ_id": "system-house-renderer",

@@ -4,6 +4,8 @@ param(
   [string]$DriverManifestPath = "manifests/drivers/standard.json",
   [ValidateSet("manifest_default", "isolated_override")]
   [string]$PortMode = "manifest_default",
+  [ValidateSet("strict", "process")]
+  [string]$WebSocketProbeMode = "process",
   [switch]$ManifestOnly,
   [int]$TimeoutMs = 1200,
   [string]$WorkspaceRoot = "",
@@ -309,6 +311,23 @@ function Test-ProcessHealth {
   return @{ state = "unavailable"; freshness = "fresh"; detail = "recorded pid $pidValue is not alive" }
 }
 
+function Test-ServiceProcessEvidence {
+  param(
+    [Parameter(Mandatory = $true)][string]$ServiceId,
+    [Parameter(Mandatory = $true)][hashtable]$PidMap,
+    [Parameter(Mandatory = $true)][string]$PidFile
+  )
+  if (-not $PidMap.ContainsKey($ServiceId)) {
+    return @{ state = "unavailable"; freshness = "fresh"; detail = "service process not recorded in $PidFile" }
+  }
+  $entry = $PidMap[$ServiceId]
+  $pidValue = [int](Get-OptionalProperty -Object $entry -Name "pid" -Default 0)
+  if (Test-ProcessEntryAlive -Entry $entry) {
+    return @{ state = "available"; freshness = "fresh"; detail = "pid $pidValue; websocket strict probe skipped" }
+  }
+  return @{ state = "unavailable"; freshness = "fresh"; detail = "recorded service pid $pidValue is not alive" }
+}
+
 function New-ManifestOnlyResult {
   param([Parameter(Mandatory = $true)]$Health)
   $target = [string](Get-OptionalProperty -Object $Health -Name "url" -Default "")
@@ -605,7 +624,12 @@ foreach ($service in @($serviceManifest.services)) {
         $probe = Test-HttpEndpoint -Url $healthTarget -Timeout $TimeoutMs
       }
       "websocket" {
-        $probe = Test-WebSocketEndpoint -Url $healthTarget -Timeout $TimeoutMs
+        if ($WebSocketProbeMode -eq "process") {
+          $probe = Test-ServiceProcessEvidence -ServiceId $serviceId -PidMap $pidMap -PidFile $pidFile
+        }
+        else {
+          $probe = Test-WebSocketEndpoint -Url $healthTarget -Timeout $TimeoutMs
+        }
       }
       "process" {
         $probe = Test-ProcessHealth -Health $health -PidMap $pidMap -PidFile $pidFile
@@ -625,15 +649,16 @@ foreach ($service in @($serviceManifest.services)) {
     layer = [string]$service.layer
     logical_service = [string]$service.logical_service
     driver_id = $driverId
-    tier = if ($healthType -eq "process") { "light" } else { "standard" }
+    tier = if ($healthType -eq "process" -or ($healthType -eq "websocket" -and $WebSocketProbeMode -eq "process")) { "light" } else { "standard" }
     health_type = $healthType
+    probe_mode = if ($healthType -eq "websocket") { $WebSocketProbeMode } else { $healthType }
     health_target = if ([string]::IsNullOrWhiteSpace($healthTarget)) { [string](Get-OptionalProperty -Object $health -Name "pid_name" -Default "") } else { $healthTarget }
     state = [string]$probe.state
     freshness = [string]$probe.freshness
-    confidence = if ($ManifestOnly) { "low" } elseif ([string]$probe.state -eq "available") { "high" } else { "medium" }
+    confidence = if ($ManifestOnly) { "low" } elseif ($healthType -eq "websocket" -and $WebSocketProbeMode -eq "process") { "medium" } elseif ([string]$probe.state -eq "available") { "high" } else { "medium" }
     observed_at = $now.ToString("o")
     received_at = $now.ToString("o")
-    stale_after_seconds = if ($healthType -eq "process") { 10 } else { 30 }
+    stale_after_seconds = if ($healthType -eq "process" -or ($healthType -eq "websocket" -and $WebSocketProbeMode -eq "process")) { 10 } else { 30 }
     detail = [string]$probe.detail
   }
   $services += $observation
@@ -693,6 +718,7 @@ $status = [PSCustomObject]@{
   diagnostic_policy_id = [string]$diagnosticPolicy.id
   driver_manifest_id = [string]$driverManifest.id
   port_mode = $PortMode
+  websocket_probe_mode = $WebSocketProbeMode
   manifest_only = [bool]$ManifestOnly
   workspace_root = $workspace
   process_registry = [PSCustomObject]@{
@@ -763,6 +789,7 @@ if (-not $NoJournal) {
   generated_at = $now.ToString("o")
   profile_id = [string]$profile.id
   port_mode = $PortMode
+  websocket_probe_mode = $WebSocketProbeMode
   manifest_only = [bool]$ManifestOnly
   status_path = $statusPath
   topology_path = $topologyPath

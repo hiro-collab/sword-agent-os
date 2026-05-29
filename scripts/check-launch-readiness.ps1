@@ -221,7 +221,7 @@ $checks += Test-PathCheck -Id "local.home_control_config" -Path (Join-Path $home
 $checks += Test-PathCheck -Id "local.home_assistant_env" -Path (Join-Path $homeAssistantRoot ".env") -MissingSeverity "blocker" -MissingDetail "Home Assistant token env is local-only"
 $checks += Test-PathCheck -Id "local.control_plane_env" -Path (Join-Path $controlPlaneRoot ".env") -MissingSeverity "warning" -MissingDetail "control-plane env is local-only"
 $checks += Test-PathCheck -Id "local.aituber_env" -Path (Join-Path $aituberRoot ".env") -MissingSeverity "warning" -MissingDetail "AITuber env is local-only"
-$checks += Test-PathCheck -Id "local.touchdesigner_server" -Path (Join-Path $touchDesignerRoot "tools\server.js") -MissingSeverity "blocker" -MissingDetail "TouchDesigner control GUI server entry missing"
+$checks += Test-PathCheck -Id "local.touchdesigner_server" -Path (Join-Path $touchDesignerRoot "tools\server.js") -MissingSeverity "blocker" -MissingDetail "Display runtime GUI server entry missing"
 $checks += Test-PathCheck -Id "local.mediapipe_camera_hub_launcher" -Path (Join-Path $mediapipeRoot "scripts\start_camera_hub_stack.bat") -MissingSeverity "blocker" -MissingDetail "MediaPipe camera hub launcher missing"
 $checks += Test-PathCheck -Id "local.mediapipe_gesture_model" -Path (Join-Path $mediapipeRoot "gesture_model.pkl") -MissingSeverity "blocker" -MissingDetail "gesture_model.pkl is local-only and required for Camera Hub gesture classification"
 

@@ -223,6 +223,8 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-runtime-
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-conscious-readiness.ps1") -PathType Leaf) "conscious readiness checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-organ-readiness.ps1") -PathType Leaf) "organ readiness checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-launch-readiness.ps1") -PathType Leaf) "launch readiness checker missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/start-launcher.ps1") -PathType Leaf) "launcher start wrapper missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/stop-launcher.ps1") -PathType Leaf) "launcher stop wrapper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/prepare-compat-launch.ps1") -PathType Leaf) "compat launch preparation script missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-compat-smoke.ps1") -PathType Leaf) "compat launch smoke script missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/update-diagnostics-status.ps1") -PathType Leaf) "diagnostics status writer missing"

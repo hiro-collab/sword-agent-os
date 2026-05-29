@@ -30,7 +30,7 @@
     {
       "tier": "standard",
       "initial_interval_seconds": 15,
-      "purpose": "Probe routine health endpoints and WebSocket handshakes.",
+      "purpose": "Probe routine HTTP health endpoints and use non-disruptive cached/process evidence for WebSocket services.",
       "status_store_policy": "overwrite_latest",
       "event_journal_policy": "append_only_state_change_warning_recovery_stale_or_sampled_heartbeat"
     },
@@ -44,7 +44,7 @@
     {
       "tier": "deep",
       "initial_interval_seconds": null,
-      "purpose": "Run expensive checks such as real hardware E2E, full smoke, remote verification, and TOE expansion.",
+      "purpose": "Run expensive checks such as strict WebSocket handshakes, real hardware E2E, full smoke, remote verification, and TOE expansion.",
       "status_store_policy": "update_when_requested",
       "event_journal_policy": "append_deep_check_summary_and_evidence_reference"
     }
@@ -147,4 +147,3 @@
     "default_poll_seconds_when_no_stream": 1
   }
 }
-

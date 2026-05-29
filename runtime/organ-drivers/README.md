@@ -56,16 +56,17 @@ Tier names describe cost and freshness, not organ function.
 | --- | --- | --- |
 | `instant` | 0.5-2 seconds | Read already materialized values such as timestamps and counters. |
 | `light` | 2-5 seconds | Check cheap local state such as known PID, port listen, and status files. |
-| `standard` | 5-30 seconds | Run routine health checks such as HTTP health and WebSocket handshake. |
+| `standard` | 5-30 seconds | Run routine health checks such as HTTP health and non-disruptive cached/process evidence for WebSocket services. |
 | `snapshot` | 1-5 minutes or event-triggered | Refresh heavier state such as local assets, entity state, and readiness summaries. |
-| `deep` | manual, startup, or anomaly-triggered | Run expensive or side-effect-sensitive checks such as full smoke, real hardware E2E, remote verification, and TOE expansion. |
+| `deep` | manual, startup, or anomaly-triggered | Run expensive or side-effect-sensitive checks such as strict WebSocket handshakes, full smoke, real hardware E2E, remote verification, and TOE expansion. |
 
 ## Driver Classes
 
 Drivers are intentionally composable.
 
 - Generic drivers cover common mechanisms such as process/port observation,
-  HTTP health, WebSocket health, JSONL event tailing, and Git checkout state.
+  HTTP health, WebSocket process evidence, strict WebSocket health, JSONL event
+  tailing, and Git checkout state.
 - Organ drivers compose generic drivers and add organ-specific meaning.
 - Legacy adapter drivers can bridge older modules until the module exports a
   native Agent OS status or event outbox.
@@ -88,4 +89,3 @@ do not schedule themselves.
 - Never execute real home actions from a diagnostics driver.
 - Mark stale or missing evidence as stale or missing.
 - Keep operation requests behind approval-queue and system-manager contracts.
-

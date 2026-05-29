@@ -87,6 +87,9 @@ Write-Output "Agent OS diagnostics"
 Write-Output "generated_at: $(Format-Timestamp -Value $status.generated_at)"
 Write-Output "profile: $($status.profile_id)"
 Write-Output "port_mode: $($status.port_mode)"
+if ($null -ne $status.PSObject.Properties["websocket_probe_mode"]) {
+  Write-Output "websocket_probe_mode: $($status.websocket_probe_mode)"
+}
 Write-Output "digest: $($status.digest)"
 Write-Output ""
 Write-Output "Services: $($status.summary.services_available)/$($status.summary.services_total) available, $($status.summary.services_unavailable) unavailable, $($status.summary.services_unknown) unknown"
@@ -94,7 +97,7 @@ Write-Output "Capabilities: $($status.summary.capabilities_available)/$($status.
 Write-Output ""
 Write-Output "Service states:"
 $status.services |
-  Select-Object service_id, state, freshness, health_type, detail |
+  Select-Object service_id, state, freshness, health_type, probe_mode, detail |
   Format-Table -AutoSize |
   Out-String |
   Write-Output

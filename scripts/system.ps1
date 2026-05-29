@@ -159,10 +159,52 @@ function New-LegacyDelegateArguments {
   if ($Force.IsPresent) {
     $arguments.Add("-Force")
   }
+  Add-PortModeOverrideArguments -Arguments $arguments -Spec $Spec
   foreach ($argument in $PassthroughArgs) {
     $arguments.Add($argument)
   }
   return [string[]]$arguments.ToArray()
+}
+
+function Add-PortModeOverrideArguments {
+  param(
+    [Parameter(Mandatory = $true)][System.Collections.Generic.List[string]]$Arguments,
+    [Parameter(Mandatory = $true)]$Spec
+  )
+  if ($PortMode -eq "manifest_default") {
+    return
+  }
+  $modeProperty = $Spec.service_manifest.port_modes.PSObject.Properties[$PortMode]
+  if ($null -eq $modeProperty) {
+    throw "Port mode is not defined in service manifest: $PortMode"
+  }
+
+  $legacyArgumentNames = @{
+    home_assistant_bridge = "HomeAssistantBridgePort"
+    environment_state_server = "EnvironmentStatePort"
+    thought_core_api = "ThoughtCorePort"
+    mediapipe_camera_hub_stack = "MediapipePort"
+    vision_snapshot_processor = "VisionSnapshotProcessorPort"
+    aituber_kit = "AituberPort"
+    touchdesigner_control_gui = "TouchDesignerGuiPort"
+    mediapipe_browser_monitor = "MediapipeBrowserMonitorPort"
+  }
+
+  $mode = $modeProperty.Value
+  foreach ($portGroupName in @("service_ports", "auxiliary_ports")) {
+    $portGroup = Get-OptionalProperty -Object $mode -Name $portGroupName
+    if ($null -eq $portGroup) {
+      continue
+    }
+    foreach ($portProperty in $portGroup.PSObject.Properties) {
+      $legacyName = $legacyArgumentNames[$portProperty.Name]
+      if ([string]::IsNullOrWhiteSpace($legacyName)) {
+        continue
+      }
+      $Arguments.Add("-$legacyName")
+      $Arguments.Add([string]$portProperty.Value)
+    }
+  }
 }
 
 function Write-DelegatePlan {
@@ -178,13 +220,15 @@ function Write-DelegatePlan {
     profile_id = [string]$Spec.profile_id
     legacy_profile_id = [string]$Spec.legacy_profile_id
     mode = $Mode
+    port_mode = $PortMode
     delegate = [PSCustomObject]@{
       script = $ScriptPath
       arguments = @($Arguments)
     }
-  native_status = [PSCustomObject]@{
+    native_status = [PSCustomObject]@{
       script = (Join-Path $PSScriptRoot "check-profile-health.ps1")
       manifest_only = [bool]$ManifestOnly
+      port_mode = $PortMode
     }
     workspace_root = $EffectiveWorkspaceRoot
   } | ConvertTo-Json -Depth 6

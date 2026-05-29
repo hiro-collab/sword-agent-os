@@ -1,6 +1,8 @@
 param(
   [ValidateSet("manifest_default", "isolated_override")]
   [string]$PortMode = "manifest_default",
+  [ValidateSet("strict", "process")]
+  [string]$WebSocketProbeMode = "process",
   [int]$IntervalSeconds = 5,
   [int]$DurationSeconds = 0,
   [int]$TimeoutMs = 1200,
@@ -50,6 +52,7 @@ while ($true) {
   try {
     $arguments = @{
       PortMode = $PortMode
+      WebSocketProbeMode = $WebSocketProbeMode
       TimeoutMs = $TimeoutMs
     }
     if (-not [string]::IsNullOrWhiteSpace($WorkspaceRoot)) {
@@ -78,4 +81,3 @@ while ($true) {
   }
   Start-Sleep -Seconds $IntervalSeconds
 }
-

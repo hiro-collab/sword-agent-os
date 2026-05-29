@@ -206,6 +206,23 @@ function Test-ProcessHealth {
   return @{ status = "down"; detail = "recorded pid $pidValue is not alive" }
 }
 
+function Test-ServiceProcessEvidence {
+  param(
+    [Parameter(Mandatory = $true)][string]$ServiceId,
+    [Parameter(Mandatory = $true)][hashtable]$PidMap,
+    [Parameter(Mandatory = $true)][string]$PidFile
+  )
+  if (-not $PidMap.ContainsKey($ServiceId)) {
+    return @{ status = "down"; detail = "service process not recorded in $PidFile" }
+  }
+  $entry = $PidMap[$ServiceId]
+  $pidValue = [int](Get-OptionalProperty -Object $entry -Name "pid" -Default 0)
+  if (Test-ProcessEntryAlive -Entry $entry) {
+    return @{ status = "ok"; detail = "pid $pidValue; websocket transport not probed" }
+  }
+  return @{ status = "down"; detail = "recorded service pid $pidValue is not alive" }
+}
+
 function Test-TcpEndpoint {
   param(
     [Parameter(Mandatory = $true)][string]$HostName,
@@ -273,10 +290,8 @@ $rows = foreach ($service in $serviceManifest.services) {
         $detail = $result.detail
       }
       "websocket" {
-        $uri = [System.Uri]::new($healthUrl)
-        $port = if ($uri.Port -gt 0) { $uri.Port } elseif ($uri.Scheme -eq "wss") { 443 } else { 80 }
-        $result = Test-TcpEndpoint -HostName $uri.Host -Port $port -Timeout $TimeoutMs
-        $status = if ($result.ok) { "ok" } else { "down" }
+        $result = Test-ServiceProcessEvidence -ServiceId $serviceId -PidMap $pidMap -PidFile $pidFile
+        $status = $result.status
         $detail = $result.detail
       }
       "process" {
@@ -306,6 +321,7 @@ $rows = foreach ($service in $serviceManifest.services) {
     layer = [string]$service.layer
     logical_service = [string]$service.logical_service
     health_type = [string]$health.type
+    health_evidence = if ([string]$health.type -eq "websocket") { "process_registry_no_websocket_probe" } elseif ([string]$health.type -eq "process") { "process_registry" } else { "http_health" }
     status = $status
     detail = $detail
   }

@@ -28,6 +28,7 @@ the legacy profile name `thought-core-v0`:
 .\scripts\check-conscious-readiness.ps1
 .\scripts\check-organ-readiness.ps1
 .\scripts\check-launch-readiness.ps1
+.\scripts\start-launcher.ps1 -OpenBrowser
 .\scripts\prepare-compat-launch.ps1 -ImportLocalConfig
 .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts
 .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManualTurn
@@ -78,3 +79,25 @@ a longer watcher-to-AITuber HTTP timeout by default; override it with
 smoke-test requirement. These compatibility smoke checks belong to
 `full_conscious_ready`; the lower `conscious_ready` stage should be testable
 without external AI/API access or optional organ service integrations.
+
+## Launch GUI
+
+The first launch GUI is the inherited Home Control Launcher, started through an
+Agent OS wrapper so the workspace root is correct:
+
+```powershell
+.\scripts\start-launcher.ps1 -OpenBrowser
+```
+
+or:
+
+```bat
+start-home-control-launcher.bat
+```
+
+The launcher now defaults to the `thought-core-v0` profile. Legacy Dify profiles
+remain available under compatibility options, but normal startup should use the
+Thought Core profile. Routine launcher status uses process evidence for
+WebSocket services so refreshing the GUI does not create MediaPipe monitor
+connection churn; use explicit smoke/deep checks for strict WebSocket
+handshake truth.

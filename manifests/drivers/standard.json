@@ -72,7 +72,8 @@
       "driver_id": "generic-websocket-health",
       "driver_class": "generic",
       "tiers": [
-        "standard"
+        "snapshot",
+        "deep"
       ],
       "outputs": [
         "health_evidence"
@@ -80,7 +81,23 @@
       "reads": [
         "WebSocket handshake endpoints"
       ],
-      "notes": "Requires an actual WebSocket handshake rather than TCP port openness."
+      "notes": "Requires an actual WebSocket handshake rather than TCP port openness. Use explicitly; routine pulses should prefer process evidence to avoid noisy client churn."
+    },
+    {
+      "driver_id": "generic-websocket-process-evidence",
+      "driver_class": "generic",
+      "tiers": [
+        "light",
+        "standard"
+      ],
+      "outputs": [
+        "health_evidence"
+      ],
+      "reads": [
+        "process registry",
+        "driver cache"
+      ],
+      "notes": "Non-disruptive routine evidence for WebSocket services. It proves the managed service process is alive, not that a fresh WebSocket handshake succeeded."
     },
     {
       "driver_id": "generic-jsonl-event-tail",
@@ -163,6 +180,7 @@
       ],
       "composes": [
         "generic-process-port",
+        "generic-websocket-process-evidence",
         "generic-websocket-health",
         "generic-git-checkout"
       ],
@@ -224,6 +242,7 @@
       ],
       "composes": [
         "generic-process-port",
+        "generic-websocket-process-evidence",
         "generic-websocket-health"
       ],
       "event_sources": [
@@ -304,7 +323,7 @@
       ]
     },
     {
-      "driver_id": "touchdesigner-control-driver",
+      "driver_id": "display-runtime-driver",
       "driver_class": "organ",
       "organ_id": "touchdesigner-ai-controller",
       "target_services": [
@@ -322,12 +341,12 @@
         "local display GUI state"
       ],
       "topology_outputs": [
-        "control GUI endpoint",
+        "display runtime GUI endpoint",
         "TouchDesigner UDP target",
         "TOE project path"
       ],
       "capability_evidence": [
-        "control GUI HTTP ok",
+        "display runtime GUI HTTP ok",
         "TOE static inspection snapshot fresh enough",
         "projector or visual output evidence when display projection is required"
       ],
