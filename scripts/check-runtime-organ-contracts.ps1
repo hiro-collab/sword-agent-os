@@ -366,6 +366,14 @@ function Invoke-EventCorrelationChecks {
     (Test-TextContains -Text $script:correlationText -Needle "interpretation_id") -and
     (Test-TextContains -Text $script:correlationText -Needle "action_id")
   ) -Detail "correlation spine defines ticket, interpretation, and action identity surfaces" -EvidenceRef "snapshot:event-correlation-contract"
+  Require-Condition -ScopeName $scopeName -Id "event_correlation.multi_turn_ticket_continuity" -Condition (
+    (Test-TextContains -Text $script:correlationText -Needle "Multiple Turns, One Ticket") -and
+    (Test-TextContains -Text $script:correlationText -Needle 'new `turn_id`') -and
+    (Test-TextContains -Text $script:correlationText -Needle 'same `issue_ticket_id`') -and
+    (Test-TextContains -Text $script:correlationText -Needle "turn_living_room_001") -and
+    (Test-TextContains -Text $script:correlationText -Needle "turn_living_room_002") -and
+    (Test-TextContains -Text $script:correlationText -Needle "ticket_living_room_light_001")
+  ) -Detail "correlation spine preserves one unresolved issue ticket across multiple turns" -EvidenceRef "snapshot:event-correlation-contract"
   Require-Condition -ScopeName $scopeName -Id "event_correlation.state_semantics" -Condition (
     (Test-TextContains -Text $script:correlationText -Needle "blocked") -and
     (Test-TextContains -Text $script:correlationText -Needle "degraded") -and
