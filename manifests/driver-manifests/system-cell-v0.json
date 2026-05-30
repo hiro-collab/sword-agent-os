@@ -1,0 +1,389 @@
+{
+  "schema_version": "driver_manifest.v0",
+  "manifest_id": "system_cell_v0_driver_manifest",
+  "body_plan_id": "system_cell_v0",
+  "drivers": [
+    {
+      "driver_id": "gui_input_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "sense.touch.gui",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "sense.touch.gui.last_input",
+        "sense.touch.gui.last_seen"
+      ],
+      "legacy_aliases": [
+        "AITuber GUI"
+      ]
+    },
+    {
+      "driver_id": "browser_speech_input_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "sense.hearing.primary",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "sense.hearing.primary.listening",
+        "sense.hearing.primary.last_seen"
+      ],
+      "legacy_aliases": [
+        "browser speech input"
+      ]
+    },
+    {
+      "driver_id": "camera_hub_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "sense.vision.primary",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "sense.vision.primary.connection",
+        "sense.vision.primary.gesture",
+        "sense.vision.primary.freshness_ms"
+      ],
+      "legacy_aliases": [
+        "mediapipe-sword-sign",
+        "camera-hub-driver"
+      ]
+    },
+    {
+      "driver_id": "vision_snapshot_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "sense.vision.snapshot",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "sense.vision.snapshot.connection",
+        "sense.vision.snapshot.latest_frame",
+        "sense.vision.snapshot.freshness_ms"
+      ],
+      "legacy_aliases": [
+        "vision-snapshot-driver",
+        "vision-snapshot-processor"
+      ]
+    },
+    {
+      "driver_id": "thought_core_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "thought.core",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "thought.core.turn_state",
+        "thought.core.last_decision",
+        "thought.core.last_issue_ticket"
+      ],
+      "legacy_aliases": [
+        "Thought Core",
+        "thought-core-api",
+        "thought-core-watcher"
+      ]
+    },
+    {
+      "driver_id": "environment_state_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "environment.state",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "environment.state.available",
+        "environment.state.current",
+        "environment.state.feedback"
+      ],
+      "legacy_aliases": [
+        "environment-state-driver",
+        "environment-state-server",
+        "environment_state_server"
+      ]
+    },
+    {
+      "driver_id": "reflex_rule_driver",
+      "driver_kind": "real",
+      "organ_id": "reflex.core",
+      "instance_policy": "single",
+      "provides_actions": [
+        {
+          "action_id": "expression.microphone.open",
+          "risk_class": "internal",
+          "parameter_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "listen"
+                ]
+              }
+            }
+          },
+          "dry_run": false,
+          "requires_explicit_permission": false
+        },
+        {
+          "action_id": "expression.microphone.close",
+          "risk_class": "internal",
+          "parameter_schema": {
+            "type": "object",
+            "additionalProperties": false
+          },
+          "dry_run": false,
+          "requires_explicit_permission": false
+        }
+      ],
+      "status_keys": [
+        "reflex.core.overlay_loaded",
+        "reflex.core.last_rule_fired"
+      ],
+      "legacy_aliases": [
+        "Reflex Core"
+      ]
+    },
+    {
+      "driver_id": "action_boundary_driver",
+      "driver_kind": "real",
+      "organ_id": "action.boundary",
+      "instance_policy": "single",
+      "provides_actions": [
+        {
+          "action_id": "system.emergency_stop",
+          "risk_class": "internal",
+          "parameter_schema": {
+            "type": "object",
+            "additionalProperties": false
+          },
+          "dry_run": false,
+          "requires_explicit_permission": false
+        }
+      ],
+      "status_keys": [
+        "action.boundary.emergency_stop",
+        "action.boundary.last_decision"
+      ],
+      "legacy_aliases": [
+        "Action Boundary"
+      ]
+    },
+    {
+      "driver_id": "dummy_home_control_driver",
+      "driver_kind": "dummy",
+      "organ_id": "actuator.home_control",
+      "instance_policy": "single",
+      "provides_actions": [
+        {
+          "action_id": "home.light.turn_on",
+          "risk_class": "reversible_external",
+          "parameter_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "device_id": {
+                "type": "string"
+              }
+            }
+          },
+          "dry_run": true,
+          "requires_explicit_permission": false
+        },
+        {
+          "action_id": "home.light.turn_off",
+          "risk_class": "reversible_external",
+          "parameter_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "device_id": {
+                "type": "string"
+              }
+            }
+          },
+          "dry_run": true,
+          "requires_explicit_permission": false
+        }
+      ],
+      "status_keys": [
+        "actuator.home_control.dummy_state"
+      ],
+      "legacy_aliases": [
+        "dummy.home_control"
+      ]
+    },
+    {
+      "driver_id": "home_control_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "actuator.home_control",
+      "instance_policy": "single",
+      "provides_actions": [
+        {
+          "action_id": "home.light.turn_on",
+          "risk_class": "reversible_external",
+          "parameter_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "device_id"
+            ],
+            "properties": {
+              "device_id": {
+                "type": "string"
+              }
+            }
+          },
+          "dry_run": false,
+          "requires_explicit_permission": false
+        },
+        {
+          "action_id": "home.light.turn_off",
+          "risk_class": "reversible_external",
+          "parameter_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "device_id"
+            ],
+            "properties": {
+              "device_id": {
+                "type": "string"
+              }
+            }
+          },
+          "dry_run": false,
+          "requires_explicit_permission": false
+        }
+      ],
+      "status_keys": [
+        "actuator.home_control.available",
+        "actuator.home_control.last_result"
+      ],
+      "legacy_aliases": [
+        "home_assistant_bridge",
+        "home-assistant-server"
+      ]
+    },
+    {
+      "driver_id": "aituber_kit_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "expression.avatar",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "expression.avatar.connected",
+        "expression.avatar.last_message",
+        "expression.avatar.vrm_ready"
+      ],
+      "legacy_aliases": [
+        "AITuber Kit",
+        "aituber_kit"
+      ]
+    },
+    {
+      "driver_id": "voicevox_speech_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "expression.speech",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "expression.speech.engine_ready",
+        "expression.speech.last_output",
+        "expression.speech.voicevox_ready"
+      ],
+      "legacy_aliases": [
+        "VOICEVOX",
+        "voicevox"
+      ]
+    },
+    {
+      "driver_id": "projection_visual_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "display.projection",
+      "instance_policy": "single",
+      "provides_actions": [
+        {
+          "action_id": "display.hud.toggle",
+          "risk_class": "internal",
+          "parameter_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "visible": {
+                "type": "boolean"
+              }
+            }
+          },
+          "dry_run": false,
+          "requires_explicit_permission": false
+        },
+        {
+          "action_id": "display.mode.set",
+          "risk_class": "internal",
+          "parameter_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string"
+              }
+            }
+          },
+          "dry_run": false,
+          "requires_explicit_permission": false
+        }
+      ],
+      "status_keys": [
+        "display.projection.mode",
+        "display.projection.hud_visible"
+      ],
+      "legacy_aliases": [
+        "Projection Visual",
+        "cube-vault-background"
+      ]
+    },
+    {
+      "driver_id": "display_runtime_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "display.runtime",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "display.runtime.udp_ready",
+        "display.runtime.last_ping"
+      ],
+      "legacy_aliases": [
+        "touchdesigner-ai-controller"
+      ]
+    },
+    {
+      "driver_id": "body_map_inspector_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "diagnostics.body_map_inspector",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "diagnostics.body_map_inspector.last_snapshot",
+        "diagnostics.body_map_inspector.last_render"
+      ],
+      "legacy_aliases": [
+        "system-house-renderer",
+        "body-map-viewer"
+      ]
+    },
+    {
+      "driver_id": "legacy_dify_compat_adapter",
+      "driver_kind": "compat_adapter",
+      "organ_id": "thought.core",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "thought.core.legacy_dify_available"
+      ],
+      "legacy_aliases": [
+        "Dify legacy runtime",
+        "dify"
+      ]
+    }
+  ]
+}

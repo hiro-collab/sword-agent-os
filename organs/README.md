@@ -21,3 +21,7 @@ Implementation checkouts are sourced through `manifests/organs/`. Do not copy
 legacy organ folders directly into this repository. Use the manifest and
 bootstrap script so the selected repository, branch, and commit remain
 reproducible.
+
+For where to add cross-organ contracts, driver declarations, action-boundary
+logic, diagnostics, or display projections, see
+`docs/module-usage-index.md`.

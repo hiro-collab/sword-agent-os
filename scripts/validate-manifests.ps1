@@ -122,6 +122,19 @@ $memoryStewardshipPolicy = Read-Json -Path (Resolve-ManifestPath "policies/data-
 $driverManifest = Read-Json -Path (Resolve-ManifestPath "manifests/drivers/standard.json")
 $diagnosticPolicy = Read-Json -Path (Resolve-ManifestPath "manifests/diagnostics/standard.json")
 $organTestPacks = Read-Json -Path (Resolve-ManifestPath "manifests/tests/organ-test-packs/standard.json")
+$bodyPlan = Read-Json -Path (Resolve-ManifestPath "manifests/body-plans/system-cell-v0.json")
+$actionDriverManifest = Read-Json -Path (Resolve-ManifestPath "manifests/driver-manifests/system-cell-v0.json")
+$compatAliases = Read-Json -Path (Resolve-ManifestPath "manifests/compat-aliases/legacy-service-aliases.json")
+
+$contractFiles = @(
+  "contracts/action_request/action_request.v0.schema.json",
+  "contracts/event_ingest/event_ingest.v0.schema.json",
+  "contracts/status_patch/status_patch.v0.schema.json",
+  "contracts/body_plan/body_plan.v0.schema.json",
+  "contracts/driver_manifest/driver_manifest.v0.schema.json",
+  "contracts/body_schema_snapshot/body_schema_snapshot.v0.schema.json",
+  "contracts/body_display_projection/body_display_projection.v0.schema.json"
+)
 
 $runtimeDirs = @(
   "runtime/routers/turn-router",
@@ -133,7 +146,12 @@ $runtimeDirs = @(
   "runtime/organ-test-packs",
   "runtime/communication-governance",
   "runtime/memory-core",
-  "runtime/approval-queue"
+  "runtime/approval-queue",
+  "runtime/state-event-ingest",
+  "runtime/action-catalog",
+  "runtime/action-boundary",
+  "runtime/body-schema",
+  "runtime/body-display-projection"
 )
 foreach ($dir in $runtimeDirs) {
   Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath $dir)) "missing runtime directory: $dir"
@@ -152,6 +170,89 @@ foreach ($component in $standardProfile.required_runtime) {
     "approval-queue"
   )
   Assert-True ($component -in $known) "standard profile has unknown runtime component: $component"
+}
+
+foreach ($contractFile in $contractFiles) {
+  $contractPath = Resolve-ManifestPath $contractFile
+  Assert-True (Test-Path -LiteralPath $contractPath -PathType Leaf) "missing contract schema: $contractFile"
+  $contract = Read-Json -Path $contractPath
+  Assert-True ($null -ne $contract.PSObject.Properties["`$schema"]) "contract missing `$schema: $contractFile"
+  Assert-True ($null -ne $contract.PSObject.Properties["`$id"]) "contract missing `$id: $contractFile"
+  Assert-True ($null -ne $contract.title) "contract missing title: $contractFile"
+}
+
+Assert-True ([string]$bodyPlan.schema_version -eq "body_plan.v0") "body plan schema_version must be body_plan.v0"
+Assert-True ([string]$bodyPlan.body_plan_id -eq "system_cell_v0") "body plan id must be system_cell_v0"
+Assert-True ([string]$bodyPlan.body_plan_version -match "^[0-9]+\.[0-9]+\.[0-9]+$") "body plan version must be semver-like"
+Assert-True (-not [string]::IsNullOrWhiteSpace([string]$bodyPlan.organism_id)) "body plan missing organism_id"
+Assert-True (-not [string]::IsNullOrWhiteSpace([string]$bodyPlan.organism_name)) "body plan missing organism_name"
+Assert-True ($null -eq $bodyPlan.agency_profile_id) "initial body plan should leave agency_profile_id null"
+
+$bodyPlanContractValues = @($bodyPlan.compatible_contracts.PSObject.Properties | ForEach-Object { [string]$_.Value })
+foreach ($requiredContract in @("action_request.v0", "event_ingest.v0", "status_patch.v0", "body_plan.v0", "driver_manifest.v0", "body_schema_snapshot.v0", "body_display_projection.v0")) {
+  Assert-True ($requiredContract -in $bodyPlanContractValues) "body plan missing compatible contract: $requiredContract"
+}
+
+$bodyPlanOrganIds = @($bodyPlan.organs | ForEach-Object { [string]$_.organ_id })
+Assert-True (($bodyPlanOrganIds | Select-Object -Unique).Count -eq $bodyPlanOrganIds.Count) "body plan organ_id values must be unique"
+foreach ($organId in $bodyPlanOrganIds) {
+  Assert-True ($organId -match "^[a-z][a-z0-9_.-]*$") "body plan has unsafe organ_id: $organId"
+}
+foreach ($requiredOrganId in @("thought.core", "reflex.core", "action.boundary", "environment.state", "sense.vision.primary", "display.projection", "memory.event_journal", "memory.status_store", "body.schema")) {
+  Assert-True ($requiredOrganId -in $bodyPlanOrganIds) "body plan missing required organism organ: $requiredOrganId"
+}
+
+Assert-True ([string]$actionDriverManifest.schema_version -eq "driver_manifest.v0") "action driver manifest schema_version must be driver_manifest.v0"
+Assert-True ([string]$actionDriverManifest.body_plan_id -eq [string]$bodyPlan.body_plan_id) "action driver manifest must match body plan id"
+$actionDriverIds = @($actionDriverManifest.drivers | ForEach-Object { [string]$_.driver_id })
+Assert-True (($actionDriverIds | Select-Object -Unique).Count -eq $actionDriverIds.Count) "action driver ids must be unique"
+foreach ($organ in @($bodyPlan.organs)) {
+  foreach ($driverRef in @($organ.driver_manifest_refs)) {
+    Assert-True ([string]$driverRef -in $actionDriverIds) "body plan organ $($organ.organ_id) references unknown driver: $driverRef"
+  }
+}
+
+$validDriverKinds = @("real", "dummy", "compat_adapter")
+$validInstancePolicies = @("single", "multiple")
+$validRiskClasses = @("internal", "reversible_external", "sensitive_external", "restricted")
+$actionProviderCounts = @{}
+foreach ($driver in $actionDriverManifest.drivers) {
+  $driverId = [string]$driver.driver_id
+  $driverKind = [string]$driver.driver_kind
+  $driverOrganId = [string]$driver.organ_id
+  $instancePolicy = [string]$driver.instance_policy
+  Assert-True ($driverId -match "^[a-z][a-z0-9_.-]*$") "action driver has unsafe driver_id: $driverId"
+  Assert-True ($driverKind -in $validDriverKinds) "action driver $driverId has invalid driver_kind: $driverKind"
+  Assert-True ($instancePolicy -in $validInstancePolicies) "action driver $driverId has invalid instance_policy: $instancePolicy"
+  Assert-True ($driverOrganId -in $bodyPlanOrganIds) "action driver $driverId references unknown body organ: $driverOrganId"
+
+  foreach ($action in @($driver.provides_actions)) {
+    $actionId = [string]$action.action_id
+    Assert-True ($actionId -match "^[a-z][a-z0-9_.-]*$") "action driver $driverId has unsafe action_id: $actionId"
+    Assert-True ([string]$action.risk_class -in $validRiskClasses) "action $actionId has invalid risk_class"
+    Assert-True ($null -ne $action.parameter_schema) "action $actionId must declare parameter_schema"
+    if ($driverKind -eq "dummy") {
+      Assert-True ([bool]$action.dry_run) "dummy action $actionId must declare dry_run true"
+    }
+    if (-not $actionProviderCounts.ContainsKey($actionId)) {
+      $actionProviderCounts[$actionId] = 0
+    }
+    if ($driverKind -ne "dummy") {
+      $actionProviderCounts[$actionId]++
+    }
+  }
+}
+foreach ($entry in $actionProviderCounts.GetEnumerator()) {
+  Assert-True ([int]$entry.Value -le 1) "action has multiple non-dummy providers: $($entry.Key)"
+}
+
+Assert-True ([string]$compatAliases.schema_version -eq "compat_aliases.v0") "compat aliases schema_version must be compat_aliases.v0"
+foreach ($alias in @($compatAliases.aliases)) {
+  Assert-True (-not [string]::IsNullOrWhiteSpace([string]$alias.legacy)) "compat alias missing legacy label"
+  Assert-True ([string]$alias.canonical_organ_id -in $bodyPlanOrganIds) "compat alias references unknown canonical organ: $($alias.legacy)"
+  if (-not [string]::IsNullOrWhiteSpace([string]$alias.canonical_driver_id)) {
+    Assert-True ([string]$alias.canonical_driver_id -in $actionDriverIds) "compat alias references unknown canonical driver: $($alias.legacy)"
+  }
 }
 
 foreach ($component in $standardProfile.health_model.boot_critical_runtime) {
@@ -383,6 +484,7 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/read-diagnosti
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/watch-diagnostics-status.ps1") -PathType Leaf) "diagnostics status watcher missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-neural-monitoring-contract.ps1") -PathType Leaf) "neural monitoring contract checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-organ-test-packs.ps1") -PathType Leaf) "organ test pack runner missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/build-body-schema-snapshot.ps1") -PathType Leaf) "body schema snapshot builder missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/diagnostic-scheduler/neural-monitoring-test-plan.v0.md") -PathType Leaf) "neural monitoring test plan missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/organ-test-packs/README.md") -PathType Leaf) "organ test pack runtime README missing"
 

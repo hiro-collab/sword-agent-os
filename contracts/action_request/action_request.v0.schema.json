@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/action_request.v0.schema.json",
+  "title": "Agent OS action_request.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "action_request_id",
+    "origin",
+    "action_id",
+    "target",
+    "risk_class",
+    "parameters"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "action_request.v0"
+    },
+    "action_request_id": {
+      "type": "string",
+      "pattern": "^ar_[A-Za-z0-9_.:-]+$"
+    },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "thought_core",
+        "reflex",
+        "gui_input",
+        "system",
+        "test"
+      ]
+    },
+    "action_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "risk_class": {
+      "type": "string",
+      "enum": [
+        "internal",
+        "reversible_external",
+        "sensitive_external",
+        "restricted"
+      ]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "organ_id"
+      ],
+      "properties": {
+        "organ_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "driver_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "instance_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "device_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        }
+      }
+    },
+    "parameters": {
+      "type": "object"
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "causal_parent_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "turn_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "issue_ticket_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "dry_run": {
+      "type": "boolean",
+      "default": false
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source_ref"
+      },
+      "default": []
+    }
+  },
+  "$defs": {
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source_id"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "source_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "freshness_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

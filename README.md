@@ -11,6 +11,7 @@ not active edit targets.
 
 - [Remote workstation setup](docs/remote-workstation-setup.md)
 - [Thread startup guide](docs/thread-startup-guide.md)
+- [Module usage index](docs/module-usage-index.md)
 - [Legacy reference index](docs/legacy-reference-index.md)
 
 ## Initial Runtime Facade

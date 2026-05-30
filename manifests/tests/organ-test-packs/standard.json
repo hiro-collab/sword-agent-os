@@ -15,6 +15,51 @@
   "result_values": ["pass", "fail", "blocked", "manual", "skipped"],
   "packs": [
     {
+      "organ_id": "agent-os-body-plan",
+      "role": "body-plan/runtime-schema",
+      "service_ids": [],
+      "capabilities": [],
+      "tests": [
+        {
+          "id": "body_plan.system_cell_manifest",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "manifests/body-plans/system-cell-v0.json",
+          "expect": "exists"
+        },
+        {
+          "id": "body_plan.driver_manifest",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "manifests/driver-manifests/system-cell-v0.json",
+          "expect": "exists"
+        },
+        {
+          "id": "body_plan.compat_aliases",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "manifests/compat-aliases/legacy-service-aliases.json",
+          "expect": "exists"
+        },
+        {
+          "id": "body_schema.snapshot_contract",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/build-body-schema-snapshot.ps1",
+            "-Check",
+            "-NoWrite"
+          ],
+          "expect_exit_code": 0
+        }
+      ]
+    },
+    {
       "organ_id": "home-assistant-server",
       "role": "action/home-control",
       "service_ids": ["home_assistant_bridge"],

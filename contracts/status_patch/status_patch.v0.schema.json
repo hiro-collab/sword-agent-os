@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/status_patch.v0.schema.json",
+  "title": "Agent OS status_patch.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "patch_id",
+    "updates"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "status_patch.v0"
+    },
+    "patch_id": {
+      "type": "string",
+      "pattern": "^sp_[A-Za-z0-9_.:-]+$"
+    },
+    "organism_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "updates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value",
+          "observed_at"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]*$"
+          },
+          "value": {},
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "freshness_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "source_ref": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        }
+      }
+    }
+  }
+}

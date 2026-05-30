@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/event_ingest.v0.schema.json",
+  "title": "Agent OS event_ingest.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ingest_id",
+    "event"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "event_ingest.v0"
+    },
+    "ingest_id": {
+      "type": "string",
+      "pattern": "^ing_[A-Za-z0-9_.:-]+$"
+    },
+    "organism_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "event_type",
+        "reported_at",
+        "source"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "pattern": "^evt_[A-Za-z0-9_.:-]+$"
+        },
+        "event_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "event_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "default": 2
+        },
+        "reported_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "causal_parent_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "episode_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "turn_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "issue_ticket_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "default": []
+        },
+        "payload": {
+          "type": "object",
+          "default": {}
+        },
+        "redaction": {
+          "type": "string",
+          "enum": [
+            "none",
+            "summary_only",
+            "redacted"
+          ],
+          "default": "summary_only"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "default": false
+        },
+        "driver_kind": {
+          "type": "string",
+          "enum": [
+            "real",
+            "dummy",
+            "compat_adapter"
+          ]
+        }
+      }
+    },
+    "status_patch": {
+      "$ref": "../status_patch/status_patch.v0.schema.json"
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin"
+      ],
+      "properties": {
+        "origin": {
+          "type": "string",
+          "enum": [
+            "thought_core",
+            "reflex",
+            "gui_input",
+            "driver",
+            "system",
+            "test"
+          ]
+        },
+        "organ_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "driver_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "instance_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        }
+      }
+    }
+  }
+}

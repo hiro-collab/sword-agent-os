@@ -13,11 +13,12 @@ C:\Users\kawai\works\sword-agent-os-workspace\sword-agent-os
 Read, in this order:
 
 1. `AGENTS.md`
-2. `governance/development/`
-3. `..\coordination\shared\registry\`
-4. `..\coordination\shared\messages\`
-5. `..\coordination\shared\tasks\`
-6. `..\coordination\shared\handoffs\`
+2. `docs/module-usage-index.md`
+3. `governance/development/`
+4. `..\coordination\shared\registry\`
+5. `..\coordination\shared\messages\`
+6. `..\coordination\shared\tasks\`
+7. `..\coordination\shared\handoffs\`
 
 ## Reference Boundary
 
@@ -42,4 +43,3 @@ policies in the new workspace.
 
 Small related edits outside a task are allowed, but shared-surface changes
 should be mentioned in the handoff.
-

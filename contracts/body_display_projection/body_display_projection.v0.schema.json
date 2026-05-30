@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/body_display_projection.v0.schema.json",
+  "title": "Agent OS body_display_projection.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "frame_kind",
+    "seq",
+    "timestamp",
+    "primary_mode",
+    "modes",
+    "nodes",
+    "routes",
+    "source_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "body_display_projection.v0"
+    },
+    "frame_kind": {
+      "type": "string",
+      "enum": [
+        "full",
+        "delta"
+      ]
+    },
+    "base_seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "primary_mode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.-]*$"
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/route"
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source_ref"
+      }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "label",
+        "level",
+        "health",
+        "activity",
+        "freshness",
+        "confidence",
+        "source_refs"
+      ],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "level": {
+          "$ref": "#/$defs/level"
+        },
+        "health": {
+          "$ref": "#/$defs/level"
+        },
+        "activity": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "idle",
+            "active",
+            "blocked",
+            "degraded"
+          ]
+        },
+        "freshness_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "freshness": {
+          "type": "string",
+          "enum": [
+            "fresh",
+            "stale",
+            "missing",
+            "unknown"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_ref"
+          }
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "level"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "level": {
+          "$ref": "#/$defs/level"
+        },
+        "freshness_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "source_ref": {
+      "type": "string",
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "level": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "offline",
+        "idle",
+        "ok",
+        "active",
+        "warn",
+        "error"
+      ]
+    }
+  }
+}

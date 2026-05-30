@@ -1,0 +1,117 @@
+{
+  "schema_version": "compat_aliases.v0",
+  "id": "legacy_service_aliases",
+  "description": "Legacy labels retained for migration and UI compatibility. Canonical ids should be used in new runtime code.",
+  "aliases": [
+    {
+      "legacy": "AITuber Kit",
+      "canonical_organ_id": "expression.avatar",
+      "canonical_driver_id": "aituber_kit_driver"
+    },
+    {
+      "legacy": "Expression UI",
+      "canonical_organ_id": "expression.avatar",
+      "canonical_driver_id": "aituber_kit_driver"
+    },
+    {
+      "legacy": "MediaPipe camera",
+      "canonical_organ_id": "sense.vision.primary",
+      "canonical_driver_id": "camera_hub_driver"
+    },
+    {
+      "legacy": "camera-hub-driver",
+      "canonical_organ_id": "sense.vision.primary",
+      "canonical_driver_id": "camera_hub_driver"
+    },
+    {
+      "legacy": "Reflex MediaPipe",
+      "canonical_organ_id": "sense.vision.primary",
+      "canonical_driver_id": "camera_hub_driver"
+    },
+    {
+      "legacy": "vision-snapshot-driver",
+      "canonical_organ_id": "sense.vision.snapshot",
+      "canonical_driver_id": "vision_snapshot_driver"
+    },
+    {
+      "legacy": "vision_snapshot_processor",
+      "canonical_organ_id": "sense.vision.snapshot",
+      "canonical_driver_id": "vision_snapshot_driver"
+    },
+    {
+      "legacy": "environment-state-driver",
+      "canonical_organ_id": "environment.state",
+      "canonical_driver_id": "environment_state_driver"
+    },
+    {
+      "legacy": "environment_state_server",
+      "canonical_organ_id": "environment.state",
+      "canonical_driver_id": "environment_state_driver"
+    },
+    {
+      "legacy": "Home-control server",
+      "canonical_organ_id": "actuator.home_control",
+      "canonical_driver_id": "home_control_driver"
+    },
+    {
+      "legacy": "home-assistant-bridge-driver",
+      "canonical_organ_id": "actuator.home_control",
+      "canonical_driver_id": "home_control_driver"
+    },
+    {
+      "legacy": "Home Control bridge",
+      "canonical_organ_id": "actuator.home_control",
+      "canonical_driver_id": "home_control_driver"
+    },
+    {
+      "legacy": "home_assistant_bridge",
+      "canonical_organ_id": "actuator.home_control",
+      "canonical_driver_id": "home_control_driver"
+    },
+    {
+      "legacy": "TouchDesigner control GUI",
+      "canonical_organ_id": "display.runtime",
+      "canonical_driver_id": "display_runtime_driver"
+    },
+    {
+      "legacy": "display-runtime-driver",
+      "canonical_organ_id": "display.runtime",
+      "canonical_driver_id": "display_runtime_driver"
+    },
+    {
+      "legacy": "touchdesigner-ai-controller",
+      "canonical_organ_id": "display.runtime",
+      "canonical_driver_id": "display_runtime_driver"
+    },
+    {
+      "legacy": "system-house-renderer",
+      "canonical_organ_id": "diagnostics.body_map_inspector",
+      "canonical_driver_id": "body_map_inspector_driver"
+    },
+    {
+      "legacy": "diagnostics-view-driver",
+      "canonical_organ_id": "diagnostics.body_map_inspector",
+      "canonical_driver_id": "body_map_inspector_driver"
+    },
+    {
+      "legacy": "cube-vault-background",
+      "canonical_organ_id": "display.projection",
+      "canonical_driver_id": "projection_visual_driver"
+    },
+    {
+      "legacy": "Dify legacy runtime",
+      "canonical_organ_id": "thought.core",
+      "canonical_driver_id": "legacy_dify_compat_adapter"
+    },
+    {
+      "legacy": "thought-core-driver",
+      "canonical_organ_id": "thought.core",
+      "canonical_driver_id": "thought_core_driver"
+    },
+    {
+      "legacy": "aituber-kit-driver",
+      "canonical_organ_id": "expression.avatar",
+      "canonical_driver_id": "aituber_kit_driver"
+    }
+  ]
+}

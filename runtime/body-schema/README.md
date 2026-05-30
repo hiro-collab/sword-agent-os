@@ -1,0 +1,46 @@
+# Body Schema
+
+Body Schema is the current self-body model generated from Body Plan, Status
+Store, and selected summarized evidence.
+
+It is not the static body configuration and it is not raw runtime history.
+
+## Inputs
+
+- Body Plan: static organism/body/organ structure.
+- Status Store: current normalized state.
+- Summarized diagnostics or topology snapshots when available.
+
+## Outputs
+
+- Current organ presence and health.
+- Current confidence/freshness labels.
+- Current body connectivity as understood by the OS.
+- Compact body-state records for Body Display Projection and diagnostics.
+
+## Current v0 Builder
+
+The initial builder is:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-body-schema-snapshot.ps1 -Check
+```
+
+It reads `manifests/body-plans/system-cell-v0.json`,
+`manifests/driver-manifests/system-cell-v0.json`, compatibility aliases, and the
+current diagnostics status when present. It writes generated local snapshots
+under `.cache/agent-os/body-schema/` and `.cache/agent-os/body-display-projection/`.
+The Body Schema snapshot payload follows
+`contracts/body_schema_snapshot/body_schema_snapshot.v0.schema.json`.
+`status_source` uses a logical source id such as `status-store.current`; it must
+not retain local filesystem paths.
+
+Use `-NoWrite` for read-only validation in test packs.
+
+## Boundaries
+
+- Do not reconstruct current state by replaying Event Journal on every read.
+- Do not store raw camera frames, raw prompts, raw audio, or secret-bearing
+  payloads.
+- Do not retain local filesystem paths in generated snapshots.
+- Do not own action decisions or reflex rules.

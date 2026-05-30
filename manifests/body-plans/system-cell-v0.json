@@ -1,0 +1,219 @@
+{
+  "schema_version": "body_plan.v0",
+  "organism_id": "nikechan_local",
+  "organism_name": "Nikechan",
+  "agency_profile_id": null,
+  "body_plan_id": "system_cell_v0",
+  "body_plan_version": "0.1.0",
+  "compatible_contracts": {
+    "action_request": "action_request.v0",
+    "event_ingest": "event_ingest.v0",
+    "status_patch": "status_patch.v0",
+    "body_plan": "body_plan.v0",
+    "driver_manifest": "driver_manifest.v0",
+    "body_schema_snapshot": "body_schema_snapshot.v0",
+    "body_display_projection": "body_display_projection.v0"
+  },
+  "organs": [
+    {
+      "organ_id": "sense.vision.primary",
+      "role": "sense.vision",
+      "required": true,
+      "driver_manifest_refs": [
+        "camera_hub_driver"
+      ],
+      "legacy_aliases": [
+        "mediapipe-sword-sign",
+        "MediaPipe camera",
+        "Reflex MediaPipe"
+      ]
+    },
+    {
+      "organ_id": "sense.vision.snapshot",
+      "role": "sense.vision.snapshot",
+      "required": false,
+      "driver_manifest_refs": [
+        "vision_snapshot_driver"
+      ],
+      "legacy_aliases": [
+        "vision-snapshot-processor",
+        "Vision snapshot"
+      ]
+    },
+    {
+      "organ_id": "sense.hearing.primary",
+      "role": "sense.hearing",
+      "required": false,
+      "driver_manifest_refs": [
+        "browser_speech_input_driver"
+      ],
+      "legacy_aliases": [
+        "browser speech input",
+        "speech input"
+      ]
+    },
+    {
+      "organ_id": "sense.touch.gui",
+      "role": "sense.touch.gui",
+      "required": true,
+      "driver_manifest_refs": [
+        "gui_input_driver"
+      ],
+      "legacy_aliases": [
+        "AITuber GUI",
+        "Projection Visual controls"
+      ]
+    },
+    {
+      "organ_id": "reflex.core",
+      "role": "reflex.core",
+      "required": true,
+      "driver_manifest_refs": [
+        "reflex_rule_driver"
+      ],
+      "legacy_aliases": [
+        "Reflex Core",
+        "MediaPipe sword sign"
+      ]
+    },
+    {
+      "organ_id": "thought.core",
+      "role": "thought.core",
+      "required": true,
+      "driver_manifest_refs": [
+        "thought_core_driver"
+      ],
+      "legacy_aliases": [
+        "Thought Core",
+        "thought-core-v0",
+        "sword-voice-agent-control-plane"
+      ]
+    },
+    {
+      "organ_id": "environment.state",
+      "role": "environment.state",
+      "required": true,
+      "driver_manifest_refs": [
+        "environment_state_driver"
+      ],
+      "legacy_aliases": [
+        "environment-state-server",
+        "Environment state"
+      ]
+    },
+    {
+      "organ_id": "memory.event_journal",
+      "role": "memory.event_journal",
+      "required": true,
+      "driver_manifest_refs": [],
+      "legacy_aliases": [
+        "event-journal"
+      ]
+    },
+    {
+      "organ_id": "memory.status_store",
+      "role": "memory.status_store",
+      "required": true,
+      "driver_manifest_refs": [],
+      "legacy_aliases": [
+        "status-store"
+      ]
+    },
+    {
+      "organ_id": "body.schema",
+      "role": "body.schema",
+      "required": true,
+      "driver_manifest_refs": [],
+      "legacy_aliases": [
+        "body schema"
+      ]
+    },
+    {
+      "organ_id": "action.boundary",
+      "role": "action.boundary",
+      "required": true,
+      "driver_manifest_refs": [
+        "action_boundary_driver"
+      ],
+      "legacy_aliases": [
+        "Action Boundary"
+      ]
+    },
+    {
+      "organ_id": "actuator.home_control",
+      "role": "actuator.home_control",
+      "required": false,
+      "driver_manifest_refs": [
+        "home_control_driver",
+        "dummy_home_control_driver"
+      ],
+      "legacy_aliases": [
+        "Home Control bridge",
+        "home-assistant-server",
+        "home_assistant_bridge"
+      ]
+    },
+    {
+      "organ_id": "expression.avatar",
+      "role": "expression.avatar",
+      "required": true,
+      "driver_manifest_refs": [
+        "aituber_kit_driver"
+      ],
+      "legacy_aliases": [
+        "AITuber Kit",
+        "Expression UI",
+        "aituber-kit"
+      ]
+    },
+    {
+      "organ_id": "expression.speech",
+      "role": "expression.speech",
+      "required": false,
+      "driver_manifest_refs": [
+        "voicevox_speech_driver"
+      ],
+      "legacy_aliases": [
+        "VOICEVOX",
+        "tts-service"
+      ]
+    },
+    {
+      "organ_id": "display.projection",
+      "role": "display.projection",
+      "required": true,
+      "driver_manifest_refs": [
+        "projection_visual_driver"
+      ],
+      "legacy_aliases": [
+        "Projection Visual",
+        "cube-vault-background"
+      ]
+    },
+    {
+      "organ_id": "display.runtime",
+      "role": "display.runtime",
+      "required": false,
+      "driver_manifest_refs": [
+        "display_runtime_driver"
+      ],
+      "legacy_aliases": [
+        "TouchDesigner",
+        "touchdesigner-ai-controller",
+        "Display control GUI"
+      ]
+    },
+    {
+      "organ_id": "diagnostics.body_map_inspector",
+      "role": "diagnostics.body_map_inspector",
+      "required": false,
+      "driver_manifest_refs": [
+        "body_map_inspector_driver"
+      ],
+      "legacy_aliases": [
+        "system-house-renderer",
+        "house renderer"
+      ]
+    }
+  ]
+}
