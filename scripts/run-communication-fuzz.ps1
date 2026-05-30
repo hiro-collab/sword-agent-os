@@ -241,6 +241,9 @@ function ConvertTo-RedactedErrorDetail($ErrorRecord) {
   $typeName = "UnknownException"
   if ($null -ne $exception) {
     $typeName = $exception.GetType().Name
+    if ($null -ne $exception.InnerException) {
+      $typeName = "{0}>{1}" -f $typeName, $exception.InnerException.GetType().Name
+    }
   }
 
   $category = "NotSpecified"
@@ -271,22 +274,26 @@ function Invoke-FuzzCase($Client, $Case) {
 
   try {
     $response = $Client.SendAsync($request).GetAwaiter().GetResult()
-    $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-    $statusCode = [int]$response.StatusCode
-    $expected = @($Case.expected_status)
-    $result = if ($expected -contains $statusCode) { "pass" } else { "fail" }
-    return [pscustomobject]@{
-      id = $Case.id
-      service = $Case.service
-      result = $result
-      method = $Case.method
-      status = $statusCode
-      expected_status = $expected
-      latency_ms = [int]((Get-Date) - $started).TotalMilliseconds
-      body_kind = $Case.body_kind
-      body_chars = $Case.body_chars
-      response_chars = ($body | Measure-Object -Character).Characters
-      intent = $Case.intent
+    try {
+      $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+      $statusCode = [int]$response.StatusCode
+      $expected = @($Case.expected_status)
+      $result = if ($expected -contains $statusCode) { "pass" } else { "fail" }
+      return [pscustomobject]@{
+        id = $Case.id
+        service = $Case.service
+        result = $result
+        method = $Case.method
+        status = $statusCode
+        expected_status = $expected
+        latency_ms = [int]((Get-Date) - $started).TotalMilliseconds
+        body_kind = $Case.body_kind
+        body_chars = $Case.body_chars
+        response_chars = ($body | Measure-Object -Character).Characters
+        intent = $Case.intent
+      }
+    } finally {
+      $response.Dispose()
     }
   } catch {
     return [pscustomobject]@{
@@ -308,6 +315,156 @@ function Invoke-FuzzCase($Client, $Case) {
   }
 }
 
+function Invoke-SequenceRequest {
+  param(
+    $Client,
+    [string]$Method,
+    [string]$Url,
+    [AllowNull()][string]$BodyText = $null,
+    [string]$ContentType = "application/json"
+  )
+
+  $started = Get-Date
+  $request = [System.Net.Http.HttpRequestMessage]::new(
+    [System.Net.Http.HttpMethod]::new($Method),
+    [Uri]$Url
+  )
+  $request.Headers.TryAddWithoutValidation("User-Agent", "sword-agent-os-communication-fuzz/0.1") | Out-Null
+
+  if ($PSBoundParameters.ContainsKey("BodyText") -and $null -ne $BodyText) {
+    $contentBytes = [System.Text.Encoding]::UTF8.GetBytes($BodyText)
+    $request.Content = [System.Net.Http.ByteArrayContent]::new($contentBytes)
+    $request.Content.Headers.TryAddWithoutValidation("Content-Type", $ContentType) | Out-Null
+  }
+
+  try {
+    $response = $Client.SendAsync($request).GetAwaiter().GetResult()
+    try {
+      return [pscustomobject]@{
+        ok = $true
+        status = [int]$response.StatusCode
+        body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        latency_ms = [int]((Get-Date) - $started).TotalMilliseconds
+        detail = $null
+      }
+    } finally {
+      $response.Dispose()
+    }
+  } catch {
+    return [pscustomobject]@{
+      ok = $false
+      status = $null
+      body = ""
+      latency_ms = [int]((Get-Date) - $started).TotalMilliseconds
+      detail = ConvertTo-RedactedErrorDetail $_
+    }
+  } finally {
+    $request.Dispose()
+  }
+}
+
+function New-SequenceResult {
+  param(
+    [string]$Id,
+    [string]$Result,
+    [AllowNull()][object]$Status,
+    [int[]]$ExpectedStatus,
+    [int]$LatencyMs,
+    [int]$ResponseChars,
+    [string]$Intent,
+    [AllowNull()][object]$ResponseMessageCount = $null,
+    [AllowNull()][string]$Detail = $null
+  )
+
+  $entry = [ordered]@{
+    id = $Id
+    service = "aituber_kit"
+    result = $Result
+    method = "SEQUENCE"
+    status = $Status
+    expected_status = $ExpectedStatus
+    latency_ms = $LatencyMs
+    body_kind = "sequence"
+    body_chars = 0
+    response_chars = $ResponseChars
+    intent = $Intent
+  }
+  if ($null -ne $ResponseMessageCount) {
+    $entry.response_message_count = $ResponseMessageCount
+  }
+  if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+    $entry.detail = $Detail
+  }
+  return [pscustomobject]$entry
+}
+
+function Invoke-AituberQueueSequence {
+  param($Client)
+
+  $sequenceClient = "sequence-$([guid]::NewGuid().ToString('N').Substring(0, 12))"
+  $url = New-Url $ports.Aituber "/api/messages/?clientId=$sequenceClient&type=direct_send"
+  $body = @{ messages = @("synthetic sequence fuzz message") } | ConvertTo-Json -Compress
+  $results = New-Object System.Collections.Generic.List[object]
+
+  $post = Invoke-SequenceRequest -Client $Client -Method "POST" -Url $url -BodyText $body
+  $postPassed = $post.ok -and $post.status -eq 201
+  $results.Add((New-SequenceResult `
+    -Id "aituber.messages.sequence.post_valid" `
+    -Result $(if ($postPassed) { "pass" } elseif ($post.ok) { "fail" } else { "blocked" }) `
+    -Status $post.status `
+    -ExpectedStatus @(201) `
+    -LatencyMs $post.latency_ms `
+    -ResponseChars ($post.body | Measure-Object -Character).Characters `
+    -Intent "safe sequence setup on unique fuzz client id" `
+    -Detail $post.detail)) | Out-Null
+
+  $firstGet = Invoke-SequenceRequest -Client $Client -Method "GET" -Url $url
+  $firstCount = $null
+  if ($firstGet.ok -and $firstGet.status -eq 200) {
+    try {
+      $firstPayload = $firstGet.body | ConvertFrom-Json
+      $firstCount = @($firstPayload.messages).Count
+    } catch {
+      $firstCount = $null
+    }
+  }
+  $firstPassed = $firstGet.ok -and $firstGet.status -eq 200 -and $firstCount -eq 1
+  $results.Add((New-SequenceResult `
+    -Id "aituber.messages.sequence.get_after_post" `
+    -Result $(if ($firstPassed) { "pass" } elseif ($firstGet.ok) { "fail" } else { "blocked" }) `
+    -Status $firstGet.status `
+    -ExpectedStatus @(200) `
+    -LatencyMs $firstGet.latency_ms `
+    -ResponseChars ($firstGet.body | Measure-Object -Character).Characters `
+    -Intent "POST then GET returns the queued synthetic message once" `
+    -ResponseMessageCount $firstCount `
+    -Detail $firstGet.detail)) | Out-Null
+
+  $secondGet = Invoke-SequenceRequest -Client $Client -Method "GET" -Url $url
+  $secondCount = $null
+  if ($secondGet.ok -and $secondGet.status -eq 200) {
+    try {
+      $secondPayload = $secondGet.body | ConvertFrom-Json
+      $secondCount = @($secondPayload.messages).Count
+    } catch {
+      $secondCount = $null
+    }
+  }
+  $secondPassed = $secondGet.ok -and $secondGet.status -eq 200 -and $secondCount -eq 0
+  $results.Add((New-SequenceResult `
+    -Id "aituber.messages.sequence.get_clears_queue" `
+    -Result $(if ($secondPassed) { "pass" } elseif ($secondGet.ok) { "fail" } else { "blocked" }) `
+    -Status $secondGet.status `
+    -ExpectedStatus @(200) `
+    -LatencyMs $secondGet.latency_ms `
+    -ResponseChars ($secondGet.body | Measure-Object -Character).Characters `
+    -Intent "second GET confirms the fuzz queue was drained" `
+    -ResponseMessageCount $secondCount `
+    -Detail $secondGet.detail)) | Out-Null
+
+  return @($results.ToArray())
+}
+
 $client = [System.Net.Http.HttpClient]::new()
 $client.Timeout = [TimeSpan]::FromMilliseconds($TimeoutMs)
 
@@ -317,6 +474,14 @@ try {
   }
 } finally {
   $client.Dispose()
+}
+
+$sequenceClient = [System.Net.Http.HttpClient]::new()
+$sequenceClient.Timeout = [TimeSpan]::FromMilliseconds($TimeoutMs)
+try {
+  $results = @($results) + @(Invoke-AituberQueueSequence -Client $sequenceClient)
+} finally {
+  $sequenceClient.Dispose()
 }
 
 $summary = [ordered]@{
@@ -334,6 +499,7 @@ $report = [ordered]@{
     side_effects = "disabled"
     websocket_strict = "disabled"
     udp = "disabled"
+    sequence_fuzz = "safe_http_queue_only"
     raw_bodies_in_report = $false
     blocked_error_detail = "redacted_class_only"
   }

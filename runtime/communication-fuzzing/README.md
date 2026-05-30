@@ -38,6 +38,8 @@ It performs only safe live HTTP checks:
 - path traversal-like static file requests
 - unauthorized access to protected APIs
 - oversized Thought Core request body rejection
+- safe queue sequence checks for AITuberKit using a unique synthetic
+  `clientId`: POST one message, GET once, and confirm a second GET is empty
 
 It does not:
 
@@ -69,7 +71,8 @@ Reports are written under:
    - Validate expected status class and that errors remain structured.
 
 3. Add sequence fuzzing:
-   - POST/GET ordering for AITuberKit queues.
+   - POST/GET ordering for AITuberKit queues is covered by the safe live
+     runner with a unique synthetic `clientId`.
    - Duplicate `request_id` for action dry-runs.
    - Repeated feedback idempotency keys.
    - Slow or failed Thought Core downstream responses.
