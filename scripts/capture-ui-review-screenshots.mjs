@@ -136,6 +136,14 @@ function safeFileName(name) {
   return name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
+function cleanNote(value) {
+  return String(value ?? "")
+    .replace(/\u001b\[[0-9;]*m/g, "")
+    .replace(/\|/g, "\\|")
+    .replace(/\s+/g, " ")
+    .slice(0, 220);
+}
+
 async function captureTarget(browser, target, outDir, args) {
   const page = await browser.newPage({ viewport: { width: target.width, height: target.height } });
   const fileName = `${safeFileName(target.id)}.png`;
@@ -162,7 +170,7 @@ async function captureTarget(browser, target, outDir, args) {
       status: "missing",
       file: "",
       started,
-      note: String(error?.message ?? error).replace(/\s+/g, " ").slice(0, 220),
+      note: cleanNote(error?.message ?? error),
     };
   } finally {
     await page.close().catch(() => {});
