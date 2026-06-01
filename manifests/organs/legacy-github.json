@@ -2,7 +2,7 @@
   "schema_version": "organs.sources.v0",
   "id": "legacy-github",
   "description": "GitHub-backed organ implementation sources selected from the legacy sword-agent-system workspace. These are import candidates, not vendored source files.",
-  "checked_at": "2026-05-29",
+  "checked_at": "2026-06-02",
   "sources": [
     {
       "organ_id": "ai-talk-core",
@@ -23,7 +23,7 @@
       "target_path": "organs/reflex/mediapipe-sword-sign",
       "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
       "branch": "feature/camera-hub-topic-envelope",
-      "commit": "0e53c80d04cea0c099c8b8acca7740cd9c1a94e7",
+      "commit": "a4a899281af08917e5123174bf2280800e6ff49e",
       "adoption": "standard_candidate",
       "legacy_path": "organs/reflex/mediapipe-sword-sign",
       "notes": "Camera Hub, gesture inference, and reflex topic surface."
@@ -35,7 +35,7 @@
       "target_path": "organs/environment/environment-state-server",
       "repo_url": "https://github.com/hiro-collab/environment-state-server.git",
       "branch": "main",
-      "commit": "92d2c6d834440052f4dc15b5ecbead650ad2911c",
+      "commit": "50e86e1ce802d21b6e89ce39595e63b88e025dcd",
       "adoption": "standard_candidate",
       "legacy_path": "organs/environment/environment-state-server",
       "notes": "Environment snapshot, indicators, health aggregation, and feedback capture."
@@ -59,7 +59,7 @@
       "target_path": "organs/action/home-assistant-server",
       "repo_url": "https://github.com/hiro-collab/home-assistant-server.git",
       "branch": "codex/add-fault-injection",
-      "commit": "c2a680293e57560a2705a74aaee2a56a3a2c4e31",
+      "commit": "606fd50e6951a8ce6f6bf7790a31678605e94c3e",
       "adoption": "standard_candidate",
       "legacy_path": "organs/action/home-assistant-server",
       "notes": "Home Assistant safety bridge, allowlist, confirmation, audit, and fault injection."
@@ -95,7 +95,7 @@
       "target_path": "organs/expression/aituber-kit",
       "repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "branch": "experiment/aituber-gesture-voice-bridge",
-      "commit": "cdb6d4457ac6260ba3d0b0b451e54dce3fbc24f9",
+      "commit": "6ac3cc17f13b0c2aa2379095d0c90a068ee85c7f",
       "adoption": "standard_candidate",
       "legacy_path": "organs/expression/aituber-kit",
       "notes": "Projection Visual, HUD, avatar speech queue, and AITuber UI. Use the fork remote, not upstream origin."
@@ -107,7 +107,7 @@
       "target_path": "organs/display/touchdesigner-ai-controller",
       "repo_url": "https://github.com/hiro-collab/touchdesigner-ai-controller.git",
       "branch": "codex/projection-visual-docs",
-      "commit": "2c58ef489099d8fde2f4b2903089dafe92968de7",
+      "commit": "d87d004bb165c6b24184cd93b7f03e2da698bdc1",
       "adoption": "standard_candidate",
       "legacy_path": "organs/display/touchdesigner-ai-controller",
       "notes": "Display runtime GUI, TouchDesigner UDP visual trigger, and display bridge."
@@ -119,7 +119,7 @@
       "target_path": "organs/diagnostics/system-house-renderer",
       "repo_url": "https://github.com/hiro-collab/system-house-renderer.git",
       "branch": "codex/system-house-authority-map",
-      "commit": "5b016935218a7364d2329e31980272df85941181",
+      "commit": "0bfdc6329d0df181e35df0c18173e4dddfbf457c",
       "adoption": "standard_candidate",
       "legacy_path": "organs/diagnostics/system-house-renderer",
       "notes": "Topology/runtime trace visualization and redaction evidence."

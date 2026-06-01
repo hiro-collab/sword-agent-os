@@ -112,6 +112,19 @@ cd ..\..\organs\expression\aituber-kit
 Copy-Item .env.example .env
 ```
 
+家電操作を使う場合は、Home Assistant bridge 側にも `.env` を作成します。
+
+```powershell
+cd organs\action\home-assistant-server
+Copy-Item .env.example .env
+```
+
+Thought Core service 単体で確認したい場合は、必要に応じて次も参照します。
+
+```text
+control-plane\sword-voice-agent\services\thought-core\.env.example
+```
+
 主に確認する設定です。
 
 | 設定領域 | 役割 |
