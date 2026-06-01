@@ -35,7 +35,7 @@
       "target_path": "organs/environment/environment-state-server",
       "repo_url": "https://github.com/hiro-collab/environment-state-server.git",
       "branch": "main",
-      "commit": "50e86e1ce802d21b6e89ce39595e63b88e025dcd",
+      "commit": "0d16469690e661b4d75e75e2d83714653ec01903",
       "adoption": "standard_candidate",
       "legacy_path": "organs/environment/environment-state-server",
       "notes": "Environment snapshot, indicators, health aggregation, and feedback capture."
@@ -107,7 +107,7 @@
       "target_path": "organs/display/touchdesigner-ai-controller",
       "repo_url": "https://github.com/hiro-collab/touchdesigner-ai-controller.git",
       "branch": "codex/projection-visual-docs",
-      "commit": "d87d004bb165c6b24184cd93b7f03e2da698bdc1",
+      "commit": "616831ce3b12bab8a9e5c46396c9c34f8ab1fb18",
       "adoption": "standard_candidate",
       "legacy_path": "organs/display/touchdesigner-ai-controller",
       "notes": "Display runtime GUI, TouchDesigner UDP visual trigger, and display bridge."
