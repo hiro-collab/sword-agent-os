@@ -1,0 +1,95 @@
+{
+  "schema_version": "environment_evidence_packet.v0",
+  "packet_id": "eep_rr001_demo_001",
+  "organism_id": "nikechan_local",
+  "turn_id": "turn_rr001_demo_001",
+  "generated_at": "2026-05-31T00:00:00Z",
+  "consumer": "thought_core",
+  "scope": {
+    "subjects": [
+      "capability.lighting.living_room"
+    ],
+    "question": "Should Thought Core treat the living room light as on, dark, or conflicting?"
+  },
+  "observations": [
+    {
+      "observation_id": "obs_rr001_ha_light_001",
+      "subject": "capability.lighting.living_room",
+      "capability": "lighting.state",
+      "source_layer": "home_assistant",
+      "state": "observed",
+      "value_class": "on",
+      "observed_at": "2026-05-31T00:00:00Z",
+      "freshness_ms": 2000,
+      "confidence": 0.95,
+      "evidence_refs": [
+        "snapshot:ha_light_state_redacted"
+      ],
+      "redaction": "redacted"
+    },
+    {
+      "observation_id": "obs_rr001_camera_light_001",
+      "subject": "capability.lighting.living_room",
+      "capability": "lighting.state",
+      "source_layer": "camera_vision",
+      "state": "observed",
+      "value_class": "dark",
+      "observed_at": "2026-05-31T00:00:00Z",
+      "freshness_ms": 2500,
+      "confidence": 0.7,
+      "evidence_refs": [
+        "replay:camera_luma_summary_redacted"
+      ],
+      "redaction": "redacted"
+    }
+  ],
+  "conflicts": [
+    {
+      "conflict_id": "conf_rr001_lighting_001",
+      "subject": "capability.lighting.living_room",
+      "conflict_type": "home_assistant_vs_camera_vision_brightness",
+      "source_layers": [
+        "home_assistant",
+        "camera_vision"
+      ],
+      "status": "sources_disagree",
+      "selected_policy_id": "policy_rr001_default_ha_over_camera_brightness",
+      "selected_authority": "home_assistant",
+      "preserved_evidence_refs": [
+        "replay:camera_luma_summary_redacted"
+      ]
+    }
+  ],
+  "policy_switches": [
+    {
+      "switch_id": "sw_rr001_lighting_001",
+      "conflict_id": "conf_rr001_lighting_001",
+      "policy_id": "policy_rr001_default_ha_over_camera_brightness",
+      "reason": "Home Assistant is the device-state authority, while camera vision is preserved as conflicting reality evidence.",
+      "selected_authority": "home_assistant",
+      "operation_log_ref": "event:evt_policy_switch_rr001_demo",
+      "redaction": "summary_only"
+    }
+  ],
+  "confirmation_loop": {
+    "operation_count": 1,
+    "post_operation_check_count": 2,
+    "auto_reoperation_count": 0,
+    "limits": {
+      "max_operations": 1,
+      "max_post_operation_checks": 2,
+      "max_auto_reoperations": 0
+    },
+    "state": "held"
+  },
+  "packet_summary": {
+    "state": "conflict",
+    "confidence": 0.7,
+    "sufficiency": "partial",
+    "notes": [
+      "Synthetic/redacted RR-001 example.",
+      "Preserve camera evidence; do not silently re-operate."
+    ]
+  },
+  "redaction": "redacted"
+}

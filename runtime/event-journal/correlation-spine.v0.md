@@ -99,6 +99,13 @@ Use link fields to build the chain:
   `partial`, `unknown`, or a bounded confidence score
 - `retry_or_confirmation_need`: optional derived judgment that a retry,
   confirmation, approval, or no extra action is needed
+- `environment_evidence_packet_id`: optional compact Environment State packet
+  reference, using the `eep_...` id from
+  `contracts/environment_evidence_packet/environment_evidence_packet.v0.schema.json`
+- `policy_switch_operation`: optional redacted operation record when Thought
+  Core or policy logic selects a conflict policy for the turn
+- `confirmation_loop`: optional bounded feedback-loop summary with operation
+  count, post-operation check count, and auto re-operation count
 - `metrics`: optional array of lightweight metric records when confidence,
   divergence, staleness, or feedback estimates should be kept with provenance
 - `trace_id`: technical trace across services/processes, when available
@@ -500,6 +507,18 @@ ordinary low-risk capabilities may proceed in degraded mode with stronger
 post-action feedback checks, while high-risk operations can escalate to
 confirmation, approval, or blocked status by policy.
 
+When a conflict policy is selected, store it as an explicit operation rather
+than as hidden prompt drift. The operation record should name the conflict id,
+selected policy, selected authority, reason, preserved evidence refs, and
+redaction state. It should not contain raw Home Assistant payloads, raw camera
+frames, raw prompts, local paths, secrets, or provider logs.
+
+Home-control confirmation loops must remain bounded in the event stream: one
+appliance operation, at most two post-operation state checks, and zero
+automatic re-operation attempts. If feedback still conflicts after those checks,
+record `needs_confirmation`, `held`, `mismatch`, or `unknown` instead of
+emitting a second appliance operation.
+
 Retagging or label edits should be represented as append-only ticket or
 memory-ticket metadata revisions.
 
@@ -584,7 +603,12 @@ Example ticket label record:
   ],
   "expected_effect": "Living room light becomes visibly on",
   "observed_effect": "Vision still reports room dark",
-  "retry_or_confirmation_need": "retry_with_feedback_check",
+  "retry_or_confirmation_need": "hold_for_confirmation_or_manual_followup",
+  "confirmation_loop": {
+    "operation_count": 1,
+    "post_operation_check_count": 2,
+    "auto_reoperation_count": 0
+  },
   "summary": "Ticket labels updated with structured tags and fallback terms"
 }
 ```

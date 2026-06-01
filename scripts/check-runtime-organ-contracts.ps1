@@ -193,6 +193,43 @@ function Test-CommandTestScope {
   )
 }
 
+function Test-SafeEvidenceSubject {
+  param([Parameter(Mandatory = $true)][string]$Subject)
+  if ([string]::IsNullOrWhiteSpace($Subject)) {
+    return $false
+  }
+  if ($Subject -notmatch "^[a-z][a-z0-9_.-]*$") {
+    return $false
+  }
+  return $true
+}
+
+function Test-EvidencePacketSubjectsAreSafe {
+  param([Parameter(Mandatory = $true)]$Packet)
+  $subjects = [System.Collections.Generic.List[string]]::new()
+  $scope = Get-OptionalProperty -Object $Packet -Name "scope" -Default $null
+  if ($null -ne $scope) {
+    foreach ($subject in @(Get-OptionalProperty -Object $scope -Name "subjects" -Default @())) {
+      $subjects.Add([string]$subject) | Out-Null
+    }
+  }
+  foreach ($observation in @(Get-OptionalProperty -Object $Packet -Name "observations" -Default @())) {
+    $subjects.Add([string](Get-OptionalProperty -Object $observation -Name "subject" -Default "")) | Out-Null
+  }
+  foreach ($conflict in @(Get-OptionalProperty -Object $Packet -Name "conflicts" -Default @())) {
+    $subjects.Add([string](Get-OptionalProperty -Object $conflict -Name "subject" -Default "")) | Out-Null
+  }
+  if ($subjects.Count -eq 0) {
+    return $false
+  }
+  foreach ($subject in $subjects) {
+    if (-not (Test-SafeEvidenceSubject -Subject $subject)) {
+      return $false
+    }
+  }
+  return $true
+}
+
 function Invoke-ThoughtCoreChecks {
   $scopeName = "thought_core"
   $api = Find-Service -ServiceId "thought_core_api"
@@ -262,6 +299,11 @@ function Invoke-ActionBoundaryChecks {
   Require-Condition -ScopeName $scopeName -Id "action_boundary.loop_orders_preview_before_execute" -Condition (
     $previewIndex -ge 0 -and $executeIndex -gt $previewIndex
   ) -Detail "Thought Loop routes home.preview before any home.execute call" -EvidenceRef "snapshot:thought-core-loop"
+  Require-Condition -ScopeName $scopeName -Id "action_boundary.confirmation_loop_limits_documented" -Condition (
+    (Test-TextContains -Text $script:actionBoundaryText -Needle "at most one appliance operation") -and
+    (Test-TextContains -Text $script:actionBoundaryText -Needle "at most two post-operation state/effect checks") -and
+    (Test-TextContains -Text $script:actionBoundaryText -Needle "zero automatic re-operation attempts")
+  ) -Detail "Action Boundary documents RR-001 confirmation-loop limits" -EvidenceRef "snapshot:action-boundary-doc"
   Require-Condition -ScopeName $scopeName -Id "action_boundary.side_effect_gate" -Condition (
     [bool](Get-OptionalProperty -Object (Find-Test -TestId "home_assistant_bridge.reversible_light_action") -Name "requires_side_effect_permission" -Default $false)
   ) -Detail "live reversible home action test is still protected by side-effect permission" -EvidenceRef "snapshot:organ-test-pack"
@@ -278,6 +320,18 @@ function Invoke-EnvironmentStateChecks {
 
   Require-Path -ScopeName $scopeName -Id "environment_state.state_source" -Path "organs/environment/environment-state-server/src/environment_state_server/state.py"
   Require-Path -ScopeName $scopeName -Id "environment_state.feedback_source" -Path "organs/environment/environment-state-server/src/environment_state_server/feedback.py"
+  Require-Path -ScopeName $scopeName -Id "environment_state.evidence_packet_schema" -Path "contracts/environment_evidence_packet/environment_evidence_packet.v0.schema.json"
+  Require-Condition -ScopeName $scopeName -Id "environment_state.evidence_packet_contract" -Condition (
+    (Test-TextContains -Text $script:evidencePacketSchemaText -Needle "environment_evidence_packet.v0") -and
+    (Test-TextContains -Text $script:evidencePacketSchemaText -Needle "source_layer") -and
+    (Test-TextContains -Text $script:evidencePacketSchemaText -Needle "home_assistant_vs_camera_vision_brightness") -and
+    (Test-TextContains -Text $script:evidencePacketSchemaText -Needle "policy_switches") -and
+    (Test-TextContains -Text $script:evidencePacketSchemaText -Needle "confirmation_loop")
+  ) -Detail "Environment evidence packet preserves source layers, conflicts, policy switches, and confirmation loop limits" -EvidenceRef "snapshot:environment-evidence-packet-schema"
+  Require-Condition -ScopeName $scopeName -Id "environment_state.evidence_packet_subject_redaction" -Condition (
+    (Test-TextContains -Text $script:evidencePacketSchemaText -Needle '"pattern": "^[a-z][a-z0-9_.-]*$"') -and
+    (Test-EvidencePacketSubjectsAreSafe -Packet $script:evidencePacketExample)
+  ) -Detail "Environment evidence packet subjects use stable redacted labels, not path-like private strings" -EvidenceRef "snapshot:environment-evidence-packet-example"
   Require-Condition -ScopeName $scopeName -Id "environment_state.service_contracts" -Condition (
     $null -ne $service -and
     (Test-ArrayContainsAll -Value (Get-OptionalProperty -Object $service -Name "contracts" -Default @()) -Expected @("environment", "reflex", "access-control"))
@@ -380,6 +434,11 @@ function Invoke-EventCorrelationChecks {
     (Test-TextContains -Text $script:correlationText -Needle "needs_confirmation") -and
     (Test-TextContains -Text $script:correlationText -Needle "sources_disagree")
   ) -Detail "correlation contract names blocked/degraded/confirmation/source-conflict semantics" -EvidenceRef "snapshot:event-correlation-contract"
+  Require-Condition -ScopeName $scopeName -Id "event_correlation.policy_switch_operation" -Condition (
+    (Test-TextContains -Text $script:correlationText -Needle "policy_switch_operation") -and
+    (Test-TextContains -Text $script:correlationText -Needle "selected policy") -and
+    (Test-TextContains -Text $script:correlationText -Needle "automatic re-operation attempts")
+  ) -Detail "correlation spine records conflict policy switches and bounded confirmation loops" -EvidenceRef "snapshot:event-correlation-contract"
   Require-Condition -ScopeName $scopeName -Id "event_correlation.typed_evidence_refs" -Condition (
     (Test-TextContains -Text $script:correlationText -Needle "event:") -and
     (Test-TextContains -Text $script:correlationText -Needle "snapshot:") -and
@@ -406,6 +465,9 @@ $script:loopText = Read-TextFile -Path "control-plane/sword-voice-agent/services
 $script:toolsText = Read-TextFile -Path "control-plane/sword-voice-agent/services/thought-core/src/thought_core/tools.py"
 $script:metricDocText = Read-TextFile -Path "runtime/status-store/metric-records.v0.md"
 $script:correlationText = Read-TextFile -Path "runtime/event-journal/correlation-spine.v0.md"
+$script:actionBoundaryText = Read-TextFile -Path "runtime/action-boundary/README.md"
+$script:evidencePacketSchemaText = Read-TextFile -Path "contracts/environment_evidence_packet/environment_evidence_packet.v0.schema.json"
+$script:evidencePacketExample = Read-JsonFile -Path "contracts/environment_evidence_packet/examples/rr001-home-assistant-camera-conflict.example.json"
 $script:updateDiagnosticsText = Read-TextFile -Path "scripts/update-diagnostics-status.ps1"
 $script:neuralContractText = Read-TextFile -Path "scripts/check-neural-monitoring-contract.ps1"
 

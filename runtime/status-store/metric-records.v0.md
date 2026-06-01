@@ -195,3 +195,29 @@ fuse them into one truth.
 Ordinary low-risk capability conflicts may run as `degraded` with stronger
 post-action feedback checks. High-risk operations may escalate to confirmation,
 approval, or blocked state by policy.
+
+## Environment Evidence Packets
+
+When Thought Core needs current environment context, status-store/topology
+consumers should provide or reference
+`contracts/environment_evidence_packet/environment_evidence_packet.v0.schema.json`
+instead of copying raw Home Assistant payloads, raw camera observations, local
+paths, or private logs into prompts.
+
+The packet keeps observations as separate source layers such as
+`home_assistant`, `camera_vision`, `user_confirmation`, and `action_feedback`.
+Packet `subject` values are stable redacted labels such as
+`capability.lighting.living_room`; raw local paths, URLs, room/device names, and
+slash/backslash-separated identifiers stay out of the packet.
+When those layers disagree, the packet records:
+
+- a conflict pair such as
+  `home_assistant_vs_camera_vision_brightness`;
+- the selected policy and selected authority for that pair;
+- references to the lower-priority evidence that must be preserved;
+- a redacted policy-switch operation reference if the policy was selected or
+  changed for the turn.
+
+For RR-001 home-control feedback, the packet also carries the confirmation-loop
+limits: one appliance operation, at most two post-operation state checks, and
+zero automatic re-operation attempts.

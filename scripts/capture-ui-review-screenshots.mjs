@@ -92,6 +92,14 @@ function joinUrl(base, suffix) {
   return `${normalized}${suffix}`;
 }
 
+function normalizeRouteLabel(value) {
+  const normalized = String(value ?? "current").trim().toLowerCase().replaceAll("_", "-");
+  if (["current", "stale", "missing", "timeout", "known-gap"].includes(normalized)) {
+    return normalized;
+  }
+  return "current";
+}
+
 function presetTargets(args) {
   const targets = {
     launcher: [
@@ -99,9 +107,9 @@ function presetTargets(args) {
       { id: "launcher-1920x1080", surface: "Launcher", url: args.launcherUrl, width: 1920, height: 1080 },
     ],
     projection: [
-      { id: "projection-operator-1920x1080", surface: "Projection Visual operator", url: joinUrl(args.aituberUrl, "/projection-visual"), width: 1920, height: 1080 },
-      { id: "projection-passive-1920x1080", surface: "Passive Projection", url: joinUrl(args.aituberUrl, "/projection-visual?mode=passive"), width: 1920, height: 1080 },
-      { id: "projection-passive-hud0-1920x1080", surface: "Passive Projection HUD hidden", url: joinUrl(args.aituberUrl, "/projection-visual?mode=passive&hud=0"), width: 1920, height: 1080 },
+      { id: "projection-operator-1920x1080", surface: "Projection Visual operator", url: joinUrl(args.aituberUrl, "/projection-visual/"), width: 1920, height: 1080 },
+      { id: "projection-passive-1920x1080", surface: "Passive Projection", url: joinUrl(args.aituberUrl, "/projection-visual/?mode=passive"), width: 1920, height: 1080 },
+      { id: "projection-passive-hud0-1920x1080", surface: "Passive Projection HUD hidden", url: joinUrl(args.aituberUrl, "/projection-visual/?mode=passive&hud=0"), width: 1920, height: 1080 },
     ],
     display: [
       { id: "aituber-root-1366x768", surface: "AITuber root", url: args.aituberUrl, width: 1366, height: 768 },
@@ -123,7 +131,17 @@ async function loadTargets(args) {
     if (!target.id || !target.url || !target.width || !target.height) {
       throw new Error(`Invalid target: ${JSON.stringify(target)}`);
     }
-    return target;
+    return {
+      ...target,
+      routeLabel: normalizeRouteLabel(
+        target.routeLabel ??
+          target.route_label ??
+          target.reviewState ??
+          target.review_state ??
+          target.expectedState ??
+          target.expected_state
+      ),
+    };
   });
 }
 
@@ -144,6 +162,17 @@ function cleanNote(value) {
     .slice(0, 220);
 }
 
+function classifyCaptureError(error, configuredRouteLabel) {
+  if (configuredRouteLabel === "known-gap" || configuredRouteLabel === "stale") {
+    return configuredRouteLabel;
+  }
+  const message = cleanNote(error?.message ?? error).toLowerCase();
+  if (message.includes("timeout") || message.includes("timed out")) {
+    return "timeout";
+  }
+  return "missing";
+}
+
 async function captureTarget(browser, target, outDir, args) {
   const page = await browser.newPage({ viewport: { width: target.width, height: target.height } });
   const fileName = `${safeFileName(target.id)}.png`;
@@ -159,6 +188,8 @@ async function captureTarget(browser, target, outDir, args) {
     return {
       ...target,
       status: "captured",
+      route_label: target.routeLabel,
+      capture_ready: target.routeLabel === "current",
       file: outputPath,
       started,
       note: "no automated redaction applied",
@@ -168,6 +199,8 @@ async function captureTarget(browser, target, outDir, args) {
     return {
       ...target,
       status: "missing",
+      route_label: classifyCaptureError(error, target.routeLabel),
+      capture_ready: false,
       file: "",
       started,
       note: cleanNote(error?.message ?? error),
@@ -191,19 +224,19 @@ async function writeIndex(outDir, results, args) {
     "- Owner/thread: design-gui",
     "- Redaction: raw local review capture; do not commit screenshots without separate redaction review.",
     "",
-    "| Surface | Target id | URL | Viewport | Status | Local path | Notes |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
+    "| Surface | Target id | URL | Viewport | Route label | Status | Capture ready | Local path | Notes |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
   ];
 
   for (const result of results) {
-    lines.push(`| ${result.surface ?? result.id} | ${result.id} | \`${result.url}\` | ${result.width}x${result.height} | ${result.status} | \`${relativeForIndex(result.file)}\` | ${result.note} |`);
+    lines.push(`| ${result.surface ?? result.id} | ${result.id} | \`${result.url}\` | ${result.width}x${result.height} | ${result.route_label ?? result.routeLabel ?? "current"} | ${result.status} | ${result.capture_ready ? "yes" : "no"} | \`${relativeForIndex(result.file)}\` | ${result.note} |`);
   }
 
   lines.push("");
   lines.push("## Suggested Review Use");
   lines.push("");
   lines.push("- Use these captures for local design review only.");
-  lines.push("- Treat `missing` rows as current-capture gaps, not visual-pass evidence.");
+  lines.push("- Treat `missing`, `timeout`, `stale`, and `known-gap` route labels as non-current evidence, even if a file exists.");
   lines.push("- If a capture will be shared outside the local workspace, create a separately redacted copy.");
   lines.push("");
 

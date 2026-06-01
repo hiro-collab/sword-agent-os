@@ -20,6 +20,20 @@ internal actuator.
 - Keep dummy and real execution clearly separated.
 - Report decisions through State/Event Ingest.
 
+## RR-001 Confirmation Loop Bound
+
+For home-control confirmation loops, Action Boundary and its callers must keep
+operation and feedback loops bounded:
+
+- at most one appliance operation for one Thought Core action decision;
+- at most two post-operation state/effect checks;
+- zero automatic re-operation attempts.
+
+If post-operation evidence is missing, stale, or conflicting, the result should
+be reported as `unknown`, `mismatch`, `needs_confirmation`, or `held` through
+State/Event Ingest and the compact Environment State evidence packet. It should
+not silently execute the appliance again.
+
 ## Non-Responsibilities
 
 - No natural-language interpretation.

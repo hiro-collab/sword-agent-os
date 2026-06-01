@@ -1,0 +1,393 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/environment_evidence_packet.v0.schema.json",
+  "title": "Agent OS environment_evidence_packet.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "packet_id",
+    "generated_at",
+    "consumer",
+    "observations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "environment_evidence_packet.v0"
+    },
+    "packet_id": {
+      "type": "string",
+      "pattern": "^eep_[A-Za-z0-9_.:-]+$"
+    },
+    "organism_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "turn_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "consumer": {
+      "type": "string",
+      "enum": [
+        "thought_core",
+        "diagnostics",
+        "action_boundary",
+        "test"
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.-]*$"
+          },
+          "default": []
+        },
+        "question": {
+          "type": "string",
+          "maxLength": 240
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/conflict"
+      },
+      "default": []
+    },
+    "policy_switches": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/policy_switch"
+      },
+      "default": []
+    },
+    "confirmation_loop": {
+      "$ref": "#/$defs/confirmation_loop"
+    },
+    "packet_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/evidence_state"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "sufficiency": {
+          "type": "string",
+          "enum": [
+            "sufficient",
+            "partial",
+            "insufficient",
+            "unknown"
+          ]
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "default": []
+        }
+      }
+    },
+    "redaction": {
+      "$ref": "#/$defs/redaction"
+    }
+  },
+  "$defs": {
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "subject",
+        "source_layer",
+        "state",
+        "observed_at"
+      ],
+      "properties": {
+        "observation_id": {
+          "type": "string",
+          "pattern": "^obs_[A-Za-z0-9_.:-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$"
+        },
+        "source_layer": {
+          "$ref": "#/$defs/source_layer"
+        },
+        "state": {
+          "$ref": "#/$defs/evidence_state"
+        },
+        "value_class": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off",
+            "bright",
+            "dark",
+            "open",
+            "closed",
+            "present",
+            "absent",
+            "unknown",
+            "unavailable",
+            "other"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stale_after": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "freshness_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/evidence_refs"
+        },
+        "redaction": {
+          "$ref": "#/$defs/redaction"
+        }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conflict_id",
+        "subject",
+        "conflict_type",
+        "source_layers",
+        "status"
+      ],
+      "properties": {
+        "conflict_id": {
+          "type": "string",
+          "pattern": "^conf_[A-Za-z0-9_.:-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "conflict_type": {
+          "type": "string",
+          "enum": [
+            "home_assistant_vs_camera_vision_brightness",
+            "source_state_disagreement",
+            "freshness_disagreement",
+            "confidence_disagreement",
+            "action_feedback_mismatch",
+            "other"
+          ]
+        },
+        "source_layers": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/source_layer"
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "sources_disagree",
+            "needs_confirmation",
+            "degraded",
+            "blocked",
+            "resolved"
+          ]
+        },
+        "selected_policy_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "selected_authority": {
+          "$ref": "#/$defs/source_layer"
+        },
+        "preserved_evidence_refs": {
+          "$ref": "#/$defs/evidence_refs"
+        }
+      }
+    },
+    "policy_switch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "switch_id",
+        "policy_id",
+        "reason",
+        "selected_authority",
+        "operation_log_ref"
+      ],
+      "properties": {
+        "switch_id": {
+          "type": "string",
+          "pattern": "^sw_[A-Za-z0-9_.:-]+$"
+        },
+        "conflict_id": {
+          "type": "string",
+          "pattern": "^conf_[A-Za-z0-9_.:-]+$"
+        },
+        "policy_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "selected_authority": {
+          "$ref": "#/$defs/source_layer"
+        },
+        "operation_log_ref": {
+          "type": "string",
+          "pattern": "^(event|turn|action|snapshot):[A-Za-z0-9_.:-]+$"
+        },
+        "redaction": {
+          "$ref": "#/$defs/redaction"
+        }
+      }
+    },
+    "confirmation_loop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_count",
+        "post_operation_check_count",
+        "auto_reoperation_count",
+        "limits"
+      ],
+      "properties": {
+        "operation_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "post_operation_check_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "auto_reoperation_count": {
+          "type": "integer",
+          "const": 0
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_operations",
+            "max_post_operation_checks",
+            "max_auto_reoperations"
+          ],
+          "properties": {
+            "max_operations": {
+              "type": "integer",
+              "const": 1
+            },
+            "max_post_operation_checks": {
+              "type": "integer",
+              "const": 2
+            },
+            "max_auto_reoperations": {
+              "type": "integer",
+              "const": 0
+            }
+          }
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "not_started",
+            "checking",
+            "matched",
+            "mismatch",
+            "unknown",
+            "held"
+          ]
+        }
+      }
+    },
+    "source_layer": {
+      "type": "string",
+      "enum": [
+        "home_assistant",
+        "camera_vision",
+        "user_confirmation",
+        "action_feedback",
+        "assumption",
+        "environment_state",
+        "thought_core",
+        "system"
+      ]
+    },
+    "evidence_state": {
+      "type": "string",
+      "enum": [
+        "observed",
+        "assumed",
+        "user_confirmed",
+        "unavailable",
+        "insufficient",
+        "uncertain",
+        "conflict"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(event|snapshot|turn|action|metric|replay):[A-Za-z0-9_.:-]+$"
+      },
+      "default": []
+    },
+    "redaction": {
+      "type": "string",
+      "enum": [
+        "summary_only",
+        "redacted",
+        "synthetic"
+      ],
+      "default": "summary_only"
+    }
+  }
+}
