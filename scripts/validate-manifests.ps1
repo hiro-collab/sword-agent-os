@@ -563,6 +563,7 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/install-distri
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/update-distribution.ps1") -PathType Leaf) "distribution updater missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/render-env-files.ps1") -PathType Leaf) "env renderer missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/show-version.ps1") -PathType Leaf) "version reporter missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/test-distribution-maintenance.ps1") -PathType Leaf) "distribution maintenance test missing"
 
 Assert-True ([string]$releaseManifest.schema_version -eq "agent_os.release.v0") "release schema_version must be agent_os.release.v0"
 Assert-True ([string]$releaseManifest.os_id -eq "sword-agent-os") "release os_id must be sword-agent-os"

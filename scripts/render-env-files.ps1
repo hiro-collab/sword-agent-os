@@ -85,6 +85,12 @@ function Copy-IfMissing {
     [string]$Label = "file"
   )
   if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) {
+    if ($DryRun) {
+      Write-Warning "$Label template not present yet: $Source"
+      Write-Host "New-Item -ItemType Directory -Force -Path $(Split-Path -Parent $Target)"
+      Write-Host "Copy-Item $Source $Target"
+      return
+    }
     throw "$Label template missing: $Source"
   }
   if ((Test-Path -LiteralPath $Target) -and -not $Force) {
@@ -148,6 +154,12 @@ foreach ($target in @($envConfig.targets)) {
   $templatePath = Resolve-RepoPath ([string]$target.template_path)
   $targetPath = Resolve-RepoPath ([string]$target.target_path)
   if (-not (Test-Path -LiteralPath $templatePath -PathType Leaf)) {
+    if ($DryRun) {
+      Write-Warning "env template not present yet for $($target.id): $templatePath"
+      Write-Host "New-Item -ItemType Directory -Force -Path $(Split-Path -Parent $targetPath)"
+      Write-Host "Render env $($target.id): $templatePath -> $targetPath"
+      continue
+    }
     throw "env template missing for $($target.id): $templatePath"
   }
   if ((Test-Path -LiteralPath $targetPath) -and -not $Force) {

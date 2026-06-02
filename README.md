@@ -182,6 +182,43 @@ pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 機器固有値を失わないよう、実行前に `local/env/sword-agent-os.env` 側へ必要な値が
 入っていることを確認してください。
 
+## インストール / 更新手順の検証
+
+セットアップ手順を変更した場合は、軽量な maintenance smoke を実行します。
+これは外部サービス起動、実 token、実機操作、dependency install を要求しない確認です。
+
+```powershell
+pwsh -NoProfile -File .\scripts\test-distribution-maintenance.ps1
+```
+
+この smoke は次を確認します。
+
+- `scripts/*.ps1` の構文
+- root `.bat` wrapper が存在する target script を指していること
+- manifest / version コマンド
+- 組み立て済み checkout での update dry-run と env render dry-run
+- fresh clone 相当の一時 workspace で、default bootstrap が `_codex` /
+  `coordination` / `local` / `worktrees` を作らないこと
+- fresh clone から `install-distribution.ps1 -DryRun -NoDeps` が落ちないこと
+
+remote pin まで確認したい場合は次を使います。
+
+```powershell
+pwsh -NoProfile -File .\scripts\test-distribution-maintenance.ps1 -VerifyRemote
+```
+
+現在の checkout が control plane / organ をすべて含む assembled install であることを
+必須にしたい場合は、次を使います。
+
+```powershell
+pwsh -NoProfile -File .\scripts\test-distribution-maintenance.ps1 -RequireAssembledCheckouts
+```
+
+`test-distribution-maintenance.ps1` は一時ディレクトリを作って local clone の dry-run を
+行い、通常は最後に削除します。調査用に残す場合は `-KeepTemp` を使います。full clone /
+dependency install / live runtime check は重い任意レーンとして扱い、通常の smoke gate には
+含めません。
+
 ### 利用用セットアップ
 
 上の distribution installer が通常の入口です。以下は、問題切り分けや手動確認のために
