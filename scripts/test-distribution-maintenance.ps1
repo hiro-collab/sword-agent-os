@@ -348,7 +348,13 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $bridgeHelper -Pattern "--env-file" -Message "Home Control bridge helper should pass generated .env through uv"
   Assert-TextMatch -Text $bridgeHelper -Pattern "config_error_kind" -Message "Home Control bridge helper should report redacted config error kind"
   Assert-TextMatch -Text $bridgeHelper -Pattern "cause_code" -Message "Home Control bridge helper should report cause codes"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "root_cause_trace" -Message "Home Control bridge helper should emit root-cause trace packet"
   Assert-TextMatch -Text $bridgeHelper -Pattern "HOME_ASSISTANT_TOKEN" -Message "Home Control bridge helper should classify Home Assistant token readiness"
+  $causeTrail = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\live-home-control-cause-trail.md")
+  Assert-TextMatch -Text $causeTrail -Pattern "proof_layer:" -Message "cause trail should define proof_layer field"
+  Assert-TextMatch -Text $causeTrail -Pattern "entrypoint:" -Message "cause trail should define entrypoint field"
+  Assert-TextMatch -Text $causeTrail -Pattern "blocked_at:" -Message "cause trail should define blocked_at field"
+  Assert-TextMatch -Text $causeTrail -Pattern "missing-process-env" -Message "cause trail should cover missing process env failures"
   Assert-TextMatch -Text $readme -Pattern "UV_CACHE_DIR" -Message "README should include uv cache troubleshooting guidance"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
   Write-Host "README first-run guidance static ok"

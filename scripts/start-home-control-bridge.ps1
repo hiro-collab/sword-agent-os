@@ -72,6 +72,31 @@ function Write-Cause {
   }
 }
 
+function Write-RootCauseTrace {
+  param(
+    [string]$ProofLayer = "live-bridge",
+    [string]$Entrypoint = "helper",
+    [string]$BlockedAt,
+    [string]$ObservedStatus,
+    [string]$CauseKind,
+    [string]$Evidence,
+    [string]$NextProbe,
+    [string]$SafeStop = "yes",
+    [string]$PhysicalActionExecuted = "no"
+  )
+
+  Write-Host "root_cause_trace:"
+  Write-Host ("  proof_layer: {0}" -f $ProofLayer)
+  Write-Host ("  entrypoint: {0}" -f $Entrypoint)
+  Write-Host ("  blocked_at: {0}" -f $BlockedAt)
+  Write-Host ("  observed_status: {0}" -f $ObservedStatus)
+  Write-Host ("  cause_kind: {0}" -f $CauseKind)
+  Write-Host ("  evidence: {0}" -f $Evidence)
+  Write-Host ("  next_probe: {0}" -f $NextProbe)
+  Write-Host ("  safe_stop: {0}" -f $SafeStop)
+  Write-Host ("  physical_action_executed: {0}" -f $PhysicalActionExecuted)
+}
+
 function Get-HttpStatusDetail {
   param($ErrorRecord)
 
@@ -182,6 +207,17 @@ function Get-SecretLengthClass {
   return "present"
 }
 
+function Get-CauseKindForSecretStatus {
+  param($Status)
+
+  switch ($Status.class) {
+    "missing" { return "missing-process-env" }
+    "placeholder" { return "placeholder-secret" }
+    "too-short" { return "auth-failure" }
+    default { return "unknown" }
+  }
+}
+
 function Get-DotEnvSecretStatus {
   param(
     [string]$Path,
@@ -265,6 +301,12 @@ function Assert-LiveReadySecret {
     $nameToken = ConvertTo-CauseToken -Value $Status.name
     $classToken = ConvertTo-CauseToken -Value $Status.class
     Write-Cause -Code "live_home_control.env.${nameToken}_${classToken}"
+    Write-RootCauseTrace `
+      -BlockedAt "process-env" `
+      -ObservedStatus "blocked" `
+      -CauseKind (Get-CauseKindForSecretStatus -Status $Status) `
+      -Evidence "$($Status.name)=$($Status.class); value_hidden=true" `
+      -NextProbe "update local env and rerun render-env-files -Force"
     throw "$($Status.name) is not live-ready in $EnvPath; update local env and rerun scripts/render-env-files.ps1 -Profile standard -Force"
   }
 }
@@ -298,10 +340,22 @@ $envFilePath = Resolve-RootRelativePath `
 
 if (-not (Test-Path -LiteralPath $homeAssistantServerRootPath -PathType Container)) {
   Write-Cause -Code "live_home_control.local.checkout_missing" -Detail "home_assistant_server_root"
+  Write-RootCauseTrace `
+    -BlockedAt "config-load" `
+    -ObservedStatus "blocked" `
+    -CauseKind "missing-file" `
+    -Evidence "home_assistant_server_root=missing" `
+    -NextProbe "install or update the standard distribution"
   throw "Home Assistant server checkout not found: $homeAssistantServerRootPath"
 }
 if (-not (Test-Path -LiteralPath $envFilePath -PathType Leaf)) {
   Write-Cause -Code "live_home_control.local.env_missing" -Detail "home_assistant_server_env"
+  Write-RootCauseTrace `
+    -BlockedAt "env-render" `
+    -ObservedStatus "blocked" `
+    -CauseKind "missing-file" `
+    -Evidence "home_assistant_server_env=missing" `
+    -NextProbe "rerun render-env-files -Profile standard -Force"
   throw "Home Assistant bridge .env not found: $envFilePath"
 }
 
@@ -320,6 +374,12 @@ $configFilePath = Resolve-RootRelativePath `
 
 if (-not (Test-Path -LiteralPath $configFilePath -PathType Leaf)) {
   Write-Cause -Code "live_home_control.local.config_missing" -Detail "home_control_config"
+  Write-RootCauseTrace `
+    -BlockedAt "config-load" `
+    -ObservedStatus "blocked" `
+    -CauseKind "missing-file" `
+    -Evidence "home_control_config=missing" `
+    -NextProbe "render config or provide the local override"
   throw "Home Control config not found: $configFilePath"
 }
 
@@ -356,7 +416,14 @@ if ($CheckOnly) {
   try {
     $health = Invoke-RestMethod -Method Get -Uri "$baseUrl/health" -TimeoutSec 10
   } catch {
-    Write-Cause -Code "live_home_control.bridge.health_unreachable" -Detail (Get-HttpStatusDetail -ErrorRecord $_)
+    $httpDetail = Get-HttpStatusDetail -ErrorRecord $_
+    Write-Cause -Code "live_home_control.bridge.health_unreachable" -Detail $httpDetail
+    Write-RootCauseTrace `
+      -BlockedAt "health" `
+      -ObservedStatus "unavailable" `
+      -CauseKind "unknown" `
+      -Evidence "health_endpoint=$httpDetail" `
+      -NextProbe "start bridge with helper or check port/process"
     throw "Home Control bridge /health could not be read; stop before preview/execute"
   }
   $healthStatus = [string]$health.status
@@ -366,6 +433,12 @@ if ($CheckOnly) {
 
   if (-not $healthOk -or $healthStatus -eq "config_error") {
     Write-Cause -Code "live_home_control.bridge.health_config_error" -Detail ("status={0}" -f $healthStatus)
+    Write-RootCauseTrace `
+      -BlockedAt "health" `
+      -ObservedStatus $healthStatus `
+      -CauseKind "unknown" `
+      -Evidence ("health_status={0}; health_actions_count={1}; config_error_kind={2}" -f $healthStatus, $actionsCount, $configErrorKind) `
+      -NextProbe "inspect config_error_kind and rerun helper -CheckOnly"
     throw "Home Control bridge is not live-ready; stop before preview/execute"
   }
 
@@ -376,7 +449,15 @@ if ($CheckOnly) {
       -Headers @{ Authorization = "Bearer $homeControlToken" } `
       -TimeoutSec 10
   } catch {
-    Write-Cause -Code "live_home_control.bridge.actions_unavailable" -Detail (Get-HttpStatusDetail -ErrorRecord $_)
+    $httpDetail = Get-HttpStatusDetail -ErrorRecord $_
+    $actionsCauseKind = if ($httpDetail -eq "http-401" -or $httpDetail -eq "http-403") { "auth-failure" } elseif ($httpDetail -eq "http-503") { "config-mismatch" } else { "unknown" }
+    Write-Cause -Code "live_home_control.bridge.actions_unavailable" -Detail $httpDetail
+    Write-RootCauseTrace `
+      -BlockedAt "action-catalog" `
+      -ObservedStatus "unavailable" `
+      -CauseKind $actionsCauseKind `
+      -Evidence "actions_endpoint=$httpDetail" `
+      -NextProbe "check bridge auth/config and rerun helper -CheckOnly"
     throw "Home Control bridge /actions could not be read; stop before preview/execute"
   }
   $actionRows = @(Get-ActionRows -Response $actions)
@@ -395,10 +476,23 @@ if ($CheckOnly) {
 
   if ($expectedStatus -eq "missing") {
     Write-Cause -Code "live_home_control.bridge.expected_action_missing"
+    Write-RootCauseTrace `
+      -BlockedAt "action-catalog" `
+      -ObservedStatus "blocked" `
+      -CauseKind "action-not-in-catalog" `
+      -Evidence ("actions_count={0}; expected_action=missing" -f $actionRows.Count) `
+      -NextProbe "fix live ticket action id or Home Control mapping"
     throw "Expected action was not returned by /actions; stop before preview/execute"
   }
 
   Write-Cause -Code "none"
+  Write-RootCauseTrace `
+    -BlockedAt "action-catalog" `
+    -ObservedStatus "ok" `
+    -CauseKind "unknown" `
+    -Evidence ("actions_count={0}; expected_action={1}" -f $actionRows.Count, $expectedStatus) `
+    -NextProbe "proceed only to ticketed preview under live guardrails" `
+    -SafeStop "no"
   return
 }
 

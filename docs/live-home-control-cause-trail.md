@@ -51,22 +51,36 @@ preview, execute, restore, or physical appliance state.
 
 ## Report Shape
 
-Use this compact shape in task outputs or messages:
+Use this compact root-cause trace packet in task outputs, QA result files,
+message summaries, and manager summaries. The helper emits the same shape in
+`-CheckOnly` failure paths. Active-watch should track only the latest summary,
+not raw logs.
 
 ```text
-lane: live Home Control
-proof_level: live startup/catalog only
-result: stopped-before-preview | catalog-ready
-config_loaded: true|false
-action_count: <n>
-config_error_kind: <name|none>
-health_status: <ok|degraded|config_error|unreachable>
-expected_action: present|missing|not-requested
-cause_code: <code>
-preview: not-run|pass|fail
-execute: not-run|pass|fail
-physical_state: not-claimed|confirmed
+proof_layer: source-static | no-live/mock | runtime/browser | live-bridge | live-preview | live-execute | physical-state
+entrypoint: launcher | helper | direct-uvicorn | smoke-script | unknown
+blocked_at: env-render | config-load | process-env | service-start | health | action-catalog | preview | execute | restore | physical-confirmation
+observed_status: ok | warning | blocked | config_error | unavailable | timeout | unknown
+cause_kind: missing-file | placeholder-secret | missing-process-env | config-mismatch | port-conflict | auth-failure | ha-unreachable | action-not-in-catalog | unsafe-ticket | unknown
+evidence: short redacted facts only
+next_probe: one concrete next check
+safe_stop: yes/no
+physical_action_executed: yes/no
 ```
 
 Keep no-live/mock proof, live startup/catalog proof, preview proof, execute
 proof, and physical-state proof separate.
+
+For the confirmed 2026-06-02 failure, the redacted packet shape is:
+
+```text
+proof_layer: live-bridge
+entrypoint: direct-uvicorn
+blocked_at: process-env
+observed_status: config_error
+cause_kind: missing-process-env
+evidence: config_loaded=True; actions_count=12; .env had HOME_ASSISTANT_TOKEN; process init without env-file reported HOME_ASSISTANT_TOKEN; init with env-file reported none
+next_probe: rerun helper -CheckOnly with expected action id
+safe_stop: yes
+physical_action_executed: no
+```
