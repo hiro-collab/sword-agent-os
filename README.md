@@ -67,8 +67,9 @@ Codex 作業用の workspace-local 領域であり、通常利用では作成不
 
 ### ワンタッチ配布インストール
 
-通常は、標準 distribution installer を使います。control plane と各 organ の
-checkout、ローカル `.env` 生成、依存関係の導入をまとめて実行できます。
+初めて標準構成を入れる場合の入口です。通常は、標準 distribution installer
+を使います。control plane と各 organ の checkout、ローカル `.env` 生成、
+依存関係の導入をまとめて実行できます。
 
 ```powershell
 git clone <sword-agent-os-repo-url>
@@ -100,6 +101,7 @@ distribution の定義は `manifests/distributions/standard.json` です。追�
 
 ## バージョン
 
+インストール中の構成や、取得している source pin を確認したい時に読む節です。
 Sword Agent OS は、読めるバージョンと再現可能なソース pin を分けて管理します。
 
 | 種類 | 正本 | 役割 |
@@ -186,8 +188,9 @@ pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 
 ## インストール / 更新手順の検証
 
-セットアップ手順を変更した場合は、軽量な maintenance smoke を実行します。
-これは外部サービス起動、実 token、実機操作、dependency install を要求しない確認です。
+インストーラー、更新スクリプト、README のセットアップ手順を変更した後に読む検証手順です。
+軽量な maintenance smoke を使い、外部サービス起動、実 token、実機操作、
+dependency install を要求しない範囲で確認します。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\test-distribution-maintenance.ps1
@@ -223,10 +226,10 @@ pwsh -NoProfile -File .\scripts\test-distribution-maintenance.ps1 -RequireAssemb
 dependency install / live runtime check は重い任意レーンとして扱い、通常の smoke gate には
 含めません。
 
-### 利用用セットアップ
+### 通常利用の手動セットアップ
 
-上の distribution installer が通常の入口です。以下は、問題切り分けや手動確認のために
-clone / dependency install を分解して実行する下位手順です。
+ワンタッチ installer を使わず、clone や依存導入を手動で確認したい時だけ読む
+下位手順です。通常の入口は上の distribution installer です。
 
 まずトップレベルのリポジトリを clone します。
 
@@ -284,8 +287,7 @@ Pop-Location
 
 複数 Codex thread、worktree、private coordination repo、ローカル artifact
 cache を使って開発する場合は、通常利用とは別の workspace root を作ります。
-この手順は開発者向けです。単に Sword Agent OS を起動して使うだけなら、
-前の「利用用セットアップ」で十分です。
+単に Sword Agent OS を起動して使うだけなら、前の「通常利用の手動セットアップ」で十分です。
 
 ```powershell
 cd $HOME\works
@@ -338,6 +340,7 @@ _codex/
 
 ## ローカル設定
 
+インストール後に API key、token、家電設定、ローカル URL を入れる時に読む節です。
 標準 installer は、中央の local env を使って各 organ の `.env` を生成します。
 通常利用で直接編集するのは、原則としてこの 1 ファイルです。
 
@@ -490,6 +493,7 @@ pwsh -NoProfile -File .\scripts\start-launcher.ps1 -PortMode isolated_override -
 
 ## 主な画面
 
+起動後にどの URL を開けばよいか確認したい時に読む節です。
 通常 port mode の代表的な URL です。
 
 | 画面 / service | URL | 用途 |
@@ -540,7 +544,8 @@ Thought Core は、環境を観測し、Action Boundary で操作を preview / e
 
 ## 検証コマンド
 
-実機レビューの代わりにはなりませんが、最初の確認に便利なコマンドです。
+起動前後に、manifest、runtime contract、organ readiness をざっと確認したい時の
+コマンドです。実機レビューの代わりにはなりません。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\system.ps1 status -Profile thought-core-v0 -ManifestOnly
@@ -579,6 +584,7 @@ pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManua
 
 ## OS の構造
 
+各 organ がどの役割を持ち、どうつながるかを把握したい時に読む節です。
 標準 profile は、システムを身体のように分けて扱います。
 
 ```text
@@ -605,7 +611,7 @@ speech / gesture input
 
 ## 開発者向け入口
 
-開発時はここから読みます。
+コードや manifest を変更する開発者はここから読みます。
 
 - [Remote workstation setup](docs/remote-workstation-setup.md)
 - [Thread startup guide](docs/thread-startup-guide.md)
@@ -620,6 +626,8 @@ UI / HUD を変えたらブラウザで実画面を確認してください。ac
 
 ## 安全とローカルデータ
 
+push、公開、スクリーンショット追加、実家電テストの前に確認する注意事項です。
+
 - `.env`、token、provider key、cookie、local memory、raw media、camera capture、machine-specific log は Git に入れません。
 - ローカル専用のものは `local/`、runtime/cache、または各 organ の ignored フォルダに置きます。
 - README に入れる画像は、秘密情報、ローカル絶対パス、ユーザー固有情報、raw sensor data が写っていないものだけにします。
@@ -628,6 +636,7 @@ UI / HUD を変えたらブラウザで実画面を確認してください。ac
 
 ## 外部モジュールと謝辞
 
+公開、配布、イベント利用の前に、外部プロジェクトや素材の扱いを確認する節です。
 Sword Agent OS は、AITuber Kit、MediaPipe、Home Assistant、VOICEVOX、TouchDesigner、各種アバター / モデル素材など、複数の外部プロジェクトやアプリケーションと連携して動きます。利用・再配布・公開の前に、それぞれのライセンスと利用規約を確認してください。
 
 この README のスクリーンショットは、ローカル環境の一例です。このリポジトリは、第三者のアバターモデル、VOICEVOX 音声、TouchDesigner project、Home Assistant device 設定の再配布権を与えるものではありません。
