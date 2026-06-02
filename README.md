@@ -572,6 +572,10 @@ pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 中央 env を編集しても、既存の organ `.env` は自動では変わりません。
 Home Assistant token、`HOME_CONTROL_API_TOKEN`、`ENVIRONMENT_API_TOKEN` を
 後から入れた場合は、`-Force` で再生成した後に起動確認してください。
+`-Force` は `organs\action\home-assistant-server\config\home-control.yaml`
+も再生成します。live 用 config を別ファイルや手元の控えから反映している場合は、
+最後の `-Force` の後で live config を再反映し、bridge helper の `-CheckOnly` と
+`-CheckState` で確認してから実行へ進んでください。
 
 Environment State の `appliances` / 家電情報は、token を入れただけでは増えません。
 `organs\action\home-assistant-server\config\home-control.yaml` が実際の Home
@@ -711,17 +715,30 @@ Home Assistant bridge が ready で、対象家電、戻し方、停止条件が
 低リスクな操作を試します。いきなり複数家電や長時間 fuzzing を実行しないでください。
 
 live 確認は、no-live が通った後に、1 回分の小さな ticket として分けます。
+次の ladder を上から順に実行し、OpenAPI や Home Assistant の raw URL / entity を
+手探りで調べるのは、この ladder が失敗した時だけにします。
 
-1. 対象 action を 1 つだけ決めます。戻し操作が必要なら、それも ticket に明記します。
-2. 実行回数、間隔、禁止 action、停止条件を決めます。
-3. 中央 env や local config を直したら、必要に応じて再生成します。
+1. no-live prerequisite を通します。これは実家電 proof ではありません。
+
+```powershell
+pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes
+```
+
+2. 対象 action を 1 つだけ決めます。戻し操作が必要なら、それも ticket に明記します。
+   回数、間隔、禁止 action、停止条件も先に決めます。
+3. 中央 env や local config を直したら、最後に再生成します。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 ```
 
+`-Force` は `organs\action\home-assistant-server\config\home-control.yaml` を
+template から再生成します。live 用の config を使う場合は、この後に live config を
+再反映してください。ここを飛ばすと demo action や古い mapping のままになります。
+
 4. 別ターミナルで Home Control bridge を起動します。この helper は
    `organs/action/home-assistant-server/.env` を読み込み、secret 値は表示しません。
+   起動時に port、helper PID、log path ラベル、停止方法を表示します。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1
@@ -740,8 +757,52 @@ status、`config_error_kind`、`cause_code` だけを共有してください。
 [Live Home Control Cause Trail](docs/live-home-control-cause-trail.md) にまとめています。
 
 `/health` が non-error で、`/actions` に ticket の action があることを確認してから、
-preview、dry-run、execute の順に進めます。execute 回数は ticket に書いた回数だけです。
-restore も ticket に書いた場合だけ実行します。
+preview、dry-run、execute の順に進めます。HTTP を直接使う場合の最小形は次です。
+`<ticket-id>` は実行ごとに変えます。execute 回数は ticket に書いた回数だけです。
+
+```powershell
+$Headers = @{ Authorization = "Bearer <HOME_CONTROL_API_TOKEN>" }
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8787/actions/<allowed-action-id>/preview" `
+  -Headers $Headers `
+  -ContentType "application/json" `
+  -Body '{"source":"first-run-live-pilot","request_id":"<ticket-id>-preview"}'
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8787/actions/<allowed-action-id>/execute" `
+  -Headers $Headers `
+  -ContentType "application/json" `
+  -Body '{"source":"first-run-live-pilot","request_id":"<ticket-id>-dry-run","dry_run":true}'
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8787/actions/<allowed-action-id>/execute" `
+  -Headers $Headers `
+  -ContentType "application/json" `
+  -Body '{"source":"first-run-live-pilot","request_id":"<ticket-id>-execute","dry_run":false}'
+```
+
+6. ticket で決めた反映待ちの間隔を待ち、Home Assistant state を helper で確認します。
+   helper は action id、expected state、actual state、status だけを表示し、raw
+   Home Assistant URL / entity / token は表示しません。
+
+```powershell
+Start-Sleep -Seconds 30
+pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckState -ActionId <allowed-action-id>
+```
+
+7. restore も ticket に書いた場合だけ、同じ順で preview、dry-run、1 回だけ execute、
+   wait、state check を行います。
+
+```powershell
+pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <restore-action-id>
+```
+
+proof は層ごとに分けます。no-live/mock、live bridge、preview、execute、
+Home Assistant state confirmation、独立した物理/カメラ確認は同じ green ではありません。
 
 ```text
 電気をつけて
@@ -806,9 +867,10 @@ Launch Manager、Start Stack、Projection Visual、AITuber Kit のブラウザ�
 | 家電操作が失敗する | Home Assistant URL / token、action catalog mapping |
 | API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更 |
 | Home Control bridge が `config_error` になる / `/actions` が 503 になる | bridge process に generated organ `.env` が読み込まれていない、token が placeholder/too-short、または `HOME_CONTROL_CONFIG` が意図した config を指していない可能性があります。`scripts/start-home-control-bridge.ps1 -CheckOnly` で secret 値を出さずに health、action count、`config_error_kind`、`cause_code` を確認します |
+| Home Assistant state 確認で URL / entity を調べる必要が出る | まず `scripts/start-home-control-bridge.ps1 -CheckState -ActionId <allowed-action-id>` を使います。helper が state check できない時だけ、設定と Home Assistant 側を個別に確認します |
 | Environment State に家電情報が出ない | 中央 env の変更を `render-env-files.ps1 -Profile standard -Force` で organ `.env` へ反映したか確認。さらに `organs/action/home-assistant-server/config/home-control.yaml` が `home-control.example.yaml` と同じ demo 設定ではないか、`.cache/home_control/events.jsonl` に成功 action event があるか確認 |
 | `uv --env-file ..\home-assistant-server\.env` が失敗する | Windows では `uv --env-file` に渡す相対 backslash path が崩れることがあります。`$EnvPath = (Resolve-Path ..\home-assistant-server\.env).Path -replace "\\", "/"` のように forward slash 化した絶対 path を渡します |
-| Codex sandbox / restricted environment で `uv` cache 書き込みが失敗する | 通常端末で再実行するか、必要に応じて書き込み可能な local cache を `UV_CACHE_DIR` に指定します。これは sandbox 制約の切り分けであり、通常 install 手順の必須設定ではありません |
+| Codex sandbox / restricted environment で `uv` cache 書き込みや Git ownership warning が出る | 通常端末で再実行するか、必要に応じて書き込み可能な local cache を `UV_CACHE_DIR` に指定します。これは Codex 検証環境の摩擦であり、通常 install 手順の必須設定ではありません |
 | install 中に `npm audit` vulnerability が表示される | npm の依存監査警告です。現在の install / readiness / no-live smoke の pass/fail 判定とは別に読みます。公開運用や依存更新の前には、対象 organ で別途 `npm audit` と影響範囲を確認してください |
 | 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見る |
 | Dify compatibility が表示される | 通常の Thought Core 経路では Dify は必須ではありません。debug mode だけで確認します |

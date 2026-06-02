@@ -5,7 +5,9 @@ param(
   [string]$EnvPath = "",
   [string]$ConfigPath = "",
   [string]$ExpectedActionId = "",
+  [string]$ActionId = "",
   [switch]$CheckOnly,
+  [switch]$CheckState,
   [switch]$DryRun
 )
 
@@ -275,6 +277,37 @@ function Get-HomeControlConfigActionCount {
   return $count
 }
 
+function Get-HomeControlConfigLogPath {
+  param([string]$Path)
+
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    if ($line -match '^\s*log_path\s*:\s*(.+?)\s*$') {
+      $value = $Matches[1].Trim()
+      if (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+          ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+        $value = $value.Substring(1, $value.Length - 2)
+      }
+      if (-not [string]::IsNullOrWhiteSpace($value)) {
+        return $value
+      }
+    }
+  }
+
+  return ".cache/home_control/events.jsonl"
+}
+
+function ConvertTo-DisplayLocalPath {
+  param([string]$Path)
+
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    return "unknown"
+  }
+  if ([System.IO.Path]::IsPathRooted($Path)) {
+    return "<absolute-local-path-hidden>"
+  }
+  return $Path
+}
+
 function Get-ConfigErrorKind {
   param(
     $HomeControlSecret,
@@ -392,27 +425,51 @@ $homeAssistantSecret = Get-DotEnvSecretStatus `
   -Name "HOME_ASSISTANT_TOKEN" `
   -MinimumLength 16
 $configActionCount = Get-HomeControlConfigActionCount -Path $configFilePath
+$configLogPath = Get-HomeControlConfigLogPath -Path $configFilePath
 $configErrorKind = Get-ConfigErrorKind `
   -HomeControlSecret $homeControlSecret `
   -HomeAssistantSecret $homeAssistantSecret
 
-Write-SecretStatus -Status $homeControlSecret
-Write-SecretStatus -Status $homeAssistantSecret
-Write-Host ("config: yaml_loaded=True action_count={0} config_error_kind={1}" -f $configActionCount, $configErrorKind)
+if (-not $CheckState) {
+  Write-SecretStatus -Status $homeControlSecret
+  Write-SecretStatus -Status $homeAssistantSecret
+  Write-Host ("config: yaml_loaded=True action_count={0} config_error_kind={1}" -f $configActionCount, $configErrorKind)
+}
 
 Assert-LiveReadySecret -Status $homeControlSecret -EnvPath $envFilePath
 Assert-LiveReadySecret -Status $homeAssistantSecret -EnvPath $envFilePath
 
 $homeControlToken = $homeControlSecret.value
 
-Write-Host "Home Control bridge local inputs"
-Write-Host ("  Root   : {0}" -f $homeAssistantServerRootPath)
-Write-Host ("  Env    : {0}" -f $envFilePath)
-Write-Host ("  Config : {0}" -f $configFilePath)
-Write-Host ("  URL    : http://{0}:{1}" -f $HostName, $Port)
+if (-not $CheckState) {
+  Write-Host "Home Control bridge local inputs"
+  Write-Host ("  Root   : {0}" -f $homeAssistantServerRootPath)
+  Write-Host ("  Env    : {0}" -f $envFilePath)
+  Write-Host ("  Config : {0}" -f $configFilePath)
+  Write-Host ("  URL    : http://{0}:{1}" -f $HostName, $Port)
+}
 
-if ($CheckOnly) {
+if ($CheckOnly -or $CheckState) {
   $baseUrl = "http://${HostName}:$Port"
+  $stateActionId = ""
+  if ($CheckState) {
+    if (-not [string]::IsNullOrWhiteSpace($ActionId)) {
+      $stateActionId = $ActionId
+    } elseif (-not [string]::IsNullOrWhiteSpace($ExpectedActionId)) {
+      $stateActionId = $ExpectedActionId
+    } else {
+      Write-Cause -Code "live_home_control.bridge.state_action_missing"
+      Write-RootCauseTrace `
+        -ProofLayer "live-ha-state" `
+        -BlockedAt "state-check" `
+        -ObservedStatus "blocked" `
+        -CauseKind "unsafe-ticket" `
+        -Evidence "state_action_id=missing" `
+        -NextProbe "rerun with -CheckState -ActionId <allowed-action-id>"
+      throw "-CheckState requires -ActionId or -ExpectedActionId"
+    }
+  }
+
   try {
     $health = Invoke-RestMethod -Method Get -Uri "$baseUrl/health" -TimeoutSec 10
   } catch {
@@ -429,7 +486,9 @@ if ($CheckOnly) {
   $healthStatus = [string]$health.status
   $healthOk = [bool]$health.ok
   $actionsCount = [int]$health.actions_count
-  Write-Host ("health: status={0} ok={1} actions_count={2}" -f $healthStatus, $healthOk, $actionsCount)
+  if (-not $CheckState) {
+    Write-Host ("health: status={0} ok={1} actions_count={2}" -f $healthStatus, $healthOk, $actionsCount)
+  }
 
   if (-not $healthOk -or $healthStatus -eq "config_error") {
     Write-Cause -Code "live_home_control.bridge.health_config_error" -Detail ("status={0}" -f $healthStatus)
@@ -461,10 +520,14 @@ if ($CheckOnly) {
     throw "Home Control bridge /actions could not be read; stop before preview/execute"
   }
   $actionRows = @(Get-ActionRows -Response $actions)
+  $catalogExpectedActionId = $ExpectedActionId
+  if ([string]::IsNullOrWhiteSpace($catalogExpectedActionId) -and $CheckState) {
+    $catalogExpectedActionId = $stateActionId
+  }
   $expectedStatus = "not-requested"
 
-  if (-not [string]::IsNullOrWhiteSpace($ExpectedActionId)) {
-    $matches = @($actionRows | Where-Object { [string]$_.action_id -eq $ExpectedActionId })
+  if (-not [string]::IsNullOrWhiteSpace($catalogExpectedActionId)) {
+    $matches = @($actionRows | Where-Object { [string]$_.action_id -eq $catalogExpectedActionId })
     if ($matches.Count -eq 0) {
       $expectedStatus = "missing"
     } else {
@@ -472,7 +535,9 @@ if ($CheckOnly) {
     }
   }
 
-  Write-Host ("actions: status=ok count={0} expected_action={1}" -f $actionRows.Count, $expectedStatus)
+  if (-not $CheckState) {
+    Write-Host ("actions: status=ok count={0} expected_action={1}" -f $actionRows.Count, $expectedStatus)
+  }
 
   if ($expectedStatus -eq "missing") {
     Write-Cause -Code "live_home_control.bridge.expected_action_missing"
@@ -485,14 +550,65 @@ if ($CheckOnly) {
     throw "Expected action was not returned by /actions; stop before preview/execute"
   }
 
+  if ($CheckState) {
+    $encodedActionId = [System.Uri]::EscapeDataString($stateActionId)
+    try {
+      $state = Invoke-RestMethod `
+        -Method Get `
+        -Uri "$baseUrl/actions/$encodedActionId/state" `
+        -Headers @{ Authorization = "Bearer $homeControlToken" } `
+        -TimeoutSec 10
+    } catch {
+      $httpDetail = Get-HttpStatusDetail -ErrorRecord $_
+      Write-Cause -Code "live_home_control.bridge.state_unavailable" -Detail $httpDetail
+      Write-RootCauseTrace `
+        -ProofLayer "live-ha-state" `
+        -BlockedAt "state-check" `
+        -ObservedStatus "unavailable" `
+        -CauseKind "ha-unreachable" `
+        -Evidence "state_endpoint=$httpDetail; action_id=$stateActionId" `
+        -NextProbe "check bridge auth, Home Assistant availability, and rerun -CheckState"
+      throw "Home Control bridge state check could not be read"
+    }
+
+    $stateStatus = [string]$state.status
+    $expectedState = if ($null -eq $state.expected_state) { "none" } else { [string]$state.expected_state }
+    $actualState = if ($null -eq $state.actual_state) { "none" } else { [string]$state.actual_state }
+    Write-Host ("state: action_id={0} expected_state={1} actual_state={2} status={3}" -f $state.action_id, $expectedState, $actualState, $stateStatus)
+
+    if ($stateStatus -ne "matched") {
+      $stateCauseKind = if ($stateStatus -eq "unavailable") { "ha-unreachable" } elseif ($stateStatus -eq "untracked") { "config-mismatch" } else { "config-mismatch" }
+      $stateCauseCode = "live_home_control.bridge.state_$stateStatus"
+      Write-Cause -Code $stateCauseCode
+      Write-RootCauseTrace `
+        -ProofLayer "live-ha-state" `
+        -BlockedAt "state-check" `
+        -ObservedStatus $stateStatus `
+        -CauseKind $stateCauseKind `
+        -Evidence ("action_id={0}; expected_state={1}; actual_state={2}" -f $stateActionId, $expectedState, $actualState) `
+        -NextProbe "wait the ticket interval, verify the ticketed action, or run a ticketed restore"
+      throw "Home Assistant state check did not match the expected state"
+    }
+
+    Write-Cause -Code "none"
+    Write-RootCauseTrace `
+      -ProofLayer "live-ha-state" `
+      -BlockedAt "none" `
+      -ObservedStatus "ok" `
+      -CauseKind "none" `
+      -Evidence ("action_id={0}; expected_state={1}; actual_state={2}" -f $stateActionId, $expectedState, $actualState) `
+      -NextProbe "optional independent physical/camera confirmation if that proof layer is required"
+    return
+  }
+
   Write-Cause -Code "none"
   Write-RootCauseTrace `
-    -BlockedAt "action-catalog" `
+    -BlockedAt "none" `
     -ObservedStatus "ok" `
-    -CauseKind "unknown" `
+    -CauseKind "none" `
     -Evidence ("actions_count={0}; expected_action={1}" -f $actionRows.Count, $expectedStatus) `
     -NextProbe "proceed only to ticketed preview under live guardrails" `
-    -SafeStop "no"
+    -SafeStop "yes"
   return
 }
 
@@ -513,7 +629,11 @@ $uvArguments = @(
 )
 
 Write-Host "Starting Home Control bridge with generated organ .env loaded."
-Write-Host "Secret values are hidden. Stop this terminal with Ctrl+C when done."
+Write-Host ("bridge_start: status=starting host={0} port={1} helper_pid={2}" -f $HostName, $Port, $PID)
+Write-Host ("bridge_start: log_path={0}" -f (ConvertTo-DisplayLocalPath -Path $configLogPath))
+Write-Host ("bridge_start: check=pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <allowed-action-id>")
+Write-Host "bridge_start: stop=Ctrl+C"
+Write-Host "Secret values are hidden."
 
 if ($DryRun) {
   Write-Host ("dry-run: cd {0}" -f $homeAssistantServerRootPath)

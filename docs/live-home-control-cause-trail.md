@@ -14,6 +14,7 @@ From the Sword Agent OS repo root:
 
 ```powershell
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <allowed-action-id>
+pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckState -ActionId <allowed-action-id>
 ```
 
 The helper reports:
@@ -24,11 +25,15 @@ HOME_ASSISTANT_TOKEN: present|missing|placeholder|too-short (value hidden)
 config: yaml_loaded=True action_count=<n> config_error_kind=<name|none>
 health: status=<ok|degraded|config_error> ok=<bool> actions_count=<n>
 actions: status=ok count=<n> expected_action=<present|missing|not-requested>
+state: action_id=<id> expected_state=<state|none> actual_state=<state|none> status=<matched|mismatch|untracked|unavailable>
 cause_code=<code>
 ```
 
 `cause_code=none` means the startup/catalog checks passed. It does not prove
 preview, execute, restore, or physical appliance state.
+For `-CheckState`, `cause_code=none` means Home Assistant state matched the
+configured expected state for that action. It still does not prove independent
+physical or camera confirmation.
 
 ## Cause Codes
 
@@ -47,6 +52,10 @@ preview, execute, restore, or physical appliance state.
 | `live_home_control.bridge.health_config_error` | Bridge started, but server config is not live-ready | Use `config_error_kind` and env classes to identify the missing/rejected value |
 | `live_home_control.bridge.actions_unavailable` | Authenticated `/actions` failed or returned unavailable | Stop before preview/execute; inspect bridge config and auth class |
 | `live_home_control.bridge.expected_action_missing` | `/actions` did not return the ticketed action id | Fix the live ticket or action mapping before preview |
+| `live_home_control.bridge.state_action_missing` | State check was requested without an action id | Rerun with `-CheckState -ActionId <allowed-action-id>` |
+| `live_home_control.bridge.state_unavailable` | The bridge could not read redacted Home Assistant state for the action | Check bridge auth, Home Assistant availability, and rerun `-CheckState` |
+| `live_home_control.bridge.state_untracked` | The action has no configured `expected_effect` to check | Add/verify expected-effect metadata before claiming HA state proof |
+| `live_home_control.bridge.state_mismatch` | Home Assistant state was read but did not match the configured expected state | Wait the ticket interval, verify the ticketed action, or run a ticketed restore |
 | `none` | Startup and action catalog checks passed | Continue only to ticketed preview/dry-run/execute after live guardrails are confirmed |
 
 ## Report Shape
@@ -57,11 +66,11 @@ message summaries, and manager summaries. The helper emits the same shape in
 not raw logs.
 
 ```text
-proof_layer: source-static | no-live/mock | runtime/browser | live-bridge | live-preview | live-execute | physical-state
+proof_layer: source-static | no-live/mock | runtime/browser | live-bridge | live-preview | live-execute | live-ha-state | physical-state
 entrypoint: launcher | helper | direct-uvicorn | smoke-script | unknown
-blocked_at: env-render | config-load | process-env | service-start | health | action-catalog | preview | execute | restore | physical-confirmation
+blocked_at: none | env-render | config-load | process-env | service-start | health | action-catalog | preview | execute | restore | state-check | physical-confirmation
 observed_status: ok | warning | blocked | config_error | unavailable | timeout | unknown
-cause_kind: missing-file | placeholder-secret | missing-process-env | config-mismatch | port-conflict | auth-failure | ha-unreachable | action-not-in-catalog | unsafe-ticket | unknown
+cause_kind: none | missing-file | placeholder-secret | missing-process-env | config-mismatch | port-conflict | auth-failure | ha-unreachable | action-not-in-catalog | unsafe-ticket | unknown
 evidence: short redacted facts only
 next_probe: one concrete next check
 safe_stop: yes/no
@@ -81,6 +90,20 @@ observed_status: config_error
 cause_kind: missing-process-env
 evidence: config_loaded=True; actions_count=12; .env had HOME_ASSISTANT_TOKEN; process init without env-file reported HOME_ASSISTANT_TOKEN; init with env-file reported none
 next_probe: rerun helper -CheckOnly with expected action id
+safe_stop: yes
+physical_action_executed: no
+```
+
+For a successful helper state check, use this shape:
+
+```text
+proof_layer: live-ha-state
+entrypoint: helper
+blocked_at: none
+observed_status: ok
+cause_kind: none
+evidence: action_id=<allowed-action-id>; expected_state=<state>; actual_state=<state>
+next_probe: optional independent physical/camera confirmation if that proof layer is required
 safe_stop: yes
 physical_action_executed: no
 ```

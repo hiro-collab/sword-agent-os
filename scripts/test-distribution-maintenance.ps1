@@ -342,6 +342,11 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "start-home-control-bridge\.ps1" -Message "README should document the Home Control bridge live helper"
   Assert-TextMatch -Text $readme -Pattern "/health.*config_error|/actions.*preview / execute" -Message "README should define live Home Control safe-stop behavior"
   Assert-TextMatch -Text $readme -Pattern "preview、dry-run、execute" -Message "README should require preview before live execute"
+  Assert-TextMatch -Text $readme -Pattern "live pilot|live 確認.*ladder|OpenAPI" -Message "README should provide a live pilot command ladder without requiring OpenAPI discovery"
+  Assert-TextMatch -Text $readme -Pattern "home-control\.yaml[\s\S]{0,200}再生成|再生成[\s\S]{0,200}home-control\.yaml" -Message "README should warn that render-env-files -Force regenerates home-control.yaml"
+  Assert-TextMatch -Text $readme -Pattern "/actions/<allowed-action-id>/preview" -Message "README should show a concrete preview route shape"
+  Assert-TextMatch -Text $readme -Pattern '"dry_run":true' -Message "README should show a dry-run execute body"
+  Assert-TextMatch -Text $readme -Pattern "-CheckState -ActionId" -Message "README should show helper-based Home Assistant state check"
   Assert-TextMatch -Text $readme -Pattern "live-home-control-cause-trail\.md" -Message "README should link live Home Control cause trail"
   Assert-PathPresent -Path (Join-Path $RepoRoot "docs\live-home-control-cause-trail.md")
   $bridgeHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\start-home-control-bridge.ps1")
@@ -350,12 +355,16 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $bridgeHelper -Pattern "cause_code" -Message "Home Control bridge helper should report cause codes"
   Assert-TextMatch -Text $bridgeHelper -Pattern "root_cause_trace" -Message "Home Control bridge helper should emit root-cause trace packet"
   Assert-TextMatch -Text $bridgeHelper -Pattern "HOME_ASSISTANT_TOKEN" -Message "Home Control bridge helper should classify Home Assistant token readiness"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "CheckState" -Message "Home Control bridge helper should provide a redacted state-check mode"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "bridge_start: status=starting" -Message "Home Control bridge helper should print startup status"
   $causeTrail = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\live-home-control-cause-trail.md")
   Assert-TextMatch -Text $causeTrail -Pattern "proof_layer:" -Message "cause trail should define proof_layer field"
   Assert-TextMatch -Text $causeTrail -Pattern "entrypoint:" -Message "cause trail should define entrypoint field"
   Assert-TextMatch -Text $causeTrail -Pattern "blocked_at:" -Message "cause trail should define blocked_at field"
   Assert-TextMatch -Text $causeTrail -Pattern "missing-process-env" -Message "cause trail should cover missing process env failures"
+  Assert-TextMatch -Text $causeTrail -Pattern "live-ha-state" -Message "cause trail should separate Home Assistant state proof"
   Assert-TextMatch -Text $readme -Pattern "UV_CACHE_DIR" -Message "README should include uv cache troubleshooting guidance"
+  Assert-TextMatch -Text $readme -Pattern "Git ownership warning" -Message "README should frame Codex Git ownership warnings as validation friction"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
   Write-Host "README first-run guidance static ok"
 }
