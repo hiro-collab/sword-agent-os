@@ -357,6 +357,10 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $bridgeHelper -Pattern "HOME_ASSISTANT_TOKEN" -Message "Home Control bridge helper should classify Home Assistant token readiness"
   Assert-TextMatch -Text $bridgeHelper -Pattern "CheckState" -Message "Home Control bridge helper should provide a redacted state-check mode"
   Assert-TextMatch -Text $bridgeHelper -Pattern "bridge_start: status=starting" -Message "Home Control bridge helper should print startup status"
+  Assert-TextMatch -Text $bridgeHelper -Pattern 'displayEnvPath = ConvertTo-DisplayLocalPath -Path \$EnvPath' -Message "Home Control bridge helper should redact env paths in live-ready errors"
+  Assert-TextMatch -Text $bridgeHelper -Pattern 'ConvertTo-DisplayLocalPath -Path \$envFilePath' -Message "Home Control bridge helper should not print raw local env paths"
+  Assert-TextMatch -Text $bridgeHelper -Pattern 'ConvertTo-DisplayLocalPath -Path \$configFilePath' -Message "Home Control bridge helper should not print raw local config paths"
+  Assert-TextMatch -Text $bridgeHelper -Pattern 'uvDisplayArguments\[2\] = ConvertTo-DisplayLocalPath -Path \$envFilePath' -Message "Home Control bridge helper dry-run should not print raw env-file paths"
   $causeTrail = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\live-home-control-cause-trail.md")
   Assert-TextMatch -Text $causeTrail -Pattern "proof_layer:" -Message "cause trail should define proof_layer field"
   Assert-TextMatch -Text $causeTrail -Pattern "entrypoint:" -Message "cause trail should define entrypoint field"

@@ -302,10 +302,30 @@ function ConvertTo-DisplayLocalPath {
   if ([string]::IsNullOrWhiteSpace($Path)) {
     return "unknown"
   }
-  if ([System.IO.Path]::IsPathRooted($Path)) {
+  if (-not [System.IO.Path]::IsPathRooted($Path)) {
+    return ($Path -replace "\\", "/")
+  }
+
+  try {
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $rootPath = [System.IO.Path]::GetFullPath($RepoRoot)
+    $separators = [char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    $rootTrimmed = $rootPath.TrimEnd($separators)
+    $fullTrimmed = $fullPath.TrimEnd($separators)
+
+    if ($fullTrimmed.Equals($rootTrimmed, [System.StringComparison]::OrdinalIgnoreCase)) {
+      return "."
+    }
+
+    $rootPrefix = $rootTrimmed + [System.IO.Path]::DirectorySeparatorChar
+    if ($fullPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+      return ($fullPath.Substring($rootPrefix.Length) -replace "\\", "/")
+    }
+  } catch {
     return "<absolute-local-path-hidden>"
   }
-  return $Path
+
+  return "<absolute-local-path-hidden>"
 }
 
 function Get-ConfigErrorKind {
@@ -331,6 +351,7 @@ function Assert-LiveReadySecret {
   )
 
   if ($Status.class -ne "present") {
+    $displayEnvPath = ConvertTo-DisplayLocalPath -Path $EnvPath
     $nameToken = ConvertTo-CauseToken -Value $Status.name
     $classToken = ConvertTo-CauseToken -Value $Status.class
     Write-Cause -Code "live_home_control.env.${nameToken}_${classToken}"
@@ -340,7 +361,7 @@ function Assert-LiveReadySecret {
       -CauseKind (Get-CauseKindForSecretStatus -Status $Status) `
       -Evidence "$($Status.name)=$($Status.class); value_hidden=true" `
       -NextProbe "update local env and rerun render-env-files -Force"
-    throw "$($Status.name) is not live-ready in $EnvPath; update local env and rerun scripts/render-env-files.ps1 -Profile standard -Force"
+    throw "$($Status.name) is not live-ready in $displayEnvPath; update local env and rerun scripts/render-env-files.ps1 -Profile standard -Force"
   }
 }
 
@@ -379,7 +400,7 @@ if (-not (Test-Path -LiteralPath $homeAssistantServerRootPath -PathType Containe
     -CauseKind "missing-file" `
     -Evidence "home_assistant_server_root=missing" `
     -NextProbe "install or update the standard distribution"
-  throw "Home Assistant server checkout not found: $homeAssistantServerRootPath"
+  throw "Home Assistant server checkout not found: $(ConvertTo-DisplayLocalPath -Path $homeAssistantServerRootPath)"
 }
 if (-not (Test-Path -LiteralPath $envFilePath -PathType Leaf)) {
   Write-Cause -Code "live_home_control.local.env_missing" -Detail "home_assistant_server_env"
@@ -389,7 +410,7 @@ if (-not (Test-Path -LiteralPath $envFilePath -PathType Leaf)) {
     -CauseKind "missing-file" `
     -Evidence "home_assistant_server_env=missing" `
     -NextProbe "rerun render-env-files -Profile standard -Force"
-  throw "Home Assistant bridge .env not found: $envFilePath"
+  throw "Home Assistant bridge .env not found: $(ConvertTo-DisplayLocalPath -Path $envFilePath)"
 }
 
 $configPathFromEnv = Read-DotEnvValue -Path $envFilePath -Name "HOME_CONTROL_CONFIG"
@@ -413,7 +434,7 @@ if (-not (Test-Path -LiteralPath $configFilePath -PathType Leaf)) {
     -CauseKind "missing-file" `
     -Evidence "home_control_config=missing" `
     -NextProbe "render config or provide the local override"
-  throw "Home Control config not found: $configFilePath"
+  throw "Home Control config not found: $(ConvertTo-DisplayLocalPath -Path $configFilePath)"
 }
 
 $homeControlSecret = Get-DotEnvSecretStatus `
@@ -443,9 +464,9 @@ $homeControlToken = $homeControlSecret.value
 
 if (-not $CheckState) {
   Write-Host "Home Control bridge local inputs"
-  Write-Host ("  Root   : {0}" -f $homeAssistantServerRootPath)
-  Write-Host ("  Env    : {0}" -f $envFilePath)
-  Write-Host ("  Config : {0}" -f $configFilePath)
+  Write-Host ("  Root   : {0}" -f (ConvertTo-DisplayLocalPath -Path $homeAssistantServerRootPath))
+  Write-Host ("  Env    : {0}" -f (ConvertTo-DisplayLocalPath -Path $envFilePath))
+  Write-Host ("  Config : {0}" -f (ConvertTo-DisplayLocalPath -Path $configFilePath))
   Write-Host ("  URL    : http://{0}:{1}" -f $HostName, $Port)
 }
 
@@ -627,6 +648,8 @@ $uvArguments = @(
   "--port",
   [string]$Port
 )
+$uvDisplayArguments = @($uvArguments)
+$uvDisplayArguments[2] = ConvertTo-DisplayLocalPath -Path $envFilePath
 
 Write-Host "Starting Home Control bridge with generated organ .env loaded."
 Write-Host ("bridge_start: status=starting host={0} port={1} helper_pid={2}" -f $HostName, $Port, $PID)
@@ -636,9 +659,9 @@ Write-Host "bridge_start: stop=Ctrl+C"
 Write-Host "Secret values are hidden."
 
 if ($DryRun) {
-  Write-Host ("dry-run: cd {0}" -f $homeAssistantServerRootPath)
-  Write-Host ("dry-run: HOME_CONTROL_CONFIG={0}" -f $configFilePath)
-  Write-Host ("dry-run: uv {0}" -f ($uvArguments -join " "))
+  Write-Host ("dry-run: cd {0}" -f (ConvertTo-DisplayLocalPath -Path $homeAssistantServerRootPath))
+  Write-Host ("dry-run: HOME_CONTROL_CONFIG={0}" -f (ConvertTo-DisplayLocalPath -Path $configFilePath))
+  Write-Host ("dry-run: uv {0}" -f ($uvDisplayArguments -join " "))
   return
 }
 
