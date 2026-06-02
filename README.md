@@ -79,8 +79,10 @@ pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
 ```
 
 `-DryRun` は clone / env 生成 / dependency install の予定だけを表示します。
-既存の `.env` や `config/home-control.yaml` はデフォルトでは上書きしません。
-作り直したい場合だけ `-ForceEnv` を付けます。
+通常インストール後に利用者が最初に編集するファイルは
+`local\env\sword-agent-os.env` です。この中央 env から、各 organ の `.env`
+が生成されます。既存の `.env` や `config/home-control.yaml` はデフォルトでは
+上書きしません。作り直したい場合だけ `-ForceEnv` を付けます。
 
 よく使うオプション:
 
@@ -337,54 +339,113 @@ _codex/
 ## ローカル設定
 
 標準 installer は、中央の local env を使って各 organ の `.env` を生成します。
+通常利用で直接編集するのは、原則としてこの 1 ファイルです。
+
+```text
+local\env\sword-agent-os.env
+```
+
+各 organ の `.env` は、この中央 env から生成される出力先です。生成後に
+個別調整することもできますが、`render-env-files.ps1 -Force` を実行すると
+中央 env の内容で再生成されます。まずは中央 env を正本として扱うと、
+どこに値を書いたか迷いにくくなります。
+
+### 初回 `.env` 作成手順
+
+installer を通常実行した場合は、`local\env\sword-agent-os.env` が作られます。
+その場合は手順 3 から進めます。手動で一から作る場合は、手順 1 から進めます。
+
+1. `sword-agent-os` の root に移動します。
 
 ```powershell
+cd <sword-agent-os のパス>
+$RepoRoot = (Resolve-Path .).Path
 Set-Location $RepoRoot
+```
+
+2. 中央 env を公開テンプレートからコピーします。
+
+```powershell
 if (-not (Test-Path local\env\sword-agent-os.env)) {
   New-Item -ItemType Directory -Force local\env | Out-Null
   Copy-Item templates\env\sword-agent-os.env.example local\env\sword-agent-os.env
 }
+```
+
+3. 中央 env を開いて、自分の環境の値を書きます。
+
+```powershell
 notepad local\env\sword-agent-os.env
+```
+
+`local\env\sword-agent-os.env` は Git 管理外です。API key、token、家電設定、
+ローカル URL、使用する model 名など、公開してはいけない値はここに入れます。
+
+4. 主に次の項目を確認します。Home Assistant を使わない場合は、家電操作用の
+   token や URL は後から入れても構いません。
+
+| 項目 | 書く場所 | 用途 |
+| --- | --- | --- |
+| LLM API key | `THOUGHT_CORE_LLM_API_KEY` または `OPENAI_API_KEY` | Thought Core の自然文応答 |
+| LLM model / URL | `THOUGHT_CORE_LLM_MODEL`, `THOUGHT_CORE_LLM_BASE_URL` | OpenAI 互換 LLM の接続先 |
+| Home Assistant token | `HOME_ASSISTANT_TOKEN` | 家電状態確認と操作 |
+| local bridge token | `HOME_CONTROL_API_TOKEN` | Home Assistant bridge のローカル保護 |
+| VOICEVOX URL | `VOICEVOX_SERVER_URL` | 音声合成 |
+| アバター path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | AITuber Kit / Projection Visual の表示 |
+| Thought Core endpoint | `THOUGHT_CORE_BASE_URL`, `NEXT_PUBLIC_THOUGHT_CORE_BASE_URL` | AITuber Kit から Thought Core へ接続 |
+
+`HOME_CONTROL_API_TOKEN` は Home Assistant の token ではありません。ローカル
+bridge 用のランダム値です。必要なら次のように作って、中央 env に貼ります。
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+5. 中央 env を各 organ の `.env` へ反映します。
+
+```powershell
+Set-Location $RepoRoot
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard
 ```
 
-実際の秘密情報や機器固有値は `local/env/sword-agent-os.env` に入れます。この
-ファイルは Git 管理外です。各 organ の `.env` はこの中央 env と各 organ の
-`.env.example` をマージして生成されます。既存 `.env` はデフォルトでは上書きしません。
-中央 env を編集した後に既存 `.env` へ反映する場合は、内容を確認してから
-`.\scripts\render-env-files.ps1 -Profile standard -Force` を実行します。
-
-手動で分解して作る場合、`.env.example` がある場所では `.env` を作成してローカル値を入れます。
+6. すでに organ 側の `.env` がある環境で、中央 env の変更を反映したい場合だけ
+   `-Force` を付けます。既存の organ `.env` はデフォルトでは上書きしません。
 
 ```powershell
-Set-Location $RepoRoot
-
-Push-Location (Join-Path $RepoRoot "control-plane\sword-voice-agent")
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-Pop-Location
-
-Push-Location (Join-Path $RepoRoot "organs\expression\aituber-kit")
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-Pop-Location
+pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 ```
 
-家電操作を使う場合は、Home Assistant bridge 側にも `.env` を作成します。
+<details>
+<summary>生成されるファイル一覧と、直接編集する場合の考え方を開く</summary>
 
-```powershell
-Set-Location $RepoRoot
-
-Push-Location (Join-Path $RepoRoot "organs\action\home-assistant-server")
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-Pop-Location
-```
-
-Thought Core service 単体で確認したい場合は、必要に応じて次も参照します。
+このコマンドが生成または更新する主な出力先です。
 
 ```text
-control-plane\sword-voice-agent\services\thought-core\.env.example
+control-plane\sword-voice-agent\.env
+control-plane\sword-voice-agent\services\thought-core\.env
+organs\action\home-assistant-server\.env
+organs\expression\tts-service\.env
+organs\expression\aituber-kit\.env
+organs\action\home-assistant-server\config\home-control.yaml
 ```
 
-主に確認する設定です。
+通常は中央 env を編集します。各 organ の `.env` を直接編集するのは、問題
+切り分けや、その organ だけに一時的な値を入れたい場合に限ります。直接編集
+した値は、次に `render-env-files.ps1 -Force` を実行すると中央 env 由来の値で
+上書きされます。
+
+各 organ のテンプレートを確認したい場合は、次の `.env.example` を参照します。
+
+```text
+templates\env\sword-agent-os.env.example
+control-plane\sword-voice-agent\.env.example
+control-plane\sword-voice-agent\services\thought-core\.env.example
+organs\action\home-assistant-server\.env.example
+organs\expression\tts-service\.env.example
+organs\expression\aituber-kit\.env.example
+```
+
+設定領域ごとの役割です。
 
 | 設定領域 | 役割 |
 | --- | --- |
@@ -396,6 +457,8 @@ control-plane\sword-voice-agent\services\thought-core\.env.example
 | VOICEVOX URL | ローカル音声合成 endpoint |
 
 Home Assistant は、実際に家電を操作する場合に必要です。Home Assistant がなくても、source/static check、表示開発、no-live test の多くは実行できます。
+
+</details>
 
 ## 起動方法
 
