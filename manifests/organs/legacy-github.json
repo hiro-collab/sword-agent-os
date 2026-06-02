@@ -11,7 +11,7 @@
       "target_path": "organs/speech-input/ai-talk-core",
       "repo_url": "https://github.com/hiro-collab/ai-talk-core.git",
       "branch": "main",
-      "commit": "eb34b187cd1cf28392b6a4ff3da3310f2cb252b1",
+      "commit": "2f45c258068b986758760eac407749e0fd467928",
       "adoption": "standard_candidate",
       "legacy_path": "organs/voice/ai-talk-core",
       "notes": "STT, browser recording, transcript, and handoff boundary."
@@ -23,7 +23,7 @@
       "target_path": "organs/reflex/mediapipe-sword-sign",
       "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
       "branch": "feature/camera-hub-topic-envelope",
-      "commit": "a4a899281af08917e5123174bf2280800e6ff49e",
+      "commit": "5e96c6bd06a96625795c00534ea81b10e062081f",
       "adoption": "standard_candidate",
       "legacy_path": "organs/reflex/mediapipe-sword-sign",
       "notes": "Camera Hub, gesture inference, and reflex topic surface."
@@ -35,7 +35,7 @@
       "target_path": "organs/environment/environment-state-server",
       "repo_url": "https://github.com/hiro-collab/environment-state-server.git",
       "branch": "main",
-      "commit": "0d16469690e661b4d75e75e2d83714653ec01903",
+      "commit": "23eedb0cb81318d64ddb41d7a2f4a8870fa873f8",
       "adoption": "standard_candidate",
       "legacy_path": "organs/environment/environment-state-server",
       "notes": "Environment snapshot, indicators, health aggregation, and feedback capture."
@@ -47,7 +47,7 @@
       "target_path": "organs/environment/vision-snapshot-processor",
       "repo_url": "https://github.com/hiro-collab/vision-snapshot-processor.git",
       "branch": "main",
-      "commit": "140930fb6cc1e0cbc8dcae5082a74aed75ee929c",
+      "commit": "97235aa67c3b307de6348ebe9bb2486feb077bfe",
       "adoption": "standard_candidate",
       "legacy_path": "organs/environment/vision-snapshot-processor",
       "notes": "Low-frequency vision snapshots such as room light state."
@@ -59,7 +59,7 @@
       "target_path": "organs/action/home-assistant-server",
       "repo_url": "https://github.com/hiro-collab/home-assistant-server.git",
       "branch": "codex/add-fault-injection",
-      "commit": "606fd50e6951a8ce6f6bf7790a31678605e94c3e",
+      "commit": "147adca5690eee9f92c3bd196dc9e94f21dbaa93",
       "adoption": "standard_candidate",
       "legacy_path": "organs/action/home-assistant-server",
       "notes": "Home Assistant safety bridge, allowlist, confirmation, audit, and fault injection."
@@ -71,7 +71,7 @@
       "target_path": "organs/expression/tts-service",
       "repo_url": "https://github.com/hiro-collab/tts-service.git",
       "branch": "main",
-      "commit": "9f9196eec5db227e9bf3eed3092058288a0af857",
+      "commit": "81c3a8e83a2feae577f3e285caa1a8dafa362f1a",
       "adoption": "standard_candidate",
       "legacy_path": "organs/expression/tts-service",
       "notes": "Speech synthesis, playback, status, and volume control."
@@ -107,7 +107,7 @@
       "target_path": "organs/display/touchdesigner-ai-controller",
       "repo_url": "https://github.com/hiro-collab/touchdesigner-ai-controller.git",
       "branch": "codex/projection-visual-docs",
-      "commit": "616831ce3b12bab8a9e5c46396c9c34f8ab1fb18",
+      "commit": "67b21a9b5697630794a01767f11f6961ccbe4079",
       "adoption": "standard_candidate",
       "legacy_path": "organs/display/touchdesigner-ai-controller",
       "notes": "Display runtime GUI, TouchDesigner UDP visual trigger, and display bridge."
@@ -119,7 +119,7 @@
       "target_path": "organs/diagnostics/system-house-renderer",
       "repo_url": "https://github.com/hiro-collab/system-house-renderer.git",
       "branch": "codex/system-house-authority-map",
-      "commit": "0bfdc6329d0df181e35df0c18173e4dddfbf457c",
+      "commit": "e948651ba32ea8615ddc3c6e70a55a58cecd60d0",
       "adoption": "standard_candidate",
       "legacy_path": "organs/diagnostics/system-house-renderer",
       "notes": "Topology/runtime trace visualization and redaction evidence."
