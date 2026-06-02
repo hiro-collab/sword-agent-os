@@ -235,6 +235,7 @@ function Test-MaintenanceSafetyStatic {
     "scripts/install-distribution.ps1",
     "scripts/update-distribution.ps1",
     "scripts/render-env-files.ps1",
+    "scripts/start-home-control-bridge.ps1",
     "scripts/prepare-aituberkit-sword-adapter.ps1",
     "start-home-control-launcher.bat",
     "stop-home-control-launcher.bat"
@@ -338,6 +339,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "刀印.*wake word|OK Google|入力ゲート" -Message "README should explain the sword-sign input gate"
   Assert-TextMatch -Text $readme -Pattern "docs/assets/readme/sword-sign-gesture\.png" -Message "README should reference the sword-sign gesture image"
   Assert-PathPresent -Path (Join-Path $RepoRoot "docs\assets\readme\sword-sign-gesture.png")
+  Assert-TextMatch -Text $readme -Pattern "start-home-control-bridge\.ps1" -Message "README should document the Home Control bridge live helper"
+  Assert-TextMatch -Text $readme -Pattern "/health.*config_error|/actions.*preview / execute" -Message "README should define live Home Control safe-stop behavior"
+  Assert-TextMatch -Text $readme -Pattern "preview、dry-run、execute" -Message "README should require preview before live execute"
   Assert-TextMatch -Text $readme -Pattern "UV_CACHE_DIR" -Message "README should include uv cache troubleshooting guidance"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
   Write-Host "README first-run guidance static ok"

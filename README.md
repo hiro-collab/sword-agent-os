@@ -710,6 +710,38 @@ Home Assistant の実家電操作を使わず、まず画面、入力、Thought 
 Home Assistant bridge が ready で、対象家電、戻し方、停止条件が分かっている場合だけ
 低リスクな操作を試します。いきなり複数家電や長時間 fuzzing を実行しないでください。
 
+live 確認は、no-live が通った後に、1 回分の小さな ticket として分けます。
+
+1. 対象 action を 1 つだけ決めます。戻し操作が必要なら、それも ticket に明記します。
+2. 実行回数、間隔、禁止 action、停止条件を決めます。
+3. 中央 env や local config を直したら、必要に応じて再生成します。
+
+```powershell
+pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
+```
+
+4. 別ターミナルで Home Control bridge を起動します。この helper は
+   `organs/action/home-assistant-server/.env` を読み込み、secret 値は表示しません。
+
+```powershell
+pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1
+```
+
+5. もう 1 つのターミナルで、live-ready かを先に確認します。
+
+```powershell
+pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <allowed-action-id>
+```
+
+`/health` が `config_error` の場合、または authenticated `/actions` が期待 action を
+返さない場合は、preview / execute に進まず停止します。診断では token、entity URL、
+secret 値を貼らず、key presence、placeholder/length class、config path、action count、
+status だけを共有してください。
+
+`/health` が non-error で、`/actions` に ticket の action があることを確認してから、
+preview、dry-run、execute の順に進めます。execute 回数は ticket に書いた回数だけです。
+restore も ticket に書いた場合だけ実行します。
+
 ```text
 電気をつけて
 電気を消して
@@ -772,6 +804,7 @@ Launch Manager、Start Stack、Projection Visual、AITuber Kit のブラウザ�
 | マイクが反応しない | Chrome のマイク権限、入力欄の focus |
 | 家電操作が失敗する | Home Assistant URL / token、action catalog mapping |
 | API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更 |
+| Home Control bridge が `config_error` になる / `/actions` が 503 になる | bridge process に generated organ `.env` が読み込まれていない、token が placeholder/too-short、または `HOME_CONTROL_CONFIG` が意図した config を指していない可能性があります。`scripts/start-home-control-bridge.ps1 -CheckOnly` で secret 値を出さずに health と action count を確認します |
 | Environment State に家電情報が出ない | 中央 env の変更を `render-env-files.ps1 -Profile standard -Force` で organ `.env` へ反映したか確認。さらに `organs/action/home-assistant-server/config/home-control.yaml` が `home-control.example.yaml` と同じ demo 設定ではないか、`.cache/home_control/events.jsonl` に成功 action event があるか確認 |
 | `uv --env-file ..\home-assistant-server\.env` が失敗する | Windows では `uv --env-file` に渡す相対 backslash path が崩れることがあります。`$EnvPath = (Resolve-Path ..\home-assistant-server\.env).Path -replace "\\", "/"` のように forward slash 化した絶対 path を渡します |
 | Codex sandbox / restricted environment で `uv` cache 書き込みが失敗する | 通常端末で再実行するか、必要に応じて書き込み可能な local cache を `UV_CACHE_DIR` に指定します。これは sandbox 制約の切り分けであり、通常 install 手順の必須設定ではありません |
