@@ -9,7 +9,7 @@
   "version_source": "control-plane/sword-voice-agent/pyproject.toml",
   "repo_url": "https://github.com/hiro-collab/sword-voice-agent.git",
   "branch": "codex/initial-sword-voice-agent",
-  "commit": "25208e22f016354d30833ebd943fdcdce48d7409",
+  "commit": "3c20a039e4a544accddd85f26aed1ff5be3a92ab",
   "adoption": "reference_source",
   "standard_profile": {
     "profile_id": "thought-core-v0",

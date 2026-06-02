@@ -861,6 +861,40 @@ function New-NativeLaunchWorkspaceFixture {
   Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\src\sword_voice_agent\apps\watch_handoff_to_thought_core.py") -Value "" -Encoding utf8
 }
 
+function New-LegacyLaunchAliasFixture {
+  param([Parameter(Mandatory = $true)][string]$Root)
+
+  $paths = @(
+    "sword-control-plane\scripts",
+    "sword-control-plane\services\thought-core",
+    "organs\voice\ai-talk-core"
+  )
+  foreach ($relativePath in $paths) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $Root $relativePath) | Out-Null
+  }
+
+  Set-Content -LiteralPath (Join-Path $Root "sword-control-plane\.env") -Value "THOUGHT_CORE_LLM_MODE=off" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "sword-control-plane\scripts\start-thought-core.ps1") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "sword-control-plane\scripts\start-thought-core-watch.ps1") -Value "" -Encoding utf8
+}
+
+function Remove-FixtureSubtree {
+  param(
+    [Parameter(Mandatory = $true)][string]$Workspace,
+    [Parameter(Mandatory = $true)][string]$RelativePath
+  )
+
+  $target = Join-Path $Workspace $RelativePath
+  $resolvedTarget = [System.IO.Path]::GetFullPath($target)
+  $resolvedWorkspace = [System.IO.Path]::GetFullPath($Workspace)
+  if (-not $resolvedTarget.StartsWith($resolvedWorkspace, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "refusing to remove fixture path outside workspace: $resolvedTarget"
+  }
+  if (Test-Path -LiteralPath $resolvedTarget) {
+    Remove-Item -LiteralPath $resolvedTarget -Recurse -Force
+  }
+}
+
 function Test-NativeLaunchLayoutFixtures {
   Write-TestStep "native launch layout dry-run fixtures"
   $root = New-FreshTestRoot
@@ -883,12 +917,18 @@ function Test-NativeLaunchLayoutFixtures {
     if ([string]$readiness.status -ne "ok") {
       throw "native launch readiness should be ok; got $($readiness.status)"
     }
+    if ([string]$readiness.workspace_root -ne $workspace) {
+      throw "native launch readiness used wrong workspace root: $($readiness.workspace_root)"
+    }
     $readinessIds = @($readiness.checks | ForEach-Object { [string]$_.id })
     if ("legacy_delegate_layout.sword_control_plane_alias" -in $readinessIds) {
       throw "native launch readiness should not require sword-control-plane alias"
     }
     if ("legacy_delegate_layout.ai_talk_core_voice_alias" -in $readinessIds) {
       throw "native launch readiness should not require organs/voice/ai-talk-core alias"
+    }
+    if (@($readinessIds | Where-Object { $_ -match "avatar" }).Count -gt 0) {
+      throw "native launch readiness should not require deferred avatar-service"
     }
     Assert-TextMatch -Text ($readinessOutput -join "`n") -Pattern "native_delegate_layout\.control_plane" -Message "native control-plane readiness check missing"
     Assert-TextMatch -Text ($readinessOutput -join "`n") -Pattern "native_delegate_layout\.ai_talk_core" -Message "native AI Talk Core readiness check missing"
@@ -924,6 +964,110 @@ function Test-NativeLaunchLayoutFixtures {
     }
     if ($launchText -match "organs\\voice\\ai-talk-core") {
       throw "native launch dry-run still used legacy AI Talk Core voice alias"
+    }
+
+    New-LegacyLaunchAliasFixture -Root $workspace
+    $preferredLaunchOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      (Join-Path $RepoRoot "control-plane\sword-voice-agent\ops\scripts\system.ps1"),
+      "-WorkspaceRoot",
+      $workspace,
+      "start",
+      "-Profile",
+      "thought-core-v0",
+      "-StackStateDir",
+      (Join-Path $workspace ".cache\home-control-stack-preferred"),
+      "-SkipDify",
+      "-SkipDifyWatch",
+      "-SkipVoicevoxCheck",
+      "-MediapipeNoBrowser",
+      "-DryRun"
+    )
+    $preferredLaunchText = $preferredLaunchOutput -join "`n"
+    Assert-TextMatch -Text $preferredLaunchText -Pattern "control-plane\\sword-voice-agent\\scripts\\start-thought-core\.ps1" -Message "native-preferred dry-run did not use native Thought Core script path"
+    Assert-TextMatch -Text $preferredLaunchText -Pattern "organs\\speech-input\\ai-talk-core" -Message "native-preferred dry-run did not use native AI Talk Core path"
+    if ($preferredLaunchText -match "sword-control-plane\\scripts") {
+      throw "native-preferred launch dry-run used legacy sword-control-plane scripts"
+    }
+    if ($preferredLaunchText -match "organs\\voice\\ai-talk-core") {
+      throw "native-preferred launch dry-run used legacy AI Talk Core voice alias"
+    }
+
+    $partialAiTalkWorkspace = Join-Path $root "partial-ai-talk"
+    New-NativeLaunchWorkspaceFixture -Root $partialAiTalkWorkspace
+    New-LegacyLaunchAliasFixture -Root $partialAiTalkWorkspace
+    Remove-FixtureSubtree -Workspace $partialAiTalkWorkspace -RelativePath "organs\speech-input"
+    $partialAiTalkOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-launch-readiness.ps1"),
+      "-WorkspaceRoot",
+      $partialAiTalkWorkspace,
+      "-SkipPortChecks"
+    )
+    $partialAiTalk = $partialAiTalkOutput -join "`n" | ConvertFrom-Json
+    $partialAiTalkCheck = @($partialAiTalk.checks | Where-Object { [string]$_.id -eq "legacy_delegate_layout.ai_talk_core_voice_alias" } | Select-Object -First 1)
+    if ($partialAiTalkCheck.Count -eq 0 -or [string]$partialAiTalkCheck[0].status -ne "ok") {
+      throw "partial AI Talk Core layout should report available legacy voice alias fallback"
+    }
+    if ([string]$partialAiTalkCheck[0].detail -notmatch "fallback available") {
+      throw "partial AI Talk Core layout did not explain legacy fallback: $($partialAiTalkCheck[0].detail)"
+    }
+
+    $partialAiTalkLaunchOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      (Join-Path $RepoRoot "control-plane\sword-voice-agent\ops\scripts\system.ps1"),
+      "-WorkspaceRoot",
+      $partialAiTalkWorkspace,
+      "start",
+      "-Profile",
+      "thought-core-v0",
+      "-StackStateDir",
+      (Join-Path $partialAiTalkWorkspace ".cache\home-control-stack"),
+      "-SkipDify",
+      "-SkipDifyWatch",
+      "-SkipVoicevoxCheck",
+      "-MediapipeNoBrowser",
+      "-DryRun"
+    )
+    $partialAiTalkLaunchText = $partialAiTalkLaunchOutput -join "`n"
+    Assert-TextMatch -Text $partialAiTalkLaunchText -Pattern "organs\\voice\\ai-talk-core" -Message "partial AI Talk Core dry-run did not use legacy voice alias fallback"
+    if ($partialAiTalkLaunchText -match "ai-talk-core directory not found") {
+      throw "partial AI Talk Core fallback still reported missing ai-talk-core"
+    }
+
+    $partialControlWorkspace = Join-Path $root "partial-control-plane"
+    New-NativeLaunchWorkspaceFixture -Root $partialControlWorkspace
+    New-LegacyLaunchAliasFixture -Root $partialControlWorkspace
+    Remove-FixtureSubtree -Workspace $partialControlWorkspace -RelativePath "control-plane\sword-voice-agent"
+    $partialControlOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-launch-readiness.ps1"),
+      "-WorkspaceRoot",
+      $partialControlWorkspace,
+      "-SkipPortChecks"
+    )
+    $partialControl = $partialControlOutput -join "`n" | ConvertFrom-Json
+    if ([string]$partialControl.status -ne "blocked") {
+      throw "partial control-plane layout should stay blocked for the native service target; got $($partialControl.status)"
+    }
+    $partialControlCheck = @($partialControl.checks | Where-Object { [string]$_.id -eq "legacy_delegate_layout.sword_control_plane_alias" } | Select-Object -First 1)
+    if ($partialControlCheck.Count -eq 0 -or [string]$partialControlCheck[0].status -ne "ok") {
+      throw "partial control-plane layout should report available legacy alias fallback"
+    }
+    if ([string]$partialControlCheck[0].detail -notmatch "fallback available") {
+      throw "partial control-plane layout did not explain legacy fallback: $($partialControlCheck[0].detail)"
     }
   }
   finally {
