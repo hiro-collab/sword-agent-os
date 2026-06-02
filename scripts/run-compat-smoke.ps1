@@ -16,7 +16,7 @@ param(
   [double]$WatcherAituberHttpTimeoutSeconds = 5.0,
   [int]$TimeoutMs = 10000,
   [switch]$RunManualTurn,
-  [string]$ManualTurnText = "こんにちは。起動確認です。",
+  [string]$ManualTurnText = "Hello. This is a startup smoke check.",
   [string]$ManualSessionId = "living_room_main",
   [string]$ManualTurnId = "",
   [int]$ManualTurnTimeoutSeconds = 90,
@@ -24,7 +24,7 @@ param(
   [string]$HomeControlDryRunActionId = "light_on",
   [switch]$RunWatcherProbe,
   [switch]$RequireWatcherAituberForward,
-  [string]$WatcherProbeText = "こんにちは。watcher経路の起動確認です。",
+  [string]$WatcherProbeText = "Hello. This is a watcher route smoke check.",
   [int]$WatcherProbeTimeoutSeconds = 90,
   [switch]$UseIsolatedPorts,
   [switch]$RequireVoicevox
