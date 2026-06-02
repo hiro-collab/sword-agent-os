@@ -116,6 +116,39 @@ Codex 作業用の workspace-local 領域であり、通常利用では作成不
 
 `.env`、API key、device token、provider key、撮影データ、ローカルログ、個人用スクリーンショットは Git に入れないでください。
 
+### MediaPipe gesture model の準備
+
+`gesture_model.pkl` は、Camera Hub のジェスチャー分類で使う local-only model
+です。Git には入れません。手元にあるかどうかで、初回セットアップの進め方が
+変わります。
+
+手元に `gesture_model.pkl` がない場合:
+
+- clone、distribution install、dependency install、中央 env 作成などは先に進められます。
+- ただし標準の launch readiness や Camera Hub 起動は
+  `model_not_found` / Camera Hub topics timeout で止まることがあります。
+- カメラ/ジェスチャーを使わない source/static check や no-live の一部だけを確認し、
+  full readiness / runtime proof / gesture proof は model 準備後に分けて実行します。
+- 作成元、取得元、コピー元が不明な `.pkl` は公開 Git や配布物に入れず、license と
+  provenance を確認してからローカルに置いてください。
+
+手元に `gesture_model.pkl` がある場合:
+
+- organ checkout 作成後、次の場所にファイル名を変えずに置きます。
+
+```text
+organs\reflex\mediapipe-sword-sign\gesture_model.pkl
+```
+
+- その後、起動前チェックで model が見つかるか確認します。
+
+```powershell
+pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1
+```
+
+この model は local-only asset です。`.env` や VRM と同じく、commit / push /
+公開 screenshot / raw log には含めないでください。
+
 ## インストール
 
 ### ワンタッチ配布インストール
@@ -672,7 +705,7 @@ pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManua
 | Thought Core が down | control-plane `.env`、LLM 設定、`18787` port |
 | VOICEVOX が down | VOICEVOX を起動し、ローカル endpoint を確認 |
 | カメラが動かない | 他アプリがカメラを掴んでいないか、カメラ名が合っているか |
-| `model_not_found` / Camera Hub topics timeout | `organs/reflex/mediapipe-sword-sign/gesture_model.pkl` があるか確認。これはローカル専用資材なので Git には入れません |
+| `model_not_found` / Camera Hub topics timeout | `gesture_model.pkl` がある場合は `organs/reflex/mediapipe-sword-sign/gesture_model.pkl` に置いたか確認。ない場合は、Camera Hub / gesture proof は未準備として分け、カメラ不要の no-live / source-static 確認だけを先に進めます。これはローカル専用資材なので Git には入れません |
 | アバター / VRM が表示されない | ライセンス済み `.vrm` が `organs/expression/aituber-kit/public/vrm/` にあり、`NEXT_PUBLIC_SELECTED_VRM_PATH` が実ファイル名に合う `/vrm/<file>.vrm` を指しているか確認。標準テンプレート例 `/vrm/Nutachisan.vrm` は同名ファイルがないと表示できません |
 | マイクが反応しない | Chrome のマイク権限、入力欄の focus |
 | 家電操作が失敗する | Home Assistant URL / token、action catalog mapping |

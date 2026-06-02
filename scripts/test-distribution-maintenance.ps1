@@ -1056,6 +1056,7 @@ function Test-NativeLaunchLayoutFixtures {
       throw "missing gesture model should be a blocker"
     }
     Assert-TextMatch -Text ([string]$missingGestureCheck[0].detail) -Pattern "model_not_found|Camera Hub topics timeout" -Message "missing gesture model detail should explain the startup symptom"
+    Assert-TextMatch -Text ([string]$missingGestureCheck[0].detail) -Pattern "already have|do not have" -Message "missing gesture model detail should explain both prepared-model and no-model first-run paths"
     Set-Content -LiteralPath $gestureModelPath -Value "fixture" -Encoding utf8
 
     $launchOutput = Invoke-Checked -Command @(

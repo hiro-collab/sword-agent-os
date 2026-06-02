@@ -162,7 +162,7 @@
     },
     {
       "id": "mediapipe-gesture-model",
-      "detail": "Place the local-only gesture_model.pkl at organs/reflex/mediapipe-sword-sign/gesture_model.pkl before using Camera Hub gesture classification."
+      "detail": "If you already have the local-only gesture_model.pkl, place it at organs/reflex/mediapipe-sword-sign/gesture_model.pkl before using Camera Hub gesture classification. If you do not have it yet, keep camera/gesture readiness separate from device-free no-live setup."
     },
     {
       "id": "voicevox",
