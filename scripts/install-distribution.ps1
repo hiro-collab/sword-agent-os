@@ -81,6 +81,18 @@ function Write-InstallText {
   }
 }
 
+function Get-RepoRevision {
+  try {
+    $revision = (git -C $RepoRoot rev-parse --short HEAD 2>$null) -join ""
+    if (-not [string]::IsNullOrWhiteSpace($revision)) {
+      return "git $revision"
+    }
+  }
+  catch {
+  }
+  return "unknown"
+}
+
 function Write-InstallBanner {
   param([Parameter(Mandatory = $true)]$Manifest)
   $modeParts = @()
@@ -94,15 +106,20 @@ function Write-InstallBanner {
     $modeParts += "install"
   }
   $modeLabel = $modeParts -join ", "
+  $distributionId = [string](Get-OptionalProperty -Object $Manifest -Name "id" -Default $Profile)
+  $schemaVersion = [string](Get-OptionalProperty -Object $Manifest -Name "schema_version" -Default "unknown-schema")
+  $description = [string](Get-OptionalProperty -Object $Manifest -Name "description" -Default "Standard local Sword Agent OS distribution.")
 
   Write-InstallText "+------------------------------------------------------------+" Cyan
   Write-InstallText "| WELCOME TO SWORD AGENT OS                                 |" Cyan
   Write-InstallText "| Local AI body OS distribution setup                       |" DarkCyan
   Write-InstallText "+------------------------------------------------------------+" Cyan
-  Write-InstallText ("  Profile : {0}" -f $Profile) Yellow
-  Write-InstallText ("  Mode    : {0}" -f $modeLabel) Yellow
-  Write-InstallText ("  Repo    : {0}" -f $RepoRoot) DarkGray
-  Write-InstallText ("  Manifest: {0}" -f $DistributionManifestPath) DarkGray
+  Write-InstallText ("  Version      : {0}" -f (Get-RepoRevision)) Yellow
+  Write-InstallText ("  Distribution : {0} / {1}" -f $distributionId, $schemaVersion) Yellow
+  Write-InstallText ("  Mode         : {0}" -f $modeLabel) Yellow
+  Write-InstallText ("  About        : {0}" -f $description) Gray
+  Write-InstallText ("  Repo         : {0}" -f $RepoRoot) DarkGray
+  Write-InstallText ("  Manifest     : {0}" -f $DistributionManifestPath) DarkGray
   Write-InstallText ""
   Write-InstallText "This installer will prepare the control plane, organs, local env bridge, and dependency layer." Gray
   Write-InstallText "Secrets and machine-local values stay in local/ and generated .env files." Gray
