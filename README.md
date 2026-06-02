@@ -163,6 +163,11 @@ pwsh -NoProfile -File .\scripts\update-distribution.ps1 -Profile standard -NoDep
 | missing checkout | まだ clone されていません。`install-distribution.ps1` を実行します |
 | non-git path | target path に Git checkout ではないフォルダがあります |
 
+`uv.lock` や `*.egg-info/` など、依存導入で生成された未追跡 artifact だけの場合は、
+更新を止めずに警告として表示します。tracked file の変更や通常の未追跡 source
+file がある場合は hold します。hold された checkout の dependency install も
+自動では行いません。
+
 `.env` と local config はデフォルトでは上書きしません。中央 env template に
 新しい項目が増えた場合は、`templates/env/sword-agent-os.env.example` を見て
 `local/env/sword-agent-os.env` に必要な値を追記し、内容を確認してから反映します。

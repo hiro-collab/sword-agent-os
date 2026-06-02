@@ -57,11 +57,11 @@ function Invoke-Step {
   Push-Location $WorkingDirectory
   try {
     $exe = $Command[0]
-    $args = @()
+    $stepArgs = @()
     if ($Command.Count -gt 1) {
-      $args = $Command[1..($Command.Count - 1)]
+      $stepArgs = $Command[1..($Command.Count - 1)]
     }
-    & $exe @args
+    & $exe @stepArgs
   }
   finally {
     Pop-Location

@@ -56,11 +56,11 @@ function Invoke-Step {
   Push-Location $WorkingDirectory
   try {
     $exe = $Command[0]
-    $args = @()
+    $stepArgs = @()
     if ($Command.Count -gt 1) {
-      $args = $Command[1..($Command.Count - 1)]
+      $stepArgs = $Command[1..($Command.Count - 1)]
     }
-    & $exe @args
+    & $exe @stepArgs
   }
   finally {
     Pop-Location
@@ -128,6 +128,41 @@ function Get-CheckoutItems {
   return $items
 }
 
+function Test-GeneratedDirtyLine {
+  param([Parameter(Mandatory = $true)][string]$Line)
+  if ($Line -notmatch "^\?\? ") {
+    return $false
+  }
+  $path = $Line.Substring(3).Trim() -replace "\\", "/"
+  return (
+    $path -eq "uv.lock" -or
+    $path -match "(^|/)[^/]+\.egg-info(/|$)" -or
+    $path -match "^\.venv(/|$)" -or
+    $path -match "^node_modules(/|$)"
+  )
+}
+
+function Split-DirtyLines {
+  param([string[]]$Lines)
+  $generated = @()
+  $blocking = @()
+  foreach ($line in @($Lines)) {
+    if ([string]::IsNullOrWhiteSpace($line)) {
+      continue
+    }
+    if (Test-GeneratedDirtyLine -Line $line) {
+      $generated += $line
+    }
+    else {
+      $blocking += $line
+    }
+  }
+  return [PSCustomObject]@{
+    generated = $generated
+    blocking = $blocking
+  }
+}
+
 function Update-Checkout {
   param([Parameter(Mandatory = $true)]$Item)
 
@@ -149,10 +184,20 @@ function Update-Checkout {
     return "held"
   }
 
-  $dirty = git -C $target status --porcelain
-  if (-not [string]::IsNullOrWhiteSpace(($dirty -join ""))) {
+  $dirty = @(git -C $target status --porcelain)
+  $dirtySplit = Split-DirtyLines -Lines $dirty
+  if ($dirtySplit.blocking.Count -gt 0) {
     Write-Warning "hold dirty checkout: $label"
+    foreach ($line in @($dirtySplit.blocking | Select-Object -First 5)) {
+      Write-Warning "  $line"
+    }
     return "held"
+  }
+  if ($dirtySplit.generated.Count -gt 0) {
+    Write-Warning "generated local files ignored for update: $label"
+    foreach ($line in @($dirtySplit.generated | Select-Object -First 5)) {
+      Write-Warning "  $line"
+    }
   }
 
   $currentBranch = git -C $target branch --show-current
@@ -206,9 +251,16 @@ function Invoke-EnvRender {
 }
 
 function Invoke-DependencyInstall {
-  param([Parameter(Mandatory = $true)]$Manifest)
+  param(
+    [Parameter(Mandatory = $true)]$Manifest,
+    [hashtable]$HeldDependencyIds = @{}
+  )
   foreach ($dep in @($Manifest.dependencies)) {
     $id = [string]$dep.id
+    if ($HeldDependencyIds.ContainsKey($id)) {
+      Write-Warning "dependency skip held checkout: $id"
+      continue
+    }
     $path = Resolve-RepoPath ([string]$dep.path)
     $command = @($dep.command | ForEach-Object { [string]$_ })
     if ($command.Count -eq 0) {
@@ -242,10 +294,19 @@ $counts = @{
   up_to_date = 0
   held = 0
 }
+$heldDependencyIds = @{}
 
 foreach ($item in @(Get-CheckoutItems -Manifest $manifest)) {
   $result = Update-Checkout -Item $item
   $counts[$result] = [int]$counts[$result] + 1
+  if ($result -eq "held") {
+    if ([string]$item.kind -eq "control-plane") {
+      $heldDependencyIds["control-plane"] = $true
+    }
+    else {
+      $heldDependencyIds[[string]$item.id] = $true
+    }
+  }
 }
 
 if (-not $NoEnv) {
@@ -260,7 +321,7 @@ else {
 if (-not $NoDeps) {
   Write-Host ""
   Write-Host "Install/update dependencies"
-  Invoke-DependencyInstall -Manifest $manifest
+  Invoke-DependencyInstall -Manifest $manifest -HeldDependencyIds $heldDependencyIds
 }
 else {
   Write-Host "dependency install skipped: -NoDeps"
