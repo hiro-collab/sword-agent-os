@@ -1,0 +1,169 @@
+{
+  "schema_version": "agent_os.distribution.v0",
+  "id": "standard",
+  "description": "Standard local Sword Agent OS distribution: control plane, standard organ checkouts, local env rendering, and dependency installation.",
+  "control_plane_manifest_path": "manifests/legacy/control-plane-reference.json",
+  "organ_manifest_path": "manifests/organs/legacy-github.json",
+  "include_deferred_organs": false,
+  "tool_requirements": [
+    {
+      "id": "git",
+      "command": "git",
+      "required_for": "clone"
+    },
+    {
+      "id": "pwsh",
+      "command": "pwsh",
+      "required_for": "scripts"
+    },
+    {
+      "id": "uv",
+      "command": "uv",
+      "required_for": "python dependencies"
+    },
+    {
+      "id": "node",
+      "command": "node",
+      "required_for": "web runtime"
+    },
+    {
+      "id": "npm",
+      "command": "npm",
+      "required_for": "web dependencies"
+    },
+    {
+      "id": "ffmpeg",
+      "command": "ffmpeg",
+      "required_for": "camera publishing",
+      "optional": true
+    },
+    {
+      "id": "ffprobe",
+      "command": "ffprobe",
+      "required_for": "camera diagnostics",
+      "optional": true
+    },
+    {
+      "id": "mediamtx",
+      "command": "mediamtx",
+      "required_for": "camera stream relay",
+      "optional": true
+    }
+  ],
+  "env": {
+    "central_template_path": "templates/env/sword-agent-os.env.example",
+    "central_env_path": "local/env/sword-agent-os.env",
+    "targets": [
+      {
+        "id": "control-plane",
+        "template_path": "control-plane/sword-voice-agent/.env.example",
+        "target_path": "control-plane/sword-voice-agent/.env"
+      },
+      {
+        "id": "thought-core",
+        "template_path": "control-plane/sword-voice-agent/services/thought-core/.env.example",
+        "target_path": "control-plane/sword-voice-agent/services/thought-core/.env"
+      },
+      {
+        "id": "home-assistant-server",
+        "template_path": "organs/action/home-assistant-server/.env.example",
+        "target_path": "organs/action/home-assistant-server/.env"
+      },
+      {
+        "id": "tts-service",
+        "template_path": "organs/expression/tts-service/.env.example",
+        "target_path": "organs/expression/tts-service/.env"
+      },
+      {
+        "id": "aituber-kit",
+        "template_path": "organs/expression/aituber-kit/.env.example",
+        "target_path": "organs/expression/aituber-kit/.env"
+      }
+    ],
+    "local_config_templates": [
+      {
+        "id": "home-control-config",
+        "template_path": "organs/action/home-assistant-server/config/home-control.example.yaml",
+        "target_path": "organs/action/home-assistant-server/config/home-control.yaml"
+      }
+    ]
+  },
+  "dependencies": [
+    {
+      "id": "control-plane",
+      "path": "control-plane/sword-voice-agent",
+      "command": ["uv", "sync"]
+    },
+    {
+      "id": "ai-talk-core",
+      "path": "organs/speech-input/ai-talk-core",
+      "command": ["uv", "sync"]
+    },
+    {
+      "id": "mediapipe-sword-sign",
+      "path": "organs/reflex/mediapipe-sword-sign",
+      "command": ["uv", "sync"]
+    },
+    {
+      "id": "environment-state-server",
+      "path": "organs/environment/environment-state-server",
+      "command": ["uv", "sync"]
+    },
+    {
+      "id": "vision-snapshot-processor",
+      "path": "organs/environment/vision-snapshot-processor",
+      "command": ["uv", "sync"]
+    },
+    {
+      "id": "home-assistant-server",
+      "path": "organs/action/home-assistant-server",
+      "command": ["uv", "sync", "--extra", "dev"]
+    },
+    {
+      "id": "tts-service",
+      "path": "organs/expression/tts-service",
+      "command": ["uv", "sync"]
+    },
+    {
+      "id": "aituber-kit",
+      "path": "organs/expression/aituber-kit",
+      "command": ["npm", "install"]
+    },
+    {
+      "id": "touchdesigner-ai-controller",
+      "path": "organs/display/touchdesigner-ai-controller",
+      "command": []
+    },
+    {
+      "id": "system-house-renderer",
+      "path": "organs/diagnostics/system-house-renderer",
+      "command": ["uv", "sync"]
+    }
+  ],
+  "manual_assets": [
+    {
+      "id": "home-assistant-token",
+      "detail": "Create a Home Assistant long-lived access token and put it in local/env/sword-agent-os.env as HOME_ASSISTANT_TOKEN."
+    },
+    {
+      "id": "local-api-token",
+      "detail": "Generate a random HOME_CONTROL_API_TOKEN before using live Home Assistant actions."
+    },
+    {
+      "id": "llm-api-key",
+      "detail": "Set THOUGHT_CORE_LLM_API_KEY or compatible OPENAI_API_KEY for real Thought Core LLM responses."
+    },
+    {
+      "id": "avatar-assets",
+      "detail": "Place licensed VRM/Live2D assets under the AITuberKit public asset directories."
+    },
+    {
+      "id": "voicevox",
+      "detail": "Start VOICEVOX locally if voice synthesis is required."
+    },
+    {
+      "id": "touchdesigner",
+      "detail": "Install TouchDesigner separately if projector effects are used."
+    }
+  ]
+}

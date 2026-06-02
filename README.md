@@ -65,7 +65,41 @@ Codex 作業用の workspace-local 領域であり、通常利用では作成不
 
 ## インストール
 
+### ワンタッチ配布インストール
+
+通常は、標準 distribution installer を使います。control plane と各 organ の
+checkout、ローカル `.env` 生成、依存関係の導入をまとめて実行できます。
+
+```powershell
+git clone <sword-agent-os-repo-url>
+cd sword-agent-os
+
+pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -DryRun
+pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
+```
+
+`-DryRun` は clone / env 生成 / dependency install の予定だけを表示します。
+既存の `.env` や `config/home-control.yaml` はデフォルトでは上書きしません。
+作り直したい場合だけ `-ForceEnv` を付けます。
+
+よく使うオプション:
+
+| オプション | 用途 |
+| --- | --- |
+| `-DryRun` | 何を clone / 生成 / install するか確認する |
+| `-NoDeps` | repo と `.env` だけ準備し、`uv sync` / `npm install` は後で行う。依存導入用の `uv` / `node` / `npm` 検査も省略する |
+| `-NoEnv` | `.env` / local config 生成を行わない |
+| `-ForceEnv` | 既存 `.env` / local config をテンプレから再生成する |
+| `-VerifyOnly` | clone や install を行わず、manifest と readiness だけ確認する |
+| `-VerifyRemote` | manifest pin と remote branch head の一致を確認する |
+
+distribution の定義は `manifests/distributions/standard.json` です。追加の
+配布形態を作る場合は、ここに profile、依存導入、env 生成先を増やします。
+
 ### 利用用セットアップ
+
+上の distribution installer が通常の入口です。以下は、問題切り分けや手動確認のために
+clone / dependency install を分解して実行する下位手順です。
 
 まずトップレベルのリポジトリを clone します。
 
@@ -177,7 +211,25 @@ _codex/
 
 ## ローカル設定
 
-`.env.example` がある場所では、`.env` を作成してローカル値を入れます。
+標準 installer は、中央の local env を使って各 organ の `.env` を生成します。
+
+```powershell
+Set-Location $RepoRoot
+if (-not (Test-Path local\env\sword-agent-os.env)) {
+  New-Item -ItemType Directory -Force local\env | Out-Null
+  Copy-Item templates\env\sword-agent-os.env.example local\env\sword-agent-os.env
+}
+notepad local\env\sword-agent-os.env
+pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard
+```
+
+実際の秘密情報や機器固有値は `local/env/sword-agent-os.env` に入れます。この
+ファイルは Git 管理外です。各 organ の `.env` はこの中央 env と各 organ の
+`.env.example` をマージして生成されます。既存 `.env` はデフォルトでは上書きしません。
+中央 env を編集した後に既存 `.env` へ反映する場合は、内容を確認してから
+`.\scripts\render-env-files.ps1 -Profile standard -Force` を実行します。
+
+手動で分解して作る場合、`.env.example` がある場所では `.env` を作成してローカル値を入れます。
 
 ```powershell
 Set-Location $RepoRoot

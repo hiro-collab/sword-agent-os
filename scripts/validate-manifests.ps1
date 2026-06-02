@@ -115,6 +115,7 @@ $standardProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/sta
 $compatProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/thought-core-v0-compat.json")
 $serviceManifest = Read-Json -Path (Resolve-ManifestPath $compatProfile.service_manifest)
 $organManifest = Read-Json -Path (Resolve-ManifestPath "manifests/organs/legacy-github.json")
+$distributionManifest = Read-Json -Path (Resolve-ManifestPath "manifests/distributions/standard.json")
 $controlPlaneReference = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/control-plane-reference.json")
 $recoveryCandidates = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/recovery-candidates.json")
 $authorityManifest = Read-Json -Path (Resolve-ManifestPath "manifests/authorities/standard.json")
@@ -468,6 +469,33 @@ foreach ($source in $organManifest.sources) {
   Assert-True ([string]$source.commit -match "^[0-9a-f]{40}$") "organ $($source.organ_id) commit is not a full SHA"
 }
 
+Assert-True ([string]$distributionManifest.schema_version -eq "agent_os.distribution.v0") "distribution schema_version must be agent_os.distribution.v0"
+Assert-True ([string]$distributionManifest.id -eq "standard") "standard distribution id must be standard"
+Assert-True ([string]$distributionManifest.control_plane_manifest_path -eq "manifests/legacy/control-plane-reference.json") "standard distribution control-plane manifest mismatch"
+Assert-True ([string]$distributionManifest.organ_manifest_path -eq "manifests/organs/legacy-github.json") "standard distribution organ manifest mismatch"
+Assert-True (Test-SafeManifestPath -Path ([string]$distributionManifest.env.central_template_path)) "distribution central env template path is unsafe"
+Assert-True (Test-SafeManifestPath -Path ([string]$distributionManifest.env.central_env_path)) "distribution central env path is unsafe"
+Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath ([string]$distributionManifest.env.central_template_path)) -PathType Leaf) "distribution central env template missing"
+foreach ($target in @($distributionManifest.env.targets)) {
+  Assert-True (-not [string]::IsNullOrWhiteSpace([string]$target.id)) "distribution env target missing id"
+  Assert-True (Test-SafeManifestPath -Path ([string]$target.template_path)) "distribution env target $($target.id) has unsafe template_path"
+  Assert-True (Test-SafeManifestPath -Path ([string]$target.target_path)) "distribution env target $($target.id) has unsafe target_path"
+}
+foreach ($copyTarget in @($distributionManifest.env.local_config_templates)) {
+  Assert-True (-not [string]::IsNullOrWhiteSpace([string]$copyTarget.id)) "distribution local config target missing id"
+  Assert-True (Test-SafeManifestPath -Path ([string]$copyTarget.template_path)) "distribution local config target $($copyTarget.id) has unsafe template_path"
+  Assert-True (Test-SafeManifestPath -Path ([string]$copyTarget.target_path)) "distribution local config target $($copyTarget.id) has unsafe target_path"
+}
+foreach ($dependency in @($distributionManifest.dependencies)) {
+  Assert-True (-not [string]::IsNullOrWhiteSpace([string]$dependency.id)) "distribution dependency missing id"
+  Assert-True (Test-SafeManifestPath -Path ([string]$dependency.path)) "distribution dependency $($dependency.id) has unsafe path"
+  foreach ($part in @($dependency.command | ForEach-Object { [string]$_ })) {
+    Assert-True ($part -notmatch "[`r`n]") "distribution dependency $($dependency.id) command contains newline"
+  }
+}
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/install-distribution.ps1") -PathType Leaf) "distribution installer missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/render-env-files.ps1") -PathType Leaf) "env renderer missing"
+
 Assert-True ([string]$controlPlaneReference.commit -match "^[0-9a-f]{40}$") "control-plane reference commit is not a full SHA"
 Assert-True (-not [string]::IsNullOrWhiteSpace([string]$controlPlaneReference.target_path)) "control-plane reference missing target_path"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/system.ps1") -PathType Leaf) "runtime system facade missing"
@@ -531,6 +559,7 @@ if ($VerifyRemote) {
   compatibility_profile = $compatProfile.id
   services = $serviceManifest.services.Count
   organ_sources = $organManifest.sources.Count
+  distributions = 1
   recovery_candidates = $recoveryCandidates.candidates.Count
   authorities = $authorityManifest.authorities.Count
   driver_count = $driverManifest.generic_drivers.Count + $driverManifest.organ_drivers.Count

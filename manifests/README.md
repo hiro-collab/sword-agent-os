@@ -11,6 +11,9 @@ profile.
 - `body-plans/`: canonical organism/body structure. These files define body
   roles such as `thought.core`, `reflex.core`, `sense.vision.primary`, and
   `display.projection`.
+- `distributions/`: installable distribution profiles. These files tie together
+  control-plane and organ source manifests, dependency install commands, local
+  env rendering, and manual asset reminders.
 - `driver-manifests/`: action-capable, dummy, compatibility, and display/runtime
   driver capability declarations used by Action Catalog and Action Boundary.
 - `drivers/`: existing read-only diagnostic driver contracts. These remain
