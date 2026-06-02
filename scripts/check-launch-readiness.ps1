@@ -40,6 +40,14 @@ function Resolve-WorkspaceRoot {
   return Join-Path $RepoRoot ($Path -replace "/", [System.IO.Path]::DirectorySeparatorChar)
 }
 
+function Resolve-WorkspacePath {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  if ([System.IO.Path]::IsPathRooted($Path)) {
+    return $Path
+  }
+  return Join-Path $workspace ($Path -replace "/", [System.IO.Path]::DirectorySeparatorChar)
+}
+
 function Read-Json {
   param([Parameter(Mandatory = $true)][string]$Path)
   return Get-Content -Raw -LiteralPath (Resolve-RepoPath $Path) | ConvertFrom-Json
@@ -190,7 +198,7 @@ foreach ($service in $serviceManifest.services) {
   if (-not [string]::IsNullOrWhiteSpace($targetPath)) {
     $checks += Test-PathCheck `
       -Id "service_target.$($service.service_id)" `
-      -Path (Resolve-RepoPath $targetPath) `
+      -Path (Resolve-WorkspacePath $targetPath) `
       -MissingSeverity "blocker" `
       -OkDetail "service target available" `
       -MissingDetail "service target missing"
@@ -211,11 +219,12 @@ $checks += Test-LaunchPort -Id "port.vision_snapshot_processor" -Port $VisionSna
 $checks += Test-LaunchPort -Id "port.aituber_kit" -Port $AituberPort
 $checks += Test-LaunchPort -Id "port.touchdesigner_control_gui" -Port $TouchDesignerGuiPort
 
-$homeAssistantRoot = Resolve-RepoPath "organs/action/home-assistant-server"
-$aituberRoot = Resolve-RepoPath "organs/expression/aituber-kit"
-$touchDesignerRoot = Resolve-RepoPath "organs/display/touchdesigner-ai-controller"
-$mediapipeRoot = Resolve-RepoPath "organs/reflex/mediapipe-sword-sign"
-$controlPlaneRoot = Resolve-RepoPath "control-plane/sword-voice-agent"
+$homeAssistantRoot = Resolve-WorkspacePath "organs/action/home-assistant-server"
+$aituberRoot = Resolve-WorkspacePath "organs/expression/aituber-kit"
+$touchDesignerRoot = Resolve-WorkspacePath "organs/display/touchdesigner-ai-controller"
+$mediapipeRoot = Resolve-WorkspacePath "organs/reflex/mediapipe-sword-sign"
+$controlPlaneRoot = Resolve-WorkspacePath "control-plane/sword-voice-agent"
+$speechInputRoot = Resolve-WorkspacePath "organs/speech-input/ai-talk-core"
 
 $checks += Test-PathCheck -Id "local.home_control_config" -Path (Join-Path $homeAssistantRoot "config\home-control.yaml") -MissingSeverity "blocker" -MissingDetail "Home Assistant action config is local-only"
 $checks += Test-PathCheck -Id "local.home_assistant_env" -Path (Join-Path $homeAssistantRoot ".env") -MissingSeverity "blocker" -MissingDetail "Home Assistant token env is local-only"
@@ -239,8 +248,18 @@ else {
 
 $legacyControlPlaneAlias = Join-Path $workspace "sword-control-plane"
 $legacyAiTalkCoreAlias = Join-Path $workspace "organs\voice\ai-talk-core"
-$checks += Test-PathCheck -Id "legacy_delegate_layout.sword_control_plane_alias" -Path $legacyControlPlaneAlias -MissingSeverity "warning" -MissingDetail "legacy delegate expects sword-control-plane unless native launch adapter overrides roots"
-$checks += Test-PathCheck -Id "legacy_delegate_layout.ai_talk_core_voice_alias" -Path $legacyAiTalkCoreAlias -MissingSeverity "warning" -MissingDetail "legacy watcher expects organs/voice/ai-talk-core; Agent OS imports it under organs/speech-input"
+if (Test-Path -LiteralPath $controlPlaneRoot -PathType Container) {
+  $checks += New-Check -Id "native_delegate_layout.control_plane" -Status "ok" -Severity "info" -Path $controlPlaneRoot -Detail "native control-plane layout available"
+}
+else {
+  $checks += Test-PathCheck -Id "legacy_delegate_layout.sword_control_plane_alias" -Path $legacyControlPlaneAlias -MissingSeverity "warning" -MissingDetail "native control-plane path missing; legacy alias fallback also missing"
+}
+if (Test-Path -LiteralPath $speechInputRoot -PathType Container) {
+  $checks += New-Check -Id "native_delegate_layout.ai_talk_core" -Status "ok" -Severity "info" -Path $speechInputRoot -Detail "native speech-input layout available"
+}
+else {
+  $checks += Test-PathCheck -Id "legacy_delegate_layout.ai_talk_core_voice_alias" -Path $legacyAiTalkCoreAlias -MissingSeverity "warning" -MissingDetail "native speech-input path missing; legacy voice alias fallback also missing"
+}
 
 $checks += Test-HttpEndpoint -Id "endpoint.voicevox" -Url "http://127.0.0.1:50021/version"
 

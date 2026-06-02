@@ -822,6 +822,115 @@ function Test-EnvRenderFixtures {
   }
 }
 
+function New-NativeLaunchWorkspaceFixture {
+  param([Parameter(Mandatory = $true)][string]$Root)
+
+  New-Item -ItemType Directory -Force -Path $Root | Out-Null
+
+  $paths = @(
+    "organs\action\home-assistant-server\config",
+    "organs\environment\environment-state-server",
+    "organs\environment\vision-snapshot-processor\src\vision_snapshot_processor",
+    "organs\expression\aituber-kit\public\vrm",
+    "organs\reflex\mediapipe-sword-sign\scripts",
+    "organs\display\touchdesigner-ai-controller\tools",
+    "organs\speech-input\ai-talk-core",
+    "control-plane\sword-voice-agent\scripts",
+    "control-plane\sword-voice-agent\src\sword_voice_agent\apps",
+    "control-plane\sword-voice-agent\services\thought-core"
+  )
+  foreach ($relativePath in $paths) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $Root $relativePath) | Out-Null
+  }
+
+  Set-Content -LiteralPath (Join-Path $Root "organs\action\home-assistant-server\config\home-control.yaml") -Value "actions: []" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "organs\action\home-assistant-server\.env") -Value @(
+    "HOME_CONTROL_API_TOKEN=",
+    "ENVIRONMENT_API_TOKEN="
+  ) -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\.env") -Value "THOUGHT_CORE_LLM_MODE=off" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "organs\expression\aituber-kit\.env") -Value "VOICEVOX_SERVER_URL=http://127.0.0.1:50021" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "organs\reflex\mediapipe-sword-sign\gesture_model.pkl") -Value "fixture" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "organs\reflex\mediapipe-sword-sign\scripts\camera_hub_stack.py") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "organs\reflex\mediapipe-sword-sign\scripts\start_camera_hub_stack.bat") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "organs\environment\vision-snapshot-processor\src\vision_snapshot_processor\main.py") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "organs\display\touchdesigner-ai-controller\tools\server.js") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "organs\expression\aituber-kit\public\vrm\fixture.vrm") -Value "fixture" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\scripts\start-thought-core.ps1") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\scripts\start-thought-core-watch.ps1") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\src\sword_voice_agent\apps\watch_handoff_to_thought_core.py") -Value "" -Encoding utf8
+}
+
+function Test-NativeLaunchLayoutFixtures {
+  Write-TestStep "native launch layout dry-run fixtures"
+  $root = New-FreshTestRoot
+  try {
+    $workspace = Join-Path $root "sword-agent-os"
+    New-NativeLaunchWorkspaceFixture -Root $workspace
+    Assert-PathAbsent -Path (Join-Path $workspace "sword-control-plane")
+    Assert-PathAbsent -Path (Join-Path $workspace "organs\voice\ai-talk-core")
+
+    $readinessOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-launch-readiness.ps1"),
+      "-WorkspaceRoot",
+      $workspace,
+      "-SkipPortChecks"
+    )
+    $readiness = $readinessOutput -join "`n" | ConvertFrom-Json
+    if ([string]$readiness.status -ne "ok") {
+      throw "native launch readiness should be ok; got $($readiness.status)"
+    }
+    $readinessIds = @($readiness.checks | ForEach-Object { [string]$_.id })
+    if ("legacy_delegate_layout.sword_control_plane_alias" -in $readinessIds) {
+      throw "native launch readiness should not require sword-control-plane alias"
+    }
+    if ("legacy_delegate_layout.ai_talk_core_voice_alias" -in $readinessIds) {
+      throw "native launch readiness should not require organs/voice/ai-talk-core alias"
+    }
+    Assert-TextMatch -Text ($readinessOutput -join "`n") -Pattern "native_delegate_layout\.control_plane" -Message "native control-plane readiness check missing"
+    Assert-TextMatch -Text ($readinessOutput -join "`n") -Pattern "native_delegate_layout\.ai_talk_core" -Message "native AI Talk Core readiness check missing"
+
+    $launchOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      (Join-Path $RepoRoot "control-plane\sword-voice-agent\ops\scripts\system.ps1"),
+      "-WorkspaceRoot",
+      $workspace,
+      "start",
+      "-Profile",
+      "thought-core-v0",
+      "-StackStateDir",
+      (Join-Path $workspace ".cache\home-control-stack"),
+      "-SkipDify",
+      "-SkipDifyWatch",
+      "-SkipVoicevoxCheck",
+      "-MediapipeNoBrowser",
+      "-DryRun"
+    )
+    $launchText = $launchOutput -join "`n"
+    Assert-TextMatch -Text $launchText -Pattern "control-plane\\sword-voice-agent\\scripts\\start-thought-core\.ps1" -Message "dry-run did not use native Thought Core script path"
+    Assert-TextMatch -Text $launchText -Pattern "organs\\speech-input\\ai-talk-core" -Message "dry-run did not use native AI Talk Core path"
+    if ($launchText -match "directory not found") {
+      throw "native launch dry-run reported missing directory: $launchText"
+    }
+    if ($launchText -match "sword-control-plane\\scripts") {
+      throw "native launch dry-run still used legacy sword-control-plane scripts"
+    }
+    if ($launchText -match "organs\\voice\\ai-talk-core") {
+      throw "native launch dry-run still used legacy AI Talk Core voice alias"
+    }
+  }
+  finally {
+    Remove-FreshTestRoot -Path $root
+  }
+}
+
 function Test-DeveloperWorkspaceBootstrap {
   if ($SkipFreshClone) {
     Write-Warning "developer workspace bootstrap fixture skipped"
@@ -953,6 +1062,7 @@ Test-PublicPathLeakStatic
 Test-ManifestAndVersion
 Test-UpdateFixtureHoldBehavior
 Test-EnvRenderFixtures
+Test-NativeLaunchLayoutFixtures
 Test-DeveloperWorkspaceBootstrap
 Test-InstalledWorkspaceMaintenance
 Test-FreshCloneDryRun
