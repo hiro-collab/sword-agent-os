@@ -2,7 +2,7 @@
   "schema_version": "agent_os.distribution.v0",
   "id": "standard",
   "os_version": "0.1.0",
-  "distribution_version": "0.1.10",
+  "distribution_version": "0.1.11",
   "description": "Standard local Sword Agent OS distribution: control plane, standard organ checkouts, local env rendering, and dependency installation.",
   "release_manifest_path": "manifests/releases/standard.json",
   "control_plane_manifest_path": "manifests/legacy/control-plane-reference.json",
@@ -159,6 +159,10 @@
     {
       "id": "avatar-assets",
       "detail": "Place licensed VRM/Live2D assets under the AITuberKit public asset directories."
+    },
+    {
+      "id": "mediapipe-gesture-model",
+      "detail": "Place the local-only gesture_model.pkl at organs/reflex/mediapipe-sword-sign/gesture_model.pkl before using Camera Hub gesture classification."
     },
     {
       "id": "voicevox",

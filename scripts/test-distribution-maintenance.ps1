@@ -933,6 +933,31 @@ function Test-NativeLaunchLayoutFixtures {
     Assert-TextMatch -Text ($readinessOutput -join "`n") -Pattern "native_delegate_layout\.control_plane" -Message "native control-plane readiness check missing"
     Assert-TextMatch -Text ($readinessOutput -join "`n") -Pattern "native_delegate_layout\.ai_talk_core" -Message "native AI Talk Core readiness check missing"
 
+    $gestureModelPath = Join-Path $workspace "organs\reflex\mediapipe-sword-sign\gesture_model.pkl"
+    Remove-Item -LiteralPath $gestureModelPath -Force
+    $missingGestureOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-launch-readiness.ps1"),
+      "-WorkspaceRoot",
+      $workspace,
+      "-SkipPortChecks"
+    )
+    $missingGesture = $missingGestureOutput -join "`n" | ConvertFrom-Json
+    if ([string]$missingGesture.status -ne "blocked") {
+      throw "missing gesture model should block launch readiness; got $($missingGesture.status)"
+    }
+    $missingGestureCheck = @($missingGesture.checks | Where-Object { [string]$_.id -eq "local.mediapipe_gesture_model" } | Select-Object -First 1)
+    if ($missingGestureCheck.Count -eq 0 -or [string]$missingGestureCheck[0].status -ne "missing") {
+      throw "missing gesture model check did not report missing"
+    }
+    if ([string]$missingGestureCheck[0].severity -ne "blocker") {
+      throw "missing gesture model should be a blocker"
+    }
+    Assert-TextMatch -Text ([string]$missingGestureCheck[0].detail) -Pattern "model_not_found|Camera Hub topics timeout" -Message "missing gesture model detail should explain the startup symptom"
+    Set-Content -LiteralPath $gestureModelPath -Value "fixture" -Encoding utf8
+
     $launchOutput = Invoke-Checked -Command @(
       $PowerShellCommand,
       "-NoProfile",
