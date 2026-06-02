@@ -392,6 +392,21 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $localMediaHelper -Pattern "live_action_executed=false" -Message "local media helper should print live_action_executed=false"
   Assert-TextMatch -Text $localMediaHelper -Pattern "<workspace>" -Message "local media helper should use placeholders instead of private absolute paths"
   Assert-TextMatch -Text $localMediaHelper -Pattern "<workspace-uri>" -Message "room-light preview should use a placeholder file URI"
+  Assert-PathPresent -Path (Join-Path $RepoRoot "control-plane\sword-voice-agent\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
+  Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\test-local-media-voice-gate.ps1")
+  $voiceGateHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "control-plane\sword-voice-agent\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
+  $voiceGateWrapper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\test-local-media-voice-gate.ps1")
+  Assert-TextMatch -Text $voiceGateHelper -Pattern "FORBIDDEN_OUTPUT_KEYS" -Message "voice-gate proof helper should maintain a blocked output key list"
+  Assert-TextMatch -Text $voiceGateHelper -Pattern "transcript_bucket" -Message "voice-gate proof helper should bucket transcript length instead of printing text"
+  Assert-TextMatch -Text $voiceGateHelper -Pattern "raw_response_shared" -Message "voice-gate proof helper should emit raw response safety status"
+  Assert-TextMatch -Text $voiceGateWrapper -Pattern "source/static-command-preview" -Message "voice-gate wrapper should default to source/static preview"
+  Assert-TextMatch -Text $voiceGateWrapper -Pattern "collect-local" -Message "voice-gate wrapper should support redacted collection from existing diagnostics"
+  Assert-TextMatch -Text $voiceGateWrapper -Pattern "raw_transcript_shared=false" -Message "voice-gate wrapper should print raw_transcript_shared=false"
+  Assert-TextMatch -Text $voiceGateWrapper -Pattern "raw_prompt_shared=false" -Message "voice-gate wrapper should print raw_prompt_shared=false"
+  Assert-TextMatch -Text $voiceGateWrapper -Pattern "raw_response_shared=false" -Message "voice-gate wrapper should print raw_response_shared=false"
+  Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_media_playback=true" -Message "voice-gate wrapper should default to no media playback"
+  Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_stt_execution=true" -Message "voice-gate wrapper should default to no STT execution"
+  Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_virtual_audio_route_change=true" -Message "voice-gate wrapper should avoid changing audio routes"
   Write-Host "README first-run guidance static ok"
 }
 
