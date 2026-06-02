@@ -83,7 +83,7 @@
       "version_source": "organs/expression/tts-service/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/tts-service.git",
       "branch": "main",
-      "commit": "81c3a8e83a2feae577f3e285caa1a8dafa362f1a",
+      "commit": "404fb041a1a25447bef3d03937b32f736bf2465f",
       "adoption": "standard_candidate",
       "legacy_path": "organs/expression/tts-service",
       "notes": "Speech synthesis, playback, status, and volume control."
@@ -141,7 +141,7 @@
       "version_source": "organs/diagnostics/system-house-renderer/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/system-house-renderer.git",
       "branch": "codex/system-house-authority-map",
-      "commit": "e948651ba32ea8615ddc3c6e70a55a58cecd60d0",
+      "commit": "291a03310ea4f362bb76f907cdc917c0b7cba28b",
       "adoption": "standard_candidate",
       "legacy_path": "organs/diagnostics/system-house-renderer",
       "notes": "Topology/runtime trace visualization and redaction evidence."
