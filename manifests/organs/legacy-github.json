@@ -13,7 +13,7 @@
       "version_source": "organs/speech-input/ai-talk-core/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/ai-talk-core.git",
       "branch": "main",
-      "commit": "2f45c258068b986758760eac407749e0fd467928",
+      "commit": "b546cd5d24306430c5f6d60e1e3941ecadbf5e36",
       "adoption": "standard_candidate",
       "legacy_path": "organs/voice/ai-talk-core",
       "notes": "STT, browser recording, transcript, and handoff boundary."
@@ -27,7 +27,7 @@
       "version_source": "organs/reflex/mediapipe-sword-sign/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
       "branch": "feature/camera-hub-topic-envelope",
-      "commit": "5e96c6bd06a96625795c00534ea81b10e062081f",
+      "commit": "6d5f9237f7b3f179101f8a25d0d81c7023adc3d2",
       "adoption": "standard_candidate",
       "legacy_path": "organs/reflex/mediapipe-sword-sign",
       "notes": "Camera Hub, gesture inference, and reflex topic surface."
@@ -141,7 +141,7 @@
       "version_source": "organs/diagnostics/system-house-renderer/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/system-house-renderer.git",
       "branch": "codex/system-house-authority-map",
-      "commit": "291a03310ea4f362bb76f907cdc917c0b7cba28b",
+      "commit": "148ae714d3631b73b48dc51634c69c3acc5aab1f",
       "adoption": "standard_candidate",
       "legacy_path": "organs/diagnostics/system-house-renderer",
       "notes": "Topology/runtime trace visualization and redaction evidence."
