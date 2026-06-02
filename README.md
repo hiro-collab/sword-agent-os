@@ -6,7 +6,58 @@ Sword Agent OS は、AI エージェントを「思考」「反射」「環境�
 
 ![Projection Visual example](docs/assets/readme/projection-visual-example-1.png)
 
-これは、単なるキャラクターチャット UI ではありません。アバターは OS の表示レイヤーの一つです。中の Thought Core や器官を差し替えることで、自律的な AI エージェントとしても、人が使うサイバー器官としても扱える構成を目指しています。
+上の画像は標準表示例です。これは、単なるキャラクターチャット UI ではありません。アバターは OS の表示レイヤーの一つです。中の Thought Core や器官を差し替えることで、自律的な AI エージェントとしても、人が使うサイバー器官としても扱える構成を目指しています。
+
+## 5分 quickstart
+
+標準構成をまず起動して、画面と基本入力を確認したい人向けの最短ルートです。
+Home Assistant の実家電操作や TouchDesigner 投影は後から追加できます。
+
+```powershell
+git clone <sword-agent-os-repo-url>
+cd sword-agent-os
+
+pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -DryRun
+pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
+
+notepad local\env\sword-agent-os.env
+pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard
+
+.\start-home-control-launcher.bat
+```
+
+最小構成で LLM を使わずに表示や起動だけ確認する場合は、
+`local\env\sword-agent-os.env` で `THOUGHT_CORE_LLM_ENABLED=false` にします。
+実 LLM 応答を試す場合は `THOUGHT_CORE_LLM_API_KEY` または互換 provider の
+API key を入れます。実家電操作をしない場合、Home Assistant token は後で設定できます。
+
+起動後は Launch Manager で主要 service が ready になるのを待ち、
+Projection Visual を開いて次のような短い入力から確認します。
+
+```text
+聞こえていますか
+```
+
+実家電操作は、Home Assistant の設定、対象家電、戻し方、停止条件が決まってから
+低リスクな操作だけ試してください。
+
+## 読む人別ガイド
+
+| 読む人 | まず読む節 | ゴール |
+| --- | --- | --- |
+| 標準構成を起動したい人 | `5分 quickstart`、`ローカル設定`、`起動方法` | 画面を開き、基本入力と表示を確認する |
+| Home Assistant / 実家電を試す人 | `ローカル設定`、`最初の動作確認`、`安全とローカルデータ` | 家電状態確認と低リスク操作を安全に確認する |
+| organ / module を開発する人 | `OS の構造`、`開発者向け入口`、`検証コマンド` | organ の差し替え、契約、テストを把握する |
+| Codex 複数スレッドで開発管理する人 | `開発用 / Codex 用 workspace セットアップ`、`安全とローカルデータ` | coordination / worktree / local artifact の境界を守る |
+
+## 構成レーン
+
+| レーン | 目的 | 追加で必要なもの | 主な env / 注意 |
+| --- | --- | --- | --- |
+| A. 最小構成 / no-live | clone 後に起動、画面、入力、mock/static 動作を確認する | Git、PowerShell 7、Python/uv、Node/npm、Chrome | `THOUGHT_CORE_LLM_ENABLED=false` で LLM なし確認可。Home Assistant token は後回し可 |
+| B. LLM あり標準構成 | Thought Core の自然文応答を確認する | LLM provider の API key | `THOUGHT_CORE_LLM_API_KEY`、必要に応じて `THOUGHT_CORE_LLM_MODEL` / `THOUGHT_CORE_LLM_BASE_URL` |
+| C. Home Assistant live家電 | 家電状態確認と低リスク操作を確認する | Home Assistant、対象家電、戻し方 | `HOME_ASSISTANT_TOKEN`、`HOME_CONTROL_API_TOKEN`、device mapping。実操作は対象/回数/停止条件を決める |
+| D. 開発 / Codex workspace | organ 変更、複数 thread、coordination を使う | private coordination repo は任意 | 通常利用と混ぜず、`coordination/`、`local/`、`worktrees/`、`_codex/` を GitHub 公開対象にしない |
 
 ## 何ができるか
 
@@ -385,17 +436,32 @@ notepad local\env\sword-agent-os.env
 ローカル URL、使用する model 名など、公開してはいけない値はここに入れます。
 
 4. 主に次の項目を確認します。Home Assistant を使わない場合は、家電操作用の
-   token や URL は後から入れても構いません。
+   token や URL は後から入れても構いません。最小構成で起動だけ確認する場合は、
+   LLM と live 家電の値を後回しにできます。
 
 | 項目 | 書く場所 | 用途 |
 | --- | --- | --- |
-| LLM API key | `THOUGHT_CORE_LLM_API_KEY` または `OPENAI_API_KEY` | Thought Core の自然文応答 |
+| LLM API key | `THOUGHT_CORE_LLM_API_KEY` または `OPENAI_API_KEY` | Thought Core の自然文応答。LLM なし確認では `THOUGHT_CORE_LLM_ENABLED=false` |
 | LLM model / URL | `THOUGHT_CORE_LLM_MODEL`, `THOUGHT_CORE_LLM_BASE_URL` | OpenAI 互換 LLM の接続先 |
 | Home Assistant token | `HOME_ASSISTANT_TOKEN` | 家電状態確認と操作 |
 | local bridge token | `HOME_CONTROL_API_TOKEN` | Home Assistant bridge のローカル保護 |
+| Environment API token | `ENVIRONMENT_API_TOKEN` | Environment State API のローカル保護。標準構成では空欄可 |
 | VOICEVOX URL | `VOICEVOX_SERVER_URL` | 音声合成 |
 | アバター path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | AITuber Kit / Projection Visual の表示 |
 | Thought Core endpoint | `THOUGHT_CORE_BASE_URL`, `NEXT_PUBLIC_THOUGHT_CORE_BASE_URL` | AITuber Kit から Thought Core へ接続 |
+
+token/key の違いです。`NEXT_PUBLIC_*` はブラウザ側から見えるため、secret を
+入れないでください。
+
+| 名前 | 何を守る / 接続するか | Secret | ブラウザ公開 | mock/no-live で空欄可 | live 家電で必要 |
+| --- | --- | --- | --- | --- | --- |
+| `HOME_ASSISTANT_TOKEN` | Home Assistant 本体。家電 state 読み取りと操作 | yes | no | yes | yes |
+| `HOME_CONTROL_API_TOKEN` | Sword 側の local Home Assistant bridge | yes | no | 構成による | 推奨 |
+| `ENVIRONMENT_API_TOKEN` | Environment State API | yes | no | yes | no |
+| `THOUGHT_CORE_LLM_API_KEY` | Thought Core が使う LLM provider | yes | no | yes、LLM 無効時 | no |
+| `OPENAI_API_KEY` | 一部互換 adapter の OpenAI-compatible key | yes | no | yes | no |
+| `DIFY_API_KEY` | Dify compatibility route | yes | no | yes | no |
+| `NEXT_PUBLIC_*` | browser / AITuber Kit / Projection Visual の表示・接続設定 | no | yes | 項目による | no |
 
 `HOME_CONTROL_API_TOKEN` は Home Assistant の token ではありません。ローカル
 bridge 用のランダム値です。必要なら次のように作って、中央 env に貼ります。
@@ -517,7 +583,13 @@ Projection Visual の表示例です。
 
 ## 最初の動作確認
 
-1. Launch Manager を起動し、主要サービスが ready になるのを待ちます。
+### no-live 確認
+
+Home Assistant の実家電操作を使わず、まず画面、入力、Thought Core への接続を
+確認する流れです。
+
+1. Launch Manager を起動し、少なくとも Launch Manager、AITuber Kit、
+   Projection Visual、Thought Core が ready になるのを待ちます。
 2. Projection Visual を開きます。
 3. Chrome のマイク権限を許可します。
 4. 短い文を話すか入力します。
@@ -526,14 +598,20 @@ Projection Visual の表示例です。
 聞こえていますか
 ```
 
-5. 部屋や家電の状態を確認します。
+5. 部屋や環境状態の読み取りを確認します。
 
 ```text
 今、電気はついてる？
 部屋は明るい？
 ```
 
-6. Home Assistant が設定済みなら、低リスクな家電操作を試します。
+この段階では、家電が実際に動かなくても問題ありません。Home Assistant 未設定の
+場合は、state が未接続、mock、または unavailable として見えることがあります。
+
+### Home Assistant 設定済みの場合の live 確認
+
+Home Assistant bridge が ready で、対象家電、戻し方、停止条件が分かっている場合だけ
+低リスクな操作を試します。いきなり複数家電や長時間 fuzzing を実行しないでください。
 
 ```text
 電気をつけて
