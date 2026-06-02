@@ -243,7 +243,7 @@ if ($vrmFiles.Count -gt 0) {
   $checks += New-Check -Id "local.vrm_assets" -Status "ok" -Severity "info" -Path $vrmRoot -Detail "$($vrmFiles.Count) VRM asset(s)"
 }
 else {
-  $checks += New-Check -Id "local.vrm_assets" -Status "missing" -Severity "warning" -Path $vrmRoot -Detail "VRM assets are local-only"
+  $checks += New-Check -Id "local.vrm_assets" -Status "missing" -Severity "warning" -Path $vrmRoot -Detail "VRM assets are local-only; place licensed .vrm files under organs/expression/aituber-kit/public/vrm and set NEXT_PUBLIC_SELECTED_VRM_PATH for avatar rendering"
 }
 
 $legacyControlPlaneAlias = Join-Path $workspace "sword-control-plane"

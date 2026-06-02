@@ -107,6 +107,7 @@ Codex 作業用の workspace-local 領域であり、通常利用では作成不
 | マイク | 音声入力 | 音声利用では必須 |
 | カメラ | ジェスチャー、部屋の明るさ推定 | 推奨 |
 | MediaPipe gesture model | Camera Hub のジェスチャー分類。`organs/reflex/mediapipe-sword-sign/gesture_model.pkl` にローカル配置 | カメラ/ジェスチャー利用では必須 |
+| VRM model | アバター表示。ライセンス済み `.vrm` を `organs/expression/aituber-kit/public/vrm/` にローカル配置 | Projection Visual / avatar review では推奨 |
 | VOICEVOX | 音声合成 | 推奨 |
 | LLM API key | Thought Core の自然文応答 | 通常は必要 |
 | Home Assistant | 家電状態確認と操作 | 家電操作に必要 |
@@ -448,7 +449,7 @@ notepad local\env\sword-agent-os.env
 | local bridge token | `HOME_CONTROL_API_TOKEN` | Home Assistant bridge のローカル保護 |
 | Environment API token | `ENVIRONMENT_API_TOKEN` | Environment State API のローカル保護。標準構成では空欄可 |
 | VOICEVOX URL | `VOICEVOX_SERVER_URL` | 音声合成 |
-| アバター path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | AITuber Kit / Projection Visual の表示 |
+| アバター path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | AITuber Kit / Projection Visual の表示。例: `/vrm/<your-model>.vrm` |
 | Thought Core endpoint | `THOUGHT_CORE_BASE_URL`, `NEXT_PUBLIC_THOUGHT_CORE_BASE_URL` | AITuber Kit から Thought Core へ接続 |
 
 token/key の違いです。`NEXT_PUBLIC_*` はブラウザ側から見えるため、secret を
@@ -656,6 +657,7 @@ pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManua
 | VOICEVOX が down | VOICEVOX を起動し、ローカル endpoint を確認 |
 | カメラが動かない | 他アプリがカメラを掴んでいないか、カメラ名が合っているか |
 | `model_not_found` / Camera Hub topics timeout | `organs/reflex/mediapipe-sword-sign/gesture_model.pkl` があるか確認。これはローカル専用資材なので Git には入れません |
+| アバター / VRM が表示されない | ライセンス済み `.vrm` が `organs/expression/aituber-kit/public/vrm/` にあり、`NEXT_PUBLIC_SELECTED_VRM_PATH` が `/vrm/<file>.vrm` を指しているか確認 |
 | マイクが反応しない | Chrome のマイク権限、入力欄の focus |
 | 家電操作が失敗する | Home Assistant URL / token、action catalog mapping |
 | 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見る |
