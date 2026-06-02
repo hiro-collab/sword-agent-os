@@ -1,5 +1,5 @@
 param(
-  [string]$LegacyWorkspaceRoot = "C:\Users\kawai\works\sword-agent-system",
+  [string]$LegacyWorkspaceRoot = "$HOME\works\sword-agent-system",
   [switch]$ImportLocalConfig,
   [switch]$DryRun,
   [switch]$Force

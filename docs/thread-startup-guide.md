@@ -7,7 +7,7 @@ Use this when starting a Codex thread for Sword Agent OS.
 Start with `integration-main` unless a specific area thread is being created.
 
 ```text
-C:\Users\kawai\works\sword-agent-os-workspace\sword-agent-os
+<workspace-root>\sword-agent-os
 ```
 
 Read, in this order:
@@ -25,7 +25,7 @@ Read, in this order:
 The old system is read-only reference:
 
 ```text
-C:\Users\kawai\works\sword-agent-system
+<legacy-reference-root>
 ```
 
 Do not edit legacy repositories unless the user explicitly asks for it. Pull

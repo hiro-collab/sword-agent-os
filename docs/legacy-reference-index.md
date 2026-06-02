@@ -6,7 +6,7 @@ they are not authoritative until current Agent OS files adopt them.
 ## Current Reference Root
 
 ```text
-C:\Users\kawai\works\sword-agent-system
+<legacy-reference-root>
 ```
 
 ## High-Value Sources
@@ -35,4 +35,3 @@ C:\Users\kawai\works\sword-agent-system
 - `avatar-service` is reference only unless an expression runtime replacement
   decision reintroduces it.
 - Any adopted rule should point to its evidence and target file.
-

@@ -286,7 +286,7 @@ cache を使って開発する場合は、通常利用とは別の workspace roo
 前の「利用用セットアップ」で十分です。
 
 ```powershell
-cd C:\Users\kawai\works
+cd $HOME\works
 New-Item -ItemType Directory -Force sword-agent-os-workspace
 cd sword-agent-os-workspace
 

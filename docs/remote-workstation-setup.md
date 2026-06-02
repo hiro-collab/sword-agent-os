@@ -8,7 +8,7 @@ For a normal runtime install, keep the checkout simple. You only need the main
 `sword-agent-os` repository plus the nested control-plane and organ checkouts.
 
 ```powershell
-cd C:\Users\kawai\works
+cd $HOME\works
 New-Item -ItemType Directory -Force sword-agent-os-runtime
 cd sword-agent-os-runtime
 git clone https://github.com/hiro-collab/sword-agent-os.git
@@ -30,7 +30,7 @@ Use this only when this PC will run multi-thread Codex development,
 coordination handoffs, worktrees, and local artifact caches.
 
 ```powershell
-cd C:\Users\kawai\works
+cd $HOME\works
 New-Item -ItemType Directory -Force sword-agent-os-workspace
 cd sword-agent-os-workspace
 git clone https://github.com/hiro-collab/sword-agent-os.git
