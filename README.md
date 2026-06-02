@@ -447,6 +447,7 @@ notepad local\env\sword-agent-os.env
 | LLM model / URL | `THOUGHT_CORE_LLM_MODEL`, `THOUGHT_CORE_LLM_BASE_URL` | OpenAI 互換 LLM の接続先 |
 | Home Assistant token | `HOME_ASSISTANT_TOKEN` | 家電状態確認と操作 |
 | local bridge token | `HOME_CONTROL_API_TOKEN` | Home Assistant bridge のローカル保護 |
+| 家電操作 adapter | `THOUGHT_CORE_TOOLS_ADAPTER` | `mock` は no-live シミュレーション。実家電へ送る場合だけ `home_control` |
 | Environment API token | `ENVIRONMENT_API_TOKEN` | Environment State API のローカル保護。標準構成では空欄可 |
 | VOICEVOX URL | `VOICEVOX_SERVER_URL` | 音声合成 |
 | アバター path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | AITuber Kit / Projection Visual の表示。標準テンプレート例は `/vrm/Nutachisan.vrm`。同名の VRM を入れない場合は `/vrm/<your-model>.vrm` に変更 |
@@ -467,6 +468,9 @@ token/key の違いです。`NEXT_PUBLIC_*` はブラウザ側から見えるた
 
 `HOME_CONTROL_API_TOKEN` は Home Assistant の token ではありません。ローカル
 bridge 用のランダム値です。必要なら次のように作って、中央 env に貼ります。
+`THOUGHT_CORE_TOOLS_ADAPTER=mock` のままだと、API key や Home Assistant token を
+入れていても実家電には送信しません。no-live 確認ではそれで正常です。実家電を
+試す時だけ `home_control` に変え、対象、回数、戻し方、停止条件を決めてください。
 
 ```powershell
 python -c "import secrets; print(secrets.token_urlsafe(32))"
@@ -609,6 +613,8 @@ Home Assistant の実家電操作を使わず、まず画面、入力、Thought 
 
 この段階では、家電が実際に動かなくても問題ありません。Home Assistant 未設定の
 場合は、state が未接続、mock、または unavailable として見えることがあります。
+`THOUGHT_CORE_TOOLS_ADAPTER=mock` の場合、家電操作の返答はテストモード上の
+想定です。実際の Home Assistant へは送信されません。
 
 ### Home Assistant 設定済みの場合の live 確認
 
@@ -660,6 +666,7 @@ pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManua
 | アバター / VRM が表示されない | ライセンス済み `.vrm` が `organs/expression/aituber-kit/public/vrm/` にあり、`NEXT_PUBLIC_SELECTED_VRM_PATH` が実ファイル名に合う `/vrm/<file>.vrm` を指しているか確認。標準テンプレート例 `/vrm/Nutachisan.vrm` は同名ファイルがないと表示できません |
 | マイクが反応しない | Chrome のマイク権限、入力欄の focus |
 | 家電操作が失敗する | Home Assistant URL / token、action catalog mapping |
+| API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更 |
 | 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見る |
 | Dify compatibility が表示される | 通常の Thought Core 経路では Dify は必須ではありません。debug mode だけで確認します |
 | TouchDesigner が反応しない | `.toe` project が開いているか、UDP target が合っているか |

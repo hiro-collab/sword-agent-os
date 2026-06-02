@@ -86,6 +86,20 @@ function Read-DotEnvValue {
   return ""
 }
 
+function Read-DotEnvFirstValue {
+  param(
+    [Parameter(Mandatory = $true)][string[]]$Paths,
+    [Parameter(Mandatory = $true)][string]$Name
+  )
+  foreach ($path in $Paths) {
+    $value = Read-DotEnvValue -Path $path -Name $Name
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
+      return $value
+    }
+  }
+  return ""
+}
+
 function Get-PortModePorts {
   param(
     [Parameter(Mandatory = $true)]$ServiceManifest,
@@ -258,15 +272,41 @@ $touchDesignerRoot = Resolve-WorkspacePath "organs/display/touchdesigner-ai-cont
 $mediapipeRoot = Resolve-WorkspacePath "organs/reflex/mediapipe-sword-sign"
 $controlPlaneRoot = Resolve-WorkspacePath "control-plane/sword-voice-agent"
 $speechInputRoot = Resolve-WorkspacePath "organs/speech-input/ai-talk-core"
+$centralEnvPath = Resolve-WorkspacePath "local/env/sword-agent-os.env"
+$controlPlaneEnvPath = Join-Path $controlPlaneRoot ".env"
+$thoughtCoreEnvPath = Join-Path $controlPlaneRoot "services\thought-core\.env"
+$homeAssistantEnvPath = Join-Path $homeAssistantRoot ".env"
 $aituberEnvPath = Join-Path $aituberRoot ".env"
 
 $checks += Test-PathCheck -Id "local.home_control_config" -Path (Join-Path $homeAssistantRoot "config\home-control.yaml") -MissingSeverity "blocker" -MissingDetail "Home Assistant action config is local-only"
-$checks += Test-PathCheck -Id "local.home_assistant_env" -Path (Join-Path $homeAssistantRoot ".env") -MissingSeverity "blocker" -MissingDetail "Home Assistant token env is local-only"
-$checks += Test-PathCheck -Id "local.control_plane_env" -Path (Join-Path $controlPlaneRoot ".env") -MissingSeverity "warning" -MissingDetail "control-plane env is local-only"
+$checks += Test-PathCheck -Id "local.home_assistant_env" -Path $homeAssistantEnvPath -MissingSeverity "blocker" -MissingDetail "Home Assistant token env is local-only"
+$checks += Test-PathCheck -Id "local.control_plane_env" -Path $controlPlaneEnvPath -MissingSeverity "warning" -MissingDetail "control-plane env is local-only"
 $checks += Test-PathCheck -Id "local.aituber_env" -Path $aituberEnvPath -MissingSeverity "warning" -MissingDetail "AITuber env is local-only"
 $checks += Test-PathCheck -Id "local.touchdesigner_server" -Path (Join-Path $touchDesignerRoot "tools\server.js") -MissingSeverity "blocker" -MissingDetail "Display runtime GUI server entry missing"
 $checks += Test-PathCheck -Id "local.mediapipe_camera_hub_launcher" -Path (Join-Path $mediapipeRoot "scripts\start_camera_hub_stack.bat") -MissingSeverity "blocker" -MissingDetail "MediaPipe camera hub launcher missing"
 $checks += Test-PathCheck -Id "local.mediapipe_gesture_model" -Path (Join-Path $mediapipeRoot "gesture_model.pkl") -MissingSeverity "blocker" -MissingDetail "gesture_model.pkl is local-only and required for Camera Hub gesture classification; without it startup can fail with model_not_found and Camera Hub topics timeout"
+
+$envReadPaths = @($centralEnvPath, $controlPlaneEnvPath, $thoughtCoreEnvPath, $homeAssistantEnvPath)
+$toolsAdapter = (Read-DotEnvFirstValue -Paths $envReadPaths -Name "THOUGHT_CORE_TOOLS_ADAPTER").Trim().ToLowerInvariant()
+$homeAssistantToken = Read-DotEnvFirstValue -Paths @($centralEnvPath, $homeAssistantEnvPath) -Name "HOME_ASSISTANT_TOKEN"
+if ([string]::IsNullOrWhiteSpace($toolsAdapter)) {
+  $checks += New-Check -Id "local.thought_core_tools_adapter" -Status "missing" -Severity "warning" -Path $centralEnvPath -Detail "THOUGHT_CORE_TOOLS_ADAPTER is not set; Thought Core may fall back to mock/no-live behavior"
+}
+elseif ($toolsAdapter -in @("mock", "local_mock", "local-mock")) {
+  $detail = "THOUGHT_CORE_TOOLS_ADAPTER=mock: home actions are no-live simulations and are not sent to real Home Assistant"
+  $severity = "info"
+  if (-not [string]::IsNullOrWhiteSpace($homeAssistantToken)) {
+    $detail = "$detail, even though HOME_ASSISTANT_TOKEN is present"
+    $severity = "warning"
+  }
+  $checks += New-Check -Id "local.thought_core_tools_adapter" -Status "mock" -Severity $severity -Path $centralEnvPath -Detail $detail
+}
+elseif ($toolsAdapter -in @("home_control", "home-control", "bridge")) {
+  $checks += New-Check -Id "local.thought_core_tools_adapter" -Status "ok" -Severity "info" -Path $centralEnvPath -Detail "Thought Core home actions are configured for the local Home Control bridge"
+}
+else {
+  $checks += New-Check -Id "local.thought_core_tools_adapter" -Status "unknown" -Severity "warning" -Path $centralEnvPath -Detail "Unknown THOUGHT_CORE_TOOLS_ADAPTER value; expected mock or home_control"
+}
 
 $vrmFiles = @()
 $vrmRoot = Join-Path $aituberRoot "public\vrm"
