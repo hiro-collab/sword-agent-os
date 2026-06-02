@@ -200,6 +200,8 @@ pwsh -NoProfile -File .\scripts\test-distribution-maintenance.ps1
 - fresh clone 相当の一時 workspace で、default bootstrap が `_codex` /
   `coordination` / `local` / `worktrees` を作らないこと
 - fresh clone から `install-distribution.ps1 -DryRun -NoDeps` が落ちないこと
+- organ checkout 前の fresh clone で `render-env-files.ps1 -DryRun` が
+  missing-yet-planned template として扱われること
 
 remote pin まで確認したい場合は次を使います。
 

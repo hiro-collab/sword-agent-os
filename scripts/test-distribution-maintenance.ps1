@@ -274,6 +274,17 @@ function Test-FreshCloneDryRun {
       $PowerShellCommand,
       "-NoProfile",
       "-File",
+      (Join-Path $clonePath "scripts/render-env-files.ps1"),
+      "-Profile",
+      $Profile,
+      "-DryRun",
+      "-NoCreateCentralEnv"
+    ) -WorkingDirectory $clonePath | Out-Null
+
+    Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
       (Join-Path $clonePath "scripts/update-distribution.ps1"),
       "-Profile",
       $Profile,
