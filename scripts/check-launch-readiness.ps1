@@ -100,6 +100,16 @@ function Read-DotEnvFirstValue {
   return ""
 }
 
+function Normalize-DotEnvEnumValue {
+  param([string]$Value)
+  $normalized = $Value.Trim()
+  $commentIndex = $normalized.IndexOf(" #", [System.StringComparison]::Ordinal)
+  if ($commentIndex -ge 0) {
+    $normalized = $normalized.Substring(0, $commentIndex).Trim()
+  }
+  return $normalized.Trim().Trim('"').Trim("'")
+}
+
 function Get-PortModePorts {
   param(
     [Parameter(Mandatory = $true)]$ServiceManifest,
@@ -287,7 +297,7 @@ $checks += Test-PathCheck -Id "local.mediapipe_camera_hub_launcher" -Path (Join-
 $checks += Test-PathCheck -Id "local.mediapipe_gesture_model" -Path (Join-Path $mediapipeRoot "gesture_model.pkl") -MissingSeverity "blocker" -MissingDetail "gesture_model.pkl is local-only and required for Camera Hub gesture classification; without it startup can fail with model_not_found and Camera Hub topics timeout"
 
 $envReadPaths = @($centralEnvPath, $controlPlaneEnvPath, $thoughtCoreEnvPath, $homeAssistantEnvPath)
-$toolsAdapter = (Read-DotEnvFirstValue -Paths $envReadPaths -Name "THOUGHT_CORE_TOOLS_ADAPTER").Trim().ToLowerInvariant()
+$toolsAdapter = (Normalize-DotEnvEnumValue -Value (Read-DotEnvFirstValue -Paths $envReadPaths -Name "THOUGHT_CORE_TOOLS_ADAPTER")).ToLowerInvariant()
 $homeAssistantToken = Read-DotEnvFirstValue -Paths @($centralEnvPath, $homeAssistantEnvPath) -Name "HOME_ASSISTANT_TOKEN"
 if ([string]::IsNullOrWhiteSpace($toolsAdapter)) {
   $checks += New-Check -Id "local.thought_core_tools_adapter" -Status "missing" -Severity "warning" -Path $centralEnvPath -Detail "THOUGHT_CORE_TOOLS_ADAPTER is not set; Thought Core may fall back to mock/no-live behavior"

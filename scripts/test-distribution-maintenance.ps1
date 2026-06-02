@@ -909,7 +909,7 @@ function New-NativeLaunchWorkspaceFixture {
   ) -Encoding utf8
   Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\.env") -Value @(
     "THOUGHT_CORE_LLM_MODE=off",
-    "THOUGHT_CORE_TOOLS_ADAPTER=mock"
+    "THOUGHT_CORE_TOOLS_ADAPTER=mock # no-live fixture"
   ) -Encoding utf8
   Set-Content -LiteralPath (Join-Path $Root "organs\expression\aituber-kit\.env") -Value @(
     "VOICEVOX_SERVER_URL=http://127.0.0.1:50021",
