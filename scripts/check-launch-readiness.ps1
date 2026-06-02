@@ -53,6 +53,39 @@ function Read-Json {
   return Get-Content -Raw -LiteralPath (Resolve-RepoPath $Path) | ConvertFrom-Json
 }
 
+function Read-DotEnvValue {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Name
+  )
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    return ""
+  }
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    $trimmed = $line.Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith("#")) {
+      continue
+    }
+    $separatorIndex = $trimmed.IndexOf("=")
+    if ($separatorIndex -lt 1) {
+      continue
+    }
+    $key = $trimmed.Substring(0, $separatorIndex).Trim()
+    if ($key -ne $Name) {
+      continue
+    }
+    $value = $trimmed.Substring($separatorIndex + 1).Trim()
+    if ($value.Length -ge 2) {
+      $quote = $value.Substring(0, 1)
+      if (($quote -eq '"' -or $quote -eq "'") -and $value.EndsWith($quote)) {
+        return $value.Substring(1, $value.Length - 2)
+      }
+    }
+    return $value
+  }
+  return ""
+}
+
 function Get-PortModePorts {
   param(
     [Parameter(Mandatory = $true)]$ServiceManifest,
@@ -225,11 +258,12 @@ $touchDesignerRoot = Resolve-WorkspacePath "organs/display/touchdesigner-ai-cont
 $mediapipeRoot = Resolve-WorkspacePath "organs/reflex/mediapipe-sword-sign"
 $controlPlaneRoot = Resolve-WorkspacePath "control-plane/sword-voice-agent"
 $speechInputRoot = Resolve-WorkspacePath "organs/speech-input/ai-talk-core"
+$aituberEnvPath = Join-Path $aituberRoot ".env"
 
 $checks += Test-PathCheck -Id "local.home_control_config" -Path (Join-Path $homeAssistantRoot "config\home-control.yaml") -MissingSeverity "blocker" -MissingDetail "Home Assistant action config is local-only"
 $checks += Test-PathCheck -Id "local.home_assistant_env" -Path (Join-Path $homeAssistantRoot ".env") -MissingSeverity "blocker" -MissingDetail "Home Assistant token env is local-only"
 $checks += Test-PathCheck -Id "local.control_plane_env" -Path (Join-Path $controlPlaneRoot ".env") -MissingSeverity "warning" -MissingDetail "control-plane env is local-only"
-$checks += Test-PathCheck -Id "local.aituber_env" -Path (Join-Path $aituberRoot ".env") -MissingSeverity "warning" -MissingDetail "AITuber env is local-only"
+$checks += Test-PathCheck -Id "local.aituber_env" -Path $aituberEnvPath -MissingSeverity "warning" -MissingDetail "AITuber env is local-only"
 $checks += Test-PathCheck -Id "local.touchdesigner_server" -Path (Join-Path $touchDesignerRoot "tools\server.js") -MissingSeverity "blocker" -MissingDetail "Display runtime GUI server entry missing"
 $checks += Test-PathCheck -Id "local.mediapipe_camera_hub_launcher" -Path (Join-Path $mediapipeRoot "scripts\start_camera_hub_stack.bat") -MissingSeverity "blocker" -MissingDetail "MediaPipe camera hub launcher missing"
 $checks += Test-PathCheck -Id "local.mediapipe_gesture_model" -Path (Join-Path $mediapipeRoot "gesture_model.pkl") -MissingSeverity "blocker" -MissingDetail "gesture_model.pkl is local-only and required for Camera Hub gesture classification; without it startup can fail with model_not_found and Camera Hub topics timeout"
@@ -244,6 +278,29 @@ if ($vrmFiles.Count -gt 0) {
 }
 else {
   $checks += New-Check -Id "local.vrm_assets" -Status "missing" -Severity "warning" -Path $vrmRoot -Detail "VRM assets are local-only; place licensed .vrm files under organs/expression/aituber-kit/public/vrm and set NEXT_PUBLIC_SELECTED_VRM_PATH for avatar rendering"
+}
+if (Test-Path -LiteralPath $aituberEnvPath -PathType Leaf) {
+  $selectedVrmPath = Read-DotEnvValue -Path $aituberEnvPath -Name "NEXT_PUBLIC_SELECTED_VRM_PATH"
+  if ([string]::IsNullOrWhiteSpace($selectedVrmPath)) {
+    $checks += New-Check -Id "local.vrm_selected_path" -Status "missing" -Severity "warning" -Path $aituberEnvPath -Detail "NEXT_PUBLIC_SELECTED_VRM_PATH is not set; avatar rendering may fall back to the app default or fail to select a model"
+  }
+  elseif (-not $selectedVrmPath.StartsWith("/vrm/")) {
+    $checks += New-Check -Id "local.vrm_selected_path" -Status "invalid" -Severity "warning" -Path $aituberEnvPath -Detail "NEXT_PUBLIC_SELECTED_VRM_PATH should usually be /vrm/<file>.vrm for assets under organs/expression/aituber-kit/public/vrm"
+  }
+  else {
+    $selectedVrmRelative = $selectedVrmPath.Substring("/vrm/".Length) -replace "/", [System.IO.Path]::DirectorySeparatorChar
+    $vrmRootFullPath = [System.IO.Path]::GetFullPath((Join-Path $vrmRoot "."))
+    $selectedVrmFullPath = [System.IO.Path]::GetFullPath((Join-Path $vrmRoot $selectedVrmRelative))
+    if (-not $selectedVrmFullPath.StartsWith($vrmRootFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+      $checks += New-Check -Id "local.vrm_selected_model" -Status "invalid" -Severity "warning" -Path $aituberEnvPath -Detail "NEXT_PUBLIC_SELECTED_VRM_PATH must resolve under organs/expression/aituber-kit/public/vrm"
+    }
+    elseif (Test-Path -LiteralPath $selectedVrmFullPath -PathType Leaf) {
+      $checks += New-Check -Id "local.vrm_selected_model" -Status "ok" -Severity "info" -Path $selectedVrmFullPath -Detail "selected VRM asset exists"
+    }
+    else {
+      $checks += New-Check -Id "local.vrm_selected_model" -Status "missing" -Severity "warning" -Path $selectedVrmFullPath -Detail "NEXT_PUBLIC_SELECTED_VRM_PATH=$selectedVrmPath does not resolve to a local file; place the licensed .vrm under organs/expression/aituber-kit/public/vrm or update NEXT_PUBLIC_SELECTED_VRM_PATH"
+    }
+  }
 }
 
 $legacyControlPlaneAlias = Join-Path $workspace "sword-control-plane"
