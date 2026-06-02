@@ -334,6 +334,10 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "render-env-files\.ps1 -Profile standard -Force" -Message "README should show central env re-render after editing local env"
   Assert-TextMatch -Text $readme -Pattern "MediapipeVideoSource testsrc" -Message "README should show device-free/no-camera compat smoke with testsrc"
   Assert-TextMatch -Text $readme -Pattern "runtime/browser|実マイク|実カメラ|live Home Assistant|物理家電" -Message "README should separate no-live install/readiness from runtime/browser/live proof"
+  Assert-TextMatch -Text $readme -Pattern "標準ディストリビューションの流れ" -Message "README should explain the standard distribution flow"
+  Assert-TextMatch -Text $readme -Pattern "刀印.*wake word|OK Google|入力ゲート" -Message "README should explain the sword-sign input gate"
+  Assert-TextMatch -Text $readme -Pattern "docs/assets/readme/sword-sign-gesture\.png" -Message "README should reference the sword-sign gesture image"
+  Assert-PathPresent -Path (Join-Path $RepoRoot "docs\assets\readme\sword-sign-gesture.png")
   Assert-TextMatch -Text $readme -Pattern "UV_CACHE_DIR" -Message "README should include uv cache troubleshooting guidance"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
   Write-Host "README first-run guidance static ok"
