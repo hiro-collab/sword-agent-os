@@ -494,6 +494,7 @@ foreach ($dependency in @($distributionManifest.dependencies)) {
   }
 }
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/install-distribution.ps1") -PathType Leaf) "distribution installer missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/update-distribution.ps1") -PathType Leaf) "distribution updater missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/render-env-files.ps1") -PathType Leaf) "env renderer missing"
 
 Assert-True ([string]$controlPlaneReference.commit -match "^[0-9a-f]{40}$") "control-plane reference commit is not a full SHA"

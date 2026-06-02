@@ -96,6 +96,56 @@ pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
 distribution の定義は `manifests/distributions/standard.json` です。追加の
 配布形態を作る場合は、ここに profile、依存導入、env 生成先を増やします。
 
+## アップデート
+
+既存のインストールを更新するときは、まずトップレベルの `sword-agent-os`
+repo を更新し、その後で control plane と各 organ を distribution manifest
+の pin に合わせます。
+
+```powershell
+cd <sword-agent-os のパス>
+git status --short --branch
+git pull --ff-only
+
+pwsh -NoProfile -File .\scripts\update-distribution.ps1 -Profile standard -DryRun
+pwsh -NoProfile -File .\scripts\update-distribution.ps1 -Profile standard
+```
+
+`update-distribution.ps1` は、`manifests/distributions/standard.json` から
+control plane と organ manifest を読み、各 nested checkout を manifest に
+書かれた commit へ `git fetch` + `git merge --ff-only` で更新します。
+`reset`、`checkout`、`clean` は行いません。
+
+依存関係の再導入まで一度に行いたくない場合は、先に source だけ更新します。
+
+```powershell
+pwsh -NoProfile -File .\scripts\update-distribution.ps1 -Profile standard -DryRun -NoDeps
+pwsh -NoProfile -File .\scripts\update-distribution.ps1 -Profile standard -NoDeps
+```
+
+更新時に hold される代表例です。
+
+| 状態 | 理由 / 対応 |
+| --- | --- |
+| dirty checkout | local 変更があるため自動更新しません。対象 repo の `git status --short` を確認します |
+| branch mismatch | manifest と別 branch にいるため自動で branch 移動しません |
+| non-fast-forward | local head から manifest pin へ安全に進められません |
+| missing checkout | まだ clone されていません。`install-distribution.ps1` を実行します |
+| non-git path | target path に Git checkout ではないフォルダがあります |
+
+`.env` と local config はデフォルトでは上書きしません。中央 env template に
+新しい項目が増えた場合は、`templates/env/sword-agent-os.env.example` を見て
+`local/env/sword-agent-os.env` に必要な値を追記し、内容を確認してから反映します。
+
+```powershell
+notepad local\env\sword-agent-os.env
+pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
+```
+
+`-Force` は各 organ の既存 `.env` を中央 env から再生成します。実 token や
+機器固有値を失わないよう、実行前に `local/env/sword-agent-os.env` 側へ必要な値が
+入っていることを確認してください。
+
 ### 利用用セットアップ
 
 上の distribution installer が通常の入口です。以下は、問題切り分けや手動確認のために
