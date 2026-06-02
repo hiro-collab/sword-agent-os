@@ -32,10 +32,14 @@ sword-agent-os/
   control-plane/sword-voice-agent/    # 現在の Thought Core / control plane organ
   organs/                            # action / display / environment / expression など
   docs/                              # セットアップ、移行、開発者向け文書
-  local/                             # Git 管理しないローカル資材
 ```
 
 大きな実装は `organs/` や `control-plane/` の中にある nested checkout として扱います。トップレベルの `sword-agent-os` は、OS 全体の manifest、runtime 境界、policy、標準構成の正本です。
+
+通常利用に必要なのは、この `sword-agent-os/` 本体と、その中に取得する
+`control-plane/` / `organs/` の nested checkout です。`../coordination/`,
+`../worktrees/`, `../_codex/`, `../local/` は複数エージェント開発や
+Codex 作業用の workspace-local 領域であり、通常利用では作成不要です。
 
 ## clone する前に用意するもの
 
@@ -61,14 +65,19 @@ sword-agent-os/
 
 ## インストール
 
+### 利用用セットアップ
+
 まずトップレベルのリポジトリを clone します。
 
 ```powershell
 git clone <sword-agent-os-repo-url>
 cd sword-agent-os
+$RepoRoot = (Resolve-Path .).Path
 ```
 
-ローカル用の workspace フォルダを作ります。
+通常利用では、追加の workspace-local フォルダを作る必要はありません。
+確認だけしたい場合、次のコマンドは extra directory を作らず、現在の
+workspace root と main repo を表示します。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\bootstrap-workspace.ps1
@@ -91,32 +100,105 @@ pwsh -NoProfile -File .\scripts\bootstrap-organs.ps1
 標準例で主に使う依存関係を入れます。
 
 ```powershell
-cd control-plane\sword-voice-agent
-uv sync
+Set-Location $RepoRoot
 
-cd ..\..\organs\expression\aituber-kit
+Push-Location (Join-Path $RepoRoot "control-plane\sword-voice-agent")
+uv sync
+Pop-Location
+
+Push-Location (Join-Path $RepoRoot "organs\expression\aituber-kit")
 npm install
+Pop-Location
 ```
 
+`Push-Location` / `Pop-Location` を使うと、各 organ のインストール後に
+`sword-agent-os` の root に戻ります。途中で場所が分からなくなった場合は
+`Set-Location $RepoRoot` で root に戻れます。新しい PowerShell で途中から
+再開する場合は、先に `cd <sword-agent-os のパス>` してから
+`$RepoRoot = (Resolve-Path .).Path` をもう一度実行してください。
+
 その他の organ は、それぞれの README や起動ログに従って準備します。Launch Manager で特定サービスが unavailable / down になる場合は、その organ の README を確認してください。
+
+### 開発用 / Codex 用 workspace セットアップ
+
+複数 Codex thread、worktree、private coordination repo、ローカル artifact
+cache を使って開発する場合は、通常利用とは別の workspace root を作ります。
+この手順は開発者向けです。単に Sword Agent OS を起動して使うだけなら、
+前の「利用用セットアップ」で十分です。
+
+```powershell
+cd C:\Users\kawai\works
+New-Item -ItemType Directory -Force sword-agent-os-workspace
+cd sword-agent-os-workspace
+
+git clone <sword-agent-os-repo-url>
+cd sword-agent-os
+$RepoRoot = (Resolve-Path .).Path
+
+pwsh -NoProfile -File .\scripts\bootstrap-workspace.ps1 -DeveloperWorkspace
+```
+
+private coordination workspace も使う開発者は、代わりに次のようにします。
+private repo にアクセスできない場合は `-CloneCoordination` を付けないでください。
+
+```powershell
+pwsh -NoProfile -File .\scripts\bootstrap-workspace.ps1 -DeveloperWorkspace -CloneCoordination
+```
+
+control plane / organ checkout と依存関係の入れ方は利用用と同じです。
+
+```powershell
+Set-Location $RepoRoot
+
+pwsh -NoProfile -File .\scripts\bootstrap-control-plane.ps1 -DryRun
+pwsh -NoProfile -File .\scripts\bootstrap-organs.ps1 -DryRun
+
+pwsh -NoProfile -File .\scripts\bootstrap-control-plane.ps1
+pwsh -NoProfile -File .\scripts\bootstrap-organs.ps1
+
+Push-Location (Join-Path $RepoRoot "control-plane\sword-voice-agent")
+uv sync
+Pop-Location
+
+Push-Location (Join-Path $RepoRoot "organs\expression\aituber-kit")
+npm install
+Pop-Location
+```
+
+この場合、`sword-agent-os/` の親に次のような開発用フォルダができます。
+これらは本体 repo ではなく、GitHub にまとめて push する対象ではありません。
+
+```text
+coordination/
+local/
+worktrees/
+_codex/
+```
 
 ## ローカル設定
 
 `.env.example` がある場所では、`.env` を作成してローカル値を入れます。
 
 ```powershell
-cd control-plane\sword-voice-agent
-Copy-Item .env.example .env
+Set-Location $RepoRoot
 
-cd ..\..\organs\expression\aituber-kit
-Copy-Item .env.example .env
+Push-Location (Join-Path $RepoRoot "control-plane\sword-voice-agent")
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+Pop-Location
+
+Push-Location (Join-Path $RepoRoot "organs\expression\aituber-kit")
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+Pop-Location
 ```
 
 家電操作を使う場合は、Home Assistant bridge 側にも `.env` を作成します。
 
 ```powershell
-cd organs\action\home-assistant-server
-Copy-Item .env.example .env
+Set-Location $RepoRoot
+
+Push-Location (Join-Path $RepoRoot "organs\action\home-assistant-server")
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+Pop-Location
 ```
 
 Thought Core service 単体で確認したい場合は、必要に応じて次も参照します。
