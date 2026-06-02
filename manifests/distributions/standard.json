@@ -2,7 +2,7 @@
   "schema_version": "agent_os.distribution.v0",
   "id": "standard",
   "os_version": "0.1.0",
-  "distribution_version": "0.1.6",
+  "distribution_version": "0.1.7",
   "description": "Standard local Sword Agent OS distribution: control plane, standard organ checkouts, local env rendering, and dependency installation.",
   "release_manifest_path": "manifests/releases/standard.json",
   "control_plane_manifest_path": "manifests/legacy/control-plane-reference.json",
