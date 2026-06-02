@@ -1,0 +1,78 @@
+{
+  "schema_version": "agent_os.release.v0",
+  "os_id": "sword-agent-os",
+  "os_version": "0.1.0",
+  "release_name": "Standard Local System Cell",
+  "release_channel": "local-standard",
+  "distribution_id": "standard",
+  "distribution_version": "0.1.0",
+  "body_plan_id": "system_cell_v0",
+  "body_plan_version": "0.1.0",
+  "versioning_policy": {
+    "human_version": "Semantic versions describe OS, distribution, and organ package compatibility.",
+    "source_identity": "Git commit pins in control-plane and organ source manifests describe the exact implementation revision.",
+    "bump_guidance": "Bump distribution_version when the standard install/update surface changes; bump os_version when runtime contracts, body plan, or cross-organ compatibility changes."
+  },
+  "components": [
+    {
+      "component_id": "sword-voice-agent-control-plane",
+      "component_role": "control-plane",
+      "component_version": "0.1.0",
+      "version_source": "control-plane/sword-voice-agent/pyproject.toml"
+    },
+    {
+      "component_id": "ai-talk-core",
+      "component_role": "speech-input",
+      "component_version": "0.1.0",
+      "version_source": "organs/speech-input/ai-talk-core/pyproject.toml"
+    },
+    {
+      "component_id": "mediapipe-sword-sign",
+      "component_role": "reflex",
+      "component_version": "0.1.0",
+      "version_source": "organs/reflex/mediapipe-sword-sign/pyproject.toml"
+    },
+    {
+      "component_id": "environment-state-server",
+      "component_role": "environment",
+      "component_version": "0.1.0",
+      "version_source": "organs/environment/environment-state-server/pyproject.toml"
+    },
+    {
+      "component_id": "vision-snapshot-processor",
+      "component_role": "environment",
+      "component_version": "0.1.0",
+      "version_source": "organs/environment/vision-snapshot-processor/pyproject.toml"
+    },
+    {
+      "component_id": "home-assistant-server",
+      "component_role": "action",
+      "component_version": "0.1.0",
+      "version_source": "organs/action/home-assistant-server/pyproject.toml"
+    },
+    {
+      "component_id": "tts-service",
+      "component_role": "expression",
+      "component_version": "0.1.0",
+      "version_source": "organs/expression/tts-service/pyproject.toml"
+    },
+    {
+      "component_id": "aituber-kit",
+      "component_role": "expression",
+      "component_version": "0.1.0",
+      "version_source": "organs/expression/aituber-kit/package.json"
+    },
+    {
+      "component_id": "touchdesigner-ai-controller",
+      "component_role": "display",
+      "component_version": "0.1.0",
+      "version_source": "agent-os release manifest"
+    },
+    {
+      "component_id": "system-house-renderer",
+      "component_role": "diagnostics",
+      "component_version": "0.1.0",
+      "version_source": "organs/diagnostics/system-house-renderer/pyproject.toml"
+    }
+  ]
+}

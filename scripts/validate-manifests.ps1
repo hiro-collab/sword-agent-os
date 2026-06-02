@@ -85,12 +85,43 @@ function Test-SafeManifestPath {
   return Test-SafeManifestText -Value $Path
 }
 
+function Test-SemVer {
+  param([string]$Value)
+  if ([string]::IsNullOrWhiteSpace($Value)) {
+    return $false
+  }
+  return $Value -match "^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+}
+
 function Test-SafeFixtureCandidate {
   param([string]$Path)
   if (-not (Test-SafeManifestPath -Path $Path)) {
     return $false
   }
   return ($Path -replace "\\", "/") -match "^\.cache/agent-os/fixtures/[A-Za-z0-9_.-]+\.(mp4|mov|webm|jpg|jpeg|png|webp)$"
+}
+
+function Read-LocalComponentVersion {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  if (-not (Test-SafeManifestPath -Path $Path)) {
+    return $null
+  }
+  $resolved = Resolve-ManifestPath $Path
+  if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
+    return $null
+  }
+  if ($Path -match "(?i)package\.json$") {
+    $package = Read-Json -Path $resolved
+    return [string]$package.version
+  }
+  if ($Path -match "(?i)pyproject\.toml$") {
+    foreach ($line in Get-Content -LiteralPath $resolved) {
+      if ($line -match '^\s*version\s*=\s*"([^"]+)"\s*$') {
+        return $Matches[1]
+      }
+    }
+  }
+  return $null
 }
 
 function Test-SafeHttpPath {
@@ -116,6 +147,7 @@ $compatProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/thoug
 $serviceManifest = Read-Json -Path (Resolve-ManifestPath $compatProfile.service_manifest)
 $organManifest = Read-Json -Path (Resolve-ManifestPath "manifests/organs/legacy-github.json")
 $distributionManifest = Read-Json -Path (Resolve-ManifestPath "manifests/distributions/standard.json")
+$releaseManifest = Read-Json -Path (Resolve-ManifestPath "manifests/releases/standard.json")
 $controlPlaneReference = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/control-plane-reference.json")
 $recoveryCandidates = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/recovery-candidates.json")
 $authorityManifest = Read-Json -Path (Resolve-ManifestPath "manifests/authorities/standard.json")
@@ -467,10 +499,17 @@ foreach ($source in $organManifest.sources) {
   Assert-True (-not [string]::IsNullOrWhiteSpace([string]$source.repo_url)) "organ $($source.organ_id) missing repo_url"
   Assert-True (-not [string]::IsNullOrWhiteSpace([string]$source.branch)) "organ $($source.organ_id) missing branch"
   Assert-True ([string]$source.commit -match "^[0-9a-f]{40}$") "organ $($source.organ_id) commit is not a full SHA"
+  if ([string]$source.adoption -ne "deferred_reference") {
+    Assert-True (Test-SemVer -Value ([string]$source.component_version)) "organ $($source.organ_id) component_version must be semver"
+    Assert-True (Test-SafeManifestText -Value ([string]$source.version_source)) "organ $($source.organ_id) version_source is unsafe"
+  }
 }
 
 Assert-True ([string]$distributionManifest.schema_version -eq "agent_os.distribution.v0") "distribution schema_version must be agent_os.distribution.v0"
 Assert-True ([string]$distributionManifest.id -eq "standard") "standard distribution id must be standard"
+Assert-True (Test-SemVer -Value ([string]$distributionManifest.os_version)) "standard distribution os_version must be semver"
+Assert-True (Test-SemVer -Value ([string]$distributionManifest.distribution_version)) "standard distribution distribution_version must be semver"
+Assert-True ([string]$distributionManifest.release_manifest_path -eq "manifests/releases/standard.json") "standard distribution release manifest mismatch"
 Assert-True ([string]$distributionManifest.control_plane_manifest_path -eq "manifests/legacy/control-plane-reference.json") "standard distribution control-plane manifest mismatch"
 Assert-True ([string]$distributionManifest.organ_manifest_path -eq "manifests/organs/legacy-github.json") "standard distribution organ manifest mismatch"
 Assert-True (Test-SafeManifestPath -Path ([string]$distributionManifest.env.central_template_path)) "distribution central env template path is unsafe"
@@ -496,9 +535,45 @@ foreach ($dependency in @($distributionManifest.dependencies)) {
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/install-distribution.ps1") -PathType Leaf) "distribution installer missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/update-distribution.ps1") -PathType Leaf) "distribution updater missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/render-env-files.ps1") -PathType Leaf) "env renderer missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/show-version.ps1") -PathType Leaf) "version reporter missing"
+
+Assert-True ([string]$releaseManifest.schema_version -eq "agent_os.release.v0") "release schema_version must be agent_os.release.v0"
+Assert-True ([string]$releaseManifest.os_id -eq "sword-agent-os") "release os_id must be sword-agent-os"
+Assert-True ([string]$releaseManifest.distribution_id -eq [string]$distributionManifest.id) "release distribution_id mismatch"
+Assert-True ([string]$releaseManifest.os_version -eq [string]$distributionManifest.os_version) "release os_version must match distribution"
+Assert-True ([string]$releaseManifest.distribution_version -eq [string]$distributionManifest.distribution_version) "release distribution_version must match distribution"
+Assert-True (Test-SemVer -Value ([string]$releaseManifest.os_version)) "release os_version must be semver"
+Assert-True (Test-SemVer -Value ([string]$releaseManifest.distribution_version)) "release distribution_version must be semver"
+Assert-True ([string]$releaseManifest.body_plan_id -eq [string]$bodyPlan.body_plan_id) "release body_plan_id mismatch"
+Assert-True ([string]$releaseManifest.body_plan_version -eq [string]$bodyPlan.body_plan_version) "release body_plan_version mismatch"
+$releaseComponentIds = @($releaseManifest.components | ForEach-Object { [string]$_.component_id })
+Assert-True (($releaseComponentIds | Select-Object -Unique).Count -eq $releaseComponentIds.Count) "release component ids must be unique"
+Assert-True ([string]$controlPlaneReference.id -in $releaseComponentIds) "release missing control-plane component"
+foreach ($source in @($organManifest.sources | Where-Object { [string]$_.adoption -ne "deferred_reference" })) {
+  Assert-True ([string]$source.organ_id -in $releaseComponentIds) "release missing organ component: $($source.organ_id)"
+}
+foreach ($component in @($releaseManifest.components)) {
+  Assert-True (-not [string]::IsNullOrWhiteSpace([string]$component.component_id)) "release component missing id"
+  Assert-True (Test-SemVer -Value ([string]$component.component_version)) "release component $($component.component_id) version must be semver"
+  Assert-True (Test-SafeManifestText -Value ([string]$component.version_source)) "release component $($component.component_id) version_source is unsafe"
+  $localComponentVersion = Read-LocalComponentVersion -Path ([string]$component.version_source)
+  if (-not [string]::IsNullOrWhiteSpace($localComponentVersion)) {
+    Assert-True ([string]$component.component_version -eq $localComponentVersion) "release component $($component.component_id) version does not match $($component.version_source)"
+  }
+}
 
 Assert-True ([string]$controlPlaneReference.commit -match "^[0-9a-f]{40}$") "control-plane reference commit is not a full SHA"
 Assert-True (-not [string]::IsNullOrWhiteSpace([string]$controlPlaneReference.target_path)) "control-plane reference missing target_path"
+Assert-True (Test-SemVer -Value ([string]$controlPlaneReference.component_version)) "control-plane component_version must be semver"
+Assert-True (Test-SafeManifestText -Value ([string]$controlPlaneReference.version_source)) "control-plane version_source is unsafe"
+$controlPlaneReleaseComponent = @($releaseManifest.components | Where-Object { [string]$_.component_id -eq [string]$controlPlaneReference.id } | Select-Object -First 1)
+Assert-True ($null -ne $controlPlaneReleaseComponent) "release missing control-plane version component"
+Assert-True ([string]$controlPlaneReleaseComponent.component_version -eq [string]$controlPlaneReference.component_version) "control-plane component_version must match release"
+foreach ($source in @($organManifest.sources | Where-Object { [string]$_.adoption -ne "deferred_reference" })) {
+  $releaseComponent = @($releaseManifest.components | Where-Object { [string]$_.component_id -eq [string]$source.organ_id } | Select-Object -First 1)
+  Assert-True ($null -ne $releaseComponent) "release missing organ version component: $($source.organ_id)"
+  Assert-True ([string]$releaseComponent.component_version -eq [string]$source.component_version) "organ $($source.organ_id) component_version must match release"
+}
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/system.ps1") -PathType Leaf) "runtime system facade missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-runtime-reflex.ps1") -PathType Leaf) "runtime reflex checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-conscious-readiness.ps1") -PathType Leaf) "conscious readiness checker missing"
@@ -561,6 +636,8 @@ if ($VerifyRemote) {
   services = $serviceManifest.services.Count
   organ_sources = $organManifest.sources.Count
   distributions = 1
+  os_version = $releaseManifest.os_version
+  distribution_version = $releaseManifest.distribution_version
   recovery_candidates = $recoveryCandidates.candidates.Count
   authorities = $authorityManifest.authorities.Count
   driver_count = $driverManifest.generic_drivers.Count + $driverManifest.organ_drivers.Count

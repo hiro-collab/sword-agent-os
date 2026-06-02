@@ -5,6 +5,8 @@
   "checked_at": "2026-06-02",
   "legacy_path": "sword-control-plane",
   "target_path": "control-plane/sword-voice-agent",
+  "component_version": "0.1.0",
+  "version_source": "control-plane/sword-voice-agent/pyproject.toml",
   "repo_url": "https://github.com/hiro-collab/sword-voice-agent.git",
   "branch": "codex/initial-sword-voice-agent",
   "commit": "4b79bd220e4378f1184ff636c72fcb13c7252245",

@@ -108,14 +108,34 @@ function Write-InstallBanner {
   $modeLabel = $modeParts -join ", "
   $distributionId = [string](Get-OptionalProperty -Object $Manifest -Name "id" -Default $Profile)
   $schemaVersion = [string](Get-OptionalProperty -Object $Manifest -Name "schema_version" -Default "unknown-schema")
+  $osVersion = [string](Get-OptionalProperty -Object $Manifest -Name "os_version" -Default "unknown")
+  $distributionVersion = [string](Get-OptionalProperty -Object $Manifest -Name "distribution_version" -Default "unknown")
   $description = [string](Get-OptionalProperty -Object $Manifest -Name "description" -Default "Standard local Sword Agent OS distribution.")
+  $releaseManifestPath = [string](Get-OptionalProperty -Object $Manifest -Name "release_manifest_path" -Default "")
+  $releaseLabel = "unknown release"
+  $componentLabel = "components listed in source manifests"
+  if (-not [string]::IsNullOrWhiteSpace($releaseManifestPath)) {
+    try {
+      $releaseManifest = Read-JsonFile -Path $releaseManifestPath
+      $releaseName = [string](Get-OptionalProperty -Object $releaseManifest -Name "release_name" -Default "unnamed release")
+      $releaseSchema = [string](Get-OptionalProperty -Object $releaseManifest -Name "schema_version" -Default "unknown-schema")
+      $releaseLabel = "$releaseName / $releaseSchema"
+      $componentCount = @($releaseManifest.components).Count
+      $componentLabel = "$componentCount pinned components"
+    }
+    catch {
+      $releaseLabel = "release manifest unreadable: $releaseManifestPath"
+    }
+  }
 
   Write-InstallText "+------------------------------------------------------------+" Cyan
   Write-InstallText "| WELCOME TO SWORD AGENT OS                                 |" Cyan
   Write-InstallText "| Local AI body OS distribution setup                       |" DarkCyan
   Write-InstallText "+------------------------------------------------------------+" Cyan
-  Write-InstallText ("  Version      : {0}" -f (Get-RepoRevision)) Yellow
-  Write-InstallText ("  Distribution : {0} / {1}" -f $distributionId, $schemaVersion) Yellow
+  Write-InstallText ("  OS Version   : Sword Agent OS {0} ({1})" -f $osVersion, (Get-RepoRevision)) Yellow
+  Write-InstallText ("  Distribution : {0} {1} / {2}" -f $distributionId, $distributionVersion, $schemaVersion) Yellow
+  Write-InstallText ("  Release      : {0}" -f $releaseLabel) Yellow
+  Write-InstallText ("  Components   : {0}" -f $componentLabel) Yellow
   Write-InstallText ("  Mode         : {0}" -f $modeLabel) Yellow
   Write-InstallText ("  About        : {0}" -f $description) Gray
   Write-InstallText ("  Repo         : {0}" -f $RepoRoot) DarkGray
