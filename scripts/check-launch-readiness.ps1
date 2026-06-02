@@ -110,6 +110,48 @@ function Normalize-DotEnvEnumValue {
   return $normalized.Trim().Trim('"').Trim("'")
 }
 
+function Test-PlaceholderSecretValue {
+  param([AllowNull()][string]$Value)
+  if ([string]::IsNullOrWhiteSpace($Value)) {
+    return $false
+  }
+  $normalized = $Value.Trim().Trim('"').Trim("'").ToLowerInvariant()
+  $exactPlaceholders = @(
+    "changeme",
+    "change-me",
+    "test-token",
+    "example-token",
+    "dummy-token",
+    "change-me-local-bridge-token",
+    "change-me-home-assistant-token"
+  )
+  if ($normalized -in $exactPlaceholders) {
+    return $true
+  }
+  foreach ($prefix in @("change-me", "replace", "example", "dummy", "your-")) {
+    if ($normalized.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+      return $true
+    }
+  }
+  return $false
+}
+
+function Test-FileSameContent {
+  param(
+    [Parameter(Mandatory = $true)][string]$Left,
+    [Parameter(Mandatory = $true)][string]$Right
+  )
+  if (-not (Test-Path -LiteralPath $Left -PathType Leaf)) {
+    return $false
+  }
+  if (-not (Test-Path -LiteralPath $Right -PathType Leaf)) {
+    return $false
+  }
+  $leftHash = (Get-FileHash -LiteralPath $Left -Algorithm SHA256).Hash
+  $rightHash = (Get-FileHash -LiteralPath $Right -Algorithm SHA256).Hash
+  return $leftHash -eq $rightHash
+}
+
 function Get-PortModePorts {
   param(
     [Parameter(Mandatory = $true)]$ServiceManifest,
@@ -194,6 +236,50 @@ function Test-PathCheck {
     return New-Check -Id $Id -Status "ok" -Severity "info" -Path $Path -Detail $OkDetail
   }
   return New-Check -Id $Id -Status "missing" -Severity $MissingSeverity -Path $Path -Detail $MissingDetail
+}
+
+function Add-GeneratedEnvSyncCheck {
+  param(
+    [Parameter(Mandatory = $true)][string]$Id,
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][string]$CentralPath,
+    [Parameter(Mandatory = $true)][string]$GeneratedPath
+  )
+  $centralValue = Read-DotEnvValue -Path $CentralPath -Name $Name
+  $generatedValue = Read-DotEnvValue -Path $GeneratedPath -Name $Name
+  if (Test-PlaceholderSecretValue -Value $generatedValue) {
+    return New-Check `
+      -Id $Id `
+      -Status "placeholder" `
+      -Severity "warning" `
+      -Path $GeneratedPath `
+      -Detail "$Name in generated organ .env still looks like a template value; update local/env/sword-agent-os.env and rerun scripts/render-env-files.ps1 -Profile standard -Force"
+  }
+  if ([string]::IsNullOrWhiteSpace($centralValue)) {
+    return New-Check `
+      -Id $Id `
+      -Status "skipped" `
+      -Severity "info" `
+      -Path $CentralPath `
+      -Detail "$Name is not set in central env"
+  }
+  if ([string]::IsNullOrWhiteSpace($generatedValue)) {
+    return New-Check `
+      -Id $Id `
+      -Status "missing" `
+      -Severity "warning" `
+      -Path $GeneratedPath `
+      -Detail "$Name is set in central env but missing in generated organ .env; rerun scripts/render-env-files.ps1 -Profile standard -Force"
+  }
+  if ($centralValue -ne $generatedValue) {
+    return New-Check `
+      -Id $Id `
+      -Status "mismatch" `
+      -Severity "warning" `
+      -Path $GeneratedPath `
+      -Detail "$Name differs between central env and generated organ .env; rerun scripts/render-env-files.ps1 -Profile standard -Force or reconcile local overrides"
+  }
+  return New-Check -Id $Id -Status "ok" -Severity "info" -Path $GeneratedPath -Detail "$Name matches central env"
 }
 
 function Test-HttpEndpoint {
@@ -286,9 +372,11 @@ $centralEnvPath = Resolve-WorkspacePath "local/env/sword-agent-os.env"
 $controlPlaneEnvPath = Join-Path $controlPlaneRoot ".env"
 $thoughtCoreEnvPath = Join-Path $controlPlaneRoot "services\thought-core\.env"
 $homeAssistantEnvPath = Join-Path $homeAssistantRoot ".env"
+$homeControlConfigPath = Join-Path $homeAssistantRoot "config\home-control.yaml"
+$homeControlExamplePath = Join-Path $homeAssistantRoot "config\home-control.example.yaml"
 $aituberEnvPath = Join-Path $aituberRoot ".env"
 
-$checks += Test-PathCheck -Id "local.home_control_config" -Path (Join-Path $homeAssistantRoot "config\home-control.yaml") -MissingSeverity "blocker" -MissingDetail "Home Assistant action config is local-only"
+$checks += Test-PathCheck -Id "local.home_control_config" -Path $homeControlConfigPath -MissingSeverity "blocker" -MissingDetail "Home Assistant action config is local-only"
 $checks += Test-PathCheck -Id "local.home_assistant_env" -Path $homeAssistantEnvPath -MissingSeverity "blocker" -MissingDetail "Home Assistant token env is local-only"
 $checks += Test-PathCheck -Id "local.control_plane_env" -Path $controlPlaneEnvPath -MissingSeverity "warning" -MissingDetail "control-plane env is local-only"
 $checks += Test-PathCheck -Id "local.aituber_env" -Path $aituberEnvPath -MissingSeverity "warning" -MissingDetail "AITuber env is local-only"
@@ -316,6 +404,24 @@ elseif ($toolsAdapter -in @("home_control", "home-control", "bridge")) {
 }
 else {
   $checks += New-Check -Id "local.thought_core_tools_adapter" -Status "unknown" -Severity "warning" -Path $centralEnvPath -Detail "Unknown THOUGHT_CORE_TOOLS_ADAPTER value; expected mock or home_control"
+}
+
+$checks += Add-GeneratedEnvSyncCheck -Id "local.home_control_api_token_sync" -Name "HOME_CONTROL_API_TOKEN" -CentralPath $centralEnvPath -GeneratedPath $homeAssistantEnvPath
+$checks += Add-GeneratedEnvSyncCheck -Id "local.environment_api_token_sync" -Name "ENVIRONMENT_API_TOKEN" -CentralPath $centralEnvPath -GeneratedPath $homeAssistantEnvPath
+$checks += Add-GeneratedEnvSyncCheck -Id "local.home_assistant_token_sync" -Name "HOME_ASSISTANT_TOKEN" -CentralPath $centralEnvPath -GeneratedPath $homeAssistantEnvPath
+
+if ($toolsAdapter -in @("home_control", "home-control", "bridge")) {
+  if (Test-FileSameContent -Left $homeControlConfigPath -Right $homeControlExamplePath) {
+    $checks += New-Check `
+      -Id "local.home_control_config_customized" `
+      -Status "example" `
+      -Severity "warning" `
+      -Path $homeControlConfigPath `
+      -Detail "Home Control config still matches the example demo mapping; replace Home Assistant base_url, scripts, and expected_effect entity IDs before expecting live appliance state in Environment State"
+  }
+  elseif (Test-Path -LiteralPath $homeControlConfigPath -PathType Leaf) {
+    $checks += New-Check -Id "local.home_control_config_customized" -Status "ok" -Severity "info" -Path $homeControlConfigPath -Detail "Home Control config differs from the public example"
+  }
 }
 
 $vrmFiles = @()

@@ -998,6 +998,41 @@ function Test-NativeLaunchLayoutFixtures {
     Assert-TextMatch -Text ($readinessOutput -join "`n") -Pattern "native_delegate_layout\.control_plane" -Message "native control-plane readiness check missing"
     Assert-TextMatch -Text ($readinessOutput -join "`n") -Pattern "native_delegate_layout\.ai_talk_core" -Message "native AI Talk Core readiness check missing"
 
+    $centralEnvDir = Join-Path $workspace "local\env"
+    New-Item -ItemType Directory -Force -Path $centralEnvDir | Out-Null
+    Set-Content -LiteralPath (Join-Path $centralEnvDir "sword-agent-os.env") -Value @(
+      "THOUGHT_CORE_TOOLS_ADAPTER=home_control",
+      "HOME_CONTROL_API_TOKEN=central-home-control-token-12345678901234567890",
+      "ENVIRONMENT_API_TOKEN=central-environment-token-12345678901234567890",
+      "HOME_ASSISTANT_TOKEN=central-home-assistant-token-12345678901234567890"
+    ) -Encoding utf8
+    Copy-Item `
+      -LiteralPath (Join-Path $workspace "organs\action\home-assistant-server\config\home-control.yaml") `
+      -Destination (Join-Path $workspace "organs\action\home-assistant-server\config\home-control.example.yaml")
+    $homeControlWarningOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-launch-readiness.ps1"),
+      "-WorkspaceRoot",
+      $workspace,
+      "-SkipPortChecks"
+    )
+    $homeControlWarning = $homeControlWarningOutput -join "`n" | ConvertFrom-Json
+    if ([string]$homeControlWarning.status -ne "warning") {
+      throw "home_control example config and stale env should warn; got $($homeControlWarning.status)"
+    }
+    $homeControlConfigCheck = @($homeControlWarning.checks | Where-Object { [string]$_.id -eq "local.home_control_config_customized" } | Select-Object -First 1)
+    if ($homeControlConfigCheck.Count -eq 0 -or [string]$homeControlConfigCheck[0].status -ne "example") {
+      throw "home_control example config warning missing"
+    }
+    $homeControlSyncCheck = @($homeControlWarning.checks | Where-Object { [string]$_.id -eq "local.home_control_api_token_sync" } | Select-Object -First 1)
+    if ($homeControlSyncCheck.Count -eq 0 -or [string]$homeControlSyncCheck[0].status -ne "missing") {
+      throw "home_control token sync warning missing"
+    }
+    Remove-FixtureSubtree -Workspace $workspace -RelativePath "local"
+    Remove-Item -LiteralPath (Join-Path $workspace "organs\action\home-assistant-server\config\home-control.example.yaml") -Force
+
     $gestureModelPath = Join-Path $workspace "organs\reflex\mediapipe-sword-sign\gesture_model.pkl"
     Remove-Item -LiteralPath $gestureModelPath -Force
     $missingGestureOutput = Invoke-Checked -Command @(

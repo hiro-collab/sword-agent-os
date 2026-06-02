@@ -490,6 +490,16 @@ pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 ```
 
+中央 env を編集しても、既存の organ `.env` は自動では変わりません。
+Home Assistant token、`HOME_CONTROL_API_TOKEN`、`ENVIRONMENT_API_TOKEN` を
+後から入れた場合は、`-Force` で再生成した後に起動確認してください。
+
+Environment State の `appliances` / 家電情報は、token を入れただけでは増えません。
+`organs\action\home-assistant-server\config\home-control.yaml` が実際の Home
+Assistant URL、script、entity ID を指し、Home Control bridge が成功した action
+event を記録した後に反映されます。`script.demo_light_on` や `light.demo_room`
+のままなら、demo/example 設定として扱ってください。
+
 <details>
 <summary>生成されるファイル一覧と、直接編集する場合の考え方を開く</summary>
 
@@ -667,6 +677,8 @@ pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManua
 | マイクが反応しない | Chrome のマイク権限、入力欄の focus |
 | 家電操作が失敗する | Home Assistant URL / token、action catalog mapping |
 | API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更 |
+| Environment State に家電情報が出ない | 中央 env の変更を `render-env-files.ps1 -Profile standard -Force` で organ `.env` へ反映したか確認。さらに `organs/action/home-assistant-server/config/home-control.yaml` が `home-control.example.yaml` と同じ demo 設定ではないか、`.cache/home_control/events.jsonl` に成功 action event があるか確認 |
+| `uv --env-file ..\home-assistant-server\.env` が失敗する | Windows では `uv --env-file` に渡す相対 backslash path が崩れることがあります。`$EnvPath = (Resolve-Path ..\home-assistant-server\.env).Path -replace "\\", "/"` のように forward slash 化した絶対 path を渡します |
 | 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見る |
 | Dify compatibility が表示される | 通常の Thought Core 経路では Dify は必須ではありません。debug mode だけで確認します |
 | TouchDesigner が反応しない | `.toe` project が開いているか、UDP target が合っているか |
