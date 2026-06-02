@@ -136,7 +136,8 @@ $preview = New-PreviewCommand -ReplayMode $Mode -Asset $asset -RelativePath $rel
 
 $result = [PSCustomObject]@{
   status = "preview-only"
-  proof_layer = "local-media replay"
+  proof_layer = "source/static-command-preview"
+  next_proof_layer = "bounded local-media replay"
   mode = $Mode
   asset_id = $AssetId
   asset_kind = $assetKind
@@ -158,7 +159,8 @@ if ($Json) {
 
 Write-Host "Sword Agent OS local media replay preview"
 Write-Host "status=preview-only"
-Write-Host "proof_layer=local-media replay"
+Write-Host "proof_layer=source/static-command-preview"
+Write-Host "next_proof_layer=bounded local-media replay"
 Write-Host ("mode={0}" -f $result.mode)
 Write-Host ("asset_id={0}" -f $result.asset_id)
 Write-Host ("relative_path={0}" -f $result.relative_path)

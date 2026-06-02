@@ -384,6 +384,8 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "generated_output_written=false" -Message "README should show preview helper does not write generated output"
   $localMediaHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-local-media-replay.ps1")
   Assert-TextMatch -Text $localMediaHelper -Pattern "local/media/media-index\.json" -Message "local media helper should resolve the local media index"
+  Assert-TextMatch -Text $localMediaHelper -Pattern "source/static-command-preview" -Message "local media helper should label preview output as source/static-command-preview"
+  Assert-TextMatch -Text $localMediaHelper -Pattern "next_proof_layer" -Message "local media helper should separate the next bounded replay proof layer"
   Assert-TextMatch -Text $localMediaHelper -Pattern "raw_media_shared=false" -Message "local media helper should print raw_media_shared=false"
   Assert-TextMatch -Text $localMediaHelper -Pattern "raw_transcript_shared=false" -Message "local media helper should print raw_transcript_shared=false"
   Assert-TextMatch -Text $localMediaHelper -Pattern "generated_output_written=false" -Message "local media helper should print generated_output_written=false"

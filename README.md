@@ -883,9 +883,10 @@ proof ではありません。`-RunSafeIntegrationProbes` は mock/no-live の�
 ### optional / local-media replay preview
 
 ローカルに `local/media/README.md` と `local/media/media-index.json` がある場合は、
-asset id を指定して replay command を preview できます。この preview は
-`local-media replay` proof layer の準備であり、実カメラ、実マイク、browser runtime、
-virtual audio、live Home Assistant、long-run/stress proof ではありません。
+asset id を指定して replay command を preview できます。この helper の出力は
+`source/static-command-preview` であり、次に開く候補が `bounded local-media replay`
+です。実カメラ、実マイク、browser runtime、virtual audio、live Home Assistant、
+long-run/stress proof ではありません。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.sword.20260603
@@ -899,7 +900,8 @@ pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode room-light -Ass
 
 ```text
 asset_id=<id>
-proof_layer=local-media replay
+proof_layer=source/static-command-preview
+next_proof_layer=bounded local-media replay
 result=<pass|fail|blocked|preview-only>
 summary=<redacted counts/status labels only>
 raw_media_shared=false
