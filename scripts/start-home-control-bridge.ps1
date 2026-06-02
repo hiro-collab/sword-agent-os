@@ -53,6 +53,49 @@ function ConvertTo-UvEnvFilePath {
   return ($Path -replace "\\", "/")
 }
 
+function ConvertTo-CauseToken {
+  param([string]$Value)
+
+  return (($Value.ToLowerInvariant() -replace "[^a-z0-9]+", "_").Trim("_"))
+}
+
+function Write-Cause {
+  param(
+    [string]$Code,
+    [string]$Detail = ""
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Detail)) {
+    Write-Host ("cause_code={0}" -f $Code)
+  } else {
+    Write-Host ("cause_code={0} detail={1}" -f $Code, $Detail)
+  }
+}
+
+function Get-HttpStatusDetail {
+  param($ErrorRecord)
+
+  $response = $ErrorRecord.Exception.Response
+  if ($null -eq $response) {
+    return "no-http-response"
+  }
+
+  $statusCode = $null
+  if ($null -ne $response.StatusCode) {
+    try {
+      $statusCode = [int]$response.StatusCode
+    } catch {
+      $statusCode = [string]$response.StatusCode
+    }
+  }
+
+  if ($null -eq $statusCode -or [string]::IsNullOrWhiteSpace([string]$statusCode)) {
+    return "http-response-without-status"
+  }
+
+  return "http-$statusCode"
+}
+
 function Read-DotEnvValue {
   param(
     [string]$Path,
@@ -139,7 +182,7 @@ function Get-SecretLengthClass {
   return "present"
 }
 
-function Get-RequiredDotEnvSecret {
+function Get-DotEnvSecretStatus {
   param(
     [string]$Path,
     [string]$Name,
@@ -148,13 +191,82 @@ function Get-RequiredDotEnvSecret {
 
   $value = Read-DotEnvValue -Path $Path -Name $Name
   $class = Get-SecretLengthClass -Value $value -MinimumLength $MinimumLength
-  Write-Host ("{0}: {1} (value hidden)" -f $Name, $class)
+  return [PSCustomObject]@{
+    name = $Name
+    value = $value
+    class = $class
+  }
+}
 
-  if ($class -ne "present") {
-    throw "$Name is not live-ready in $Path; update local env and rerun scripts/render-env-files.ps1 -Profile standard -Force"
+function Write-SecretStatus {
+  param($Status)
+
+  Write-Host ("{0}: {1} (value hidden)" -f $Status.name, $Status.class)
+}
+
+function Get-HomeControlConfigActionCount {
+  param([string]$Path)
+
+  $inActions = $false
+  $count = 0
+
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    if ([string]::IsNullOrWhiteSpace($line)) {
+      continue
+    }
+
+    $trimmed = $line.Trim()
+    if ($trimmed.StartsWith("#")) {
+      continue
+    }
+
+    if (-not $inActions) {
+      if ($line -match '^\s*actions\s*:\s*$') {
+        $inActions = $true
+      }
+      continue
+    }
+
+    if ($line -match '^\S' -and $trimmed -ne "actions:") {
+      break
+    }
+
+    if ($line -match '^\s{2}([a-z0-9][a-z0-9_:-]{0,79})\s*:\s*$') {
+      $count += 1
+    }
   }
 
-  return $value
+  return $count
+}
+
+function Get-ConfigErrorKind {
+  param(
+    $HomeControlSecret,
+    $HomeAssistantSecret
+  )
+
+  if ($HomeControlSecret.class -ne "present") {
+    return "HOME_CONTROL_API_TOKEN"
+  }
+  if ($HomeAssistantSecret.class -ne "present") {
+    return "HOME_ASSISTANT_TOKEN"
+  }
+
+  return "none"
+}
+
+function Assert-LiveReadySecret {
+  param(
+    $Status,
+    [string]$EnvPath
+  )
+
+  if ($Status.class -ne "present") {
+    $nameToken = ConvertTo-CauseToken -Value $Status.name
+    $classToken = ConvertTo-CauseToken -Value $Status.class
+    Write-Cause -Code "live_home_control.env.${nameToken}_${classToken}"
+    throw "$($Status.name) is not live-ready in $EnvPath; update local env and rerun scripts/render-env-files.ps1 -Profile standard -Force"
+  }
 }
 
 function Get-ActionRows {
@@ -185,9 +297,11 @@ $envFilePath = Resolve-RootRelativePath `
   -DefaultRelativePath ".env"
 
 if (-not (Test-Path -LiteralPath $homeAssistantServerRootPath -PathType Container)) {
+  Write-Cause -Code "live_home_control.local.checkout_missing" -Detail "home_assistant_server_root"
   throw "Home Assistant server checkout not found: $homeAssistantServerRootPath"
 }
 if (-not (Test-Path -LiteralPath $envFilePath -PathType Leaf)) {
+  Write-Cause -Code "live_home_control.local.env_missing" -Detail "home_assistant_server_env"
   throw "Home Assistant bridge .env not found: $envFilePath"
 }
 
@@ -205,17 +319,31 @@ $configFilePath = Resolve-RootRelativePath `
   -DefaultRelativePath "config/home-control.yaml"
 
 if (-not (Test-Path -LiteralPath $configFilePath -PathType Leaf)) {
+  Write-Cause -Code "live_home_control.local.config_missing" -Detail "home_control_config"
   throw "Home Control config not found: $configFilePath"
 }
 
-$homeControlToken = Get-RequiredDotEnvSecret `
+$homeControlSecret = Get-DotEnvSecretStatus `
   -Path $envFilePath `
   -Name "HOME_CONTROL_API_TOKEN" `
   -MinimumLength 32
-$null = Get-RequiredDotEnvSecret `
+$homeAssistantSecret = Get-DotEnvSecretStatus `
   -Path $envFilePath `
   -Name "HOME_ASSISTANT_TOKEN" `
   -MinimumLength 16
+$configActionCount = Get-HomeControlConfigActionCount -Path $configFilePath
+$configErrorKind = Get-ConfigErrorKind `
+  -HomeControlSecret $homeControlSecret `
+  -HomeAssistantSecret $homeAssistantSecret
+
+Write-SecretStatus -Status $homeControlSecret
+Write-SecretStatus -Status $homeAssistantSecret
+Write-Host ("config: yaml_loaded=True action_count={0} config_error_kind={1}" -f $configActionCount, $configErrorKind)
+
+Assert-LiveReadySecret -Status $homeControlSecret -EnvPath $envFilePath
+Assert-LiveReadySecret -Status $homeAssistantSecret -EnvPath $envFilePath
+
+$homeControlToken = $homeControlSecret.value
 
 Write-Host "Home Control bridge local inputs"
 Write-Host ("  Root   : {0}" -f $homeAssistantServerRootPath)
@@ -225,21 +353,32 @@ Write-Host ("  URL    : http://{0}:{1}" -f $HostName, $Port)
 
 if ($CheckOnly) {
   $baseUrl = "http://${HostName}:$Port"
-  $health = Invoke-RestMethod -Method Get -Uri "$baseUrl/health" -TimeoutSec 10
+  try {
+    $health = Invoke-RestMethod -Method Get -Uri "$baseUrl/health" -TimeoutSec 10
+  } catch {
+    Write-Cause -Code "live_home_control.bridge.health_unreachable" -Detail (Get-HttpStatusDetail -ErrorRecord $_)
+    throw "Home Control bridge /health could not be read; stop before preview/execute"
+  }
   $healthStatus = [string]$health.status
   $healthOk = [bool]$health.ok
   $actionsCount = [int]$health.actions_count
   Write-Host ("health: status={0} ok={1} actions_count={2}" -f $healthStatus, $healthOk, $actionsCount)
 
   if (-not $healthOk -or $healthStatus -eq "config_error") {
+    Write-Cause -Code "live_home_control.bridge.health_config_error" -Detail ("status={0}" -f $healthStatus)
     throw "Home Control bridge is not live-ready; stop before preview/execute"
   }
 
-  $actions = Invoke-RestMethod `
-    -Method Get `
-    -Uri "$baseUrl/actions" `
-    -Headers @{ Authorization = "Bearer $homeControlToken" } `
-    -TimeoutSec 10
+  try {
+    $actions = Invoke-RestMethod `
+      -Method Get `
+      -Uri "$baseUrl/actions" `
+      -Headers @{ Authorization = "Bearer $homeControlToken" } `
+      -TimeoutSec 10
+  } catch {
+    Write-Cause -Code "live_home_control.bridge.actions_unavailable" -Detail (Get-HttpStatusDetail -ErrorRecord $_)
+    throw "Home Control bridge /actions could not be read; stop before preview/execute"
+  }
   $actionRows = @(Get-ActionRows -Response $actions)
   $expectedStatus = "not-requested"
 
@@ -255,9 +394,11 @@ if ($CheckOnly) {
   Write-Host ("actions: status=ok count={0} expected_action={1}" -f $actionRows.Count, $expectedStatus)
 
   if ($expectedStatus -eq "missing") {
+    Write-Cause -Code "live_home_control.bridge.expected_action_missing"
     throw "Expected action was not returned by /actions; stop before preview/execute"
   }
 
+  Write-Cause -Code "none"
   return
 }
 

@@ -342,6 +342,13 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "start-home-control-bridge\.ps1" -Message "README should document the Home Control bridge live helper"
   Assert-TextMatch -Text $readme -Pattern "/health.*config_error|/actions.*preview / execute" -Message "README should define live Home Control safe-stop behavior"
   Assert-TextMatch -Text $readme -Pattern "preview、dry-run、execute" -Message "README should require preview before live execute"
+  Assert-TextMatch -Text $readme -Pattern "live-home-control-cause-trail\.md" -Message "README should link live Home Control cause trail"
+  Assert-PathPresent -Path (Join-Path $RepoRoot "docs\live-home-control-cause-trail.md")
+  $bridgeHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\start-home-control-bridge.ps1")
+  Assert-TextMatch -Text $bridgeHelper -Pattern "--env-file" -Message "Home Control bridge helper should pass generated .env through uv"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "config_error_kind" -Message "Home Control bridge helper should report redacted config error kind"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "cause_code" -Message "Home Control bridge helper should report cause codes"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "HOME_ASSISTANT_TOKEN" -Message "Home Control bridge helper should classify Home Assistant token readiness"
   Assert-TextMatch -Text $readme -Pattern "UV_CACHE_DIR" -Message "README should include uv cache troubleshooting guidance"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
   Write-Host "README first-run guidance static ok"
