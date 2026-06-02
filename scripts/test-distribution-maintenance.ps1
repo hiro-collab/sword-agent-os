@@ -326,6 +326,19 @@ function Test-PublicPathLeakStatic {
   Write-Host "path leak static ok: README/docs/scripts/manifests"
 }
 
+function Test-ReadmeFirstRunGuidance {
+  Write-TestStep "README first-run guidance static checks"
+  $readme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "README.md")
+  Assert-TextMatch -Text $readme -Pattern "prepared local|準備済みローカル" -Message "README should describe prepared local inputs without requiring private folder names"
+  Assert-TextMatch -Text $readme -Pattern "_secret_inputs.*product convention|製品として特定のフォルダ名を要求しません" -Message "README should not make _secret_inputs look like a required product convention"
+  Assert-TextMatch -Text $readme -Pattern "render-env-files\.ps1 -Profile standard -Force" -Message "README should show central env re-render after editing local env"
+  Assert-TextMatch -Text $readme -Pattern "MediapipeVideoSource testsrc" -Message "README should show device-free/no-camera compat smoke with testsrc"
+  Assert-TextMatch -Text $readme -Pattern "runtime/browser|実マイク|実カメラ|live Home Assistant|物理家電" -Message "README should separate no-live install/readiness from runtime/browser/live proof"
+  Assert-TextMatch -Text $readme -Pattern "UV_CACHE_DIR" -Message "README should include uv cache troubleshooting guidance"
+  Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
+  Write-Host "README first-run guidance static ok"
+}
+
 function Test-ManifestAndVersion {
   Write-TestStep "manifest and version commands"
   $validateArgs = @($PowerShellCommand, "-NoProfile", "-File", (Join-Path $PSScriptRoot "validate-manifests.ps1"))
@@ -1333,6 +1346,7 @@ Test-PowerShellSyntax
 Test-BatchWrappers
 Test-MaintenanceSafetyStatic
 Test-PublicPathLeakStatic
+Test-ReadmeFirstRunGuidance
 Test-ManifestAndVersion
 Test-UpdateFixtureHoldBehavior
 Test-EnvRenderFixtures

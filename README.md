@@ -54,7 +54,7 @@ Projection Visual を開いて次のような短い入力から確認します�
 
 | レーン | 目的 | 追加で必要なもの | 主な env / 注意 |
 | --- | --- | --- | --- |
-| A. 最小構成 / no-live | clone 後に起動、画面、入力、mock/static 動作を確認する | Git、PowerShell 7、Python/uv、Node/npm、Chrome | `THOUGHT_CORE_LLM_ENABLED=false` で LLM なし確認可。Home Assistant token は後回し可 |
+| A. 最小構成 / no-live | clone 後に install / readiness / mock/static 動作を確認する。画面・入力確認は次の runtime/browser lane として分ける | Git、PowerShell 7、Python/uv、Node/npm、Chrome | `THOUGHT_CORE_LLM_ENABLED=false` で LLM なし確認可。Home Assistant token は後回し可 |
 | B. LLM あり標準構成 | Thought Core の自然文応答を確認する | LLM provider の API key | `THOUGHT_CORE_LLM_API_KEY`、必要に応じて `THOUGHT_CORE_LLM_MODEL` / `THOUGHT_CORE_LLM_BASE_URL` |
 | C. Home Assistant live家電 | 家電状態確認と低リスク操作を確認する | Home Assistant、対象家電、戻し方 | `HOME_ASSISTANT_TOKEN`、`HOME_CONTROL_API_TOKEN`、device mapping。実操作は対象/回数/停止条件を決める |
 | D. 開発 / Codex workspace | organ 変更、複数 thread、coordination を使う | private coordination repo は任意 | 通常利用と混ぜず、`coordination/`、`local/`、`worktrees/`、`_codex/` を GitHub 公開対象にしない |
@@ -104,6 +104,8 @@ Codex 作業用の workspace-local 領域であり、通常利用では作成不
 | Python と `uv` | Thought Core と Python organ | 必須 |
 | Node.js と npm | AITuber Kit と Web GUI | 必須 |
 | Chrome | Projection Visual とマイク入力 | 必須 |
+| `ffmpeg` / `ffprobe` | MediaPipe / media smoke の test source と診断 | no-camera compat smoke では必要 |
+| `mediamtx` | Camera Hub / MediaPipe stream bridge の起動 | MediaPipe / compatibility smoke では必要 |
 | マイク | 音声入力 | 音声利用では必須 |
 | カメラ | ジェスチャー、部屋の明るさ推定 | 推奨 |
 | MediaPipe gesture model | Camera Hub のジェスチャー分類。`organs/reflex/mediapipe-sword-sign/gesture_model.pkl` にローカル配置 | カメラ/ジェスチャー利用では必須 |
@@ -115,6 +117,12 @@ Codex 作業用の workspace-local 領域であり、通常利用では作成不
 | アバター/モデル素材 | ローカル表示 | 任意、ライセンスに従う |
 
 `.env`、API key、device token、provider key、撮影データ、ローカルログ、個人用スクリーンショットは Git に入れないでください。
+
+初回検証で使う local-only 入力資材は、製品として特定のフォルダ名を要求しません。
+手元の「準備済みローカル入力」や「準備済みローカル資材 bundle」から、必要な値や
+ファイルだけを配置します。`_secret_inputs` のような名前は test harness や手元検証の
+例であり、README の必須 product convention ではありません。secret 値は log、screen
+shot、message、commit、push に含めないでください。
 
 ### MediaPipe gesture model の準備
 
@@ -170,6 +178,23 @@ pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
 `local\env\sword-agent-os.env` です。この中央 env から、各 organ の `.env`
 が生成されます。既存の `.env` や `config/home-control.yaml` はデフォルトでは
 上書きしません。作り直したい場合だけ `-ForceEnv` を付けます。
+
+初回の no-live/mock install-readiness lane は、ここで install が終わった後に
+中央 env と local-only asset を配置し、必要なら organ `.env` を再生成してから
+readiness / smoke を見るところまでです。これは Launch Manager start、Start Stack、
+browser UI、実マイク、実カメラ、live Home Assistant、物理家電の proof とは別に扱います。
+
+```powershell
+notepad local\env\sword-agent-os.env
+pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
+pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1
+pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1
+pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes
+```
+
+`-MediapipeVideoSource testsrc` は、実カメラを使わない compatibility smoke 用です。
+実カメラで Camera Hub / gesture proof を見る場合は、別 lane としてカメラ権限、
+`gesture_model.pkl`、media source、runtime/browser 状態を確認してください。
 
 よく使うオプション:
 
@@ -674,7 +699,10 @@ Thought Core は、環境を観測し、Action Boundary で操作を preview / e
 ## 検証コマンド
 
 起動前後に、manifest、runtime contract、organ readiness をざっと確認したい時の
-コマンドです。実機レビューの代わりにはなりません。
+コマンドです。実機レビューの代わりにはなりません。初回導入では、何を証明したいかで
+コマンドを分けてください。
+
+### required / source-static
 
 ```powershell
 pwsh -NoProfile -File .\scripts\system.ps1 status -Profile thought-core-v0 -ManifestOnly
@@ -685,13 +713,26 @@ pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1
 pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1
 ```
 
-compatibility smoke test です。
+### no-camera / no-live compatibility smoke
 
 ```powershell
-pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts
-pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManualTurn
-pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManualTurn -RunSafeIntegrationProbes
+pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc
+pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn
+pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes
 ```
+
+この smoke は test source を使うため、実カメラの映像、実マイク入力、物理家電動作の
+proof ではありません。`-RunSafeIntegrationProbes` は mock/no-live の安全 probe を
+含みますが、`THOUGHT_CORE_TOOLS_ADAPTER=mock` のままなら実 Home Assistant へは
+送信しません。
+
+### optional / runtime-browser
+
+Launch Manager、Start Stack、Projection Visual、AITuber Kit のブラウザ表示、マイク、
+実カメラ、VRM 表示は別の runtime/browser 確認です。README の install-readiness
+完了だけで browser UI proof まで完了したとは扱わないでください。
+
+### live caution
 
 実家電に影響する live action は、必ず対象、回数、間隔、停止条件、戻し方を決めてから実行してください。広い appliance fuzzing や長時間操作をいきなり実行しないでください。
 
@@ -712,6 +753,8 @@ pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -RunManua
 | API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更 |
 | Environment State に家電情報が出ない | 中央 env の変更を `render-env-files.ps1 -Profile standard -Force` で organ `.env` へ反映したか確認。さらに `organs/action/home-assistant-server/config/home-control.yaml` が `home-control.example.yaml` と同じ demo 設定ではないか、`.cache/home_control/events.jsonl` に成功 action event があるか確認 |
 | `uv --env-file ..\home-assistant-server\.env` が失敗する | Windows では `uv --env-file` に渡す相対 backslash path が崩れることがあります。`$EnvPath = (Resolve-Path ..\home-assistant-server\.env).Path -replace "\\", "/"` のように forward slash 化した絶対 path を渡します |
+| Codex sandbox / restricted environment で `uv` cache 書き込みが失敗する | 通常端末で再実行するか、必要に応じて書き込み可能な local cache を `UV_CACHE_DIR` に指定します。これは sandbox 制約の切り分けであり、通常 install 手順の必須設定ではありません |
+| install 中に `npm audit` vulnerability が表示される | npm の依存監査警告です。現在の install / readiness / no-live smoke の pass/fail 判定とは別に読みます。公開運用や依存更新の前には、対象 organ で別途 `npm audit` と影響範囲を確認してください |
 | 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見る |
 | Dify compatibility が表示される | 通常の Thought Core 経路では Dify は必須ではありません。debug mode だけで確認します |
 | TouchDesigner が反応しない | `.toe` project が開いているか、UDP target が合っているか |
