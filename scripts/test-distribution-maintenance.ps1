@@ -368,7 +368,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $causeTrail -Pattern "missing-process-env" -Message "cause trail should cover missing process env failures"
   Assert-TextMatch -Text $causeTrail -Pattern "live-ha-state" -Message "cause trail should separate Home Assistant state proof"
   Assert-TextMatch -Text $readme -Pattern "UV_CACHE_DIR" -Message "README should include uv cache troubleshooting guidance"
-  Assert-TextMatch -Text $readme -Pattern "Git ownership warning" -Message "README should frame Codex Git ownership warnings as validation friction"
+  Assert-TextMatch -Text $readme -Pattern "Git ownership warning" -Message "README should frame restricted-environment Git ownership warnings as validation friction"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
   Write-Host "README first-run guidance static ok"
 }

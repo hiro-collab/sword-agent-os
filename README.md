@@ -870,7 +870,7 @@ Launch Manager、Start Stack、Projection Visual、AITuber Kit のブラウザ�
 | Home Assistant state 確認で URL / entity を調べる必要が出る | まず `scripts/start-home-control-bridge.ps1 -CheckState -ActionId <allowed-action-id>` を使います。helper が state check できない時だけ、設定と Home Assistant 側を個別に確認します |
 | Environment State に家電情報が出ない | 中央 env の変更を `render-env-files.ps1 -Profile standard -Force` で organ `.env` へ反映したか確認。さらに `organs/action/home-assistant-server/config/home-control.yaml` が `home-control.example.yaml` と同じ demo 設定ではないか、`.cache/home_control/events.jsonl` に成功 action event があるか確認 |
 | `uv --env-file ..\home-assistant-server\.env` が失敗する | Windows では `uv --env-file` に渡す相対 backslash path が崩れることがあります。`$EnvPath = (Resolve-Path ..\home-assistant-server\.env).Path -replace "\\", "/"` のように forward slash 化した絶対 path を渡します |
-| Codex sandbox / restricted environment で `uv` cache 書き込みや Git ownership warning が出る | 通常端末で再実行するか、必要に応じて書き込み可能な local cache を `UV_CACHE_DIR` に指定します。これは Codex 検証環境の摩擦であり、通常 install 手順の必須設定ではありません |
+| クラウド開発環境 / AI エージェント / CI などの制限付き環境で `uv` cache 書き込みや Git ownership warning が出る | 通常のローカル端末で再実行するか、必要に応じて書き込み可能な local cache を `UV_CACHE_DIR` に指定します。これは利用中の検証環境の制限による摩擦であり、通常 install 手順の必須設定ではありません |
 | install 中に `npm audit` vulnerability が表示される | npm の依存監査警告です。現在の install / readiness / no-live smoke の pass/fail 判定とは別に読みます。公開運用や依存更新の前には、対象 organ で別途 `npm audit` と影響範囲を確認してください |
 | 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見る |
 | Dify compatibility が表示される | 通常の Thought Core 経路では Dify は必須ではありません。debug mode だけで確認します |
