@@ -437,6 +437,63 @@
           "expect": "exists"
         },
         {
+          "id": "aituber_kit.adapter_inventory",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "docs/aituberkit-sword-adapter-inventory.md",
+          "expect": "exists"
+        },
+        {
+          "id": "aituber_kit.adapter_prepare_dry_run",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/prepare-aituberkit-sword-adapter.ps1",
+            "-DryRun"
+          ],
+          "expect_exit_code": 0
+        },
+        {
+          "id": "aituber_kit.projection_query_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/expression/aituber-kit/src/utils/projectionVisualQuery.ts",
+          "expect": "exists"
+        },
+        {
+          "id": "aituber_kit.projection_display_state_api_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/expression/aituber-kit/src/pages/api/projectionDisplayState.ts",
+          "expect": "exists"
+        },
+        {
+          "id": "aituber_kit.thought_core_chat_api_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/expression/aituber-kit/src/pages/api/thoughtCoreChat.ts",
+          "expect": "exists"
+        },
+        {
+          "id": "aituber_kit.projection_hud_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/expression/aituber-kit/src/components/projectionVisualHud.tsx",
+          "expect": "exists"
+        },
+        {
+          "id": "aituber_kit.projection_display_state_bridge_source",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/expression/aituber-kit/src/components/projectionVisualDisplayStateBridge.tsx",
+          "expect": "exists"
+        },
+        {
           "id": "aituber_kit.projection_visual_context_source",
           "mode": "auto",
           "type": "path_exists",

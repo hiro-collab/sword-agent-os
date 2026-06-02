@@ -612,6 +612,38 @@ foreach ($source in @($organManifest.sources | Where-Object { [string]$_.adoptio
     Assert-True ([string](Get-OptionalProperty -Object $releaseComponent -Name "upstream_release_tag" -Default "") -eq [string](Get-OptionalProperty -Object $source -Name "upstream_release_tag" -Default "")) "organ $($source.organ_id) upstream_release_tag must match release"
   }
 }
+
+$aituberSource = $organManifest.sources | Where-Object { [string]$_.organ_id -eq "aituber-kit" } | Select-Object -First 1
+$aituberRelease = $releaseManifest.components | Where-Object { [string]$_.component_id -eq "aituber-kit" } | Select-Object -First 1
+Assert-True ($null -ne $aituberSource) "AITuberKit source manifest entry missing"
+Assert-True ($null -ne $aituberRelease) "AITuberKit release component missing"
+$aituberFields = @(
+  "upstream_release_commit",
+  "sword_adapter_version",
+  "patchset_id",
+  "patchset_version",
+  "compatibility_status",
+  "contract_test_pack",
+  "proof_level",
+  "runtime_reflection_status",
+  "adapter_inventory_path"
+)
+foreach ($fieldName in $aituberFields) {
+  $sourceValue = [string](Get-OptionalProperty -Object $aituberSource -Name $fieldName -Default "")
+  $releaseValue = [string](Get-OptionalProperty -Object $aituberRelease -Name $fieldName -Default "")
+  Assert-True (-not [string]::IsNullOrWhiteSpace($sourceValue)) "AITuberKit source missing $fieldName"
+  Assert-True ($sourceValue -eq $releaseValue) "AITuberKit $fieldName must match release"
+  Assert-True (Test-SafeManifestText -Value $sourceValue) "AITuberKit $fieldName is unsafe"
+}
+Assert-True ([string](Get-OptionalProperty -Object $aituberSource -Name "upstream_release_commit" -Default "") -match "^[0-9a-f]{40}$") "AITuberKit upstream_release_commit must be a full SHA"
+Assert-True (Test-SemVer -Value ([string](Get-OptionalProperty -Object $aituberSource -Name "sword_adapter_version" -Default ""))) "AITuberKit sword_adapter_version must be semver"
+Assert-True (Test-SemVer -Value ([string](Get-OptionalProperty -Object $aituberSource -Name "patchset_version" -Default ""))) "AITuberKit patchset_version must be semver"
+Assert-True ([string](Get-OptionalProperty -Object $aituberSource -Name "proof_level" -Default "") -in @("source-static", "browser-local", "runtime-reflected", "live-pilot")) "AITuberKit proof_level is invalid"
+Assert-True ([string](Get-OptionalProperty -Object $aituberSource -Name "runtime_reflection_status" -Default "") -in @("not-proven", "proven", "blocked", "not-required")) "AITuberKit runtime_reflection_status is invalid"
+$aituberInventoryPath = [string](Get-OptionalProperty -Object $aituberSource -Name "adapter_inventory_path" -Default "")
+Assert-True (Test-SafeManifestPath -Path $aituberInventoryPath) "AITuberKit adapter_inventory_path is unsafe"
+Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath $aituberInventoryPath) -PathType Leaf) "AITuberKit adapter inventory file missing"
+
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/system.ps1") -PathType Leaf) "runtime system facade missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-runtime-reflex.ps1") -PathType Leaf) "runtime reflex checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-conscious-readiness.ps1") -PathType Leaf) "conscious readiness checker missing"
@@ -620,6 +652,7 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-launch-r
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/start-launcher.ps1") -PathType Leaf) "launcher start wrapper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/stop-launcher.ps1") -PathType Leaf) "launcher stop wrapper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/prepare-compat-launch.ps1") -PathType Leaf) "compat launch preparation script missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/prepare-aituberkit-sword-adapter.ps1") -PathType Leaf) "AITuberKit adapter preparation script missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-compat-smoke.ps1") -PathType Leaf) "compat launch smoke script missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/update-diagnostics-status.ps1") -PathType Leaf) "diagnostics status writer missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/read-diagnostics-status.ps1") -PathType Leaf) "diagnostics status reader missing"

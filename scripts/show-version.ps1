@@ -87,8 +87,17 @@ Write-Host ("  Components   : {0}" -f $payload.component_count)
 foreach ($component in @($payload.components)) {
   $linkage = [string](Get-OptionalProperty -Object $component -Name "version_linkage" -Default "")
   $releaseTag = [string](Get-OptionalProperty -Object $component -Name "upstream_release_tag" -Default "")
+  $adapterVersion = [string](Get-OptionalProperty -Object $component -Name "sword_adapter_version" -Default "")
+  $proofLevel = [string](Get-OptionalProperty -Object $component -Name "proof_level" -Default "")
+  $extra = ""
+  if (-not [string]::IsNullOrWhiteSpace($adapterVersion)) {
+    $extra = ", adapter $adapterVersion"
+  }
+  if (-not [string]::IsNullOrWhiteSpace($proofLevel)) {
+    $extra = "$extra, $proofLevel"
+  }
   if ($linkage -eq "official-upstream-release-tag" -and -not [string]::IsNullOrWhiteSpace($releaseTag)) {
-    Write-Host ("    - {0} {1} [{2}] ({3})" -f $component.component_id, $component.component_version, $component.component_role, $releaseTag)
+    Write-Host ("    - {0} {1} [{2}] ({3}{4})" -f $component.component_id, $component.component_version, $component.component_role, $releaseTag, $extra)
   }
   else {
     Write-Host ("    - {0} {1} [{2}]" -f $component.component_id, $component.component_version, $component.component_role)

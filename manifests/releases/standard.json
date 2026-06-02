@@ -5,7 +5,7 @@
   "release_name": "Standard Local System Cell",
   "release_channel": "local-standard",
   "distribution_id": "standard",
-  "distribution_version": "0.1.5",
+  "distribution_version": "0.1.6",
   "body_plan_id": "system_cell_v0",
   "body_plan_version": "0.1.0",
   "versioning_policy": {
@@ -65,10 +65,19 @@
       "version_linkage": "official-upstream-release-tag",
       "upstream_repo_url": "https://github.com/tegnike/aituber-kit.git",
       "upstream_release_tag": "v2.43.2",
+      "upstream_release_commit": "abe1f7954e6c6ddd8afcc44ccbf9df7d408a4f62",
       "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
       "fork_repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "fork_branch": "experiment/aituber-gesture-voice-bridge",
-      "fork_commit": "6ac3cc17f13b0c2aa2379095d0c90a068ee85c7f"
+      "fork_commit": "6ac3cc17f13b0c2aa2379095d0c90a068ee85c7f",
+      "sword_adapter_version": "0.1.0",
+      "patchset_id": "sword-aituberkit",
+      "patchset_version": "0.1.0",
+      "compatibility_status": "compatible-with-known-sword-patchset",
+      "contract_test_pack": "aituberkit-upstream-wrapper-v0",
+      "proof_level": "source-static",
+      "runtime_reflection_status": "not-proven",
+      "adapter_inventory_path": "docs/aituberkit-sword-adapter-inventory.md"
     },
     {
       "component_id": "touchdesigner-ai-controller",

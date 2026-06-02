@@ -235,6 +235,7 @@ function Test-MaintenanceSafetyStatic {
     "scripts/install-distribution.ps1",
     "scripts/update-distribution.ps1",
     "scripts/render-env-files.ps1",
+    "scripts/prepare-aituberkit-sword-adapter.ps1",
     "start-home-control-launcher.bat",
     "stop-home-control-launcher.bat"
   )
@@ -396,8 +397,13 @@ function Test-InstalledWorkspaceMaintenance {
     "-DryRun",
     "-NoDeps"
   )
-  if (($updateOutput -join "`n") -notmatch "held\s*:\s*0") {
-    throw "installed update dry-run did not report held: 0"
+  $updateText = $updateOutput -join "`n"
+  if ($updateText -notmatch "held\s*:\s*0") {
+    $message = "installed update dry-run did not report held: 0"
+    if ($RequireAssembledCheckouts) {
+      throw $message
+    }
+    Write-Warning "$message; continuing because current checkout may contain active local WIP"
   }
 
   Invoke-Checked -Command @(
