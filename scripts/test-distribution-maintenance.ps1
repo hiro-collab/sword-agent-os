@@ -702,6 +702,7 @@ function Test-EnvRenderFixtures {
 
     Set-Content -LiteralPath $centralTemplate -Value @(
       "TOKEN=central-token",
+      "FIXTURE_TARGET__TOKEN=scoped-token",
       "KEEP=central-keep"
     ) -Encoding utf8
 
@@ -792,7 +793,7 @@ function Test-EnvRenderFixtures {
     Assert-PathPresent -Path $centralEnv
     Assert-PathPresent -Path $targetEnv
     Assert-PathPresent -Path $targetConfig
-    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "TOKEN=central-token" -Message "target env did not inherit central value"
+    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "TOKEN=scoped-token" -Message "target env did not inherit scoped central value"
 
     Set-Content -LiteralPath $targetEnv -Value "TOKEN=operator-override" -Encoding utf8
     Invoke-Checked -Command @(
@@ -814,7 +815,7 @@ function Test-EnvRenderFixtures {
       $manifestPath,
       "-Force"
     ) | Out-Null
-    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "TOKEN=central-token" -Message "target env was not refreshed with -Force"
+    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "TOKEN=scoped-token" -Message "target env was not refreshed with scoped value under -Force"
   }
   finally {
     Remove-FreshTestRoot -Path $root
