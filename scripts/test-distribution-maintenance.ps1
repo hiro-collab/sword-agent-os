@@ -507,6 +507,65 @@ function Test-UpdateFixtureHoldBehavior {
     Assert-TextMatch -Text $generatedText -Pattern "\?\? uv\.lock" -Message "untracked uv.lock generated artifact was not reported"
     Assert-TextMatch -Text $generatedText -Pattern "held\s*:\s*0" -Message "generated-only fixture should not be held"
 
+    $cleanUpdateRemote = Join-Path $root "clean-update-remote"
+    New-LocalGitRepository -Path $cleanUpdateRemote | Out-Null
+    $cleanUpdateCheckout = Join-Path $root "clean-update-checkout"
+    Invoke-Checked -Command @("git", "clone", $cleanUpdateRemote, $cleanUpdateCheckout) -WorkingDirectory $root | Out-Null
+    $cleanUpdateOldHead = ((Invoke-Checked -Command @("git", "-C", $cleanUpdateCheckout, "rev-parse", "HEAD") | Select-Object -First 1) -join "").Trim()
+    Set-Content -LiteralPath (Join-Path $cleanUpdateRemote "README.md") -Value "fixture repository updated" -Encoding utf8
+    Invoke-Checked -Command @("git", "-C", $cleanUpdateRemote, "add", "README.md") | Out-Null
+    Invoke-Checked -Command @(
+      "git",
+      "-C",
+      $cleanUpdateRemote,
+      "-c",
+      "user.name=Sword Agent OS Maintenance Test",
+      "-c",
+      "user.email=maintenance-test@example.invalid",
+      "commit",
+      "-q",
+      "-m",
+      "fixture update commit"
+    ) | Out-Null
+    $cleanUpdateExpected = ((Invoke-Checked -Command @("git", "-C", $cleanUpdateRemote, "rev-parse", "HEAD") | Select-Object -First 1) -join "").Trim()
+    if ($cleanUpdateOldHead -eq $cleanUpdateExpected) {
+      throw "clean update fixture failed to create a newer manifest pin"
+    }
+    $cleanUpdateManifest = New-UpdateFixtureManifest -Root $root -TargetPath $cleanUpdateCheckout -Commit $cleanUpdateExpected -Id "clean-update"
+    $cleanDryRunOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "update-distribution.ps1"),
+      "-DistributionManifestPath",
+      $cleanUpdateManifest,
+      "-DryRun",
+      "-NoDeps",
+      "-NoEnv"
+    )
+    $cleanDryRunText = $cleanDryRunOutput -join "`n"
+    Assert-TextMatch -Text $cleanDryRunText -Pattern "update planned: control-plane:clean-update" -Message "clean wrong-commit checkout should plan an update"
+    Assert-TextMatch -Text $cleanDryRunText -Pattern "planned\s*:\s*1" -Message "clean wrong-commit dry run should report planned: 1"
+    Assert-TextMatch -Text $cleanDryRunText -Pattern "held\s*:\s*0" -Message "clean wrong-commit dry run should not be held"
+    $cleanRealUpdateOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "update-distribution.ps1"),
+      "-DistributionManifestPath",
+      $cleanUpdateManifest,
+      "-NoDeps",
+      "-NoEnv"
+    )
+    $cleanRealUpdateText = $cleanRealUpdateOutput -join "`n"
+    Assert-TextMatch -Text $cleanRealUpdateText -Pattern "updated: control-plane:clean-update" -Message "clean wrong-commit checkout should fast-forward to the manifest pin"
+    Assert-TextMatch -Text $cleanRealUpdateText -Pattern "updated\s*:\s*1" -Message "clean wrong-commit real update should report updated: 1"
+    Assert-TextMatch -Text $cleanRealUpdateText -Pattern "held\s*:\s*0" -Message "clean wrong-commit real update should not be held"
+    $cleanUpdateNewHead = ((Invoke-Checked -Command @("git", "-C", $cleanUpdateCheckout, "rev-parse", "HEAD") | Select-Object -First 1) -join "").Trim()
+    if ($cleanUpdateNewHead -ne $cleanUpdateExpected) {
+      throw "clean update fixture did not reach manifest pin: expected $cleanUpdateExpected, got $cleanUpdateNewHead"
+    }
+
     $dirtyRepo = Join-Path $root "dirty-checkout"
     $dirtyHead = New-LocalGitRepository -Path $dirtyRepo
     Set-Content -LiteralPath (Join-Path $dirtyRepo "README.md") -Value "tracked dirty change" -Encoding utf8
@@ -848,8 +907,14 @@ function New-NativeLaunchWorkspaceFixture {
     "HOME_CONTROL_API_TOKEN=",
     "ENVIRONMENT_API_TOKEN="
   ) -Encoding utf8
-  Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\.env") -Value "THOUGHT_CORE_LLM_MODE=off" -Encoding utf8
-  Set-Content -LiteralPath (Join-Path $Root "organs\expression\aituber-kit\.env") -Value "VOICEVOX_SERVER_URL=http://127.0.0.1:50021" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\.env") -Value @(
+    "THOUGHT_CORE_LLM_MODE=off",
+    "THOUGHT_CORE_TOOLS_ADAPTER=mock"
+  ) -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "organs\expression\aituber-kit\.env") -Value @(
+    "VOICEVOX_SERVER_URL=http://127.0.0.1:50021",
+    "NEXT_PUBLIC_SELECTED_VRM_PATH=/vrm/fixture.vrm"
+  ) -Encoding utf8
   Set-Content -LiteralPath (Join-Path $Root "organs\reflex\mediapipe-sword-sign\gesture_model.pkl") -Value "fixture" -Encoding utf8
   Set-Content -LiteralPath (Join-Path $Root "organs\reflex\mediapipe-sword-sign\scripts\camera_hub_stack.py") -Value "" -Encoding utf8
   Set-Content -LiteralPath (Join-Path $Root "organs\reflex\mediapipe-sword-sign\scripts\start_camera_hub_stack.bat") -Value "" -Encoding utf8
@@ -970,6 +1035,8 @@ function Test-NativeLaunchLayoutFixtures {
       "start",
       "-Profile",
       "thought-core-v0",
+      "-ThoughtCorePort",
+      "39787",
       "-StackStateDir",
       (Join-Path $workspace ".cache\home-control-stack"),
       "-SkipDify",
@@ -1004,6 +1071,8 @@ function Test-NativeLaunchLayoutFixtures {
       "start",
       "-Profile",
       "thought-core-v0",
+      "-ThoughtCorePort",
+      "39788",
       "-StackStateDir",
       (Join-Path $workspace ".cache\home-control-stack-preferred"),
       "-SkipDify",
