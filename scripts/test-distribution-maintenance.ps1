@@ -376,6 +376,20 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "install/readiness pass" -Message "README should separate first-run report proof layers"
   Assert-TextMatch -Text $readme -Pattern "gesture-to-voice-input" -Message "README should separate gesture-to-voice gate proof"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
+  Assert-TextMatch -Text $readme -Pattern "run-local-media-replay\.ps1" -Message "README should document the local media replay preview helper"
+  Assert-TextMatch -Text $readme -Pattern "local-media replay" -Message "README should name local-media replay as a separate proof layer"
+  Assert-TextMatch -Text $readme -Pattern "gesture\.sword\.20260603" -Message "README should show the sword-sign positive local media asset id"
+  Assert-TextMatch -Text $readme -Pattern "vision\.room_light\.on\.20260603" -Message "README should show the room-light local media asset id"
+  Assert-TextMatch -Text $readme -Pattern "raw_media_shared=false" -Message "README should show raw media is not shared in local-media results"
+  Assert-TextMatch -Text $readme -Pattern "generated_output_written=false" -Message "README should show preview helper does not write generated output"
+  $localMediaHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-local-media-replay.ps1")
+  Assert-TextMatch -Text $localMediaHelper -Pattern "local/media/media-index\.json" -Message "local media helper should resolve the local media index"
+  Assert-TextMatch -Text $localMediaHelper -Pattern "raw_media_shared=false" -Message "local media helper should print raw_media_shared=false"
+  Assert-TextMatch -Text $localMediaHelper -Pattern "raw_transcript_shared=false" -Message "local media helper should print raw_transcript_shared=false"
+  Assert-TextMatch -Text $localMediaHelper -Pattern "generated_output_written=false" -Message "local media helper should print generated_output_written=false"
+  Assert-TextMatch -Text $localMediaHelper -Pattern "live_action_executed=false" -Message "local media helper should print live_action_executed=false"
+  Assert-TextMatch -Text $localMediaHelper -Pattern "<workspace>" -Message "local media helper should use placeholders instead of private absolute paths"
+  Assert-TextMatch -Text $localMediaHelper -Pattern "<workspace-uri>" -Message "room-light preview should use a placeholder file URI"
   Write-Host "README first-run guidance static ok"
 }
 

@@ -226,6 +226,24 @@ pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -Mediapip
 実カメラで Camera Hub / gesture proof を見る場合は、別 lane としてカメラ権限、
 `gesture_model.pkl`、media source、runtime/browser 状態を確認してください。
 
+準備済みローカルメディアがある環境では、no-live/mock install-readiness の後に
+任意の local-media replay preview を挟めます。これは private な `local/media/`
+を使う repeatability lane で、asset id と redacted summary だけを扱います。
+raw video、raw audio、frame、transcript、private absolute path は共有しません。
+
+```powershell
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.sword.20260603
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.victory.20260603
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.open_hand.20260603
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode room-light -AssetId vision.room_light.on.20260603
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode room-light -AssetId vision.room_light.off.20260603
+```
+
+`run-local-media-replay.ps1` は command-preview-only helper です。`local/media/media-index.json`
+を asset id で読み、Camera Hub replay や room-light replay の command shape を
+`<workspace>` placeholder 付きで表示します。メディア再生、実カメラ/実マイク起動、
+generated output 作成、live Home Assistant 実行は行いません。
+
 よく使うオプション:
 
 | オプション | 用途 |
@@ -861,6 +879,40 @@ pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -Mediapip
 proof ではありません。`-RunSafeIntegrationProbes` は mock/no-live の安全 probe を
 含みますが、`THOUGHT_CORE_TOOLS_ADAPTER=mock` のままなら実 Home Assistant へは
 送信しません。
+
+### optional / local-media replay preview
+
+ローカルに `local/media/README.md` と `local/media/media-index.json` がある場合は、
+asset id を指定して replay command を preview できます。この preview は
+`local-media replay` proof layer の準備であり、実カメラ、実マイク、browser runtime、
+virtual audio、live Home Assistant、long-run/stress proof ではありません。
+
+```powershell
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.sword.20260603
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.victory.20260603
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.open_hand.20260603
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode room-light -AssetId vision.room_light.on.20260603
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode room-light -AssetId vision.room_light.off.20260603
+```
+
+結果共有では次の形を使います。
+
+```text
+asset_id=<id>
+proof_layer=local-media replay
+result=<pass|fail|blocked|preview-only>
+summary=<redacted counts/status labels only>
+raw_media_shared=false
+raw_transcript_shared=false
+generated_output_written=false
+live_action_executed=false
+```
+
+この lane で local media を再生する場合も、raw media、frame、audio、transcript、
+private absolute path は共有しません。gesture positive replay、gesture contrast
+false-positive、room-light on/off replay は local-media replay proof です。gesture-to-voice
+gate、STT/input、Thought Core turn、real camera、real mic、browser runtime、
+ticketed live appliance action は別 proof layer として分けて報告してください。
 
 ### optional / runtime-browser
 
