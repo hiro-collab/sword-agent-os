@@ -68,6 +68,59 @@ function Invoke-Step {
   }
 }
 
+function Write-InstallText {
+  param(
+    [string]$Text = "",
+    [ConsoleColor]$Color = [ConsoleColor]::Gray
+  )
+  if ([string]::IsNullOrEmpty($Text)) {
+    Write-Host ""
+  }
+  else {
+    Write-Host $Text -ForegroundColor $Color
+  }
+}
+
+function Write-InstallBanner {
+  param([Parameter(Mandatory = $true)]$Manifest)
+  $modeParts = @()
+  if ($DryRun) { $modeParts += "dry-run" }
+  if ($VerifyOnly) { $modeParts += "verify-only" }
+  if ($NoDeps) { $modeParts += "no-deps" }
+  if ($NoEnv) { $modeParts += "no-env" }
+  if ($ForceEnv) { $modeParts += "force-env" }
+  if ($VerifyRemote) { $modeParts += "verify-remote" }
+  if ($modeParts.Count -eq 0) {
+    $modeParts += "install"
+  }
+  $modeLabel = $modeParts -join ", "
+
+  Write-InstallText "+------------------------------------------------------------+" Cyan
+  Write-InstallText "| WELCOME TO SWORD AGENT OS                                 |" Cyan
+  Write-InstallText "| Local AI body OS distribution setup                       |" DarkCyan
+  Write-InstallText "+------------------------------------------------------------+" Cyan
+  Write-InstallText ("  Profile : {0}" -f $Profile) Yellow
+  Write-InstallText ("  Mode    : {0}" -f $modeLabel) Yellow
+  Write-InstallText ("  Repo    : {0}" -f $RepoRoot) DarkGray
+  Write-InstallText ("  Manifest: {0}" -f $DistributionManifestPath) DarkGray
+  Write-InstallText ""
+  Write-InstallText "This installer will prepare the control plane, organs, local env bridge, and dependency layer." Gray
+  Write-InstallText "Secrets and machine-local values stay in local/ and generated .env files." Gray
+}
+
+function Write-InstallSection {
+  param(
+    [Parameter(Mandatory = $true)][string]$Index,
+    [Parameter(Mandatory = $true)][string]$Title,
+    [string]$Detail = ""
+  )
+  Write-InstallText ""
+  Write-InstallText ("[{0}] {1}" -f $Index, $Title) Cyan
+  if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+    Write-InstallText ("    {0}" -f $Detail) DarkGray
+  }
+}
+
 function Test-ToolRequirements {
   param(
     [Parameter(Mandatory = $true)]$Manifest,
@@ -160,7 +213,7 @@ function Invoke-DependencyInstall {
 function Write-ManualAssets {
   param([Parameter(Mandatory = $true)]$Manifest)
   Write-Host ""
-  Write-Host "Manual assets / local secrets still required:"
+  Write-InstallText "Manual assets / local secrets still required:" Yellow
   foreach ($asset in @(Get-OptionalProperty -Object $Manifest -Name "manual_assets" -Default @())) {
     Write-Host "- $($asset.id): $($asset.detail)"
   }
@@ -172,51 +225,48 @@ if ([string]::IsNullOrWhiteSpace($DistributionManifestPath)) {
 
 $manifest = Read-JsonFile -Path $DistributionManifestPath
 
-Write-Host "Sword Agent OS distribution install"
-Write-Host "  Repo root: $RepoRoot"
-Write-Host "  Profile  : $Profile"
-Write-Host "  Manifest : $DistributionManifestPath"
-Write-Host ""
+Write-InstallBanner -Manifest $manifest
 
+Write-InstallSection -Index "1/5" -Title "Tool preflight" -Detail "Checking required commands before touching the distribution."
 Test-ToolRequirements -Manifest $manifest -SkipDependencyTools:($NoDeps -or $VerifyOnly)
 
 if ($VerifyOnly) {
-  Write-Host ""
-  Write-Host "VerifyOnly: checking manifests and organ readiness without cloning, env rendering, or dependency install."
+  Write-InstallSection -Index "2/5" -Title "Verification only" -Detail "Checking manifests and organ readiness without clone, env render, or dependency install."
   Invoke-Step -Command @("pwsh", "-NoProfile", "-File", (Join-Path $PSScriptRoot "validate-manifests.ps1"))
   Invoke-Step -Command @("pwsh", "-NoProfile", "-File", (Join-Path $PSScriptRoot "check-organ-readiness.ps1"))
   Write-ManualAssets -Manifest $manifest
   return
 }
 
-Write-Host ""
-Write-Host "Bootstrap checkouts"
+Write-InstallSection -Index "2/5" -Title "Bootstrap checkouts" -Detail "Preparing control plane and organ repositories."
 Invoke-Bootstrap -Manifest $manifest
 
 if (-not $NoEnv) {
-  Write-Host ""
-  Write-Host "Render local env/config files"
+  Write-InstallSection -Index "3/5" -Title "Local env bridge" -Detail "Rendering missing .env and local config files without overwriting by default."
   Invoke-EnvRender
 }
 else {
+  Write-InstallSection -Index "3/5" -Title "Local env bridge" -Detail "Skipped by -NoEnv."
   Write-Host "env rendering skipped: -NoEnv"
 }
 
 if (-not $NoDeps) {
-  Write-Host ""
-  Write-Host "Install dependencies"
+  Write-InstallSection -Index "4/5" -Title "Dependency layer" -Detail "Installing or refreshing Python and web dependencies."
   Invoke-DependencyInstall -Manifest $manifest
 }
 else {
+  Write-InstallSection -Index "4/5" -Title "Dependency layer" -Detail "Skipped by -NoDeps."
   Write-Host "dependency install skipped: -NoDeps"
 }
 
-Write-Host ""
-Write-Host "Validate manifests"
+Write-InstallSection -Index "5/5" -Title "Manifest validation" -Detail "Checking that the assembled distribution still matches OS contracts."
 Invoke-Step -Command @("pwsh", "-NoProfile", "-File", (Join-Path $PSScriptRoot "validate-manifests.ps1"))
 
 Write-ManualAssets -Manifest $manifest
 
 Write-Host ""
-Write-Host "Done. Start the launcher with:"
+Write-InstallText "+------------------------------------------------------------+" Green
+Write-InstallText "| SWORD AGENT OS IS READY FOR FIRST LAUNCH                  |" Green
+Write-InstallText "+------------------------------------------------------------+" Green
+Write-InstallText "Next command:" Yellow
 Write-Host "  .\start-home-control-launcher.bat"
