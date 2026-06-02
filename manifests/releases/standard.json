@@ -5,11 +5,12 @@
   "release_name": "Standard Local System Cell",
   "release_channel": "local-standard",
   "distribution_id": "standard",
-  "distribution_version": "0.1.1",
+  "distribution_version": "0.1.2",
   "body_plan_id": "system_cell_v0",
   "body_plan_version": "0.1.0",
   "versioning_policy": {
     "human_version": "Semantic versions describe OS, distribution, and organ package compatibility.",
+    "external_release_linkage": "External upstream projects may use official Git release tags when their package metadata is not the authoritative release version.",
     "source_identity": "Git commit pins in control-plane and organ source manifests describe the exact implementation revision.",
     "bump_guidance": "Bump distribution_version when the standard install/update surface changes; bump os_version when runtime contracts, body plan, or cross-organ compatibility changes."
   },
@@ -59,8 +60,15 @@
     {
       "component_id": "aituber-kit",
       "component_role": "expression",
-      "component_version": "0.1.0",
-      "version_source": "organs/expression/aituber-kit/package.json"
+      "component_version": "2.43.2",
+      "version_source": "official upstream release tag",
+      "version_linkage": "official-upstream-release-tag",
+      "upstream_repo_url": "https://github.com/tegnike/aituber-kit.git",
+      "upstream_release_tag": "v2.43.2",
+      "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
+      "fork_repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
+      "fork_branch": "experiment/aituber-gesture-voice-bridge",
+      "fork_commit": "6ac3cc17f13b0c2aa2379095d0c90a068ee85c7f"
     },
     {
       "component_id": "touchdesigner-ai-controller",

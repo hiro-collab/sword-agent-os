@@ -105,14 +105,18 @@
       "organ_role": "expression",
       "logical_role": "apps/aituber-ui",
       "target_path": "organs/expression/aituber-kit",
-      "component_version": "0.1.0",
-      "version_source": "organs/expression/aituber-kit/package.json",
+      "component_version": "2.43.2",
+      "version_source": "official upstream release tag",
+      "version_linkage": "official-upstream-release-tag",
+      "upstream_repo_url": "https://github.com/tegnike/aituber-kit.git",
+      "upstream_release_tag": "v2.43.2",
+      "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
       "repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "branch": "experiment/aituber-gesture-voice-bridge",
       "commit": "6ac3cc17f13b0c2aa2379095d0c90a068ee85c7f",
       "adoption": "standard_candidate",
       "legacy_path": "organs/expression/aituber-kit",
-      "notes": "Projection Visual, HUD, avatar speech queue, and AITuber UI. Use the fork remote, not upstream origin."
+      "notes": "Projection Visual, HUD, avatar speech queue, and AITuber UI. Use the fork remote for installation, and the official upstream release tag for the human-facing component version."
     },
     {
       "organ_id": "touchdesigner-ai-controller",

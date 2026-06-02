@@ -124,6 +124,29 @@ function Read-LocalComponentVersion {
   return $null
 }
 
+function Get-UpstreamReleaseVersion {
+  param(
+    [Parameter(Mandatory = $true)]$Object,
+    [Parameter(Mandatory = $true)][string]$Context
+  )
+  $versionLinkage = [string](Get-OptionalProperty -Object $Object -Name "version_linkage" -Default "")
+  $upstreamRepoUrl = [string](Get-OptionalProperty -Object $Object -Name "upstream_repo_url" -Default "")
+  $upstreamReleaseTag = [string](Get-OptionalProperty -Object $Object -Name "upstream_release_tag" -Default "")
+  $upstreamReleaseUrl = [string](Get-OptionalProperty -Object $Object -Name "upstream_release_url" -Default "")
+
+  Assert-True ($versionLinkage -eq "official-upstream-release-tag") "$Context has invalid version_linkage"
+  Assert-True (-not [string]::IsNullOrWhiteSpace($upstreamRepoUrl)) "$Context missing upstream_repo_url"
+  Assert-True (-not [string]::IsNullOrWhiteSpace($upstreamReleaseTag)) "$Context missing upstream_release_tag"
+  Assert-True (-not [string]::IsNullOrWhiteSpace($upstreamReleaseUrl)) "$Context missing upstream_release_url"
+  Assert-True (Test-SafeManifestText -Value $upstreamRepoUrl) "$Context upstream_repo_url is unsafe"
+  Assert-True (Test-SafeManifestText -Value $upstreamReleaseTag) "$Context upstream_release_tag is unsafe"
+  Assert-True (Test-SafeManifestText -Value $upstreamReleaseUrl) "$Context upstream_release_url is unsafe"
+  Assert-True ($upstreamReleaseTag -match "^v?[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$") "$Context upstream_release_tag must be semver-like"
+  $version = $upstreamReleaseTag -replace "^v", ""
+  Assert-True (Test-SemVer -Value $version) "$Context upstream_release_tag must resolve to semver"
+  return $version
+}
+
 function Test-SafeHttpPath {
   param([string]$Path)
   if ([string]::IsNullOrWhiteSpace($Path)) {
@@ -502,6 +525,10 @@ foreach ($source in $organManifest.sources) {
   if ([string]$source.adoption -ne "deferred_reference") {
     Assert-True (Test-SemVer -Value ([string]$source.component_version)) "organ $($source.organ_id) component_version must be semver"
     Assert-True (Test-SafeManifestText -Value ([string]$source.version_source)) "organ $($source.organ_id) version_source is unsafe"
+    if ([string](Get-OptionalProperty -Object $source -Name "version_linkage" -Default "") -eq "official-upstream-release-tag") {
+      $sourceUpstreamVersion = Get-UpstreamReleaseVersion -Object $source -Context "organ $($source.organ_id)"
+      Assert-True ([string]$source.component_version -eq $sourceUpstreamVersion) "organ $($source.organ_id) component_version must match upstream_release_tag"
+    }
   }
 }
 
@@ -556,9 +583,15 @@ foreach ($component in @($releaseManifest.components)) {
   Assert-True (-not [string]::IsNullOrWhiteSpace([string]$component.component_id)) "release component missing id"
   Assert-True (Test-SemVer -Value ([string]$component.component_version)) "release component $($component.component_id) version must be semver"
   Assert-True (Test-SafeManifestText -Value ([string]$component.version_source)) "release component $($component.component_id) version_source is unsafe"
-  $localComponentVersion = Read-LocalComponentVersion -Path ([string]$component.version_source)
-  if (-not [string]::IsNullOrWhiteSpace($localComponentVersion)) {
-    Assert-True ([string]$component.component_version -eq $localComponentVersion) "release component $($component.component_id) version does not match $($component.version_source)"
+  if ([string](Get-OptionalProperty -Object $component -Name "version_linkage" -Default "") -eq "official-upstream-release-tag") {
+    $componentUpstreamVersion = Get-UpstreamReleaseVersion -Object $component -Context "release component $($component.component_id)"
+    Assert-True ([string]$component.component_version -eq $componentUpstreamVersion) "release component $($component.component_id) version must match upstream_release_tag"
+  }
+  else {
+    $localComponentVersion = Read-LocalComponentVersion -Path ([string]$component.version_source)
+    if (-not [string]::IsNullOrWhiteSpace($localComponentVersion)) {
+      Assert-True ([string]$component.component_version -eq $localComponentVersion) "release component $($component.component_id) version does not match $($component.version_source)"
+    }
   }
 }
 
@@ -566,13 +599,17 @@ Assert-True ([string]$controlPlaneReference.commit -match "^[0-9a-f]{40}$") "con
 Assert-True (-not [string]::IsNullOrWhiteSpace([string]$controlPlaneReference.target_path)) "control-plane reference missing target_path"
 Assert-True (Test-SemVer -Value ([string]$controlPlaneReference.component_version)) "control-plane component_version must be semver"
 Assert-True (Test-SafeManifestText -Value ([string]$controlPlaneReference.version_source)) "control-plane version_source is unsafe"
-$controlPlaneReleaseComponent = @($releaseManifest.components | Where-Object { [string]$_.component_id -eq [string]$controlPlaneReference.id } | Select-Object -First 1)
+$controlPlaneReleaseComponent = $releaseManifest.components | Where-Object { [string]$_.component_id -eq [string]$controlPlaneReference.id } | Select-Object -First 1
 Assert-True ($null -ne $controlPlaneReleaseComponent) "release missing control-plane version component"
 Assert-True ([string]$controlPlaneReleaseComponent.component_version -eq [string]$controlPlaneReference.component_version) "control-plane component_version must match release"
 foreach ($source in @($organManifest.sources | Where-Object { [string]$_.adoption -ne "deferred_reference" })) {
-  $releaseComponent = @($releaseManifest.components | Where-Object { [string]$_.component_id -eq [string]$source.organ_id } | Select-Object -First 1)
+  $releaseComponent = $releaseManifest.components | Where-Object { [string]$_.component_id -eq [string]$source.organ_id } | Select-Object -First 1
   Assert-True ($null -ne $releaseComponent) "release missing organ version component: $($source.organ_id)"
   Assert-True ([string]$releaseComponent.component_version -eq [string]$source.component_version) "organ $($source.organ_id) component_version must match release"
+  if ([string](Get-OptionalProperty -Object $source -Name "version_linkage" -Default "") -eq "official-upstream-release-tag") {
+    Assert-True ([string](Get-OptionalProperty -Object $releaseComponent -Name "version_linkage" -Default "") -eq [string](Get-OptionalProperty -Object $source -Name "version_linkage" -Default "")) "organ $($source.organ_id) version_linkage must match release"
+    Assert-True ([string](Get-OptionalProperty -Object $releaseComponent -Name "upstream_release_tag" -Default "") -eq [string](Get-OptionalProperty -Object $source -Name "upstream_release_tag" -Default "")) "organ $($source.organ_id) upstream_release_tag must match release"
+  }
 }
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/system.ps1") -PathType Leaf) "runtime system facade missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-runtime-reflex.ps1") -PathType Leaf) "runtime reflex checker missing"
@@ -614,6 +651,12 @@ if ($VerifyRemote) {
     Assert-True (-not [string]::IsNullOrWhiteSpace(($line -join ""))) "remote branch not found for organ $($source.organ_id): $($source.branch)"
     $remoteCommit = (($line | Select-Object -First 1) -split "`t")[0]
     Assert-True ($remoteCommit -eq [string]$source.commit) "remote commit mismatch for organ $($source.organ_id): expected $($source.commit), got $remoteCommit"
+    if ([string](Get-OptionalProperty -Object $source -Name "version_linkage" -Default "") -eq "official-upstream-release-tag") {
+      $upstreamRepoUrl = [string](Get-OptionalProperty -Object $source -Name "upstream_repo_url" -Default "")
+      $upstreamReleaseTag = [string](Get-OptionalProperty -Object $source -Name "upstream_release_tag" -Default "")
+      $tagLine = git ls-remote --tags $upstreamRepoUrl "refs/tags/$upstreamReleaseTag"
+      Assert-True (-not [string]::IsNullOrWhiteSpace(($tagLine -join ""))) "upstream release tag not found for organ $($source.organ_id): $upstreamReleaseTag"
+    }
   }
 
   $cpLine = git ls-remote ([string]$controlPlaneReference.repo_url) "refs/heads/$($controlPlaneReference.branch)"

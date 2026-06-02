@@ -104,7 +104,7 @@ Sword Agent OS は、読めるバージョンと再現可能なソース pin を
 | --- | --- | --- |
 | OS version | `manifests/releases/standard.json` | runtime contract、body plan、cross-organ compatibility の版 |
 | Distribution version | `manifests/distributions/standard.json` | 標準インストール/更新 surface の版 |
-| Organ component version | `manifests/releases/standard.json` と source manifest | 各 organ package の人間向け semver |
+| Organ component version | `manifests/releases/standard.json` と source manifest | 各 organ の人間向け semver |
 | Source pin | `manifests/legacy/control-plane-reference.json` / `manifests/organs/legacy-github.json` | 実際に取得する Git commit |
 
 標準構成では、installer 起動時に OS version、distribution version、release 名、
@@ -121,10 +121,11 @@ pwsh -NoProfile -File .\scripts\show-version.ps1 -Profile standard
 pwsh -NoProfile -File .\scripts\show-version.ps1 -Profile standard -Json
 ```
 
-各 organ は `pyproject.toml` または `package.json` の version を優先します。
-root package version がない organ は、Agent OS release manifest 側で
-component version を管理します。正確な実装同一性は、常に manifest の Git commit
-pin で確認します。
+各 organ は原則として `pyproject.toml` または `package.json` の version を優先します。
+ただし、AITuberKit のように公式 release/tag と package metadata が一致しない外部
+project は、公式 upstream の release tag を component version として扱います。実際に
+取得する source は fork の Git commit pin で管理するため、正確な実装同一性は常に
+manifest の commit pin で確認します。
 
 ## アップデート
 

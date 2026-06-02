@@ -85,5 +85,12 @@ Write-Host ("  Schemas      : {0} / {1}" -f $payload.release_schema, $payload.di
 Write-Host ("  Git revision : {0}" -f $payload.git_revision)
 Write-Host ("  Components   : {0}" -f $payload.component_count)
 foreach ($component in @($payload.components)) {
-  Write-Host ("    - {0} {1} [{2}]" -f $component.component_id, $component.component_version, $component.component_role)
+  $linkage = [string](Get-OptionalProperty -Object $component -Name "version_linkage" -Default "")
+  $releaseTag = [string](Get-OptionalProperty -Object $component -Name "upstream_release_tag" -Default "")
+  if ($linkage -eq "official-upstream-release-tag" -and -not [string]::IsNullOrWhiteSpace($releaseTag)) {
+    Write-Host ("    - {0} {1} [{2}] ({3})" -f $component.component_id, $component.component_version, $component.component_role, $releaseTag)
+  }
+  else {
+    Write-Host ("    - {0} {1} [{2}]" -f $component.component_id, $component.component_version, $component.component_role)
+  }
 }
