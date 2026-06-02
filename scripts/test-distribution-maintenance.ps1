@@ -369,6 +369,12 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $causeTrail -Pattern "live-ha-state" -Message "cause trail should separate Home Assistant state proof"
   Assert-TextMatch -Text $readme -Pattern "UV_CACHE_DIR" -Message "README should include uv cache troubleshooting guidance"
   Assert-TextMatch -Text $readme -Pattern "Git ownership warning" -Message "README should frame restricted-environment Git ownership warnings as validation friction"
+  Assert-TextMatch -Text $readme -Pattern '既存の `sword-agent-os` directory' -Message "README should explain existing clone directory handling"
+  Assert-TextMatch -Text $readme -Pattern "network permission" -Message "README should classify restricted environment network reruns"
+  Assert-TextMatch -Text $readme -Pattern "foreground の" -Message "README should explain Home Control bridge foreground behavior"
+  Assert-TextMatch -Text $readme -Pattern "status=submitted" -Message "README should explain submitted execute status"
+  Assert-TextMatch -Text $readme -Pattern "install/readiness pass" -Message "README should separate first-run report proof layers"
+  Assert-TextMatch -Text $readme -Pattern "gesture-to-voice-input" -Message "README should separate gesture-to-voice gate proof"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
   Write-Host "README first-run guidance static ok"
 }

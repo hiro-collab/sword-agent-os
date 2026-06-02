@@ -194,6 +194,15 @@ pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -DryR
 pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
 ```
 
+同じ test workspace に既存の `sword-agent-os` directory がある場合は、上書きせず、
+timestamp 付きの別 directory に clone するか、意図して clean にした workspace で
+やり直します。
+
+クラウド開発環境 / AI エージェント / CI などでは、GitHub clone、nested checkout、
+dependency download が network permission によって一度止まることがあります。
+README の install step として必要な同じ command なら、network permission を許可して
+再実行します。通常のローカル端末での install に管理者権限が必須という意味ではありません。
+
 `-DryRun` は clone / env 生成 / dependency install の予定だけを表示します。
 通常インストール後に利用者が最初に編集するファイルは
 `local\env\sword-agent-os.env` です。この中央 env から、各 organ の `.env`
@@ -736,9 +745,12 @@ pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 template から再生成します。live 用の config を使う場合は、この後に live config を
 再反映してください。ここを飛ばすと demo action や古い mapping のままになります。
 
-4. 別ターミナルで Home Control bridge を起動します。この helper は
+4. 別ターミナルで Home Control bridge を起動します。この helper は foreground の
+   long-running process で、停止するまでその terminal を使い続けます。
    `organs/action/home-assistant-server/.env` を読み込み、secret 値は表示しません。
    起動時に port、helper PID、log path ラベル、停止方法を表示します。
+   test では別 terminal か background terminal で起動し、停止するときはその test 用に
+   起動した bridge process だけを止めます。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1
@@ -785,6 +797,11 @@ Invoke-RestMethod `
   -Body '{"source":"first-run-live-pilot","request_id":"<ticket-id>-execute","dry_run":false}'
 ```
 
+execute response は `status=submitted` かつ `executed=true` で返ることがあります。
+これは操作要求が bridge から送信された層の結果であり、最終的に対象家電が期待状態に
+なった proof とは分けて扱います。preview、dry-run、execute、wait、Home Assistant
+state confirmation、独立した物理/カメラ確認を同じ green にまとめないでください。
+
 6. ticket で決めた反映待ちの間隔を待ち、Home Assistant state を helper で確認します。
    helper は action id、expected state、actual state、status だけを表示し、raw
    Home Assistant URL / entity / token は表示しません。
@@ -803,6 +820,10 @@ pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -Expect
 
 proof は層ごとに分けます。no-live/mock、live bridge、preview、execute、
 Home Assistant state confirmation、独立した物理/カメラ確認は同じ green ではありません。
+初回レポートでは、install/readiness pass、no-live/mock pass、real camera
+service/topic readiness、sword-sign positive gesture detection、gesture-to-voice-input
+gate transition、real microphone speech recognition、ticketed live appliance action、
+independent physical/camera confirmation を分けて書きます。
 
 ```text
 電気をつけて
@@ -846,6 +867,10 @@ proof ではありません。`-RunSafeIntegrationProbes` は mock/no-live の�
 Launch Manager、Start Stack、Projection Visual、AITuber Kit のブラウザ表示、マイク、
 実カメラ、VRM 表示は別の runtime/browser 確認です。README の install-readiness
 完了だけで browser UI proof まで完了したとは扱わないでください。
+画像やスクリーンショットを共有しなくても、sword-sign positive gesture detection は
+Camera Hub / gesture topic の positive event、timestamp、status label で、gesture から
+voice input gate への遷移は speech gate status と turn trace で示せます。raw camera image、
+raw screenshot、raw audio は local-only として扱います。
 
 ### live caution
 
@@ -871,6 +896,8 @@ Launch Manager、Start Stack、Projection Visual、AITuber Kit のブラウザ�
 | Environment State に家電情報が出ない | 中央 env の変更を `render-env-files.ps1 -Profile standard -Force` で organ `.env` へ反映したか確認。さらに `organs/action/home-assistant-server/config/home-control.yaml` が `home-control.example.yaml` と同じ demo 設定ではないか、`.cache/home_control/events.jsonl` に成功 action event があるか確認 |
 | `uv --env-file ..\home-assistant-server\.env` が失敗する | Windows では `uv --env-file` に渡す相対 backslash path が崩れることがあります。`$EnvPath = (Resolve-Path ..\home-assistant-server\.env).Path -replace "\\", "/"` のように forward slash 化した絶対 path を渡します |
 | クラウド開発環境 / AI エージェント / CI などの制限付き環境で `uv` cache 書き込みや Git ownership warning が出る | 通常のローカル端末で再実行するか、必要に応じて書き込み可能な local cache を `UV_CACHE_DIR` に指定します。これは利用中の検証環境の制限による摩擦であり、通常 install 手順の必須設定ではありません |
+| 制限付き環境で GitHub clone / nested checkout / dependency download が止まる | README の install step として必要な同じ command なら、network permission を許可して再実行します。通常のローカル install に管理者権限が必須という意味ではありません |
+| test workspace に `sword-agent-os` が既にある | 上書きせず timestamp 付き sibling directory に clone するか、意図して clean にした workspace でやり直します |
 | install 中に `npm audit` vulnerability が表示される | npm の依存監査警告です。現在の install / readiness / no-live smoke の pass/fail 判定とは別に読みます。公開運用や依存更新の前には、対象 organ で別途 `npm audit` と影響範囲を確認してください |
 | 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見る |
 | Dify compatibility が表示される | 通常の Thought Core 経路では Dify は必須ではありません。debug mode だけで確認します |
