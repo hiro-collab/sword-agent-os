@@ -239,6 +239,7 @@ function Test-MaintenanceSafetyStatic {
     "scripts/render-env-files.ps1",
     "scripts/start-home-control-bridge.ps1",
     "scripts/check-voicevox-readiness.ps1",
+    "scripts/evaluate-room-light-sunshine.ps1",
     "scripts/prepare-aituberkit-sword-adapter.ps1",
     "start-home-control-launcher.bat",
     "stop-home-control-launcher.bat"
@@ -387,6 +388,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "gesture-to-voice-input" -Message "README should separate gesture-to-voice gate proof"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
   Assert-TextMatch -Text $readme -Pattern "run-local-media-replay\.ps1" -Message "README should document the local media replay preview helper"
+  Assert-TextMatch -Text $readme -Pattern "evaluate-room-light-sunshine\.ps1" -Message "README should document the sunshine room-light evaluator"
   Assert-TextMatch -Text $readme -Pattern "check-voicevox-readiness\.ps1" -Message "README should document the VOICEVOX readiness helper"
   Assert-TextMatch -Text $readme -Pattern "run-full-install-verification\.ps1" -Message "README should document the full install verification helper"
   Assert-TextMatch -Text $readme -Pattern "default_safety=no-live/no-device" -Message "README should state the full verification helper default safety"
@@ -406,6 +408,15 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $localMediaHelper -Pattern "live_action_executed=false" -Message "local media helper should print live_action_executed=false"
   Assert-TextMatch -Text $localMediaHelper -Pattern "<workspace>" -Message "local media helper should use placeholders instead of private absolute paths"
   Assert-TextMatch -Text $localMediaHelper -Pattern "<workspace-uri>" -Message "room-light preview should use a placeholder file URI"
+  Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\evaluate-room-light-sunshine.ps1")
+  Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\evaluate-room-light-video.py")
+  $sunshineHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\evaluate-room-light-sunshine.ps1")
+  $sunshinePython = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\evaluate-room-light-video.py")
+  Assert-TextMatch -Text $sunshineHelper -Pattern "direct_file_helper" -Message "sunshine helper should report the direct-file route"
+  Assert-TextMatch -Text $sunshineHelper -Pattern 'raw_media_shared.*false|raw_media_shared = \$false' -Message "sunshine helper should not share raw media"
+  Assert-TextMatch -Text $sunshineHelper -Pattern 'generated_model_written.*false|generated_model_written = \$false' -Message "sunshine helper should not write generated models"
+  Assert-TextMatch -Text $sunshinePython -Pattern "cv2\.VideoCapture" -Message "sunshine evaluator should read video frames through OpenCV"
+  Assert-TextMatch -Text $sunshinePython -Pattern "generated_frames_written" -Message "sunshine evaluator should report that generated frames were not written"
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\run-full-install-verification.ps1")
   $fullInstallHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-full-install-verification.ps1")
   Assert-TextMatch -Text $fullInstallHelper -Pattern "default_safety=no-live/no-device" -Message "full install helper should report default no-live/no-device safety"

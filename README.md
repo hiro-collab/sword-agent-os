@@ -804,6 +804,19 @@ Home Assistant の実家電操作を使わず、まず画面、入力、Thought 
 `THOUGHT_CORE_TOOLS_ADAPTER=mock` の場合、家電操作の返答はテストモード上の
 想定です。実際の Home Assistant へは送信されません。
 
+daylight がある部屋で「電灯がついているか」を確認する場合は、明るさそのものと
+electric-light ON/OFF を分けて見ます。手元に `local/media/movie/sample20260604`
+の sunshine sample がある検証環境では、次の helper で raw frame を出さずに
+集計だけを確認できます。
+
+```powershell
+pwsh -NoProfile -File .\scripts\evaluate-room-light-sunshine.ps1 -Json
+```
+
+この helper は direct-file evaluation です。raw video、raw frame、crop、screenshot、
+生成 model は出力・commit しません。共有用には sample id、window count、label count、
+probability summary、pass / partial / fail / blocked だけを使います。
+
 ### 音声出力を含める場合の VOICEVOX 確認
 
 音声合成まで確認する場合は、先に VOICEVOX の endpoint を分けて確認します。
@@ -1026,6 +1039,7 @@ virtual audio、browser runtime、gesture gate、Home Assistant live action は
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RunNoLiveSmoke
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RunRuntimeHttpChecks
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestRealCamera
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestVoicevoxStartup
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestVirtualAudio
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestGestureGate
 ```
