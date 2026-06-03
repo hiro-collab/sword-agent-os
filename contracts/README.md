@@ -46,6 +46,17 @@ against these shapes at the boundary.
   fallback, stopped, and failed-safe avatar motion outcomes.
   - Example:
     `motion_driver_result/examples/rr003-driver-degraded.example.json`
+- `motion_trace_event/motion_trace_event.v0.schema.json`: redacted motion
+  lifecycle / perception feedback event shape for State/Event Ingest, Event
+  Journal summaries, Status Store source refs, and later memory candidates.
+  - Example:
+    `motion_trace_event/examples/rr003-motion-trace-feedback.example.json`
+- `motion_memory_candidate/motion_memory_candidate.v0.schema.json`: candidate
+  boundary for repeated motion mismatches, explicit corrections, stable
+  mappings, and body/catalog learning. This is not a durable Memory Core
+  storage row and defaults to `safe_to_act=false`.
+  - Example:
+    `motion_memory_candidate/examples/rr003-repeated-mismatch-candidate.example.json`
 
 ## Rules
 
@@ -72,3 +83,7 @@ against these shapes at the boundary.
   media, prompts, transcripts, provider payloads, local paths, raw filenames,
   private endpoints, secrets, full debug logs, or Home Assistant/appliance
   action routes for avatar motion.
+- Motion trace and motion memory candidate records must keep freshness,
+  staleness, repetition, evidence, retention, redaction, erasure, and
+  `safe_to_act` semantics explicit. Memory packets / suggestions are retrieval
+  outputs for Thought Core; they are not the same object as durable storage rows.

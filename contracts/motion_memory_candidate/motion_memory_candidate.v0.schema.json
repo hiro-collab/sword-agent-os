@@ -1,0 +1,572 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/motion_memory_candidate.v0.schema.json",
+  "title": "Agent OS motion_memory_candidate.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "memory_candidate_id",
+    "candidate_kind",
+    "claim_summary",
+    "recommendation",
+    "validity",
+    "frequency",
+    "evidence_refs",
+    "confidence",
+    "safe_to_act",
+    "governance",
+    "redaction",
+    "trace",
+    "safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "motion_memory_candidate.v0"
+    },
+    "memory_candidate_id": {
+      "type": "string",
+      "pattern": "^memcand_[A-Za-z0-9_.:-]+$"
+    },
+    "candidate_kind": {
+      "type": "string",
+      "enum": [
+        "instruction_motion_mapping",
+        "repeated_mismatch",
+        "explicit_user_correction",
+        "body_capability_learning",
+        "catalog_runtime_issue",
+        "stop_cancel_behavior",
+        "naturalness_pattern"
+      ]
+    },
+    "claim_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "recommendation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "context_signature": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "motion_axes": {
+      "$ref": "#/$defs/motion_axes"
+    },
+    "validity": {
+      "$ref": "#/$defs/validity"
+    },
+    "frequency": {
+      "$ref": "#/$defs/frequency"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidence_ref"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "safe_to_act": {
+      "type": "boolean",
+      "default": false
+    },
+    "promotion_policy": {
+      "type": "string",
+      "enum": [
+        "candidate_only",
+        "explicit_user_correction",
+        "repeated_evidence_required",
+        "review_required"
+      ],
+      "default": "candidate_only"
+    },
+    "retrieval_hint": {
+      "$ref": "#/$defs/retrieval_hint"
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "redaction": {
+      "$ref": "#/$defs/redaction"
+    },
+    "trace": {
+      "$ref": "#/$defs/trace"
+    },
+    "safety": {
+      "$ref": "#/$defs/safety"
+    }
+  },
+  "$defs": {
+    "motion_axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "motion_kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$"
+        },
+        "emotion_tone": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$"
+        },
+        "intensity": {
+          "type": "string",
+          "enum": [
+            "subtle",
+            "normal",
+            "expressive",
+            "large",
+            "unknown"
+          ]
+        },
+        "duration_class": {
+          "type": "string",
+          "enum": [
+            "instant",
+            "short",
+            "medium",
+            "long",
+            "loop",
+            "unknown"
+          ]
+        },
+        "body_scope": {
+          "type": "string",
+          "enum": [
+            "face",
+            "gaze",
+            "head",
+            "hands",
+            "upper_body",
+            "full_body",
+            "idle",
+            "unknown"
+          ]
+        },
+        "specificity": {
+          "type": "string",
+          "enum": [
+            "generic",
+            "style_hint",
+            "named",
+            "exact",
+            "unknown"
+          ]
+        },
+        "safety_state": {
+          "type": "string",
+          "enum": [
+            "safe",
+            "degraded",
+            "blocked",
+            "failed_safe",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_at",
+        "recorded_at",
+        "valid_from",
+        "stale_after"
+      ],
+      "properties": {
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stale_after": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "freshness_source": {
+          "type": "string",
+          "enum": [
+            "event_time",
+            "status_projection",
+            "reviewed_evidence",
+            "unknown"
+          ],
+          "default": "event_time"
+        }
+      }
+    },
+    "frequency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seen_count",
+        "repeat_count_7d",
+        "repeat_count_30d",
+        "first_seen_at",
+        "baseline",
+        "rarity_code"
+      ],
+      "properties": {
+        "seen_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "repeat_count_7d": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repeat_count_30d": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "first_seen_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "baseline_window",
+            "baseline_count"
+          ],
+          "properties": {
+            "baseline_window": {
+              "type": "string",
+              "enum": [
+                "none",
+                "7d",
+                "30d",
+                "episode",
+                "unknown"
+              ]
+            },
+            "baseline_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "rarity_code": {
+          "type": "string",
+          "enum": [
+            "new",
+            "rare",
+            "ordinary",
+            "frequent",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_ref_id",
+        "source_kind",
+        "relation",
+        "ref",
+        "evidence_weight",
+        "source_deleted_or_redacted"
+      ],
+      "properties": {
+        "evidence_ref_id": {
+          "type": "string",
+          "pattern": "^evref_[A-Za-z0-9_.:-]+$"
+        },
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "event_journal",
+            "status_store",
+            "driver_result",
+            "body_schema",
+            "thought_core",
+            "user_correction",
+            "test_fixture"
+          ]
+        },
+        "relation": {
+          "type": "string",
+          "enum": [
+            "supports",
+            "contradicts",
+            "summarizes",
+            "derives_from"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "redacted_summary_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "evidence_weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source_deleted_or_redacted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "retrieval_hint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "memory_packet_not_storage_row",
+        "suggestion_shape"
+      ],
+      "properties": {
+        "memory_packet_not_storage_row": {
+          "const": true
+        },
+        "suggestion_shape": {
+          "type": "string",
+          "enum": [
+            "claim_confidence_freshness_conflict_evidence_recommendation",
+            "none"
+          ]
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "retention_code",
+        "summarize_code",
+        "protection_code",
+        "approval_code",
+        "safety_code",
+        "redaction_code",
+        "erasure_state"
+      ],
+      "properties": {
+        "retention_code": {
+          "type": "string",
+          "enum": [
+            "short_ttl",
+            "episode_ttl",
+            "keep_summary",
+            "review_required",
+            "no_store"
+          ]
+        },
+        "summarize_code": {
+          "type": "string",
+          "enum": [
+            "summary_only",
+            "compact_features",
+            "review_summary"
+          ]
+        },
+        "protection_code": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "protected",
+            "sensitive_hold"
+          ]
+        },
+        "approval_code": {
+          "type": "string",
+          "enum": [
+            "none",
+            "thought_core_required",
+            "review_required",
+            "user_required"
+          ]
+        },
+        "safety_code": {
+          "type": "string",
+          "enum": [
+            "safe",
+            "caution",
+            "blocked"
+          ]
+        },
+        "redaction_code": {
+          "type": "string",
+          "enum": [
+            "summary_only",
+            "redacted_refs_only",
+            "no_raw_payload"
+          ]
+        },
+        "erasure_state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "source_redacted",
+            "delete_requested",
+            "tombstoned"
+          ]
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_status",
+        "redaction_profile",
+        "shareability_class",
+        "public_safe"
+      ],
+      "properties": {
+        "redaction_status": {
+          "type": "string",
+          "enum": [
+            "summary_only",
+            "redacted"
+          ]
+        },
+        "redaction_profile": {
+          "type": "string",
+          "enum": [
+            "motion_memory_internal_v0",
+            "motion_memory_review_v0"
+          ]
+        },
+        "shareability_class": {
+          "type": "string",
+          "enum": [
+            "source_static_fixture",
+            "event_journal_summary",
+            "memory_candidate",
+            "review_packet",
+            "debug_local_only"
+          ]
+        },
+        "public_safe": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "motion_event_id"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "pattern": "^evt_[A-Za-z0-9_.:-]+$"
+        },
+        "turn_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "episode_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "issue_ticket_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "motion_event_id": {
+          "type": "string",
+          "pattern": "^mot_evt_[A-Za-z0-9_.:-]+$"
+        },
+        "stimulus_id": {
+          "type": "string",
+          "pattern": "^mot_stim_[A-Za-z0-9_.:-]+$"
+        },
+        "stimulus_instance_id": {
+          "type": "string",
+          "pattern": "^mot_inst_[A-Za-z0-9_.:-]+$"
+        },
+        "driver_result_id": {
+          "type": "string",
+          "pattern": "^mot_drv_[A-Za-z0-9_.:-]+$"
+        },
+        "motion_trace_event_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^mot_trace_[A-Za-z0-9_.:-]+$"
+          },
+          "default": []
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_prompt_shared",
+        "raw_transcript_shared",
+        "raw_log_shared",
+        "raw_media_shared",
+        "raw_path_shared",
+        "raw_asset_filename_shared",
+        "provider_payload_shared",
+        "private_endpoint_shared",
+        "home_assistant_route_retained"
+      ],
+      "properties": {
+        "raw_prompt_shared": {
+          "const": false
+        },
+        "raw_transcript_shared": {
+          "const": false
+        },
+        "raw_log_shared": {
+          "const": false
+        },
+        "raw_media_shared": {
+          "const": false
+        },
+        "raw_path_shared": {
+          "const": false
+        },
+        "raw_asset_filename_shared": {
+          "const": false
+        },
+        "provider_payload_shared": {
+          "const": false
+        },
+        "private_endpoint_shared": {
+          "const": false
+        },
+        "home_assistant_route_retained": {
+          "const": false
+        }
+      }
+    }
+  }
+}

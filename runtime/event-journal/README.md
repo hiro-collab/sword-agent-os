@@ -55,3 +55,17 @@ source-of-truth shape. The event journal should include those metric records
 only for behavior-relevant moments such as degraded execution, blocked or
 approval-routed execution, source conflict, or feedback mismatch; routine
 current metric values belong in status-store/topology snapshots.
+
+## RR003 Motion Trace And Memory Candidates
+
+RR003 motion trace events are append-only, redacted operational evidence. They
+record what happened along the request -> stimulus -> mixer/driver-result ->
+feedback path, but they are not learned memory by themselves.
+
+Use `contracts/motion_trace_event/motion_trace_event.v0.schema.json` for safe
+lifecycle summaries. A one-off degraded or unavailable motion normally remains
+Event Journal history only. A `motion_memory_candidate.v0` may be created only
+after explicit correction, repeated comparable evidence, or stable body/catalog
+learning. Candidates should keep evidence refs, freshness/staleness inputs,
+repeat counts, retention/redaction/erasure state, and `safe_to_act=false` by
+default.

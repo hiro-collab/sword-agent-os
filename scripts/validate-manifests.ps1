@@ -192,7 +192,9 @@ $contractFiles = @(
   "contracts/body_display_projection/body_display_projection.v0.schema.json",
   "contracts/motion_stimulus/motion_stimulus.v0.schema.json",
   "contracts/motion_mixer_snapshot/motion_mixer_snapshot.v0.schema.json",
-  "contracts/motion_driver_result/motion_driver_result.v0.schema.json"
+  "contracts/motion_driver_result/motion_driver_result.v0.schema.json",
+  "contracts/motion_trace_event/motion_trace_event.v0.schema.json",
+  "contracts/motion_memory_candidate/motion_memory_candidate.v0.schema.json"
 )
 
 $runtimeDirs = @(

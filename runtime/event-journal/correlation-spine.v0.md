@@ -723,3 +723,26 @@ Example: one memory belongs to two issue tickets:
   journal remains operational history, not learned memory authority.
 - Security/data-safety should review payload references and redaction before
   richer native readers persist routine event projections.
+
+## RR003 Motion Trace / Memory Candidate Links
+
+RR003 motion records extend this spine without replacing it:
+
+- `motion_trace_event.v0` records redacted lifecycle and feedback events with
+  `motion_event_id`, `stimulus_id`, `stimulus_instance_id`, `mixer_tick_id`,
+  `driver_result_id`, and optional `turn_id`, `episode_id`, and supplied
+  `issue_ticket_id`.
+- Status Store receives only current projection updates such as
+  `expression.motion.current` and `expression.body.current_summary`, with
+  freshness/staleness and projection catch-up metadata.
+- Event Journal stores the redacted operational history. It must not become the
+  learned-memory authority.
+- `motion_memory_candidate.v0` is a candidate boundary for repeated mismatch,
+  explicit user correction, stable instruction mapping, body capability
+  learning, or catalog/runtime issue tracking. It is not a Memory Core database
+  migration or durable storage row.
+
+Lower-level runtime and adapter records may carry a supplied `issue_ticket_id`,
+but they must not infer one from raw input. Memory packets / suggestions are
+retrieval outputs for Thought Core and should remain separate from storage
+records and operational journal events.

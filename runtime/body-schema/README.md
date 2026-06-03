@@ -44,3 +44,20 @@ Use `-NoWrite` for read-only validation in test packs.
   payloads.
 - Do not retain local filesystem paths in generated snapshots.
 - Do not own action decisions or reflex rules.
+
+## RR003 Motion Current Summary
+
+For RR003, Body Schema should read safe current motion/body summaries from
+Status Store, not raw Event Journal replay. The expected current projection
+source is:
+
+```text
+expression.body.current_summary
+```
+
+Useful fields include available tracks, occupied tracks, degraded tracks,
+unavailable tracks, active body scope, current pose summary, stop/reset state,
+compatibility summary, freshness/staleness timestamps, and a logical status
+source such as `status-store.current`. Raw motion assets, local paths, raw
+media, prompts, transcripts, provider payloads, and full logs remain outside
+Body Schema snapshots.

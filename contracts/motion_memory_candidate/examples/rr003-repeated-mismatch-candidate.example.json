@@ -1,0 +1,103 @@
+{
+  "schema_version": "motion_memory_candidate.v0",
+  "memory_candidate_id": "memcand_rr003_wave_degraded_001",
+  "candidate_kind": "repeated_mismatch",
+  "claim_summary": "Small wave requests repeatedly applied face and arm movement but degraded right-hand detail.",
+  "recommendation": "Prefer a simpler greeting fallback until hand-detail support is proven.",
+  "context_signature": "ctx_rr003_greeting_wave_v0",
+  "motion_axes": {
+    "motion_kind": "gesture.wave",
+    "emotion_tone": "friendly",
+    "intensity": "normal",
+    "duration_class": "short",
+    "body_scope": "hands",
+    "specificity": "generic",
+    "safety_state": "degraded"
+  },
+  "validity": {
+    "observed_at": "2026-06-03T09:00:02Z",
+    "recorded_at": "2026-06-03T09:00:06Z",
+    "valid_from": "2026-06-03T09:00:02Z",
+    "stale_after": "2026-06-10T09:00:02Z",
+    "expires_at": "2026-07-03T09:00:02Z",
+    "freshness_source": "event_time"
+  },
+  "frequency": {
+    "seen_count": 4,
+    "repeat_count_7d": 4,
+    "repeat_count_30d": 4,
+    "first_seen_at": "2026-06-03T08:40:00Z",
+    "baseline": {
+      "baseline_window": "episode",
+      "baseline_count": 4
+    },
+    "rarity_code": "frequent"
+  },
+  "evidence_refs": [
+    {
+      "evidence_ref_id": "evref_rr003_trace_001",
+      "source_kind": "event_journal",
+      "relation": "supports",
+      "ref": "evt_rr003_demo_trace_001",
+      "redacted_summary_ref": "summary_rr003_wave_degraded_001",
+      "evidence_weight": 0.78,
+      "source_deleted_or_redacted": false
+    },
+    {
+      "evidence_ref_id": "evref_rr003_trace_002",
+      "source_kind": "event_journal",
+      "relation": "supports",
+      "ref": "evt_rr003_demo_trace_002",
+      "redacted_summary_ref": "summary_rr003_wave_degraded_002",
+      "evidence_weight": 0.74,
+      "source_deleted_or_redacted": false
+    }
+  ],
+  "confidence": 0.72,
+  "safe_to_act": false,
+  "promotion_policy": "repeated_evidence_required",
+  "retrieval_hint": {
+    "memory_packet_not_storage_row": true,
+    "suggestion_shape": "claim_confidence_freshness_conflict_evidence_recommendation"
+  },
+  "governance": {
+    "retention_code": "keep_summary",
+    "summarize_code": "summary_only",
+    "protection_code": "normal",
+    "approval_code": "thought_core_required",
+    "safety_code": "caution",
+    "redaction_code": "redacted_refs_only",
+    "erasure_state": "active"
+  },
+  "redaction": {
+    "redaction_status": "summary_only",
+    "redaction_profile": "motion_memory_review_v0",
+    "shareability_class": "memory_candidate",
+    "public_safe": false
+  },
+  "trace": {
+    "event_id": "evt_rr003_demo_trace_001",
+    "turn_id": "turn_rr003_demo_001",
+    "episode_id": "ep_rr003_demo_001",
+    "issue_ticket_id": "issue_rr003_demo_wave_degraded_001",
+    "motion_event_id": "mot_evt_rr003_demo_user_001",
+    "stimulus_id": "mot_stim_rr003_demo_wave",
+    "stimulus_instance_id": "mot_inst_rr003_demo_user_001",
+    "driver_result_id": "mot_drv_rr003_demo_001",
+    "motion_trace_event_ids": [
+      "mot_trace_rr003_demo_feedback_001",
+      "mot_trace_rr003_demo_feedback_002"
+    ]
+  },
+  "safety": {
+    "raw_prompt_shared": false,
+    "raw_transcript_shared": false,
+    "raw_log_shared": false,
+    "raw_media_shared": false,
+    "raw_path_shared": false,
+    "raw_asset_filename_shared": false,
+    "provider_payload_shared": false,
+    "private_endpoint_shared": false,
+    "home_assistant_route_retained": false
+  }
+}

@@ -1,0 +1,467 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/motion_trace_event.v0.schema.json",
+  "title": "Agent OS motion_trace_event.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "motion_trace_event_id",
+    "event_id",
+    "motion_event_id",
+    "trace_phase",
+    "result_state",
+    "reported_at",
+    "timing",
+    "trace",
+    "redaction",
+    "safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "motion_trace_event.v0"
+    },
+    "motion_trace_event_id": {
+      "type": "string",
+      "pattern": "^mot_trace_[A-Za-z0-9_.:-]+$"
+    },
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[A-Za-z0-9_.:-]+$"
+    },
+    "motion_event_id": {
+      "type": "string",
+      "pattern": "^mot_evt_[A-Za-z0-9_.:-]+$"
+    },
+    "trace_phase": {
+      "type": "string",
+      "enum": [
+        "decision",
+        "selection",
+        "queued",
+        "preview_requested",
+        "play_requested",
+        "started",
+        "composed",
+        "degraded",
+        "stopped",
+        "reset",
+        "completed",
+        "failed_safe",
+        "feedback_evaluated"
+      ]
+    },
+    "result_state": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "started",
+        "playing",
+        "completed",
+        "stopped",
+        "degraded",
+        "unavailable",
+        "incompatible",
+        "failed_safe"
+      ]
+    },
+    "reported_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "fallback_used": {
+      "type": "boolean",
+      "default": false
+    },
+    "stop_reason": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9_.:-]*$"
+    },
+    "safe_visible_state": {
+      "type": "string",
+      "enum": [
+        "idle",
+        "requested",
+        "accepted",
+        "preview_ready",
+        "previewing",
+        "playing",
+        "stopping",
+        "stopped",
+        "completed",
+        "degraded",
+        "unavailable",
+        "incompatible",
+        "failed_safe"
+      ]
+    },
+    "feedback_evaluation": {
+      "type": "string",
+      "enum": [
+        "match",
+        "minor_mismatch",
+        "critical_mismatch",
+        "not_evaluated"
+      ],
+      "default": "not_evaluated"
+    },
+    "issue_type": {
+      "type": "string",
+      "enum": [
+        "instruction_issue",
+        "selection_issue",
+        "runtime_issue",
+        "catalog_metadata_issue",
+        "safety_policy_issue",
+        "unknown",
+        "none"
+      ],
+      "default": "none"
+    },
+    "bounded_movement_summary": {
+      "$ref": "#/$defs/bounded_movement_summary"
+    },
+    "timing": {
+      "$ref": "#/$defs/timing"
+    },
+    "trace": {
+      "$ref": "#/$defs/trace"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_ref"
+      },
+      "default": []
+    },
+    "redaction": {
+      "$ref": "#/$defs/redaction"
+    },
+    "safety": {
+      "$ref": "#/$defs/safety"
+    }
+  },
+  "$defs": {
+    "track": {
+      "type": "string",
+      "enum": [
+        "body_root",
+        "spine",
+        "chest",
+        "neck",
+        "head",
+        "left_arm",
+        "right_arm",
+        "left_hand",
+        "right_hand",
+        "face",
+        "mouth",
+        "eyes",
+        "gaze",
+        "balance",
+        "full_body",
+        "idle"
+      ]
+    },
+    "bounded_movement_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_window_ms",
+        "sample_count",
+        "track_summaries"
+      ],
+      "properties": {
+        "sample_window_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 600
+        },
+        "track_summaries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/track_summary"
+          }
+        }
+      }
+    },
+    "track_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "track",
+        "result",
+        "changed",
+        "confidence"
+      ],
+      "properties": {
+        "track": {
+          "$ref": "#/$defs/track"
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "applied",
+            "degraded",
+            "unavailable",
+            "incompatible",
+            "fallback_used",
+            "stopped",
+            "failed_safe",
+            "no_op"
+          ]
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "summary_bucket": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "unknown"
+          ],
+          "default": "unknown"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_at",
+        "recorded_at",
+        "stale_after"
+      ],
+      "properties": {
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stale_after": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_offset": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "motion_event_id"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "pattern": "^evt_[A-Za-z0-9_.:-]+$"
+        },
+        "turn_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "episode_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "issue_ticket_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "motion_event_id": {
+          "type": "string",
+          "pattern": "^mot_evt_[A-Za-z0-9_.:-]+$"
+        },
+        "stimulus_id": {
+          "type": "string",
+          "pattern": "^mot_stim_[A-Za-z0-9_.:-]+$"
+        },
+        "stimulus_instance_id": {
+          "type": "string",
+          "pattern": "^mot_inst_[A-Za-z0-9_.:-]+$"
+        },
+        "selection_id": {
+          "type": "string",
+          "pattern": "^mot_sel_[A-Za-z0-9_.:-]+$"
+        },
+        "mixer_tick_id": {
+          "type": "string",
+          "pattern": "^mot_tick_[A-Za-z0-9_.:-]+$"
+        },
+        "driver_result_id": {
+          "type": "string",
+          "pattern": "^mot_drv_[A-Za-z0-9_.:-]+$"
+        },
+        "runtime_result_id": {
+          "type": "string",
+          "pattern": "^mot_res_[A-Za-z0-9_.:-]+$"
+        },
+        "body_schema_snapshot_id": {
+          "type": "string",
+          "pattern": "^body_schema_[A-Za-z0-9_.:-]+$"
+        },
+        "memory_candidate_id": {
+          "type": "string",
+          "pattern": "^memcand_[A-Za-z0-9_.:-]+$"
+        }
+      }
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_ref_id",
+        "source_kind",
+        "relation",
+        "ref"
+      ],
+      "properties": {
+        "evidence_ref_id": {
+          "type": "string",
+          "pattern": "^evref_[A-Za-z0-9_.:-]+$"
+        },
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "event_journal",
+            "status_store",
+            "driver_result",
+            "body_schema",
+            "thought_core",
+            "test_fixture"
+          ]
+        },
+        "relation": {
+          "type": "string",
+          "enum": [
+            "supports",
+            "contradicts",
+            "summarizes",
+            "derives_from"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "redacted_summary_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_status",
+        "redaction_profile",
+        "shareability_class",
+        "public_safe"
+      ],
+      "properties": {
+        "redaction_status": {
+          "type": "string",
+          "enum": [
+            "summary_only",
+            "redacted"
+          ]
+        },
+        "redaction_profile": {
+          "type": "string",
+          "enum": [
+            "motion_contract_public_v0",
+            "motion_contract_internal_v0"
+          ]
+        },
+        "shareability_class": {
+          "type": "string",
+          "enum": [
+            "source_static_fixture",
+            "status_projection",
+            "event_journal_summary",
+            "review_packet",
+            "debug_local_only"
+          ]
+        },
+        "public_safe": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_prompt_shared",
+        "raw_transcript_shared",
+        "raw_log_shared",
+        "raw_media_shared",
+        "raw_path_shared",
+        "raw_asset_filename_shared",
+        "provider_payload_shared",
+        "private_endpoint_shared",
+        "home_assistant_route_retained"
+      ],
+      "properties": {
+        "raw_prompt_shared": {
+          "const": false
+        },
+        "raw_transcript_shared": {
+          "const": false
+        },
+        "raw_log_shared": {
+          "const": false
+        },
+        "raw_media_shared": {
+          "const": false
+        },
+        "raw_path_shared": {
+          "const": false
+        },
+        "raw_asset_filename_shared": {
+          "const": false
+        },
+        "provider_payload_shared": {
+          "const": false
+        },
+        "private_endpoint_shared": {
+          "const": false
+        },
+        "home_assistant_route_retained": {
+          "const": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "schema_version": "status_patch.v0",
+  "patch_id": "sp_rr003_motion_current_001",
+  "updates": [
+    {
+      "key": "expression.motion.current",
+      "value": {
+        "motion_state": "degraded",
+        "visible_state": "degraded",
+        "latest_motion_event_id": "mot_evt_rr003_demo_user_001",
+        "latest_driver_result_id": "mot_drv_rr003_demo_001",
+        "active_stimulus_instance_ids": [
+          "mot_inst_rr003_demo_user_001"
+        ],
+        "applied_parts": [
+          "face"
+        ],
+        "degraded_parts": [
+          "right_hand"
+        ],
+        "unavailable_parts": [],
+        "fallback_used": true,
+        "observed_at": "2026-06-03T09:00:02Z",
+        "recorded_at": "2026-06-03T09:00:04Z",
+        "valid_from": "2026-06-03T09:00:02Z",
+        "valid_until": "2026-06-03T09:00:05Z",
+        "stale_after": "2026-06-03T09:00:10Z",
+        "projection_source_offset": "journal_rr003_demo_001:42",
+        "catch_up_through_event_id": "evt_rr003_demo_trace_001"
+      },
+      "observed_at": "2026-06-03T09:00:02Z",
+      "freshness_ms": 2000,
+      "confidence": 0.74,
+      "source_ref": "mot_trace_rr003_demo_feedback_001"
+    },
+    {
+      "key": "expression.body.current_summary",
+      "value": {
+        "available_tracks": [
+          "face",
+          "gaze",
+          "idle"
+        ],
+        "occupied_tracks": [
+          "face",
+          "right_hand"
+        ],
+        "degraded_tracks": [
+          "right_hand"
+        ],
+        "unavailable_tracks": [
+          "full_body"
+        ],
+        "active_body_scope": "hands",
+        "current_pose_summary": "short greeting gesture degraded to simple upper-body/face response",
+        "stop_reset_state": "reset_available",
+        "compatibility_summary": "hand detail conditional; full-body animation unavailable in this proof layer",
+        "status_source": "status-store.current",
+        "observed_at": "2026-06-03T09:00:02Z",
+        "recorded_at": "2026-06-03T09:00:04Z",
+        "stale_after": "2026-06-03T09:00:10Z"
+      },
+      "observed_at": "2026-06-03T09:00:02Z",
+      "freshness_ms": 2000,
+      "confidence": 0.72,
+      "source_ref": "mot_trace_rr003_demo_feedback_001"
+    }
+  ]
+}

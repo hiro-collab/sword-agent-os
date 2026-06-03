@@ -1,0 +1,73 @@
+{
+  "schema_version": "event_ingest.v0",
+  "ingest_id": "ing_rr003_motion_trace_001",
+  "event": {
+    "event_id": "evt_rr003_demo_trace_001",
+    "event_type": "expression.motion.trace",
+    "event_level": 2,
+    "reported_at": "2026-06-03T09:00:04Z",
+    "source": {
+      "origin": "driver",
+      "organ_id": "expression.motion",
+      "driver_id": "aituberkit-vrm",
+      "instance_id": "mot_drv_rr003_demo_001"
+    },
+    "causal_parent_id": "mot_drv_rr003_demo_001",
+    "episode_id": "ep_rr003_demo_001",
+    "turn_id": "turn_rr003_demo_001",
+    "issue_ticket_id": "issue_rr003_demo_wave_degraded_001",
+    "tags": [
+      "rr003",
+      "motion_trace",
+      "degraded"
+    ],
+    "payload": {
+      "motion_trace_event_ref": "mot_trace_rr003_demo_feedback_001",
+      "motion_event_id": "mot_evt_rr003_demo_user_001",
+      "stimulus_instance_id": "mot_inst_rr003_demo_user_001",
+      "driver_result_id": "mot_drv_rr003_demo_001",
+      "result_state": "degraded",
+      "feedback_evaluation": "minor_mismatch",
+      "safe_visible_state": "degraded",
+      "evidence_refs": [
+        "evref_rr003_driver_result_001"
+      ],
+      "raw_prompt_shared": false,
+      "raw_transcript_shared": false,
+      "raw_log_shared": false,
+      "raw_media_shared": false,
+      "raw_path_shared": false,
+      "provider_payload_shared": false,
+      "home_assistant_route_retained": false
+    },
+    "redaction": "summary_only",
+    "dry_run": true,
+    "driver_kind": "compat_adapter"
+  },
+  "status_patch": {
+    "schema_version": "status_patch.v0",
+    "patch_id": "sp_rr003_motion_current_001",
+    "updates": [
+      {
+        "key": "expression.motion.current",
+        "value": {
+          "motion_state": "degraded",
+          "visible_state": "degraded",
+          "latest_motion_event_id": "mot_evt_rr003_demo_user_001",
+          "latest_driver_result_id": "mot_drv_rr003_demo_001",
+          "active_stimulus_instance_ids": [
+            "mot_inst_rr003_demo_user_001"
+          ],
+          "observed_at": "2026-06-03T09:00:02Z",
+          "recorded_at": "2026-06-03T09:00:04Z",
+          "stale_after": "2026-06-03T09:00:10Z",
+          "projection_source_offset": "journal_rr003_demo_001:42"
+        },
+        "observed_at": "2026-06-03T09:00:02Z",
+        "freshness_ms": 2000,
+        "confidence": 0.74,
+        "source_ref": "mot_trace_rr003_demo_feedback_001"
+      }
+    ]
+  }
+}
