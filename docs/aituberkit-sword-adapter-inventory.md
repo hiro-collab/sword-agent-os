@@ -2,14 +2,14 @@
 
 Status: source-static inventory
 
-- Adapter version: `0.1.1`
+- Adapter version: `0.1.2`
 - Patchset id: `sword-aituberkit`
-- Patchset version: `0.1.1`
+- Patchset version: `0.1.2`
 - Upstream: `tegnike/aituber-kit` `v2.43.2`
   (`abe1f7954e6c6ddd8afcc44ccbf9df7d408a4f62`)
 - Sword fork pin: `hiro-collab/aituber-kit-sword`
   `experiment/aituber-gesture-voice-bridge`
-  `3c40fa4a86d592983b49de50eede1681ca81f535`
+  `fb46f983f59adaaf297f08aaedd43af914eb043e`
 
 This file records how Sword Agent OS treats AITuberKit as an official upstream
 release plus a Sword adapter/patchset and Sword-facing contract tests. It is an
@@ -55,6 +55,8 @@ Sword adapter/patchset.
 | `src/pages/api/thoughtCoreChat.ts` | local Thought Core proxy and redacted trace behavior |
 | `src/utils/localApiSecurity.ts` | local API boundary and token/loopback enforcement |
 | `src/utils/serverUrlSecurity.ts` | server URL safety checks |
+| `src/features/motionRuntime/*` | Sword motion sequence runtime, VRMA sampling, and bounded playback session |
+| `src/features/vrmViewer/*` motion runtime hooks | VRM viewer integration points for Sword motion playback |
 
 ### Patchset-Owned Until Upstream Extension Exists
 
