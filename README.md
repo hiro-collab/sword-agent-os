@@ -130,7 +130,7 @@ Codex 作業用の workspace-local 領域であり、通常利用では作成不
 | マイク | 音声入力 | 音声利用では必須 |
 | カメラ | ジェスチャー、部屋の明るさ推定 | 推奨 |
 | MediaPipe gesture model | Camera Hub のジェスチャー分類。`organs/reflex/mediapipe-sword-sign/gesture_model.pkl` にローカル配置 | カメラ/ジェスチャー利用では必須 |
-| VRM model | アバター表示。ライセンス済み `.vrm` を `organs/expression/aituber-kit/public/vrm/` にローカル配置 | Projection Visual / avatar review では推奨 |
+| Custom VRM model | 標準の tracked sample 以外のアバター表示。ライセンス済み `.vrm` を `organs/expression/aituber-kit/public/vrm/` にローカル配置 | 任意 |
 | VOICEVOX | 音声合成 | 推奨 |
 | LLM API key | Thought Core の自然文応答 | 通常は必要 |
 | Home Assistant | 家電状態確認と操作 | 家電操作に必要 |
@@ -556,7 +556,7 @@ notepad local\env\sword-agent-os.env
 | 家電操作 adapter | `THOUGHT_CORE_TOOLS_ADAPTER` | `mock` は no-live シミュレーション。実家電へ送る場合だけ `home_control` |
 | Environment API token | `ENVIRONMENT_API_TOKEN` | Environment State API のローカル保護。標準構成では空欄可 |
 | VOICEVOX URL | `VOICEVOX_SERVER_URL` | 音声合成 |
-| アバター path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | AITuber Kit / Projection Visual の表示。標準テンプレート例は `/vrm/Nutachisan.vrm`。同名の VRM を入れない場合は `/vrm/<your-model>.vrm` に変更 |
+| アバター path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | AITuber Kit / Projection Visual の表示。clean install の標準例は tracked sample の `/vrm/nikechan_v1.vrm`。手元のライセンス済み VRM を使う場合だけ `/vrm/<your-model>.vrm` に変更 |
 | Thought Core endpoint | `THOUGHT_CORE_BASE_URL`, `NEXT_PUBLIC_THOUGHT_CORE_BASE_URL` | AITuber Kit から Thought Core へ接続 |
 
 token/key の違いです。`NEXT_PUBLIC_*` はブラウザ側から見えるため、secret を
@@ -941,7 +941,7 @@ raw screenshot、raw audio は local-only として扱います。
 | VOICEVOX が down | VOICEVOX を起動し、ローカル endpoint を確認 |
 | カメラが動かない | 他アプリがカメラを掴んでいないか、カメラ名が合っているか |
 | `model_not_found` / Camera Hub topics timeout | `gesture_model.pkl` がある場合は `organs/reflex/mediapipe-sword-sign/gesture_model.pkl` に置いたか確認。ない場合は、Camera Hub / gesture proof は未準備として分け、カメラ不要の no-live / source-static 確認だけを先に進めます。これはローカル専用資材なので Git には入れません |
-| アバター / VRM が表示されない | ライセンス済み `.vrm` が `organs/expression/aituber-kit/public/vrm/` にあり、`NEXT_PUBLIC_SELECTED_VRM_PATH` が実ファイル名に合う `/vrm/<file>.vrm` を指しているか確認。標準テンプレート例 `/vrm/Nutachisan.vrm` は同名ファイルがないと表示できません |
+| アバター / VRM が表示されない | clean install では `NEXT_PUBLIC_SELECTED_VRM_PATH=/vrm/nikechan_v1.vrm` の tracked sample で確認できます。手元のライセンス済み VRM を使う場合は `organs/expression/aituber-kit/public/vrm/` に置き、`NEXT_PUBLIC_SELECTED_VRM_PATH` を実ファイル名に合う `/vrm/<file>.vrm` へ変更します。`/vrm/Nutachisan.vrm` は local-only file なので、同名ファイルを別途置かない限り clean install では表示できません |
 | マイクが反応しない | Chrome のマイク権限、入力欄の focus |
 | 家電操作が失敗する | Home Assistant URL / token、action catalog mapping |
 | API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更 |

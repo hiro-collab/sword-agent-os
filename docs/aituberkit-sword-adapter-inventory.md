@@ -2,14 +2,14 @@
 
 Status: source-static inventory
 
-- Adapter version: `0.1.0`
+- Adapter version: `0.1.1`
 - Patchset id: `sword-aituberkit`
-- Patchset version: `0.1.0`
+- Patchset version: `0.1.1`
 - Upstream: `tegnike/aituber-kit` `v2.43.2`
   (`abe1f7954e6c6ddd8afcc44ccbf9df7d408a4f62`)
 - Sword fork pin: `hiro-collab/aituber-kit-sword`
   `experiment/aituber-gesture-voice-bridge`
-  `6ac3cc17f13b0c2aa2379095d0c90a068ee85c7f`
+  `3c40fa4a86d592983b49de50eede1681ca81f535`
 
 This file records how Sword Agent OS treats AITuberKit as an official upstream
 release plus a Sword adapter/patchset and Sword-facing contract tests. It is an

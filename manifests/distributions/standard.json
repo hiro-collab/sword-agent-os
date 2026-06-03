@@ -2,7 +2,7 @@
   "schema_version": "agent_os.distribution.v0",
   "id": "standard",
   "os_version": "0.1.0",
-  "distribution_version": "0.1.19",
+  "distribution_version": "0.1.20",
   "description": "Standard local Sword Agent OS distribution: control plane, standard organ checkouts, local env rendering, and dependency installation.",
   "release_manifest_path": "manifests/releases/standard.json",
   "control_plane_manifest_path": "manifests/legacy/control-plane-reference.json",
@@ -158,7 +158,7 @@
     },
     {
       "id": "avatar-assets",
-      "detail": "Place licensed VRM/Live2D assets under organs/expression/aituber-kit/public/vrm and set NEXT_PUBLIC_SELECTED_VRM_PATH to a matching /vrm/<file>.vrm when avatar rendering is required."
+      "detail": "A tracked sample VRM is available for clean install. To use a custom licensed VRM/Live2D asset, place it under organs/expression/aituber-kit/public/vrm and set NEXT_PUBLIC_SELECTED_VRM_PATH to a matching /vrm/<file>.vrm."
     },
     {
       "id": "mediapipe-gesture-model",
