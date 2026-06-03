@@ -28,3 +28,27 @@ Each thread should leave a handoff when work is incomplete or relevant to other
 threads. Include changed areas, verification performed, open questions, and any
 out-of-area edits.
 
+## Distribution Pin Reporting
+
+When a thread changes a nested checkout under `control-plane/` or `organs/`,
+its handoff must state both:
+
+- the nested checkout commit that was tested; and
+- whether the parent `sword-agent-os` manifest pin was updated.
+
+Use these labels in handoffs and coordination messages:
+
+- `source-only`: nested repo work exists, but no parent manifest adoption was
+  attempted.
+- `ahead_of_manifest`: the local nested checkout is newer than the parent
+  manifest pin; an adoption decision is still required.
+- `manifest-adopted`: the parent manifest pin has been updated and
+  `validate-manifests.ps1` passed.
+- `distribution-proven`: strict pin check and the relevant install/readiness or
+  smoke proof passed after adoption.
+
+Do not use "done", "integrated", or "review-ready" by themselves for nested
+repo work. Include the label, exact commit, and verification command output
+summary so the manager and integration thread can tell whether the work is only
+available in the active checkout or actually installable from the standard
+distribution.
