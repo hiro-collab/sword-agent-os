@@ -1,0 +1,91 @@
+{
+  "schema_version": "motion_mixer_snapshot.v0",
+  "mixer_snapshot_id": "mot_mix_rr003_demo_001",
+  "motion_event_id": "mot_evt_rr003_demo_gui_001",
+  "mixer_tick_id": "mot_tick_rr003_demo_001",
+  "captured_at": "2026-06-03T06:00:01Z",
+  "phase": "playing",
+  "active_stimulus_instance_ids": [
+    "mot_inst_rr003_demo_gui_001"
+  ],
+  "neutral_baseline_applied": true,
+  "track_owners": [
+    {
+      "track": "right_arm",
+      "owner_stimulus_instance_id": "mot_inst_rr003_demo_gui_001",
+      "source_class": "gui_operator_request",
+      "layer": "structural",
+      "priority": 60,
+      "weight": 1,
+      "blend_mode": "replace",
+      "target_mode": "absolute"
+    },
+    {
+      "track": "face",
+      "owner_stimulus_instance_id": "mot_inst_rr003_demo_gui_001",
+      "source_class": "gui_operator_request",
+      "layer": "expression",
+      "priority": 30,
+      "weight": 0.5,
+      "blend_mode": "weighted",
+      "target_mode": "absolute"
+    }
+  ],
+  "abstract_rig_state": {
+    "state_id": "body_state_rr003_demo_001",
+    "track_states": [
+      {
+        "track": "right_arm",
+        "activity": "active",
+        "result": "composed",
+        "freshness": "fresh",
+        "confidence": 0.9
+      },
+      {
+        "track": "face",
+        "activity": "active",
+        "result": "composed",
+        "freshness": "fresh",
+        "confidence": 0.8
+      }
+    ]
+  },
+  "requested_summary": {
+    "motion_kind": "gesture",
+    "safe_display_name": "Short wave preview",
+    "state": "requested"
+  },
+  "composed_summary": {
+    "motion_kind": "gesture",
+    "safe_display_name": "Short wave preview",
+    "state": "playing"
+  },
+  "fallback_summary": {
+    "fallback_state": "none",
+    "reason_code": "none",
+    "safe_display_text": "No fallback"
+  },
+  "status_projection": {
+    "motion_current_key": "expression.motion.current",
+    "body_current_summary_key": "expression.body.current_summary",
+    "source_ref": "evt_rr003_demo_gui_001"
+  },
+  "trace": {
+    "event_id": "evt_rr003_demo_mixer_001",
+    "turn_id": "turn_rr003_demo_001",
+    "episode_id": "ep_rr003_demo_001",
+    "motion_event_id": "mot_evt_rr003_demo_gui_001",
+    "stimulus_instance_ids": [
+      "mot_inst_rr003_demo_gui_001"
+    ],
+    "selection_id": "mot_sel_rr003_demo_gui_001",
+    "mixer_tick_id": "mot_tick_rr003_demo_001",
+    "runtime_result_id": "mot_res_rr003_demo_pending_gui_001"
+  },
+  "redaction": {
+    "redaction_status": "summary_only",
+    "redaction_profile": "motion_contract_public_v0",
+    "shareability_class": "source_static_fixture",
+    "proof_layer": "source_static"
+  }
+}

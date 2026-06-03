@@ -1,0 +1,87 @@
+{
+  "schema_version": "motion_driver_result.v0",
+  "driver_result_id": "mot_drv_rr003_demo_001",
+  "motion_event_id": "mot_evt_rr003_demo_user_001",
+  "stimulus_instance_id": "mot_inst_rr003_demo_user_001",
+  "mixer_tick_id": "mot_tick_rr003_demo_001",
+  "driver_id": "aituberkit-vrm",
+  "adapter_version": "0.1.0",
+  "target_model_type": "vrm",
+  "result": "degraded",
+  "feedback_result": "degraded",
+  "per_part_results": [
+    {
+      "track": "right_arm",
+      "requested": true,
+      "result": "applied",
+      "reason_code": "ok",
+      "fallback_used": false,
+      "confidence": 0.9,
+      "telemetry_ref": "mot_tel_rr003_demo_001"
+    },
+    {
+      "track": "right_hand",
+      "requested": true,
+      "result": "degraded",
+      "reason_code": "finger_detail_unavailable",
+      "fallback_used": true,
+      "confidence": 0.65,
+      "telemetry_ref": "mot_tel_rr003_demo_001"
+    }
+  ],
+  "applied_at": "2026-06-03T06:00:02Z",
+  "safe_visible_state": "degraded",
+  "stop_reason": "none",
+  "telemetry_summary": {
+    "motion_telemetry_id": "mot_tel_rr003_demo_001",
+    "sample_window_ms": 1000,
+    "sample_count": 12,
+    "track_summaries": [
+      {
+        "track": "right_arm",
+        "metric_kind": "rotation_delta_bucket",
+        "changed": true,
+        "min_bucket": "low",
+        "max_bucket": "medium",
+        "mean_bucket": "medium",
+        "confidence": 0.9
+      },
+      {
+        "track": "right_hand",
+        "metric_kind": "rotation_delta_bucket",
+        "changed": true,
+        "min_bucket": "none",
+        "max_bucket": "low",
+        "mean_bucket": "low",
+        "confidence": 0.65
+      }
+    ]
+  },
+  "trace": {
+    "event_id": "evt_rr003_demo_driver_001",
+    "turn_id": "turn_rr003_demo_001",
+    "episode_id": "ep_rr003_demo_001",
+    "issue_ticket_id": "issue_rr003_demo_degraded_001",
+    "motion_event_id": "mot_evt_rr003_demo_user_001",
+    "stimulus_id": "mot_stim_rr003_demo_wave",
+    "stimulus_instance_id": "mot_inst_rr003_demo_user_001",
+    "selection_id": "mot_sel_rr003_demo_user_001",
+    "mixer_tick_id": "mot_tick_rr003_demo_001",
+    "driver_result_id": "mot_drv_rr003_demo_001",
+    "runtime_result_id": "mot_res_rr003_demo_001"
+  },
+  "redaction": {
+    "redaction_status": "summary_only",
+    "redaction_profile": "motion_contract_public_v0",
+    "shareability_class": "source_static_fixture",
+    "proof_layer": "source_static"
+  },
+  "safety": {
+    "raw_prompt_shared": false,
+    "raw_media_shared": false,
+    "raw_path_shared": false,
+    "raw_asset_filename_shared": false,
+    "provider_payload_shared": false,
+    "private_endpoint_shared": false
+  }
+}

@@ -189,7 +189,10 @@ $contractFiles = @(
   "contracts/body_plan/body_plan.v0.schema.json",
   "contracts/driver_manifest/driver_manifest.v0.schema.json",
   "contracts/body_schema_snapshot/body_schema_snapshot.v0.schema.json",
-  "contracts/body_display_projection/body_display_projection.v0.schema.json"
+  "contracts/body_display_projection/body_display_projection.v0.schema.json",
+  "contracts/motion_stimulus/motion_stimulus.v0.schema.json",
+  "contracts/motion_mixer_snapshot/motion_mixer_snapshot.v0.schema.json",
+  "contracts/motion_driver_result/motion_driver_result.v0.schema.json"
 )
 
 $runtimeDirs = @(
@@ -207,7 +210,8 @@ $runtimeDirs = @(
   "runtime/action-catalog",
   "runtime/action-boundary",
   "runtime/body-schema",
-  "runtime/body-display-projection"
+  "runtime/body-display-projection",
+  "runtime/motion-runtime"
 )
 foreach ($dir in $runtimeDirs) {
   Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath $dir)) "missing runtime directory: $dir"

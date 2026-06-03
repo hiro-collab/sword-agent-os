@@ -1,0 +1,422 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/motion_driver_result.v0.schema.json",
+  "title": "Agent OS motion_driver_result.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "driver_result_id",
+    "motion_event_id",
+    "stimulus_instance_id",
+    "mixer_tick_id",
+    "driver_id",
+    "adapter_version",
+    "target_model_type",
+    "result",
+    "feedback_result",
+    "per_part_results",
+    "applied_at",
+    "safe_visible_state",
+    "trace",
+    "redaction"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "motion_driver_result.v0"
+    },
+    "driver_result_id": {
+      "type": "string",
+      "pattern": "^mot_drv_[A-Za-z0-9_.:-]+$"
+    },
+    "motion_event_id": {
+      "type": "string",
+      "pattern": "^mot_evt_[A-Za-z0-9_.:-]+$"
+    },
+    "stimulus_instance_id": {
+      "type": "string",
+      "pattern": "^mot_inst_[A-Za-z0-9_.:-]+$"
+    },
+    "mixer_tick_id": {
+      "type": "string",
+      "pattern": "^mot_tick_[A-Za-z0-9_.:-]+$"
+    },
+    "driver_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "adapter_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "target_model_type": {
+      "type": "string",
+      "enum": [
+        "vrm",
+        "live2d",
+        "pngtuber",
+        "unknown"
+      ]
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "applied",
+        "degraded",
+        "unavailable",
+        "incompatible",
+        "fallback_used",
+        "stopped",
+        "failed_safe"
+      ]
+    },
+    "feedback_result": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "started",
+        "completed",
+        "stopped",
+        "failed",
+        "degraded",
+        "unavailable",
+        "incompatible",
+        "fallback_used",
+        "failed_safe"
+      ]
+    },
+    "per_part_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/per_part_result"
+      }
+    },
+    "applied_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "safe_visible_state": {
+      "type": "string",
+      "enum": [
+        "idle",
+        "preview_ready",
+        "previewing",
+        "playing",
+        "stopping",
+        "stopped",
+        "completed",
+        "unavailable",
+        "incompatible",
+        "degraded",
+        "failed_safe"
+      ]
+    },
+    "stop_reason": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9_.:-]*$"
+    },
+    "error_class": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9_.:-]*$"
+    },
+    "telemetry_summary": {
+      "$ref": "#/$defs/telemetry_summary"
+    },
+    "trace": {
+      "$ref": "#/$defs/trace"
+    },
+    "redaction": {
+      "$ref": "#/$defs/redaction"
+    },
+    "safety": {
+      "$ref": "#/$defs/safety"
+    }
+  },
+  "$defs": {
+    "track": {
+      "type": "string",
+      "enum": [
+        "body_root",
+        "spine",
+        "chest",
+        "neck",
+        "head",
+        "left_arm",
+        "right_arm",
+        "left_hand",
+        "right_hand",
+        "face",
+        "mouth",
+        "eyes",
+        "gaze",
+        "balance"
+      ]
+    },
+    "per_part_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "track",
+        "requested",
+        "result",
+        "reason_code",
+        "fallback_used",
+        "confidence"
+      ],
+      "properties": {
+        "track": {
+          "$ref": "#/$defs/track"
+        },
+        "requested": {
+          "type": "boolean"
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "applied",
+            "degraded",
+            "unavailable",
+            "incompatible",
+            "fallback_used",
+            "stopped",
+            "failed_safe",
+            "no_op"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-z][a-z0-9_.:-]*$"
+        },
+        "fallback_used": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "telemetry_ref": {
+          "type": "string",
+          "pattern": "^mot_tel_[A-Za-z0-9_.:-]+$"
+        }
+      }
+    },
+    "telemetry_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "motion_telemetry_id",
+        "sample_window_ms",
+        "sample_count",
+        "track_summaries"
+      ],
+      "properties": {
+        "motion_telemetry_id": {
+          "type": "string",
+          "pattern": "^mot_tel_[A-Za-z0-9_.:-]+$"
+        },
+        "sample_window_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 600
+        },
+        "track_summaries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/track_summary"
+          }
+        }
+      }
+    },
+    "track_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "track",
+        "metric_kind",
+        "changed",
+        "min_bucket",
+        "max_bucket",
+        "mean_bucket",
+        "confidence"
+      ],
+      "properties": {
+        "track": {
+          "$ref": "#/$defs/track"
+        },
+        "metric_kind": {
+          "type": "string",
+          "enum": [
+            "rotation_delta_bucket",
+            "position_delta_bucket",
+            "expression_weight_bucket",
+            "gaze_delta_bucket",
+            "mouth_open_weight_bucket",
+            "active_action_state"
+          ]
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "min_bucket": {
+          "$ref": "#/$defs/bucket"
+        },
+        "max_bucket": {
+          "$ref": "#/$defs/bucket"
+        },
+        "mean_bucket": {
+          "$ref": "#/$defs/bucket"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "bucket": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "unknown"
+      ]
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "motion_event_id",
+        "stimulus_instance_id",
+        "mixer_tick_id",
+        "driver_result_id"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "pattern": "^evt_[A-Za-z0-9_.:-]+$"
+        },
+        "turn_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "episode_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "issue_ticket_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "motion_event_id": {
+          "type": "string",
+          "pattern": "^mot_evt_[A-Za-z0-9_.:-]+$"
+        },
+        "stimulus_id": {
+          "type": "string",
+          "pattern": "^mot_stim_[A-Za-z0-9_.:-]+$"
+        },
+        "stimulus_instance_id": {
+          "type": "string",
+          "pattern": "^mot_inst_[A-Za-z0-9_.:-]+$"
+        },
+        "selection_id": {
+          "type": "string",
+          "pattern": "^mot_sel_[A-Za-z0-9_.:-]+$"
+        },
+        "mixer_tick_id": {
+          "type": "string",
+          "pattern": "^mot_tick_[A-Za-z0-9_.:-]+$"
+        },
+        "driver_result_id": {
+          "type": "string",
+          "pattern": "^mot_drv_[A-Za-z0-9_.:-]+$"
+        },
+        "runtime_result_id": {
+          "type": "string",
+          "pattern": "^mot_res_[A-Za-z0-9_.:-]+$"
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_status",
+        "redaction_profile",
+        "shareability_class",
+        "proof_layer"
+      ],
+      "properties": {
+        "redaction_status": {
+          "type": "string",
+          "enum": [
+            "summary_only",
+            "redacted"
+          ]
+        },
+        "redaction_profile": {
+          "type": "string",
+          "enum": [
+            "motion_contract_public_v0",
+            "motion_contract_internal_v0"
+          ]
+        },
+        "shareability_class": {
+          "type": "string",
+          "enum": [
+            "source_static_fixture",
+            "status_projection",
+            "event_journal_summary",
+            "debug_local_only"
+          ]
+        },
+        "proof_layer": {
+          "type": "string",
+          "enum": [
+            "source_static",
+            "no_live_runtime",
+            "visible_motion",
+            "real_device"
+          ]
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "raw_prompt_shared": {
+          "const": false
+        },
+        "raw_media_shared": {
+          "const": false
+        },
+        "raw_path_shared": {
+          "const": false
+        },
+        "raw_asset_filename_shared": {
+          "const": false
+        },
+        "provider_payload_shared": {
+          "const": false
+        },
+        "private_endpoint_shared": {
+          "const": false
+        }
+      }
+    }
+  }
+}

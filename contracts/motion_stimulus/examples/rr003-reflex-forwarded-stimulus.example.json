@@ -1,0 +1,85 @@
+{
+  "schema_version": "motion_stimulus.v0",
+  "motion_event_id": "mot_evt_rr003_demo_reflex_001",
+  "stimulus_id": "mot_stim_rr003_demo_attention_gaze",
+  "stimulus_instance_id": "mot_inst_rr003_demo_reflex_001",
+  "source_class": "reflex_forwarded",
+  "source_family": "reflex_external_state",
+  "source_origin": "reflex",
+  "requested_at": "2026-06-03T06:00:20Z",
+  "kind": "gaze",
+  "request_mode": "play",
+  "phase": "queued",
+  "lifecycle_state": "queued",
+  "safe_visible_state": "requested",
+  "safe_display_name": "Attention gaze",
+  "target_model_type": "vrm",
+  "track_mask": [
+    "eyes",
+    "gaze",
+    "head"
+  ],
+  "priority_by_track": [
+    {
+      "track": "eyes",
+      "priority": 55
+    },
+    {
+      "track": "gaze",
+      "priority": 55
+    },
+    {
+      "track": "head",
+      "priority": 20
+    }
+  ],
+  "requirements": {
+    "required_tracks": [
+      "eyes",
+      "gaze"
+    ],
+    "optional_tracks": [
+      "head"
+    ],
+    "compatible_model_types": [
+      "vrm"
+    ],
+    "provenance_required": false,
+    "allow_degraded": true,
+    "allow_fallback": true
+  },
+  "payload_ref": "motion.fixture.attention_gaze.v0",
+  "intensity": "subtle",
+  "duration_ms": 1200,
+  "loop": false,
+  "loop_count": 0,
+  "interrupt_policy": "replace_same_track",
+  "fallback_state": "none",
+  "fallback_used": false,
+  "stop_reason": "none",
+  "trace": {
+    "event_id": "evt_rr003_demo_reflex_001",
+    "episode_id": "ep_rr003_demo_001",
+    "observation_id": "obs_rr003_demo_reflex_001",
+    "selection_id": "mot_sel_rr003_demo_reflex_001",
+    "runtime_result_id": "mot_res_rr003_demo_pending_003",
+    "motion_event_id": "mot_evt_rr003_demo_reflex_001",
+    "stimulus_id": "mot_stim_rr003_demo_attention_gaze",
+    "stimulus_instance_id": "mot_inst_rr003_demo_reflex_001"
+  },
+  "redaction": {
+    "redaction_status": "summary_only",
+    "redaction_profile": "motion_contract_public_v0",
+    "shareability_class": "source_static_fixture",
+    "proof_layer": "source_static"
+  },
+  "safety": {
+    "raw_user_text_shared": false,
+    "raw_prompt_shared": false,
+    "raw_media_shared": false,
+    "raw_path_shared": false,
+    "raw_asset_filename_shared": false,
+    "provider_payload_shared": false,
+    "home_assistant_route": false
+  }
+}

@@ -29,6 +29,23 @@ against these shapes at the boundary.
   snapshot derived from Body Plan and current state.
 - `body_display_projection/body_display_projection.v0.schema.json`: display-safe
   projection frames for projector/background/display clients.
+- `motion_stimulus/motion_stimulus.v0.schema.json`: source-static avatar/body
+  motion stimulus shape for user/GUI, Thought Core contextual, and
+  Reflex-forwarded movement requests.
+  - Examples:
+    `motion_stimulus/examples/rr003-user-command-stimulus.example.json`,
+    `motion_stimulus/examples/rr003-thought-context-stimulus.example.json`,
+    `motion_stimulus/examples/rr003-reflex-forwarded-stimulus.example.json`
+- `motion_mixer_snapshot/motion_mixer_snapshot.v0.schema.json`: safe current
+  Motion Mixer snapshot, track ownership, abstract body-state summary, and
+  Status Store projection keys.
+  - Example:
+    `motion_mixer_snapshot/examples/rr003-mixer-playing.example.json`
+- `motion_driver_result/motion_driver_result.v0.schema.json`: safe driver
+  feedback/result shape for applied, degraded, unavailable, incompatible,
+  fallback, stopped, and failed-safe avatar motion outcomes.
+  - Example:
+    `motion_driver_result/examples/rr003-driver-degraded.example.json`
 
 ## Rules
 
@@ -50,3 +67,8 @@ against these shapes at the boundary.
   and zero automatic re-operation attempts.
 - v0 uses full frames for display projection; delta frames are reserved by the
   schema for future use.
+- RR003 motion contracts use safe ids, safe display labels, bounded telemetry,
+  redaction/shareability fields, and status references. They must not expose raw
+  media, prompts, transcripts, provider payloads, local paths, raw filenames,
+  private endpoints, secrets, full debug logs, or Home Assistant/appliance
+  action routes for avatar motion.

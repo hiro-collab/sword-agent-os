@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/motion_mixer_snapshot.v0.schema.json",
+  "title": "Agent OS motion_mixer_snapshot.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mixer_snapshot_id",
+    "motion_event_id",
+    "mixer_tick_id",
+    "captured_at",
+    "phase",
+    "active_stimulus_instance_ids",
+    "neutral_baseline_applied",
+    "track_owners",
+    "abstract_rig_state",
+    "requested_summary",
+    "composed_summary",
+    "fallback_summary",
+    "trace",
+    "redaction"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "motion_mixer_snapshot.v0"
+    },
+    "mixer_snapshot_id": {
+      "type": "string",
+      "pattern": "^mot_mix_[A-Za-z0-9_.:-]+$"
+    },
+    "motion_event_id": {
+      "type": "string",
+      "pattern": "^mot_evt_[A-Za-z0-9_.:-]+$"
+    },
+    "mixer_tick_id": {
+      "type": "string",
+      "pattern": "^mot_tick_[A-Za-z0-9_.:-]+$"
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "idle",
+        "preview_ready",
+        "previewing",
+        "playing",
+        "releasing",
+        "stopping",
+        "completed",
+        "unavailable",
+        "incompatible",
+        "degraded",
+        "failed_safe"
+      ]
+    },
+    "active_stimulus_instance_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^mot_inst_[A-Za-z0-9_.:-]+$"
+      }
+    },
+    "neutral_baseline_applied": {
+      "type": "boolean"
+    },
+    "track_owners": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/track_owner"
+      }
+    },
+    "abstract_rig_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state_id",
+        "track_states"
+      ],
+      "properties": {
+        "state_id": {
+          "type": "string",
+          "pattern": "^body_state_[A-Za-z0-9_.:-]+$"
+        },
+        "track_states": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/track_state"
+          }
+        }
+      }
+    },
+    "requested_summary": {
+      "$ref": "#/$defs/safe_summary"
+    },
+    "composed_summary": {
+      "$ref": "#/$defs/safe_summary"
+    },
+    "fallback_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fallback_state",
+        "reason_code",
+        "safe_display_text"
+      ],
+      "properties": {
+        "fallback_state": {
+          "type": "string",
+          "enum": [
+            "none",
+            "idle",
+            "degraded",
+            "unavailable",
+            "incompatible",
+            "failed_safe"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-z][a-z0-9_.:-]*$"
+        },
+        "safe_display_text": {
+          "type": "string",
+          "maxLength": 120,
+          "pattern": "^[A-Za-z0-9 _.:-]+$"
+        }
+      }
+    },
+    "status_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "motion_current_key",
+        "body_current_summary_key"
+      ],
+      "properties": {
+        "motion_current_key": {
+          "const": "expression.motion.current"
+        },
+        "body_current_summary_key": {
+          "const": "expression.body.current_summary"
+        },
+        "source_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        }
+      }
+    },
+    "trace": {
+      "$ref": "#/$defs/trace"
+    },
+    "redaction": {
+      "$ref": "#/$defs/redaction"
+    }
+  },
+  "$defs": {
+    "track": {
+      "type": "string",
+      "enum": [
+        "body_root",
+        "spine",
+        "chest",
+        "neck",
+        "head",
+        "left_arm",
+        "right_arm",
+        "left_hand",
+        "right_hand",
+        "face",
+        "mouth",
+        "eyes",
+        "gaze",
+        "balance"
+      ]
+    },
+    "track_owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "track",
+        "owner_stimulus_instance_id",
+        "source_class",
+        "layer",
+        "priority",
+        "weight",
+        "blend_mode",
+        "target_mode"
+      ],
+      "properties": {
+        "track": {
+          "$ref": "#/$defs/track"
+        },
+        "owner_stimulus_instance_id": {
+          "type": "string",
+          "pattern": "^mot_inst_[A-Za-z0-9_.:-]+$"
+        },
+        "source_class": {
+          "type": "string",
+          "enum": [
+            "user_command",
+            "gui_operator_request",
+            "thought_context",
+            "reflex_forwarded"
+          ]
+        },
+        "layer": {
+          "type": "string",
+          "enum": [
+            "structural",
+            "expression",
+            "speech",
+            "gaze",
+            "additive_modifier",
+            "idle"
+          ]
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "blend_mode": {
+          "type": "string",
+          "enum": [
+            "replace",
+            "additive",
+            "weighted"
+          ]
+        },
+        "target_mode": {
+          "type": "string",
+          "enum": [
+            "absolute",
+            "additive"
+          ]
+        }
+      }
+    },
+    "track_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "track",
+        "activity",
+        "result",
+        "freshness",
+        "confidence"
+      ],
+      "properties": {
+        "track": {
+          "$ref": "#/$defs/track"
+        },
+        "activity": {
+          "type": "string",
+          "enum": [
+            "idle",
+            "active",
+            "releasing",
+            "blocked",
+            "unavailable",
+            "unknown"
+          ]
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "requested",
+            "composed",
+            "degraded",
+            "unavailable",
+            "incompatible",
+            "failed_safe"
+          ]
+        },
+        "freshness": {
+          "type": "string",
+          "enum": [
+            "fresh",
+            "stale",
+            "missing",
+            "unknown"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "safe_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "motion_kind",
+        "safe_display_name",
+        "state"
+      ],
+      "properties": {
+        "motion_kind": {
+          "type": "string",
+          "enum": [
+            "gesture",
+            "dance_sequence",
+            "expression",
+            "gaze",
+            "posture",
+            "speech_coupled",
+            "idle_overlay",
+            "unknown"
+          ]
+        },
+        "safe_display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[A-Za-z0-9 _.:-]+$"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "requested",
+            "preview_ready",
+            "previewing",
+            "playing",
+            "stopping",
+            "completed",
+            "unavailable",
+            "incompatible",
+            "degraded",
+            "failed_safe",
+            "idle"
+          ]
+        }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "motion_event_id",
+        "stimulus_instance_ids",
+        "mixer_tick_id"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "pattern": "^evt_[A-Za-z0-9_.:-]+$"
+        },
+        "turn_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "episode_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "issue_ticket_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "motion_event_id": {
+          "type": "string",
+          "pattern": "^mot_evt_[A-Za-z0-9_.:-]+$"
+        },
+        "stimulus_instance_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^mot_inst_[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "selection_id": {
+          "type": "string",
+          "pattern": "^mot_sel_[A-Za-z0-9_.:-]+$"
+        },
+        "mixer_tick_id": {
+          "type": "string",
+          "pattern": "^mot_tick_[A-Za-z0-9_.:-]+$"
+        },
+        "driver_result_id": {
+          "type": "string",
+          "pattern": "^mot_drv_[A-Za-z0-9_.:-]+$"
+        },
+        "runtime_result_id": {
+          "type": "string",
+          "pattern": "^mot_res_[A-Za-z0-9_.:-]+$"
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_status",
+        "redaction_profile",
+        "shareability_class",
+        "proof_layer"
+      ],
+      "properties": {
+        "redaction_status": {
+          "type": "string",
+          "enum": [
+            "summary_only",
+            "redacted"
+          ]
+        },
+        "redaction_profile": {
+          "type": "string",
+          "enum": [
+            "motion_contract_public_v0",
+            "motion_contract_internal_v0"
+          ]
+        },
+        "shareability_class": {
+          "type": "string",
+          "enum": [
+            "source_static_fixture",
+            "status_projection",
+            "event_journal_summary",
+            "debug_local_only"
+          ]
+        },
+        "proof_layer": {
+          "type": "string",
+          "enum": [
+            "source_static",
+            "no_live_runtime",
+            "visible_motion",
+            "real_device"
+          ]
+        }
+      }
+    }
+  }
+}
