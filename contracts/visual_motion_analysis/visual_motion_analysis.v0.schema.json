@@ -1,0 +1,502 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/visual_motion_analysis.v0.schema.json",
+  "title": "Agent OS visual_motion_analysis.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "analysis_run_id",
+    "scenario_id",
+    "proof_layer",
+    "motion_event_id",
+    "stimulus_instance_id",
+    "driver_result_id",
+    "source_ref",
+    "sampling",
+    "windows",
+    "roi_config",
+    "thresholds",
+    "result",
+    "roi_results",
+    "artifact_policy",
+    "redaction",
+    "safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "visual_motion_analysis.v0"
+    },
+    "analysis_run_id": {
+      "type": "string",
+      "pattern": "^vismot_run_[A-Za-z0-9_.:-]+$"
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]*$"
+    },
+    "proof_layer": {
+      "type": "string",
+      "enum": [
+        "no_live_runtime",
+        "visible_motion",
+        "debug_local_only"
+      ]
+    },
+    "motion_event_id": {
+      "type": "string",
+      "pattern": "^mot_evt_[A-Za-z0-9_.:-]+$"
+    },
+    "stimulus_instance_id": {
+      "type": "string",
+      "pattern": "^mot_inst_[A-Za-z0-9_.:-]+$"
+    },
+    "driver_result_id": {
+      "type": "string",
+      "pattern": "^mot_drv_[A-Za-z0-9_.:-]+$"
+    },
+    "mixer_tick_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^mot_tick_[A-Za-z0-9_.:-]+$"
+      },
+      "default": []
+    },
+    "source_ref": {
+      "$ref": "#/$defs/source_ref"
+    },
+    "sampling": {
+      "$ref": "#/$defs/sampling"
+    },
+    "windows": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/window"
+      }
+    },
+    "roi_config": {
+      "$ref": "#/$defs/roi_config"
+    },
+    "thresholds": {
+      "$ref": "#/$defs/thresholds"
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "visual-pass",
+        "visual-partial",
+        "visual-missing-motion",
+        "visual-wrong-region-motion",
+        "visual-settle-jitter",
+        "ui-only-motion-not-avatar-motion",
+        "visual-pretrigger-motion",
+        "visual-stuck-after-settle",
+        "visual-evidence-blocked"
+      ]
+    },
+    "roi_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/roi_result"
+      }
+    },
+    "artifact_policy": {
+      "$ref": "#/$defs/artifact_policy"
+    },
+    "redaction": {
+      "$ref": "#/$defs/redaction"
+    },
+    "safety": {
+      "$ref": "#/$defs/safety"
+    }
+  },
+  "$defs": {
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source_ref_id",
+        "raw_source_shared"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "local_frame_sequence",
+            "local_video_file",
+            "browser_frame_provider",
+            "synthetic_test_frames"
+          ]
+        },
+        "source_ref_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$"
+        },
+        "raw_source_shared": {
+          "const": false
+        }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_rate_fps",
+        "evaluation_window_ms",
+        "frame_count"
+      ],
+      "properties": {
+        "sample_rate_fps": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "evaluation_window_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600000
+        },
+        "frame_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6000
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "window_id",
+        "start_ms",
+        "end_ms"
+      ],
+      "properties": {
+        "window_id": {
+          "type": "string",
+          "enum": [
+            "pretrigger",
+            "active",
+            "release",
+            "settle"
+          ]
+        },
+        "start_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "roi_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "viewport",
+        "rois"
+      ],
+      "properties": {
+        "viewport": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "rois": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/roi"
+          }
+        }
+      }
+    },
+    "roi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "roi_id",
+        "kind",
+        "counts_as_avatar_motion",
+        "expected_for_pass",
+        "rect_norm"
+      ],
+      "properties": {
+        "roi_id": {
+          "type": "string",
+          "enum": [
+            "avatar_full",
+            "avatar_face_head",
+            "avatar_eyes_gaze",
+            "avatar_torso",
+            "avatar_left_arm",
+            "avatar_right_arm",
+            "avatar_lower_body",
+            "speech_bubble",
+            "left_hud",
+            "right_hud",
+            "render_controls",
+            "input_bar",
+            "background_fx"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "avatar",
+            "guard_ui",
+            "guard_background"
+          ]
+        },
+        "counts_as_avatar_motion": {
+          "type": "boolean"
+        },
+        "expected_for_pass": {
+          "type": "boolean"
+        },
+        "rect_norm": {
+          "$ref": "#/$defs/rect_norm"
+        }
+      }
+    },
+    "rect_norm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "active_motion_min_score",
+        "settle_motion_max_score",
+        "min_consecutive_samples"
+      ],
+      "properties": {
+        "active_motion_min_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "settle_motion_max_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "min_consecutive_samples": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        }
+      }
+    },
+    "roi_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "roi_id",
+        "kind",
+        "counts_as_avatar_motion",
+        "pretrigger_peak_motion_score",
+        "active_peak_motion_score",
+        "release_peak_motion_score",
+        "settle_peak_motion_score",
+        "pass_label"
+      ],
+      "properties": {
+        "roi_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "avatar",
+            "guard_ui",
+            "guard_background"
+          ]
+        },
+        "counts_as_avatar_motion": {
+          "type": "boolean"
+        },
+        "pretrigger_peak_motion_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "active_peak_motion_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "release_peak_motion_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "settle_peak_motion_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "pass_label": {
+          "type": "string",
+          "enum": [
+            "visual-motion-detected",
+            "return-neutral-pass",
+            "visual-missing-motion",
+            "visual-wrong-region-motion",
+            "visual-settle-jitter",
+            "ui-only-motion-not-avatar-motion",
+            "visual-pretrigger-motion",
+            "visual-stuck-after-settle",
+            "guard-ui-motion-excluded",
+            "visual-evidence-blocked"
+          ]
+        }
+      }
+    },
+    "artifact_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_frames_shared",
+        "raw_paths_shared",
+        "chart_shared",
+        "cleanup_note_required"
+      ],
+      "properties": {
+        "raw_frames_shared": {
+          "const": false
+        },
+        "raw_paths_shared": {
+          "const": false
+        },
+        "chart_shared": {
+          "type": "boolean"
+        },
+        "cleanup_note_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_status",
+        "shareability_class",
+        "public_safe"
+      ],
+      "properties": {
+        "redaction_status": {
+          "type": "string",
+          "enum": [
+            "summary_only",
+            "redacted"
+          ]
+        },
+        "shareability_class": {
+          "type": "string",
+          "enum": [
+            "review_packet",
+            "debug_local_only"
+          ]
+        },
+        "public_safe": {
+          "const": false
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_prompt_shared",
+        "raw_transcript_shared",
+        "raw_log_shared",
+        "raw_media_shared",
+        "raw_path_shared",
+        "raw_asset_filename_shared",
+        "provider_payload_shared",
+        "private_endpoint_shared",
+        "home_assistant_route_retained"
+      ],
+      "properties": {
+        "raw_prompt_shared": {
+          "const": false
+        },
+        "raw_transcript_shared": {
+          "const": false
+        },
+        "raw_log_shared": {
+          "const": false
+        },
+        "raw_media_shared": {
+          "const": false
+        },
+        "raw_path_shared": {
+          "const": false
+        },
+        "raw_asset_filename_shared": {
+          "const": false
+        },
+        "provider_payload_shared": {
+          "const": false
+        },
+        "private_endpoint_shared": {
+          "const": false
+        },
+        "home_assistant_route_retained": {
+          "const": false
+        }
+      }
+    }
+  }
+}

@@ -55,7 +55,7 @@
       "version_source": "organs/environment/vision-snapshot-processor/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/vision-snapshot-processor.git",
       "branch": "main",
-      "commit": "48cc627fbf0b48159bbd840bea673821a1d8c80b",
+      "commit": "c25d196e3fd04e3b9c7a32b9b769a1ee746dd85f",
       "adoption": "standard_candidate",
       "legacy_path": "organs/environment/vision-snapshot-processor",
       "notes": "Low-frequency vision snapshots such as room light state."

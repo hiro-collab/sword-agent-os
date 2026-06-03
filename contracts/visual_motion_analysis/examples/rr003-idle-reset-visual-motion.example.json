@@ -1,0 +1,133 @@
+{
+  "schema_version": "visual_motion_analysis.v0",
+  "analysis_run_id": "vismot_run_rr003_idle_reset_001",
+  "scenario_id": "rr003.visible_motion.idle_reset.no_live.v0",
+  "proof_layer": "no_live_runtime",
+  "motion_event_id": "mot_evt_rr003_idle_reset_001",
+  "stimulus_instance_id": "mot_inst_rr003_idle_reset_001",
+  "driver_result_id": "mot_drv_rr003_idle_reset_001",
+  "mixer_tick_ids": [
+    "mot_tick_rr003_idle_reset_001"
+  ],
+  "source_ref": {
+    "kind": "synthetic_test_frames",
+    "source_ref_id": "redacted_synthetic_idle_reset_001",
+    "raw_source_shared": false
+  },
+  "sampling": {
+    "sample_rate_fps": 8,
+    "evaluation_window_ms": 6000,
+    "frame_count": 48
+  },
+  "windows": [
+    {
+      "window_id": "active",
+      "start_ms": 0,
+      "end_ms": 1200
+    },
+    {
+      "window_id": "release",
+      "start_ms": 1200,
+      "end_ms": 3000
+    },
+    {
+      "window_id": "settle",
+      "start_ms": 3000,
+      "end_ms": 6000
+    }
+  ],
+  "roi_config": {
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "rois": [
+      {
+        "roi_id": "avatar_full",
+        "kind": "avatar",
+        "counts_as_avatar_motion": true,
+        "expected_for_pass": true,
+        "rect_norm": {
+          "x": 0.36,
+          "y": 0.06,
+          "w": 0.36,
+          "h": 0.84
+        }
+      },
+      {
+        "roi_id": "left_hud",
+        "kind": "guard_ui",
+        "counts_as_avatar_motion": false,
+        "expected_for_pass": false,
+        "rect_norm": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 0.22,
+          "h": 0.60
+        }
+      },
+      {
+        "roi_id": "right_hud",
+        "kind": "guard_ui",
+        "counts_as_avatar_motion": false,
+        "expected_for_pass": false,
+        "rect_norm": {
+          "x": 0.78,
+          "y": 0.0,
+          "w": 0.22,
+          "h": 0.60
+        }
+      }
+    ]
+  },
+  "thresholds": {
+    "active_motion_min_score": 0.08,
+    "settle_motion_max_score": 0.05,
+    "min_consecutive_samples": 2
+  },
+  "result": "visual-pass",
+  "roi_results": [
+    {
+      "roi_id": "avatar_full",
+      "kind": "avatar",
+      "counts_as_avatar_motion": true,
+      "pretrigger_peak_motion_score": 0.0,
+      "active_peak_motion_score": 0.11,
+      "release_peak_motion_score": 0.06,
+      "settle_peak_motion_score": 0.02,
+      "pass_label": "return-neutral-pass"
+    },
+    {
+      "roi_id": "left_hud",
+      "kind": "guard_ui",
+      "counts_as_avatar_motion": false,
+      "pretrigger_peak_motion_score": 0.0,
+      "active_peak_motion_score": 0.03,
+      "release_peak_motion_score": 0.03,
+      "settle_peak_motion_score": 0.02,
+      "pass_label": "guard-ui-motion-excluded"
+    }
+  ],
+  "artifact_policy": {
+    "raw_frames_shared": false,
+    "raw_paths_shared": false,
+    "chart_shared": false,
+    "cleanup_note_required": true
+  },
+  "redaction": {
+    "redaction_status": "summary_only",
+    "shareability_class": "review_packet",
+    "public_safe": false
+  },
+  "safety": {
+    "raw_prompt_shared": false,
+    "raw_transcript_shared": false,
+    "raw_log_shared": false,
+    "raw_media_shared": false,
+    "raw_path_shared": false,
+    "raw_asset_filename_shared": false,
+    "provider_payload_shared": false,
+    "private_endpoint_shared": false,
+    "home_assistant_route_retained": false
+  }
+}
