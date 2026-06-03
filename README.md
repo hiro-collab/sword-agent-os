@@ -255,6 +255,24 @@ pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode room-light -Ass
 `<workspace>` placeholder 付きで表示します。メディア再生、実カメラ/実マイク起動、
 generated output 作成、live Home Assistant 実行は行いません。
 
+複数の proof layer を一度に見失わないための入口として、full install verification
+helper もあります。デフォルトでは no-live/no-device の source/static、dry-run、
+preview だけを集約し、実カメラ、実マイク、virtual audio、gesture gate、live
+Home Assistant は `held` または `blocked` として分離表示します。
+
+```powershell
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RunNoLiveSmoke
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RunRuntimeHttpChecks
+```
+
+live/device layer を開く場合も、flag を明示します。helper は raw media、raw audio、
+raw transcript、raw screenshot、secret、Home Assistant route/token/entity を出しません。
+Home Assistant の物理 action は、`-RequestLiveHomeAssistant` に加えて
+`-ConfirmHomeAssistantTicket`、`-AllowedActionId`、`-RestoreActionId`、
+期待 state、最大 action 数、停止条件が揃っていても、この helper からは直接 execute
+しません。preview / dry-run / execute の ladder は、単独の live owner が別途実行します。
+
 よく使うオプション:
 
 | オプション | 用途 |
@@ -966,6 +984,36 @@ private absolute path は共有しません。gesture positive replay、gesture 
 false-positive、room-light on/off replay は local-media replay proof です。gesture-to-voice
 gate、STT/input、Thought Core turn、real camera、real mic、browser runtime、
 ticketed live appliance action は別 proof layer として分けて報告してください。
+
+### optional / full install verification helper
+
+複数 lane の状態をひとつの redacted summary にまとめる場合は、次を使えます。
+
+```powershell
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1
+```
+
+デフォルトは `default_safety=no-live/no-device` です。`show-version`、
+`install-distribution -DryRun`、manifest validation、pin check、local-media
+preview、voice-gate preview を source/static としてまとめ、実カメラ、実マイク、
+virtual audio、browser runtime、gesture gate、Home Assistant live action は
+別 layer の `held` / `blocked` として表示します。
+
+必要な proof layer だけ明示的に開きます。
+
+```powershell
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RunNoLiveSmoke
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RunRuntimeHttpChecks
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestRealCamera
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestVirtualAudio
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestGestureGate
+```
+
+`-RequestLiveHomeAssistant` は physical action の許可ではありません。action/restore
+id、期待 state、最大回数、停止条件が足りない場合は hold します。揃っている場合でも、
+この helper は physical execute を直接行わず、Home Assistant preflight / state check と
+「別 live owner の ladder で実行すべき」という blocked summary を出します。
+`git_unreadable` は true pin mismatch とは分けて表示し、通常ユーザー文脈で再確認します。
 
 ### optional / runtime-browser
 

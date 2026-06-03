@@ -386,6 +386,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "gesture-to-voice-input" -Message "README should separate gesture-to-voice gate proof"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
   Assert-TextMatch -Text $readme -Pattern "run-local-media-replay\.ps1" -Message "README should document the local media replay preview helper"
+  Assert-TextMatch -Text $readme -Pattern "run-full-install-verification\.ps1" -Message "README should document the full install verification helper"
+  Assert-TextMatch -Text $readme -Pattern "default_safety=no-live/no-device" -Message "README should state the full verification helper default safety"
+  Assert-TextMatch -Text $readme -Pattern "RequestLiveHomeAssistant[\s\S]{0,320}ConfirmHomeAssistantTicket|ConfirmHomeAssistantTicket[\s\S]{0,320}RequestLiveHomeAssistant" -Message "README should require explicit live HA request and ticket confirmation"
   Assert-TextMatch -Text $readme -Pattern "local-media replay" -Message "README should name local-media replay as a separate proof layer"
   Assert-TextMatch -Text $readme -Pattern "gesture\.sword\.20260603" -Message "README should show the sword-sign positive local media asset id"
   Assert-TextMatch -Text $readme -Pattern "vision\.room_light\.on\.20260603" -Message "README should show the room-light local media asset id"
@@ -401,6 +404,20 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $localMediaHelper -Pattern "live_action_executed=false" -Message "local media helper should print live_action_executed=false"
   Assert-TextMatch -Text $localMediaHelper -Pattern "<workspace>" -Message "local media helper should use placeholders instead of private absolute paths"
   Assert-TextMatch -Text $localMediaHelper -Pattern "<workspace-uri>" -Message "room-light preview should use a placeholder file URI"
+  Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\run-full-install-verification.ps1")
+  $fullInstallHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-full-install-verification.ps1")
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "default_safety=no-live/no-device" -Message "full install helper should report default no-live/no-device safety"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestRealCamera" -Message "full install helper should require explicit real camera request"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestVirtualAudio" -Message "full install helper should require explicit virtual audio request"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestLiveHomeAssistant" -Message "full install helper should require explicit live HA request"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "ConfirmHomeAssistantTicket" -Message "full install helper should require live HA ticket confirmation"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "git_unreadable" -Message "full install helper should separate git_unreadable from true pin mismatch"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern 'raw_audio_shared = \$false' -Message "full install helper should keep raw audio unshared"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern 'live_action_executed = \$false' -Message "full install helper should not execute live actions"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "<workspace>" -Message "full install helper should redact workspace paths in display commands"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "run-local-media-replay\.ps1" -Message "full install helper should call the local media preview helper"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "test-local-media-voice-gate\.ps1" -Message "full install helper should call the voice-gate preview helper"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "start-home-control-bridge\.ps1" -Message "full install helper should use the Home Control bridge only for preflight/state checks"
   Assert-PathPresent -Path (Join-Path $RepoRoot "control-plane\sword-voice-agent\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\test-local-media-voice-gate.ps1")
   $voiceGateHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "control-plane\sword-voice-agent\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")

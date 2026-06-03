@@ -680,6 +680,7 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/stop-launcher.
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/prepare-compat-launch.ps1") -PathType Leaf) "compat launch preparation script missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/prepare-aituberkit-sword-adapter.ps1") -PathType Leaf) "AITuberKit adapter preparation script missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-compat-smoke.ps1") -PathType Leaf) "compat launch smoke script missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-full-install-verification.ps1") -PathType Leaf) "full install verification helper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/update-diagnostics-status.ps1") -PathType Leaf) "diagnostics status writer missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/read-diagnostics-status.ps1") -PathType Leaf) "diagnostics status reader missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/watch-diagnostics-status.ps1") -PathType Leaf) "diagnostics status watcher missing"
