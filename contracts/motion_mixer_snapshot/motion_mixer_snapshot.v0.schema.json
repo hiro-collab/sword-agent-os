@@ -315,6 +315,7 @@
             "dance_sequence",
             "expression",
             "gaze",
+            "action_indicator",
             "posture",
             "speech_coupled",
             "idle_overlay",

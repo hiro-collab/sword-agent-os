@@ -243,6 +243,24 @@ foreach ($contractFile in $contractFiles) {
   Assert-True ($null -ne $contract.title) "contract missing title: $contractFile"
 }
 
+$motionStimulusContract = Read-Json -Path (Resolve-ManifestPath "contracts/motion_stimulus/motion_stimulus.v0.schema.json")
+$motionStimulusKinds = @($motionStimulusContract.properties.kind.enum | ForEach-Object { [string]$_ })
+Assert-True ("action_indicator" -in $motionStimulusKinds) "motion stimulus must support action_indicator motion kind"
+Assert-True ($null -ne $motionStimulusContract.properties.target_context) "motion stimulus must expose safe target_context for action indicators"
+$motionStimulusDefs = $motionStimulusContract.PSObject.Properties["`$defs"].Value
+Assert-True ($null -ne $motionStimulusDefs.target_context) "motion stimulus must define target_context"
+$motionTargetContext = $motionStimulusDefs.target_context
+$motionTargetKinds = @($motionTargetContext.properties.target_kind.enum | ForEach-Object { [string]$_ })
+Assert-True ("appliance" -in $motionTargetKinds) "motion target_context must support appliance targets"
+Assert-True ($null -ne $motionTargetContext.properties.topology_ref) "motion target_context must support topology_ref"
+Assert-True ($null -ne $motionTargetContext.properties.action_request_id) "motion target_context must support action_request_id"
+Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath "contracts/motion_stimulus/examples/rr003-action-indicator-stimulus.example.json") -PathType Leaf) "motion stimulus action indicator example missing"
+
+$motionMixerContract = Read-Json -Path (Resolve-ManifestPath "contracts/motion_mixer_snapshot/motion_mixer_snapshot.v0.schema.json")
+$motionMixerDefs = $motionMixerContract.PSObject.Properties["`$defs"].Value
+$motionMixerKinds = @($motionMixerDefs.safe_summary.properties.motion_kind.enum | ForEach-Object { [string]$_ })
+Assert-True ("action_indicator" -in $motionMixerKinds) "motion mixer summary must support action_indicator motion kind"
+
 Assert-True ([string]$bodyPlan.schema_version -eq "body_plan.v0") "body plan schema_version must be body_plan.v0"
 Assert-True ([string]$bodyPlan.body_plan_id -eq "system_cell_v0") "body plan id must be system_cell_v0"
 Assert-True ([string]$bodyPlan.body_plan_version -match "^[0-9]+\.[0-9]+\.[0-9]+$") "body plan version must be semver-like"

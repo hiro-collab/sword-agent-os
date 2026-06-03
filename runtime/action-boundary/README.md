@@ -19,6 +19,10 @@ internal actuator.
   violations, and emergency-stop state.
 - Keep dummy and real execution clearly separated.
 - Report decisions through State/Event Ingest.
+- When caller/UI needs visible target feedback, provide only safe ids or
+  summaries that can be referenced by Motion Runtime as an `action_indicator`.
+  Do not pass raw driver routes, Home Assistant entity ids, or secrets into
+  avatar-motion payloads.
 
 ## RR-001 Confirmation Loop Bound
 

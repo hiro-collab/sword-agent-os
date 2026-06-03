@@ -16,6 +16,7 @@ diagnostic belongs.
 | Action capability lookup | `runtime/action-catalog/` and `manifests/driver-manifests/` | hard-coded driver tables |
 | Deterministic action guard | `runtime/action-boundary/` | Thought Core semantic reasoning |
 | Display-safe body frames | `runtime/body-display-projection/` | raw logs, raw prompts, raw camera frames |
+| Avatar/body motion indicators | `runtime/motion-runtime/` | direct appliance execution or raw driver routes |
 
 ## Runtime vs Diagnostics
 
@@ -80,6 +81,25 @@ All external or actuator-facing operations should flow through
 Reflex can run without Thought Core, but it still uses Action Boundary before
 touching a driver. Thought Core owns semantic safety and contextual judgment.
 Action Boundary owns deterministic body-side guardrails.
+
+## Motion Indicator Path
+
+Avatar motion can be used as a visible indicator for action and attention. For
+example, while a home appliance action is being previewed, executed, or checked,
+Thought Core or Reflex may request a `motion_stimulus.v0` with
+`kind: action_indicator` so the avatar points, gazes, or gestures toward the
+display-safe target.
+
+This path must stay separate from the action path:
+
+1. The action itself still flows through `action_request.v0`, Action Boundary,
+   and a driver.
+2. Motion Runtime receives only a display-safe motion stimulus and optional
+   safe target context.
+3. The target context may use topology refs, safe display labels, and
+   `action_request_id`.
+4. It must not embed raw Home Assistant entity ids, service routes, private
+   URLs, or device secrets.
 
 ## Where To Add Work
 

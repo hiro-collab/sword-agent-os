@@ -35,7 +35,8 @@ against these shapes at the boundary.
   - Examples:
     `motion_stimulus/examples/rr003-user-command-stimulus.example.json`,
     `motion_stimulus/examples/rr003-thought-context-stimulus.example.json`,
-    `motion_stimulus/examples/rr003-reflex-forwarded-stimulus.example.json`
+    `motion_stimulus/examples/rr003-reflex-forwarded-stimulus.example.json`,
+    `motion_stimulus/examples/rr003-action-indicator-stimulus.example.json`
 - `motion_mixer_snapshot/motion_mixer_snapshot.v0.schema.json`: safe current
   Motion Mixer snapshot, track ownership, abstract body-state summary, and
   Status Store projection keys.
@@ -83,6 +84,11 @@ against these shapes at the boundary.
   media, prompts, transcripts, provider payloads, local paths, raw filenames,
   private endpoints, secrets, full debug logs, or Home Assistant/appliance
   action routes for avatar motion.
+- RR003 `action_indicator` motion exists to show what the avatar/agent is
+  operating or attending to, such as pointing toward a display-safe appliance
+  target during action execution or feedback checking. It may reference safe
+  topology ids and action request ids, but it must not become an action
+  execution path or leak raw Home Assistant entity/service details.
 - Motion trace and motion memory candidate records must keep freshness,
   staleness, repetition, evidence, retention, redaction, erasure, and
   `safe_to_act` semantics explicit. Memory packets / suggestions are retrieval

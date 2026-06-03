@@ -25,6 +25,28 @@ These contracts intentionally separate:
 - applied motion: what the current driver adapter actually applied, degraded,
   rejected, stopped, or failed safe.
 
+## Action Target Indicators
+
+One RR003 purpose is not only dance or emotion, but visible body-side
+indication of what the agent is operating or attending to. For example, while a
+home appliance action is previewing, executing, or checking feedback, the avatar
+may point, turn its gaze, or shift posture toward the display-safe target.
+
+This is represented as `kind: action_indicator` in `motion_stimulus.v0`. The
+stimulus may carry a safe `target_context` such as a topology reference,
+display label, action request id, and action phase. It must not carry raw Home
+Assistant entity ids, service routes, private URLs, or secrets. The action still
+belongs to Thought Core, Action Boundary, and the selected driver; Motion
+Runtime only expresses the visible indicator.
+
+Typical uses:
+
+- point or gaze toward the appliance currently being controlled;
+- show that an action is waiting for feedback;
+- shift from pending-operation indication to result indication;
+- degrade safely to gaze, face, or speech-only status when arm/hand motion is
+  unavailable.
+
 ## Runtime Flow
 
 ```text

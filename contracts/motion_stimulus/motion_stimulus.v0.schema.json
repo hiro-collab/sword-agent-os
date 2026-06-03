@@ -79,6 +79,7 @@
         "dance_sequence",
         "expression",
         "gaze",
+        "action_indicator",
         "posture",
         "speech_coupled",
         "idle_overlay",
@@ -247,6 +248,9 @@
       "maxLength": 120,
       "pattern": "^[a-z][a-z0-9_.:-]*$"
     },
+    "target_context": {
+      "$ref": "#/$defs/target_context"
+    },
     "intensity": {
       "type": "string",
       "enum": [
@@ -326,6 +330,68 @@
         "gaze",
         "balance"
       ]
+    },
+    "target_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_kind",
+        "safe_target_label",
+        "indicator_intent"
+      ],
+      "properties": {
+        "target_kind": {
+          "type": "string",
+          "enum": [
+            "appliance",
+            "room",
+            "display_region",
+            "system_component",
+            "unknown"
+          ]
+        },
+        "safe_target_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[A-Za-z0-9 _.:-]+$"
+        },
+        "topology_ref": {
+          "type": "string",
+          "maxLength": 160,
+          "pattern": "^topology://[A-Za-z0-9_/.: -]+$"
+        },
+        "topology_snapshot_id": {
+          "type": "string",
+          "maxLength": 120,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "action_request_id": {
+          "type": "string",
+          "pattern": "^act_req_[A-Za-z0-9_.:-]+$"
+        },
+        "action_phase": {
+          "type": "string",
+          "enum": [
+            "preview",
+            "executing",
+            "checking_feedback",
+            "completed",
+            "held",
+            "unknown"
+          ]
+        },
+        "indicator_intent": {
+          "type": "string",
+          "enum": [
+            "show_target",
+            "show_pending_operation",
+            "show_feedback_check",
+            "show_result",
+            "show_attention"
+          ]
+        }
+      }
     },
     "trace": {
       "type": "object",
