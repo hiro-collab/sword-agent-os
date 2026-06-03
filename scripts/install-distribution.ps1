@@ -62,6 +62,10 @@ function Invoke-Step {
       $stepArgs = $Command[1..($Command.Count - 1)]
     }
     & $exe @stepArgs
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+      throw "command failed with exit code ${exitCode}: $($Command -join ' ')"
+    }
   }
   finally {
     Pop-Location
@@ -239,8 +243,12 @@ function Invoke-DependencyInstall {
       continue
     }
     if (-not (Test-Path -LiteralPath $path -PathType Container)) {
-      Write-Warning "dependency path missing for ${id}: $path"
-      continue
+      $message = "dependency path missing for ${id}: $path"
+      if ($DryRun) {
+        Write-Warning $message
+        continue
+      }
+      throw $message
     }
     Write-Host "dependency install: $id"
     Invoke-Step -Command $command -WorkingDirectory $path

@@ -61,6 +61,10 @@ function Invoke-Step {
       $stepArgs = $Command[1..($Command.Count - 1)]
     }
     & $exe @stepArgs
+    $exitCode = $LASTEXITCODE
+    if ($null -ne $exitCode -and $exitCode -ne 0) {
+      throw "command failed with exit code ${exitCode}: $($Command -join ' ')"
+    }
   }
   finally {
     Pop-Location
@@ -69,7 +73,7 @@ function Invoke-Step {
 
 function Test-RemotePin {
   param([Parameter(Mandatory = $true)]$Item)
-  $line = git ls-remote ([string]$Item.repo_url) "refs/heads/$($Item.branch)"
+  $line = @(Invoke-GitReadChecked -Arguments @("ls-remote", ([string]$Item.repo_url), "refs/heads/$($Item.branch)"))
   if ([string]::IsNullOrWhiteSpace(($line -join ""))) {
     throw "remote branch not found for $($Item.id): $($Item.branch)"
   }
@@ -80,17 +84,61 @@ function Test-RemotePin {
   Write-Host "remote verified: $($Item.id) $($Item.commit.Substring(0, 7))"
 }
 
-function Invoke-GitChecked {
+function Invoke-GitReadChecked {
   param([Parameter(Mandatory = $true)][string[]]$Arguments)
   $output = & git @Arguments 2>&1
   $exitCode = $LASTEXITCODE
+  if ($exitCode -ne 0) {
+    $details = (@($output) | ForEach-Object { [string]$_ }) -join "`n"
+    if (-not [string]::IsNullOrWhiteSpace($details)) {
+      throw "git failed: git $($Arguments -join ' ')`n$details"
+    }
+    throw "git failed: git $($Arguments -join ' ')"
+  }
+  return @($output | ForEach-Object { [string]$_ })
+}
+
+function Invoke-GitChecked {
+  param([Parameter(Mandatory = $true)][string[]]$Arguments)
+  $output = @(Invoke-GitReadChecked -Arguments $Arguments)
   foreach ($line in @($output)) {
     if (-not [string]::IsNullOrWhiteSpace([string]$line)) {
       Write-Host $line
     }
   }
-  if ($exitCode -ne 0) {
-    throw "git failed: git $($Arguments -join ' ')"
+}
+
+function Format-GitHoldFailure {
+  param([Parameter(Mandatory = $true)][string]$Message)
+  if ($Message -match "detected dubious ownership") {
+    return "Git ownership check blocked this sandbox/user from reading the checkout. Run the same command as the normal workspace user, or use an exact per-command safe.directory override for diagnosis; do not treat this as a source pin mismatch."
+  }
+  $lines = @($Message -split '\r\n|\n|\r' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+  if ($lines.Count -eq 0) {
+    return "Git command failed without details"
+  }
+  return (($lines | Select-Object -First 3) -join " | ")
+}
+
+function Get-GitReadOrHold {
+  param(
+    [Parameter(Mandatory = $true)][string[]]$Arguments,
+    [Parameter(Mandatory = $true)][string]$Label,
+    [Parameter(Mandatory = $true)][string]$Operation
+  )
+  try {
+    $output = @(Invoke-GitReadChecked -Arguments $Arguments)
+    return [PSCustomObject]@{
+      ok = $true
+      output = $output
+    }
+  }
+  catch {
+    Write-Warning "hold git ${Operation} failed for ${Label}: $(Format-GitHoldFailure -Message ([string]$_.Exception.Message))"
+    return [PSCustomObject]@{
+      ok = $false
+      output = @()
+    }
   }
 }
 
@@ -184,7 +232,11 @@ function Update-Checkout {
     return "held"
   }
 
-  $dirty = @(git -C $target status --porcelain)
+  $dirtyRead = Get-GitReadOrHold -Arguments @("-C", $target, "status", "--porcelain") -Label $label -Operation "status"
+  if (-not $dirtyRead.ok) {
+    return "held"
+  }
+  $dirty = @($dirtyRead.output)
   $dirtySplit = Split-DirtyLines -Lines $dirty
   if ($dirtySplit.blocking.Count -gt 0) {
     Write-Warning "hold dirty checkout: $label"
@@ -200,13 +252,20 @@ function Update-Checkout {
     }
   }
 
-  $currentBranch = git -C $target branch --show-current
-  if ($currentBranch -ne $branch) {
+  $branchRead = Get-GitReadOrHold -Arguments @("-C", $target, "branch", "--show-current") -Label $label -Operation "branch"
+  if (-not $branchRead.ok) {
+    return "held"
+  }
+  $currentBranch = (($branchRead.output | Select-Object -First 1) -join "").Trim()
+  if (-not [string]::IsNullOrWhiteSpace($currentBranch) -and $currentBranch -ne $branch) {
     Write-Warning "hold branch mismatch for ${label}: expected $branch, got $currentBranch"
     return "held"
   }
-
-  $head = git -C $target rev-parse HEAD
+  $headRead = Get-GitReadOrHold -Arguments @("-C", $target, "rev-parse", "HEAD") -Label $label -Operation "rev-parse"
+  if (-not $headRead.ok) {
+    return "held"
+  }
+  $head = (($headRead.output | Select-Object -First 1) -join "").Trim()
   if ($head -eq $expected) {
     Write-Host "up-to-date: $label $($expected.Substring(0, 7))"
     return "up_to_date"
@@ -221,14 +280,22 @@ function Update-Checkout {
 
   Invoke-GitChecked -Arguments @("-C", $target, "fetch", "origin", $branch)
   Invoke-GitChecked -Arguments @("-C", $target, "cat-file", "-e", "$expected^{commit}")
-  git -C $target merge-base --is-ancestor $head $expected
-  if ($LASTEXITCODE -ne 0) {
+  $mergeBaseOutput = & git -C $target merge-base --is-ancestor $head $expected 2>&1
+  $mergeBaseExitCode = $LASTEXITCODE
+  if ($mergeBaseExitCode -eq 1) {
     Write-Warning "hold non-fast-forward update: $label $($head.Substring(0, 7)) -> $($expected.Substring(0, 7))"
     return "held"
   }
+  if ($mergeBaseExitCode -ne 0) {
+    $mergeDetails = (@($mergeBaseOutput) | ForEach-Object { [string]$_ }) -join "`n"
+    if (-not [string]::IsNullOrWhiteSpace($mergeDetails)) {
+      throw "git failed: git -C $target merge-base --is-ancestor $head $expected`n$mergeDetails"
+    }
+    throw "git failed: git -C $target merge-base --is-ancestor $head $expected"
+  }
 
   Invoke-GitChecked -Arguments @("-C", $target, "merge", "--ff-only", $expected)
-  $newHead = git -C $target rev-parse HEAD
+  $newHead = ((Invoke-GitReadChecked -Arguments @("-C", $target, "rev-parse", "HEAD") | Select-Object -First 1) -join "").Trim()
   if ($newHead -ne $expected) {
     throw "update did not reach manifest pin for ${label}: expected $expected, got $newHead"
   }

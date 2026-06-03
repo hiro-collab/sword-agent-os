@@ -290,6 +290,33 @@ project は、公式 upstream の release tag を component version として扱
 取得する source は fork の Git commit pin で管理するため、正確な実装同一性は常に
 manifest の commit pin で確認します。
 
+## 配布診断と source pin 確認
+
+初回導入、更新、レビュー前に「何が足りないのか」をまとめて見る場合は
+`doctor-distribution.ps1` を使います。これは secret 値を表示せず、tool、source pin、
+中央 env、生成 `.env`、local asset の有無を人間向けに整理します。
+
+```powershell
+pwsh -NoProfile -File .\scripts\doctor-distribution.ps1 -Profile standard
+pwsh -NoProfile -File .\scripts\doctor-distribution.ps1 -Profile standard -Json
+```
+
+source pin だけを機械的に確認したい場合は `check-distribution-pins.ps1` を使います。
+通常モードでは、開発中に nested checkout が manifest より先へ進んでいる状態を
+`ahead_of_manifest` として warning 表示します。これは「正式採用待ち」です。
+配布前、fresh install gate、レビュー前の厳格確認では `-Strict` を付け、manifest
+pin と checkout HEAD が一致しない状態を失敗にします。
+
+```powershell
+pwsh -NoProfile -File .\scripts\check-distribution-pins.ps1 -Profile standard
+pwsh -NoProfile -File .\scripts\check-distribution-pins.ps1 -Profile standard -Strict
+```
+
+`ahead_of_manifest` は、対象 organ の作業自体が進んでいる可能性を示しますが、
+標準 distribution に入ったことは意味しません。正式採用するには、該当 nested commit
+の Test-QA / Security / Integration review を終え、親 manifest の commit pin を更新し、
+必要なら distribution version を上げ、fresh install でその pin が再現されることを確認します。
+
 ## アップデート
 
 既存のインストールを更新するときは、まずトップレベルの `sword-agent-os`
@@ -859,6 +886,8 @@ Thought Core は、環境を観測し、Action Boundary で操作を preview / e
 ### required / source-static
 
 ```powershell
+pwsh -NoProfile -File .\scripts\doctor-distribution.ps1 -Profile standard
+pwsh -NoProfile -File .\scripts\check-distribution-pins.ps1 -Profile standard
 pwsh -NoProfile -File .\scripts\system.ps1 status -Profile thought-core-v0 -ManifestOnly
 pwsh -NoProfile -File .\scripts\check-runtime-reflex.ps1
 pwsh -NoProfile -File .\scripts\check-conscious-readiness.ps1
@@ -936,6 +965,7 @@ raw screenshot、raw audio は local-only として扱います。
 | --- | --- |
 | Launcher が開かない | PowerShell で script 実行できるか、`8799` port が空いているか |
 | service が down のまま | Launch Manager の service card と各 organ README |
+| source pin が合わない / `ahead_of_manifest` が出る | `scripts/check-distribution-pins.ps1 -Profile standard` で対象 organ を確認します。`ahead_of_manifest` は nested repo が manifest より進んでいる状態で、正式採用待ちを意味します。配布前は `-Strict` で失敗扱いにし、親 manifest 更新と fresh install proof を行います |
 | AITuber Kit が down | `organs/expression/aituber-kit` で `npm install` 済みか |
 | Thought Core が down | control-plane `.env`、LLM 設定、`18787` port |
 | VOICEVOX が down | VOICEVOX を起動し、ローカル endpoint を確認 |

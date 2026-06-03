@@ -234,6 +234,8 @@ function Test-MaintenanceSafetyStatic {
     "scripts/bootstrap-workspace.ps1",
     "scripts/install-distribution.ps1",
     "scripts/update-distribution.ps1",
+    "scripts/check-distribution-pins.ps1",
+    "scripts/doctor-distribution.ps1",
     "scripts/render-env-files.ps1",
     "scripts/start-home-control-bridge.ps1",
     "scripts/prepare-aituberkit-sword-adapter.ps1",
@@ -369,6 +371,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $causeTrail -Pattern "live-ha-state" -Message "cause trail should separate Home Assistant state proof"
   Assert-TextMatch -Text $readme -Pattern "UV_CACHE_DIR" -Message "README should include uv cache troubleshooting guidance"
   Assert-TextMatch -Text $readme -Pattern "Git ownership warning" -Message "README should frame restricted-environment Git ownership warnings as validation friction"
+  Assert-TextMatch -Text $readme -Pattern "doctor-distribution\.ps1" -Message "README should document the distribution doctor"
+  Assert-TextMatch -Text $readme -Pattern "check-distribution-pins\.ps1" -Message "README should document the distribution pin checker"
+  Assert-TextMatch -Text $readme -Pattern "ahead_of_manifest|正式採用待ち|parent adoption" -Message "README should explain ahead-of-manifest pin state"
   Assert-TextMatch -Text $readme -Pattern '既存の `sword-agent-os` directory' -Message "README should explain existing clone directory handling"
   Assert-TextMatch -Text $readme -Pattern "network permission" -Message "README should classify restricted environment network reruns"
   Assert-TextMatch -Text $readme -Pattern "foreground の" -Message "README should explain Home Control bridge foreground behavior"
@@ -820,6 +825,115 @@ function Test-UpdateFixtureHoldBehavior {
     $nonFastForwardText = $nonFastForwardOutput -join "`n"
     Assert-TextMatch -Text $nonFastForwardText -Pattern "hold non-fast-forward update" -Message "non-fast-forward update was not held"
     Assert-TextMatch -Text $nonFastForwardText -Pattern "held\s*:\s*1" -Message "non-fast-forward fixture should report held: 1"
+  }
+  finally {
+    Remove-FreshTestRoot -Path $root
+  }
+}
+
+function Test-DistributionPinCheckerFixtures {
+  Write-TestStep "distribution pin checker fixture behavior"
+  $root = New-FreshTestRoot
+  try {
+    $exactRepo = Join-Path $root "pin-exact-checkout"
+    $exactHead = New-LocalGitRepository -Path $exactRepo
+    $exactManifest = New-UpdateFixtureManifest -Root $root -TargetPath $exactRepo -Commit $exactHead -Id "pin-exact"
+    $exactOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-distribution-pins.ps1"),
+      "-DistributionManifestPath",
+      $exactManifest,
+      "-Strict",
+      "-Json"
+    )
+    $exactJson = ($exactOutput -join "`n") | ConvertFrom-Json
+    if ([string]$exactJson.status -ne "ok") {
+      throw "exact pin fixture should pass strict check; got $($exactJson.status)"
+    }
+
+    $aheadRepo = Join-Path $root "pin-ahead-checkout"
+    $aheadManifestHead = New-LocalGitRepository -Path $aheadRepo
+    Set-Content -LiteralPath (Join-Path $aheadRepo "README.md") -Value "fixture repository ahead" -Encoding utf8
+    Invoke-Checked -Command @("git", "-C", $aheadRepo, "add", "README.md") | Out-Null
+    Invoke-Checked -Command @(
+      "git",
+      "-C",
+      $aheadRepo,
+      "-c",
+      "user.name=Sword Agent OS Maintenance Test",
+      "-c",
+      "user.email=maintenance-test@example.invalid",
+      "commit",
+      "-q",
+      "-m",
+      "fixture ahead commit"
+    ) | Out-Null
+    $aheadCurrentHead = ((Invoke-Checked -Command @("git", "-C", $aheadRepo, "rev-parse", "HEAD") | Select-Object -First 1) -join "").Trim()
+    if ($aheadCurrentHead -eq $aheadManifestHead) {
+      throw "ahead fixture failed to create a newer checkout head"
+    }
+    $aheadManifest = New-UpdateFixtureManifest -Root $root -TargetPath $aheadRepo -Commit $aheadManifestHead -Id "pin-ahead"
+    $aheadOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-distribution-pins.ps1"),
+      "-DistributionManifestPath",
+      $aheadManifest,
+      "-Json"
+    )
+    $aheadJson = ($aheadOutput -join "`n") | ConvertFrom-Json
+    if ([string]$aheadJson.status -ne "warning") {
+      throw "ahead fixture should be warning in non-strict mode; got $($aheadJson.status)"
+    }
+    if ([string]$aheadJson.items[0].status -ne "ahead_of_manifest") {
+      throw "ahead fixture did not report ahead_of_manifest"
+    }
+    $aheadStrictOutput = Invoke-ExpectFailure -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-distribution-pins.ps1"),
+      "-DistributionManifestPath",
+      $aheadManifest,
+      "-Strict",
+      "-Json"
+    )
+    Assert-TextMatch -Text ($aheadStrictOutput -join "`n") -Pattern "ahead_of_manifest" -Message "strict pin check should fail on ahead-of-manifest checkout"
+
+    $behindRepo = Join-Path $root "pin-behind-checkout"
+    $behindOldHead = New-LocalGitRepository -Path $behindRepo
+    Set-Content -LiteralPath (Join-Path $behindRepo "README.md") -Value "fixture repository expected newer" -Encoding utf8
+    Invoke-Checked -Command @("git", "-C", $behindRepo, "add", "README.md") | Out-Null
+    Invoke-Checked -Command @(
+      "git",
+      "-C",
+      $behindRepo,
+      "-c",
+      "user.name=Sword Agent OS Maintenance Test",
+      "-c",
+      "user.email=maintenance-test@example.invalid",
+      "commit",
+      "-q",
+      "-m",
+      "fixture expected commit"
+    ) | Out-Null
+    $behindExpectedHead = ((Invoke-Checked -Command @("git", "-C", $behindRepo, "rev-parse", "HEAD") | Select-Object -First 1) -join "").Trim()
+    Invoke-Checked -Command @("git", "-C", $behindRepo, "checkout", "--detach", $behindOldHead) | Out-Null
+    $behindManifest = New-UpdateFixtureManifest -Root $root -TargetPath $behindRepo -Commit $behindExpectedHead -Id "pin-behind"
+    $behindOutput = Invoke-ExpectFailure -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-distribution-pins.ps1"),
+      "-DistributionManifestPath",
+      $behindManifest,
+      "-Strict",
+      "-Json"
+    )
+    Assert-TextMatch -Text ($behindOutput -join "`n") -Pattern "behind_manifest" -Message "strict pin check should fail on behind-manifest checkout"
   }
   finally {
     Remove-FreshTestRoot -Path $root
@@ -1420,6 +1534,7 @@ Test-PublicPathLeakStatic
 Test-ReadmeFirstRunGuidance
 Test-ManifestAndVersion
 Test-UpdateFixtureHoldBehavior
+Test-DistributionPinCheckerFixtures
 Test-EnvRenderFixtures
 Test-NativeLaunchLayoutFixtures
 Test-DeveloperWorkspaceBootstrap

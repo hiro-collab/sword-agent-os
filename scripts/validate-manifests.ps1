@@ -567,6 +567,8 @@ foreach ($dependency in @($distributionManifest.dependencies)) {
 }
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/install-distribution.ps1") -PathType Leaf) "distribution installer missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/update-distribution.ps1") -PathType Leaf) "distribution updater missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-distribution-pins.ps1") -PathType Leaf) "distribution pin checker missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/doctor-distribution.ps1") -PathType Leaf) "distribution doctor missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/render-env-files.ps1") -PathType Leaf) "env renderer missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/show-version.ps1") -PathType Leaf) "version reporter missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/test-distribution-maintenance.ps1") -PathType Leaf) "distribution maintenance test missing"
