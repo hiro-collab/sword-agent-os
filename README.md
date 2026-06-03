@@ -29,20 +29,26 @@ Home Assistant 経由の操作 preview / 実行、音声応答、アバターの
 刀印は、人差し指と中指をそろえて伸ばし、薬指と小指を折って親指で押さえる手形を
 目安にしています。
 
-## 5分 quickstart
+## 15分 quick-start
 
 標準構成をまず起動して、画面と基本入力を確認したい人向けの最短ルートです。
-Home Assistant の実家電操作や TouchDesigner 投影は後から追加できます。
+目安は、clone が成功し、必要な local input が手元にある状態から 15 分程度で
+install、readiness、smoke、Launch Manager、Projection Visual / AITuber 到達までを
+確認することです。Home Assistant の実家電操作や TouchDesigner 投影は後から追加できます。
 
 ```powershell
 git clone <sword-agent-os-repo-url>
 cd sword-agent-os
 
+pwsh -NoProfile -File .\scripts\show-version.ps1 -Profile standard
 pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -DryRun
 pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
 
 notepad local\env\sword-agent-os.env
-pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard
+pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
+pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1
+pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1
+pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes
 
 .\start-home-control-launcher.bat
 ```
@@ -59,14 +65,14 @@ Projection Visual を開いて次のような短い入力から確認します�
 聞こえていますか
 ```
 
-実家電操作は、Home Assistant の設定、対象家電、戻し方、停止条件が決まってから
-低リスクな操作だけ試してください。
+この quick-start は no-live/mock を基本にします。実カメラ、実マイク、刀印ゲート、
+Home Assistant 実操作は、対象、回数、戻し方、停止条件を決めた別レーンで確認します。
 
 ## 読む人別ガイド
 
 | 読む人 | まず読む節 | ゴール |
 | --- | --- | --- |
-| 標準構成を起動したい人 | `5分 quickstart`、`ローカル設定`、`起動方法` | 画面を開き、基本入力と表示を確認する |
+| 標準構成を起動したい人 | `15分 quick-start`、`ローカル設定`、`起動方法` | 画面を開き、基本入力と表示を確認する |
 | Home Assistant / 実家電を試す人 | `ローカル設定`、`最初の動作確認`、`安全とローカルデータ` | 家電状態確認と低リスク操作を安全に確認する |
 | organ / module を開発する人 | `OS の構造`、`開発者向け入口`、`検証コマンド` | organ の差し替え、契約、テストを把握する |
 | Codex 複数スレッドで開発管理する人 | `開発用 / Codex 用 workspace セットアップ`、`安全とローカルデータ` | coordination / worktree / local artifact の境界を守る |
@@ -144,6 +150,11 @@ Codex 作業用の workspace-local 領域であり、通常利用では作成不
 ファイルだけを配置します。`_secret_inputs` のような名前は test harness や手元検証の
 例であり、README の必須 product convention ではありません。secret 値は log、screen
 shot、message、commit、push に含めないでください。
+
+検証環境に `_secret_inputs\scripts\prepare-local-inputs.ps1` が用意されている場合は、
+local-only helper として使えます。これは env/config、gesture model、VRM などの配置先を
+手早く整えるための補助であり、GitHub からの通常 install に必須のフォルダではありません。
+helper の出力や report でも secret 値、raw `.env`、raw media、private path は共有しません。
 
 ### MediaPipe gesture model の準備
 
@@ -316,6 +327,12 @@ pwsh -NoProfile -File .\scripts\check-distribution-pins.ps1 -Profile standard -S
 標準 distribution に入ったことは意味しません。正式採用するには、該当 nested commit
 の Test-QA / Security / Integration review を終え、親 manifest の commit pin を更新し、
 必要なら distribution version を上げ、fresh install でその pin が再現されることを確認します。
+
+`git_unreadable` は pin mismatch とは別です。制限付き環境、別ユーザー実行、Git の
+`dubious ownership` などで checkout を読めない時に出ます。この場合は通常ユーザーの端末で
+同じ command を再実行するか、診断目的で exact path の `safe.directory` override を使います。
+一方で、`behind_manifest`、`ahead_of_manifest`、`pin_mismatch` は checkout HEAD と manifest
+pin の関係を読めた上で出る結果です。配布確認ではこの区別を残して報告してください。
 
 ## アップデート
 
@@ -710,6 +727,11 @@ http://127.0.0.1:8799
 pwsh -NoProfile -File .\scripts\start-launcher.ps1 -PortMode isolated_override -OpenBrowser
 ```
 
+`8799` や標準 service port が既に使われている場合は、まずどの workspace の Launch Manager
+または stack が残っているかを確認します。古い検証用 stack なら停止してから fresh clone 側を
+起動します。並行して残す必要がある場合は、`-PortMode isolated_override` で別 port に分けます。
+port 競合を無視して起動確認を続けると、別 workspace の service を見て pass と誤認します。
+
 ## 主な画面
 
 起動後にどの URL を開けばよいか確認したい時に読む節です。
@@ -964,8 +986,10 @@ raw screenshot、raw audio は local-only として扱います。
 | 症状 | 確認すること |
 | --- | --- |
 | Launcher が開かない | PowerShell で script 実行できるか、`8799` port が空いているか |
+| fresh clone なのに古い service が見える | 既存 workspace の Launch Manager / stack が残っていないか確認します。古い検証用なら停止し、並行検証が必要なら `start-launcher.ps1 -PortMode isolated_override` を使います |
 | service が down のまま | Launch Manager の service card と各 organ README |
 | source pin が合わない / `ahead_of_manifest` が出る | `scripts/check-distribution-pins.ps1 -Profile standard` で対象 organ を確認します。`ahead_of_manifest` は nested repo が manifest より進んでいる状態で、正式採用待ちを意味します。配布前は `-Strict` で失敗扱いにし、親 manifest 更新と fresh install proof を行います |
+| `git_unreadable` が出る | 現在の実行ユーザーや制限付き環境が nested checkout の Git 情報を読めていません。通常ユーザー端末で再実行するか、診断目的で exact path の `safe.directory` override を使います。これは真の source pin mismatch とは分けて扱います |
 | AITuber Kit が down | `organs/expression/aituber-kit` で `npm install` 済みか |
 | Thought Core が down | control-plane `.env`、LLM 設定、`18787` port |
 | VOICEVOX が down | VOICEVOX を起動し、ローカル endpoint を確認 |

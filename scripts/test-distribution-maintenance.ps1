@@ -334,6 +334,8 @@ function Test-ReadmeFirstRunGuidance {
   $readme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "README.md")
   Assert-TextMatch -Text $readme -Pattern "prepared local|準備済みローカル" -Message "README should describe prepared local inputs without requiring private folder names"
   Assert-TextMatch -Text $readme -Pattern "_secret_inputs.*product convention|製品として特定のフォルダ名を要求しません" -Message "README should not make _secret_inputs look like a required product convention"
+  Assert-TextMatch -Text $readme -Pattern "15分 quick-start" -Message "README should include the 15-minute quick-start path"
+  Assert-TextMatch -Text $readme -Pattern "prepare-local-inputs\.ps1" -Message "README should document the optional local input helper without making it a product requirement"
   Assert-TextMatch -Text $readme -Pattern "render-env-files\.ps1 -Profile standard -Force" -Message "README should show central env re-render after editing local env"
   Assert-TextMatch -Text $readme -Pattern "MediapipeVideoSource testsrc" -Message "README should show device-free/no-camera compat smoke with testsrc"
   Assert-TextMatch -Text $readme -Pattern "runtime/browser|実マイク|実カメラ|live Home Assistant|物理家電" -Message "README should separate no-live install/readiness from runtime/browser/live proof"
@@ -374,6 +376,8 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "doctor-distribution\.ps1" -Message "README should document the distribution doctor"
   Assert-TextMatch -Text $readme -Pattern "check-distribution-pins\.ps1" -Message "README should document the distribution pin checker"
   Assert-TextMatch -Text $readme -Pattern "ahead_of_manifest|正式採用待ち|parent adoption" -Message "README should explain ahead-of-manifest pin state"
+  Assert-TextMatch -Text $readme -Pattern "git_unreadable[\s\S]{0,240}pin mismatch" -Message "README should separate git_unreadable from true pin mismatch"
+  Assert-TextMatch -Text $readme -Pattern "port 競合[\s\S]{0,240}isolated_override|isolated_override[\s\S]{0,240}port 競合" -Message "README should explain port-conflict handling"
   Assert-TextMatch -Text $readme -Pattern '既存の `sword-agent-os` directory' -Message "README should explain existing clone directory handling"
   Assert-TextMatch -Text $readme -Pattern "network permission" -Message "README should classify restricted environment network reruns"
   Assert-TextMatch -Text $readme -Pattern "foreground の" -Message "README should explain Home Control bridge foreground behavior"
