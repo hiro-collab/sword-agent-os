@@ -763,6 +763,7 @@ port 競合を無視して起動確認を続けると、別 workspace の servic
 | Thought Core health | `http://127.0.0.1:18787/health` | 思考 API の liveness |
 | Environment State | `http://127.0.0.1:8790/health` | 環境 API の liveness |
 | Home Assistant bridge | `http://127.0.0.1:8787/health` | 家電操作 bridge の liveness |
+| VOICEVOX | `http://127.0.0.1:50021/version` | 音声合成 engine の readiness |
 | TouchDesigner control GUI | `http://127.0.0.1:8788` | 表示 / 投影制御 |
 | MediaPipe monitor | `http://127.0.0.1:8770/browser_camera_hub_viewer.html` | カメラ / ジェスチャー確認 |
 
@@ -802,6 +803,26 @@ Home Assistant の実家電操作を使わず、まず画面、入力、Thought 
 場合は、state が未接続、mock、または unavailable として見えることがあります。
 `THOUGHT_CORE_TOOLS_ADAPTER=mock` の場合、家電操作の返答はテストモード上の
 想定です。実際の Home Assistant へは送信されません。
+
+### 音声出力を含める場合の VOICEVOX 確認
+
+音声合成まで確認する場合は、先に VOICEVOX の endpoint を分けて確認します。
+
+```powershell
+pwsh -NoProfile -File .\scripts\check-voicevox-readiness.ps1
+```
+
+endpoint が応答していない場合に、既存のローカル VOICEVOX アプリを探して起動まで
+試すには、通常ユーザー端末で明示的に `-StartIfNeeded` を付けます。
+
+```powershell
+pwsh -NoProfile -File .\scripts\check-voicevox-readiness.ps1 -StartIfNeeded
+```
+
+この helper は VOICEVOX の install / update / download、global audio device 変更、
+PATH や永続環境変数の変更は行いません。共有用の報告では、検出された実行ファイルの
+フルユーザーパスではなく、`known_pc_path` や `start_menu_shortcut` のような discovery
+source と pass / skipped / blocked を記録します。
 
 ### Home Assistant 設定済みの場合の live 確認
 
@@ -1040,7 +1061,7 @@ raw screenshot、raw audio は local-only として扱います。
 | `git_unreadable` が出る | 現在の実行ユーザーや制限付き環境が nested checkout の Git 情報を読めていません。通常ユーザー端末で再実行するか、診断目的で exact path の `safe.directory` override を使います。これは真の source pin mismatch とは分けて扱います |
 | AITuber Kit が down | `organs/expression/aituber-kit` で `npm install` 済みか |
 | Thought Core が down | control-plane `.env`、LLM 設定、`18787` port |
-| VOICEVOX が down | VOICEVOX を起動し、ローカル endpoint を確認 |
+| VOICEVOX が down | `scripts/check-voicevox-readiness.ps1` で endpoint-first に確認します。必要な時だけ通常ユーザー端末で `-StartIfNeeded` を付け、既存 VOICEVOX app の検出/起動を試します。install/update/download、global audio device、PATH/env 変更はしません |
 | カメラが動かない | 他アプリがカメラを掴んでいないか、カメラ名が合っているか |
 | `model_not_found` / Camera Hub topics timeout | `gesture_model.pkl` がある場合は `organs/reflex/mediapipe-sword-sign/gesture_model.pkl` に置いたか確認。ない場合は、Camera Hub / gesture proof は未準備として分け、カメラ不要の no-live / source-static 確認だけを先に進めます。これはローカル専用資材なので Git には入れません |
 | アバター / VRM が表示されない | clean install では `NEXT_PUBLIC_SELECTED_VRM_PATH=/vrm/nikechan_v1.vrm` の tracked sample で確認できます。手元のライセンス済み VRM を使う場合は `organs/expression/aituber-kit/public/vrm/` に置き、`NEXT_PUBLIC_SELECTED_VRM_PATH` を実ファイル名に合う `/vrm/<file>.vrm` へ変更します。`/vrm/Nutachisan.vrm` は local-only file なので、同名ファイルを別途置かない限り clean install では表示できません |

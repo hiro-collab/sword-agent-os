@@ -6,6 +6,8 @@ param(
   [switch]$SkipInstallDryRun,
   [switch]$SkipLocalMediaPreview,
   [switch]$SkipVoiceGatePreview,
+  [switch]$RequestVoicevoxStartup,
+  [string]$VoicevoxExecutablePath = "",
   [switch]$RunNoLiveSmoke,
   [switch]$RunRuntimeHttpChecks,
   [switch]$RequestRealCamera,
@@ -370,7 +372,7 @@ else {
 
 if (-not $SkipVoiceGatePreview) {
   Add-CommandLayer `
-    -Id "FIV-09a" `
+    -Id "FIV-11a" `
     -Name "Voice/gate redacted preview" `
     -ProofLayer "source/static-command-preview" `
     -ScriptName "test-local-media-voice-gate.ps1" `
@@ -381,7 +383,7 @@ if (-not $SkipVoiceGatePreview) {
     -BlockedDetail "voice asset/index unavailable; preview cannot prove voice/gate path" | Out-Null
 }
 else {
-  Add-HeldLayer -Id "FIV-09a" -Name "Voice/gate redacted preview" -ProofLayer "source/static-command-preview" -Detail "skipped by flag"
+  Add-HeldLayer -Id "FIV-11a" -Name "Voice/gate redacted preview" -ProofLayer "source/static-command-preview" -Detail "skipped by flag"
 }
 
 if ($RequestRealCamera) {
@@ -400,11 +402,48 @@ else {
   Add-HeldLayer -Id "FIV-08" -Name "Real camera sword-sign positive observation" -ProofLayer "real-camera/gesture" -Detail "held by default; camera readiness alone is not gesture pass"
 }
 
-if ($RequestVirtualAudio -or $RequestRealMic) {
-  Add-Layer -Id "FIV-09b" -Name "Virtual-audio / real-mic speech path" -Status "blocked" -ProofLayer "audio/virtual-or-real" -Detail "audio proof flag supplied, but this helper does not change audio routes or execute STT; use an explicit diagnostic generator lane"
+if ($RequestVoicevoxStartup) {
+  $voicevoxArgs = @("-Json", "-StartIfNeeded")
+  if (-not [string]::IsNullOrWhiteSpace($VoicevoxExecutablePath)) {
+    $voicevoxArgs += @("-ExecutablePath", $VoicevoxExecutablePath)
+  }
+  $voicevoxResult = Invoke-VerificationCommand -ScriptName "check-voicevox-readiness.ps1" -Arguments $voicevoxArgs
+  $voicevoxOutput = ($voicevoxResult.output -join "`n")
+  if ($voicevoxResult.exit_code -ne 0) {
+    Add-Layer -Id "FIV-09A" -Name "VOICEVOX endpoint/startup readiness" -Status "blocked" -ProofLayer "speech-output/voicevox-readiness" -Detail "VOICEVOX readiness helper failed; classify speech-output layer separately from general install"
+  }
+  else {
+    try {
+      $voicevoxJson = $voicevoxOutput | ConvertFrom-Json
+      $voicevoxStatus = "blocked"
+      if ([string]$voicevoxJson.classification -eq "pass") {
+        $voicevoxStatus = "pass"
+      }
+      elseif ([string]$voicevoxJson.classification -eq "skipped") {
+        $voicevoxStatus = "held"
+      }
+      $voicevoxDetail = "VOICEVOX {0}; endpoint_initial={1}; discovery={2}; source={3}; after_start={4}" -f `
+        ([string]$voicevoxJson.classification), `
+        ([string]$voicevoxJson.endpoint_initial), `
+        ([string]$voicevoxJson.executable_discovery), `
+        ([string]$voicevoxJson.executable_source), `
+        ([string]$voicevoxJson.endpoint_after_start)
+      Add-Layer -Id "FIV-09A" -Name "VOICEVOX endpoint/startup readiness" -Status $voicevoxStatus -ProofLayer "speech-output/voicevox-readiness" -Detail $voicevoxDetail -Command (ConvertTo-DisplayCommand -ScriptName "check-voicevox-readiness.ps1" -Arguments $voicevoxArgs)
+    }
+    catch {
+      Add-Layer -Id "FIV-09A" -Name "VOICEVOX endpoint/startup readiness" -Status "blocked" -ProofLayer "speech-output/voicevox-readiness" -Detail "VOICEVOX readiness helper output could not be parsed"
+    }
+  }
 }
 else {
-  Add-HeldLayer -Id "FIV-09b" -Name "Virtual-audio / real-mic speech path" -ProofLayer "audio/virtual-or-real" -Detail "held by default; request with -RequestVirtualAudio or -RequestRealMic"
+  Add-HeldLayer -Id "FIV-09A" -Name "VOICEVOX endpoint/startup readiness" -ProofLayer "speech-output/voicevox-readiness" -Detail "held by default; request with -RequestVoicevoxStartup when speech output is in scope"
+}
+
+if ($RequestVirtualAudio -or $RequestRealMic) {
+  Add-Layer -Id "FIV-09B" -Name "Virtual-audio / real-mic speech path" -Status "blocked" -ProofLayer "audio/virtual-or-real" -Detail "audio proof flag supplied, but this helper does not change audio routes or execute STT; use an explicit diagnostic generator lane"
+}
+else {
+  Add-HeldLayer -Id "FIV-09B" -Name "Virtual-audio / real-mic speech path" -ProofLayer "audio/virtual-or-real" -Detail "held by default; request with -RequestVirtualAudio or -RequestRealMic"
 }
 
 if ($RequestGestureGate) {

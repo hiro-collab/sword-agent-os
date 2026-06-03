@@ -238,6 +238,7 @@ function Test-MaintenanceSafetyStatic {
     "scripts/doctor-distribution.ps1",
     "scripts/render-env-files.ps1",
     "scripts/start-home-control-bridge.ps1",
+    "scripts/check-voicevox-readiness.ps1",
     "scripts/prepare-aituberkit-sword-adapter.ps1",
     "start-home-control-launcher.bat",
     "stop-home-control-launcher.bat"
@@ -386,6 +387,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "gesture-to-voice-input" -Message "README should separate gesture-to-voice gate proof"
   Assert-TextMatch -Text $readme -Pattern "npm audit" -Message "README should include npm audit interpretation guidance"
   Assert-TextMatch -Text $readme -Pattern "run-local-media-replay\.ps1" -Message "README should document the local media replay preview helper"
+  Assert-TextMatch -Text $readme -Pattern "check-voicevox-readiness\.ps1" -Message "README should document the VOICEVOX readiness helper"
   Assert-TextMatch -Text $readme -Pattern "run-full-install-verification\.ps1" -Message "README should document the full install verification helper"
   Assert-TextMatch -Text $readme -Pattern "default_safety=no-live/no-device" -Message "README should state the full verification helper default safety"
   Assert-TextMatch -Text $readme -Pattern "RequestLiveHomeAssistant[\s\S]{0,320}ConfirmHomeAssistantTicket|ConfirmHomeAssistantTicket[\s\S]{0,320}RequestLiveHomeAssistant" -Message "README should require explicit live HA request and ticket confirmation"
@@ -409,6 +411,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $fullInstallHelper -Pattern "default_safety=no-live/no-device" -Message "full install helper should report default no-live/no-device safety"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestRealCamera" -Message "full install helper should require explicit real camera request"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestVirtualAudio" -Message "full install helper should require explicit virtual audio request"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestVoicevoxStartup" -Message "full install helper should require explicit VOICEVOX startup request"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestLiveHomeAssistant" -Message "full install helper should require explicit live HA request"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "ConfirmHomeAssistantTicket" -Message "full install helper should require live HA ticket confirmation"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "git_unreadable" -Message "full install helper should separate git_unreadable from true pin mismatch"
@@ -416,8 +419,15 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $fullInstallHelper -Pattern 'live_action_executed = \$false' -Message "full install helper should not execute live actions"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "<workspace>" -Message "full install helper should redact workspace paths in display commands"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "run-local-media-replay\.ps1" -Message "full install helper should call the local media preview helper"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "check-voicevox-readiness\.ps1" -Message "full install helper should call the VOICEVOX readiness helper"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "test-local-media-voice-gate\.ps1" -Message "full install helper should call the voice-gate preview helper"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "start-home-control-bridge\.ps1" -Message "full install helper should use the Home Control bridge only for preflight/state checks"
+  Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\check-voicevox-readiness.ps1")
+  $voicevoxHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\check-voicevox-readiness.ps1")
+  Assert-TextMatch -Text $voicevoxHelper -Pattern "EndpointUrl" -Message "VOICEVOX helper should check endpoint first"
+  Assert-TextMatch -Text $voicevoxHelper -Pattern "StartIfNeeded" -Message "VOICEVOX helper should require explicit startup request"
+  Assert-TextMatch -Text $voicevoxHelper -Pattern "installed_or_updated_voicevox" -Message "VOICEVOX helper should report that it did not install or update VOICEVOX"
+  Assert-TextMatch -Text $voicevoxHelper -Pattern "global_audio_changed_by_script" -Message "VOICEVOX helper should report that it did not change global audio"
   Assert-PathPresent -Path (Join-Path $RepoRoot "control-plane\sword-voice-agent\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\test-local-media-voice-gate.ps1")
   $voiceGateHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "control-plane\sword-voice-agent\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
