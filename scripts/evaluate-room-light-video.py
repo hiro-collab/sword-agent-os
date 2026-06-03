@@ -18,6 +18,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expected-electric-state", choices=["on", "off"], required=True)
     parser.add_argument("--processor-src", required=True)
     parser.add_argument("--windows", type=int, default=5)
+    parser.add_argument(
+        "--sampling-mode",
+        choices=["windows", "all-frames"],
+        default="windows",
+        help="windows keeps the historical representative-window sample; all-frames evaluates each possible frame-pair start.",
+    )
+    parser.add_argument(
+        "--frame-step",
+        type=int,
+        default=1,
+        help="Frame-start stride for all-frames mode. 1 evaluates every possible pair start.",
+    )
     parser.add_argument("--include-feature-summary", action="store_true")
     parser.add_argument("--json", action="store_true")
     return parser.parse_args()
@@ -55,6 +67,27 @@ def read_frame(capture: cv2.VideoCapture, frame_index: int) -> Any:
     return frame
 
 
+def select_window_starts(
+    *,
+    total_frames: int,
+    frame_gap: int,
+    requested_windows: int,
+    sampling_mode: str,
+    frame_step: int,
+) -> list[int]:
+    if total_frames <= 2:
+        return [0]
+
+    max_start = max(0, total_frames - 1 - frame_gap)
+    if sampling_mode == "all-frames":
+        step = max(1, int(frame_step))
+        return list(range(0, max_start + 1, step))
+
+    if requested_windows == 1:
+        return [max_start // 2]
+    return sorted({int(round(i * max_start / (requested_windows - 1))) for i in range(requested_windows)})
+
+
 def main() -> int:
     args = parse_args()
     video_path = Path(args.video)
@@ -75,16 +108,15 @@ def main() -> int:
         fps = 30.0
 
     requested_windows = max(1, int(args.windows))
-    if total_frames <= 2:
-        window_starts = [0]
-    else:
-        max_start = max(0, total_frames - 2)
-        if requested_windows == 1:
-            window_starts = [max_start // 2]
-        else:
-            window_starts = sorted({int(round(i * max_start / (requested_windows - 1))) for i in range(requested_windows)})
-
     frame_gap = max(1, int(round(fps * 0.2)))
+    frame_step = max(1, int(args.frame_step))
+    window_starts = select_window_starts(
+        total_frames=total_frames,
+        frame_gap=frame_gap,
+        requested_windows=requested_windows,
+        sampling_mode=str(args.sampling_mode),
+        frame_step=frame_step,
+    )
     state_counts: dict[str, int] = {}
     lighting_type_counts: dict[str, int] = {}
     daylight_state_counts: dict[str, int] = {}
@@ -147,6 +179,12 @@ def main() -> int:
         "sample_id": args.sample_id,
         "expected_electric_state": expected,
         "classification": classification,
+        "sampling_mode": args.sampling_mode,
+        "frame_step": frame_step,
+        "total_frames": total_frames,
+        "fps": round(fps, 4),
+        "frame_gap": frame_gap,
+        "sampled_window_starts": len(window_starts),
         "requested_windows": requested_windows,
         "evaluated_windows": evaluated_windows,
         "skipped_windows": skipped_windows,

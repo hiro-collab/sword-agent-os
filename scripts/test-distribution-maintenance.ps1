@@ -413,9 +413,11 @@ function Test-ReadmeFirstRunGuidance {
   $sunshineHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\evaluate-room-light-sunshine.ps1")
   $sunshinePython = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\evaluate-room-light-video.py")
   Assert-TextMatch -Text $sunshineHelper -Pattern "direct_file_helper" -Message "sunshine helper should report the direct-file route"
+  Assert-TextMatch -Text $sunshineHelper -Pattern "SamplingMode" -Message "sunshine helper should expose dense sampling mode"
   Assert-TextMatch -Text $sunshineHelper -Pattern 'raw_media_shared.*false|raw_media_shared = \$false' -Message "sunshine helper should not share raw media"
   Assert-TextMatch -Text $sunshineHelper -Pattern 'generated_model_written.*false|generated_model_written = \$false' -Message "sunshine helper should not write generated models"
   Assert-TextMatch -Text $sunshinePython -Pattern "cv2\.VideoCapture" -Message "sunshine evaluator should read video frames through OpenCV"
+  Assert-TextMatch -Text $sunshinePython -Pattern "all-frames" -Message "sunshine evaluator should support dense all-frame-pair sampling"
   Assert-TextMatch -Text $sunshinePython -Pattern "generated_frames_written" -Message "sunshine evaluator should report that generated frames were not written"
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\run-full-install-verification.ps1")
   $fullInstallHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-full-install-verification.ps1")

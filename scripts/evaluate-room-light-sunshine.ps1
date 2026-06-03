@@ -2,6 +2,9 @@ param(
   [string]$WorkspaceRoot = "",
   [string]$SampleDir = "",
   [int]$Windows = 5,
+  [ValidateSet("windows", "all-frames")]
+  [string]$SamplingMode = "windows",
+  [int]$FrameStep = 1,
   [switch]$Json
 )
 
@@ -50,6 +53,10 @@ function Invoke-SampleEvaluation {
     $ProcessorSrc,
     "--windows",
     ([string]$Windows),
+    "--sampling-mode",
+    $SamplingMode,
+    "--frame-step",
+    ([string]$FrameStep),
     "--json"
   )
 
@@ -160,6 +167,8 @@ $payload = [PSCustomObject]@{
   sample_set = "sample20260604"
   sample_count = $samples.Count
   windows_per_sample = $Windows
+  sampling_mode = $SamplingMode
+  frame_step = $FrameStep
   result_safety = @{
     raw_media_shared = $false
     raw_frames_shared = $false
@@ -182,6 +191,8 @@ Write-Host "route=direct_file_helper"
 Write-Host "sample_set=sample20260604"
 Write-Host ("sample_count={0}" -f $payload.sample_count)
 Write-Host ("windows_per_sample={0}" -f $payload.windows_per_sample)
+Write-Host ("sampling_mode={0}" -f $payload.sampling_mode)
+Write-Host ("frame_step={0}" -f $payload.frame_step)
 Write-Host "raw_media_shared=false"
 Write-Host "raw_frames_shared=false"
 Write-Host "raw_screenshot_shared=false"
