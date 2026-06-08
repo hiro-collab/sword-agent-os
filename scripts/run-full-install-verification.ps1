@@ -337,6 +337,17 @@ else {
 }
 
 if (-not $SkipLocalMediaPreview) {
+  Add-CommandLayer `
+    -Id "FIV-04" `
+    -Name "Local media index preparation dry-run" `
+    -ProofLayer "local-preparation/dry-run" `
+    -ScriptName "prepare-local-media-index.ps1" `
+    -Arguments @("-WorkspaceRoot", $resolvedWorkspaceRoot, "-DryRun", "-Json") `
+    -PassDetail "local media seed is readable and index preparation can be previewed without copying media" `
+    -FailureDetail "local media index preparation dry-run failed" `
+    -BlockedPattern "local media seed file not found|secret input root not found|source media file is missing" `
+    -BlockedDetail "local media seed/private inputs unavailable; create _secret_inputs/local-media-index.seed.json before replay previews can pass" | Out-Null
+
   $gestureAssets = @("gesture.sword.20260603", "gesture.victory.20260603", "gesture.open_hand.20260603")
   foreach ($assetId in $gestureAssets) {
     Add-CommandLayer `
@@ -366,6 +377,7 @@ if (-not $SkipLocalMediaPreview) {
   }
 }
 else {
+  Add-HeldLayer -Id "FIV-04" -Name "Local media index preparation dry-run" -ProofLayer "local-preparation/dry-run" -Detail "skipped by flag"
   Add-HeldLayer -Id "FIV-05" -Name "Local gesture replay previews" -ProofLayer "source/static-command-preview" -Detail "skipped by flag"
   Add-HeldLayer -Id "FIV-06" -Name "Local room-light replay previews" -ProofLayer "source/static-command-preview" -Detail "skipped by flag"
 }

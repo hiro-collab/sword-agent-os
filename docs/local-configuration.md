@@ -156,3 +156,51 @@ organs\expression\aituber-kit\.env.example
 Home Assistant is required for real appliance action. Without Home Assistant,
 you can still run many source/static checks, display-development flows, and
 no-live tests.
+
+## Local Media Seed
+
+Local replay helpers read:
+
+```text
+local\media\media-index.json
+```
+
+After a reset, `_secret_inputs` may still contain private media, but replay
+helpers do not read that directory directly. Put a private seed file at:
+
+```text
+_secret_inputs\local-media-index.seed.json
+```
+
+Example shape:
+
+```json
+{
+  "assets": [
+    {
+      "id": "gesture.sword.20260603",
+      "kind": "video",
+      "source_path": "media/sword.mp4",
+      "duration_sec": 3.2
+    }
+  ]
+}
+```
+
+`source_path` may be relative to `_secret_inputs` or an absolute path under
+`_secret_inputs`. Then prepare the local workspace index:
+
+```powershell
+pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1 -DryRun
+pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1
+```
+
+The helper writes `local\media\media-index.json` and copies media into ignored
+`local\media\assets\`. It prints only redacted counts and asset ids. Do not
+commit raw media, private seed files, screenshots, transcripts, or absolute
+local paths.
+
+Asset ids are visible in redacted proof output, so treat the id itself as
+shareable metadata. Use short non-personal, non-secret ids and avoid names,
+places, account labels, private project labels, or device/location hints.
+Duplicate asset ids are rejected because they make replay proof ambiguous.

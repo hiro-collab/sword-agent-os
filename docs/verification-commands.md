@@ -48,6 +48,23 @@ you can preview replay commands by asset id. The helper output is
 It is not real camera, real microphone, browser runtime, virtual audio, live
 Home Assistant, or long-run/stress proof.
 
+After a reset, `_secret_inputs` alone is not enough. Prepare the workspace-local
+index first from a private seed file:
+
+```powershell
+pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1 -DryRun
+pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1
+```
+
+The seed file lives under `_secret_inputs\local-media-index.seed.json` and is
+not tracked. The preparation helper copies private media into ignored
+`local/media/assets/`, writes `local/media/media-index.json`, and prints only
+redacted counts and asset ids.
+
+Because asset ids are visible in proof output, keep them non-personal and
+non-secret. Do not encode names, places, accounts, device locations, or private
+labels in an asset id. Duplicate ids are blocked.
+
 ```powershell
 pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.sword.20260603
 pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.victory.20260603
