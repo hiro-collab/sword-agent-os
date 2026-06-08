@@ -24,6 +24,9 @@ Home Assistant 経由の操作 preview / 実行、音声応答、アバターの
 の HUD 表示、任意の TouchDesigner 表示につながります。no-live/mock 検証は、この
 実カメラ認識、実マイク入力、live 家電操作、物理家電動作の proof とは分けて扱います。
 
+標準構成の organ checkout、local-only asset slot、proof layer、live 操作境界を
+まとめて確認したい場合は、`docs/standard-distribution-map.md` を参照してください。
+
 <img src="docs/assets/readme/sword-sign-gesture.png" alt="刀印ジェスチャー" width="220">
 
 刀印は、人差し指と中指をそろえて伸ばし、薬指と小指を折って親指で押さえる手形を
