@@ -377,9 +377,9 @@ Pop-Location
 
 ### 開発用 / Codex 用 workspace セットアップ
 
-複数 Codex thread、worktree、private coordination repo、ローカル artifact
-cache を使って開発する場合は、通常利用とは別の workspace root を作ります。
-単に Sword Agent OS を起動して使うだけなら、前の「通常利用の手動セットアップ」で十分です。
+複数 Codex thread、worktree、private coordination repo、ローカル artifact cache を使って
+開発する場合は、通常利用とは別の workspace root を作ります。単に Sword Agent OS を
+起動して使うだけなら、前の「通常利用の手動セットアップ」で十分です。
 
 ```powershell
 cd $HOME\works
@@ -388,47 +388,19 @@ cd sword-agent-os-workspace
 
 git clone <sword-agent-os-repo-url>
 cd sword-agent-os
-$RepoRoot = (Resolve-Path .).Path
 
 pwsh -NoProfile -File .\scripts\bootstrap-workspace.ps1 -DeveloperWorkspace
 ```
 
-private coordination workspace も使う開発者は、代わりに次のようにします。
-private repo にアクセスできない場合は `-CloneCoordination` を付けないでください。
+private coordination workspace も使う開発者だけ `-CloneCoordination` を付けます。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\bootstrap-workspace.ps1 -DeveloperWorkspace -CloneCoordination
 ```
 
-control plane / organ checkout と依存関係の入れ方は利用用と同じです。
-
-```powershell
-Set-Location $RepoRoot
-
-pwsh -NoProfile -File .\scripts\bootstrap-control-plane.ps1 -DryRun
-pwsh -NoProfile -File .\scripts\bootstrap-organs.ps1 -DryRun
-
-pwsh -NoProfile -File .\scripts\bootstrap-control-plane.ps1
-pwsh -NoProfile -File .\scripts\bootstrap-organs.ps1
-
-Push-Location (Join-Path $RepoRoot "control-plane\sword-voice-agent")
-uv sync
-Pop-Location
-
-Push-Location (Join-Path $RepoRoot "organs\expression\aituber-kit")
-npm install
-Pop-Location
-```
-
-この場合、`sword-agent-os/` の親に次のような開発用フォルダができます。
-これらは本体 repo ではなく、GitHub にまとめて push する対象ではありません。
-
-```text
-coordination/
-local/
-worktrees/
-_codex/
-```
+control plane / organ checkout、依存関係、開発用 sibling directory の扱いは
+`docs/remote-workstation-setup.md` にまとめています。`coordination/`、`local/`、
+`worktrees/`、`_codex/` は本体 repo ではなく、GitHub にまとめて push する対象ではありません。
 
 ## ローカル設定
 

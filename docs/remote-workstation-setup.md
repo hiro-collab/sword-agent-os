@@ -35,7 +35,52 @@ New-Item -ItemType Directory -Force sword-agent-os-workspace
 cd sword-agent-os-workspace
 git clone https://github.com/hiro-collab/sword-agent-os.git
 cd sword-agent-os
+$RepoRoot = (Resolve-Path .).Path
+.\scripts\bootstrap-workspace.ps1 -DeveloperWorkspace
+```
+
+If the private coordination repository is available on this PC, clone it as a
+workspace sibling. Do not add `-CloneCoordination` when the private repository
+is not accessible.
+
+```powershell
 .\scripts\bootstrap-workspace.ps1 -DeveloperWorkspace -CloneCoordination
+```
+
+Control-plane and organ checkout setup is the same as a runtime install.
+Preview first, then run the real checkout commands.
+
+```powershell
+Set-Location $RepoRoot
+
+.\scripts\bootstrap-control-plane.ps1 -DryRun
+.\scripts\bootstrap-organs.ps1 -DryRun
+
+.\scripts\bootstrap-control-plane.ps1
+.\scripts\bootstrap-organs.ps1
+```
+
+Install dependencies inside the relevant checkouts and return to the main repo
+after each one.
+
+```powershell
+Push-Location (Join-Path $RepoRoot "control-plane\sword-voice-agent")
+uv sync
+Pop-Location
+
+Push-Location (Join-Path $RepoRoot "organs\expression\aituber-kit")
+npm install
+Pop-Location
+```
+
+In a developer workspace, these directories sit beside `sword-agent-os/`. They
+are not part of the public runtime package and should not be pushed as one repo:
+
+```text
+coordination/
+local/
+worktrees/
+_codex/
 ```
 
 ## Local-Only State
