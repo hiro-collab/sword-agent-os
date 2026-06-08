@@ -406,40 +406,35 @@ control plane / organ checkout、依存関係、開発用 sibling directory の�
 
 インストール後に API key、token、家電設定、ローカル URL を入れる時に読む節です。
 標準 installer は、中央の local env を使って各 organ の `.env` を生成します。
-通常利用で直接編集するのは、原則としてこの 1 ファイルです。
+通常利用で直接編集するのは、原則としてこの 1 ファイルです。詳しい env 変数表、
+secret 境界、生成先一覧は `docs/local-configuration.md` にまとめています。
 
 ```text
 local\env\sword-agent-os.env
 ```
 
-各 organ の `.env` は、この中央 env から生成される出力先です。生成後に
-個別調整することもできますが、`render-env-files.ps1 -Force` を実行すると
-中央 env の内容で再生成されます。まずは中央 env を正本として扱うと、
-どこに値を書いたか迷いにくくなります。
+各 organ の `.env` は、この中央 env から生成される出力先です。まずは中央 env を
+正本として扱うと、どこに値を書いたか迷いにくくなります。
 
 ### 初回 `.env` 作成手順
 
 installer を通常実行した場合は、`local\env\sword-agent-os.env` が作られます。
-その場合は手順 3 から進めます。手動で一から作る場合は、手順 1 から進めます。
-
-1. `sword-agent-os` の root に移動します。
+手動で作る場合は、`sword-agent-os` の root で公開テンプレートをコピーします。
 
 ```powershell
 cd <sword-agent-os のパス>
 $RepoRoot = (Resolve-Path .).Path
 Set-Location $RepoRoot
-```
 
-2. 中央 env を公開テンプレートからコピーします。
-
-```powershell
 if (-not (Test-Path local\env\sword-agent-os.env)) {
   New-Item -ItemType Directory -Force local\env | Out-Null
   Copy-Item templates\env\sword-agent-os.env.example local\env\sword-agent-os.env
 }
 ```
 
-3. 中央 env を開いて、自分の環境の値を書きます。
+中央 env を開いて、自分の環境の値を書きます。Home Assistant を使わない場合は
+家電操作用 token や URL を後回しにできます。最小構成で起動だけ確認する場合は、
+LLM と live 家電の値も後回しにできます。
 
 ```powershell
 notepad local\env\sword-agent-os.env
@@ -447,55 +442,24 @@ notepad local\env\sword-agent-os.env
 
 `local\env\sword-agent-os.env` は Git 管理外です。API key、token、家電設定、
 ローカル URL、使用する model 名など、公開してはいけない値はここに入れます。
-
-4. 主に次の項目を確認します。Home Assistant を使わない場合は、家電操作用の
-   token や URL は後から入れても構いません。最小構成で起動だけ確認する場合は、
-   LLM と live 家電の値を後回しにできます。
-
-| 項目 | 書く場所 | 用途 |
-| --- | --- | --- |
-| LLM API key | `THOUGHT_CORE_LLM_API_KEY` または `OPENAI_API_KEY` | Thought Core の自然文応答。LLM なし確認では `THOUGHT_CORE_LLM_ENABLED=false` |
-| LLM model / URL | `THOUGHT_CORE_LLM_MODEL`, `THOUGHT_CORE_LLM_BASE_URL` | OpenAI 互換 LLM の接続先 |
-| Home Assistant token | `HOME_ASSISTANT_TOKEN` | 家電状態確認と操作 |
-| local bridge token | `HOME_CONTROL_API_TOKEN` | Home Assistant bridge のローカル保護 |
-| 家電操作 adapter | `THOUGHT_CORE_TOOLS_ADAPTER` | `mock` は no-live シミュレーション。実家電へ送る場合だけ `home_control` |
-| Environment API token | `ENVIRONMENT_API_TOKEN` | Environment State API のローカル保護。標準構成では空欄可 |
-| VOICEVOX URL | `VOICEVOX_SERVER_URL` | 音声合成 |
-| アバター path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | AITuber Kit / Projection Visual の表示。clean install の標準例は tracked sample の `/vrm/nikechan_v1.vrm`。手元のライセンス済み VRM を使う場合だけ `/vrm/<your-model>.vrm` に変更 |
-| Thought Core endpoint | `THOUGHT_CORE_BASE_URL`, `NEXT_PUBLIC_THOUGHT_CORE_BASE_URL` | AITuber Kit から Thought Core へ接続 |
-
-token/key の違いです。`NEXT_PUBLIC_*` はブラウザ側から見えるため、secret を
-入れないでください。
-
-| 名前 | 何を守る / 接続するか | Secret | ブラウザ公開 | mock/no-live で空欄可 | live 家電で必要 |
-| --- | --- | --- | --- | --- | --- |
-| `HOME_ASSISTANT_TOKEN` | Home Assistant 本体。家電 state 読み取りと操作 | yes | no | yes | yes |
-| `HOME_CONTROL_API_TOKEN` | Sword 側の local Home Assistant bridge | yes | no | 構成による | 推奨 |
-| `ENVIRONMENT_API_TOKEN` | Environment State API | yes | no | yes | no |
-| `THOUGHT_CORE_LLM_API_KEY` | Thought Core が使う LLM provider | yes | no | yes、LLM 無効時 | no |
-| `OPENAI_API_KEY` | 一部互換 adapter の OpenAI-compatible key | yes | no | yes | no |
-| `DIFY_API_KEY` | Dify compatibility route | yes | no | yes | no |
-| `NEXT_PUBLIC_*` | browser / AITuber Kit / Projection Visual の表示・接続設定 | no | yes | 項目による | no |
+`NEXT_PUBLIC_*` はブラウザ側から見えるため、secret を入れないでください。
 
 `HOME_CONTROL_API_TOKEN` は Home Assistant の token ではありません。ローカル
 bridge 用のランダム値です。必要なら次のように作って、中央 env に貼ります。
-`THOUGHT_CORE_TOOLS_ADAPTER=mock` のままだと、API key や Home Assistant token を
-入れていても実家電には送信しません。no-live 確認ではそれで正常です。実家電を
-試す時だけ `home_control` に変え、対象、回数、戻し方、停止条件を決めてください。
 
 ```powershell
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-5. 中央 env を各 organ の `.env` へ反映します。
+中央 env を各 organ の `.env` へ反映します。
 
 ```powershell
 Set-Location $RepoRoot
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard
 ```
 
-6. すでに organ 側の `.env` がある環境で、中央 env の変更を反映したい場合だけ
-   `-Force` を付けます。既存の organ `.env` はデフォルトでは上書きしません。
+すでに organ 側の `.env` がある環境で、中央 env の変更を反映したい場合だけ
+`-Force` を付けます。既存の organ `.env` はデフォルトでは上書きしません。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
@@ -505,60 +469,9 @@ pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 Home Assistant token、`HOME_CONTROL_API_TOKEN`、`ENVIRONMENT_API_TOKEN` を
 後から入れた場合は、`-Force` で再生成した後に起動確認してください。
 `-Force` は `organs\action\home-assistant-server\config\home-control.yaml`
-も再生成します。live 用 config を別ファイルや手元の控えから反映している場合は、
-最後の `-Force` の後で live config を再反映し、bridge helper の `-CheckOnly` と
-`-CheckState` で確認してから実行へ進んでください。
-
-Environment State の `appliances` / 家電情報は、token を入れただけでは増えません。
-`organs\action\home-assistant-server\config\home-control.yaml` が実際の Home
-Assistant URL、script、entity ID を指し、Home Control bridge が成功した action
-event を記録した後に反映されます。`script.demo_light_on` や `light.demo_room`
-のままなら、demo/example 設定として扱ってください。
-
-<details>
-<summary>生成されるファイル一覧と、直接編集する場合の考え方を開く</summary>
-
-このコマンドが生成または更新する主な出力先です。
-
-```text
-control-plane\sword-voice-agent\.env
-control-plane\sword-voice-agent\services\thought-core\.env
-organs\action\home-assistant-server\.env
-organs\expression\tts-service\.env
-organs\expression\aituber-kit\.env
-organs\action\home-assistant-server\config\home-control.yaml
-```
-
-通常は中央 env を編集します。各 organ の `.env` を直接編集するのは、問題
-切り分けや、その organ だけに一時的な値を入れたい場合に限ります。直接編集
-した値は、次に `render-env-files.ps1 -Force` を実行すると中央 env 由来の値で
-上書きされます。
-
-各 organ のテンプレートを確認したい場合は、次の `.env.example` を参照します。
-
-```text
-templates\env\sword-agent-os.env.example
-control-plane\sword-voice-agent\.env.example
-control-plane\sword-voice-agent\services\thought-core\.env.example
-organs\action\home-assistant-server\.env.example
-organs\expression\tts-service\.env.example
-organs\expression\aituber-kit\.env.example
-```
-
-設定領域ごとの役割です。
-
-| 設定領域 | 役割 |
-| --- | --- |
-| Thought Core LLM 設定 | OpenAI 互換 base URL、model、API key |
-| Thought Core endpoint | ローカル Thought Core API の URL |
-| AITuber Kit 設定 | Projection Visual、音声出力、Thought Core 接続 |
-| Home Assistant 設定 | URL、long-lived token、local API token、device mapping |
-| Camera 設定 | MediaPipe / Camera Hub が使うカメラ名や入力 |
-| VOICEVOX URL | ローカル音声合成 endpoint |
-
-Home Assistant は、実際に家電を操作する場合に必要です。Home Assistant がなくても、source/static check、表示開発、no-live test の多くは実行できます。
-
-</details>
+も再生成します。live 用 config を別ファイルや手元の控えから反映している場合は、最後の
+`-Force` の後で live config を再反映し、bridge helper の `-CheckOnly` と `-CheckState`
+で確認してから実行へ進んでください。
 
 ## 起動方法
 
