@@ -334,6 +334,10 @@ function Test-PublicPathLeakStatic {
 function Test-ReadmeFirstRunGuidance {
   Write-TestStep "README first-run guidance static checks"
   $readme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "README.md")
+  $verificationCommandsPath = Join-Path $RepoRoot "docs\verification-commands.md"
+  Assert-PathPresent -Path $verificationCommandsPath
+  $verificationCommands = Get-Content -Raw -LiteralPath $verificationCommandsPath
+  $verificationSurface = "$readme`n$verificationCommands"
   Assert-TextMatch -Text $readme -Pattern "prepared local|準備済みローカル" -Message "README should describe prepared local inputs without requiring private folder names"
   Assert-TextMatch -Text $readme -Pattern "_secret_inputs.*product convention|製品として特定のフォルダ名を要求しません" -Message "README should not make _secret_inputs look like a required product convention"
   Assert-TextMatch -Text $readme -Pattern "15分 quick-start" -Message "README should include the 15-minute quick-start path"
@@ -391,13 +395,13 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "evaluate-room-light-sunshine\.ps1" -Message "README should document the sunshine room-light evaluator"
   Assert-TextMatch -Text $readme -Pattern "check-voicevox-readiness\.ps1" -Message "README should document the VOICEVOX readiness helper"
   Assert-TextMatch -Text $readme -Pattern "run-full-install-verification\.ps1" -Message "README should document the full install verification helper"
-  Assert-TextMatch -Text $readme -Pattern "default_safety=no-live/no-device" -Message "README should state the full verification helper default safety"
+  Assert-TextMatch -Text $verificationSurface -Pattern "default_safety=no-live/no-device" -Message "public verification docs should state the full verification helper default safety"
   Assert-TextMatch -Text $readme -Pattern "RequestLiveHomeAssistant[\s\S]{0,320}ConfirmHomeAssistantTicket|ConfirmHomeAssistantTicket[\s\S]{0,320}RequestLiveHomeAssistant" -Message "README should require explicit live HA request and ticket confirmation"
   Assert-TextMatch -Text $readme -Pattern "local-media replay" -Message "README should name local-media replay as a separate proof layer"
   Assert-TextMatch -Text $readme -Pattern "gesture\.sword\.20260603" -Message "README should show the sword-sign positive local media asset id"
   Assert-TextMatch -Text $readme -Pattern "vision\.room_light\.on\.20260603" -Message "README should show the room-light local media asset id"
-  Assert-TextMatch -Text $readme -Pattern "raw_media_shared=false" -Message "README should show raw media is not shared in local-media results"
-  Assert-TextMatch -Text $readme -Pattern "generated_output_written=false" -Message "README should show preview helper does not write generated output"
+  Assert-TextMatch -Text $verificationSurface -Pattern "raw_media_shared=false" -Message "public verification docs should show raw media is not shared in local-media results"
+  Assert-TextMatch -Text $verificationSurface -Pattern "generated_output_written=false" -Message "public verification docs should show preview helper does not write generated output"
   $localMediaHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-local-media-replay.ps1")
   Assert-TextMatch -Text $localMediaHelper -Pattern "local/media/media-index\.json" -Message "local media helper should resolve the local media index"
   Assert-TextMatch -Text $localMediaHelper -Pattern "source/static-command-preview" -Message "local media helper should label preview output as source/static-command-preview"

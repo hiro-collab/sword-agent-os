@@ -824,116 +824,28 @@ Thought Core は、環境を観測し、Action Boundary で操作を preview / e
 
 ## 検証コマンド
 
-起動前後に、manifest、runtime contract、organ readiness をざっと確認したい時の
-コマンドです。実機レビューの代わりにはなりません。初回導入では、何を証明したいかで
-コマンドを分けてください。
-
-### required / source-static
+詳細なコマンド表と proof layer の扱いは `docs/verification-commands.md` にまとめています。
+README では、初回導入時によく使う入口だけを残します。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\doctor-distribution.ps1 -Profile standard
 pwsh -NoProfile -File .\scripts\check-distribution-pins.ps1 -Profile standard
-pwsh -NoProfile -File .\scripts\system.ps1 status -Profile thought-core-v0 -ManifestOnly
-pwsh -NoProfile -File .\scripts\check-runtime-reflex.ps1
-pwsh -NoProfile -File .\scripts\check-conscious-readiness.ps1
-pwsh -NoProfile -File .\scripts\check-organ-readiness.ps1
 pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1
-pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1
-```
-
-### no-camera / no-live compatibility smoke
-
-```powershell
-pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc
-pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn
 pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes
 ```
 
-この smoke は test source を使うため、実カメラの映像、実マイク入力、物理家電動作の
-proof ではありません。`-RunSafeIntegrationProbes` は mock/no-live の安全 probe を
-含みますが、`THOUGHT_CORE_TOOLS_ADAPTER=mock` のままなら実 Home Assistant へは
-送信しません。
-
-### optional / local-media replay preview
-
-ローカルに `local/media/README.md` と `local/media/media-index.json` がある場合は、
-asset id を指定して replay command を preview できます。この helper の出力は
-`source/static-command-preview` であり、次に開く候補が `bounded local-media replay`
-です。実カメラ、実マイク、browser runtime、virtual audio、live Home Assistant、
-long-run/stress proof ではありません。
-
-```powershell
-pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.sword.20260603
-pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.victory.20260603
-pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode camera-hub -AssetId gesture.open_hand.20260603
-pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode room-light -AssetId vision.room_light.on.20260603
-pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1 -Mode room-light -AssetId vision.room_light.off.20260603
-```
-
-結果共有では次の形を使います。
-
-```text
-asset_id=<id>
-proof_layer=source/static-command-preview
-next_proof_layer=bounded local-media replay
-result=<pass|fail|blocked|preview-only>
-summary=<redacted counts/status labels only>
-raw_media_shared=false
-raw_transcript_shared=false
-generated_output_written=false
-live_action_executed=false
-```
-
-この lane で local media を再生する場合も、raw media、frame、audio、transcript、
-private absolute path は共有しません。gesture positive replay、gesture contrast
-false-positive、room-light on/off replay は local-media replay proof です。gesture-to-voice
-gate、STT/input、Thought Core turn、real camera、real mic、browser runtime、
-ticketed live appliance action は別 proof layer として分けて報告してください。
-
-### optional / full install verification helper
-
-複数 lane の状態をひとつの redacted summary にまとめる場合は、次を使えます。
+複数 lane の状態を redacted summary にまとめる場合は full install verification helper を
+使えます。デフォルトは `default_safety=no-live/no-device` で、実カメラ、実マイク、
+browser runtime、gesture gate、Home Assistant live action は別 layer の `held` /
+`blocked` として扱います。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1
 ```
 
-デフォルトは `default_safety=no-live/no-device` です。`show-version`、
-`install-distribution -DryRun`、manifest validation、pin check、local-media
-preview、voice-gate preview を source/static としてまとめ、実カメラ、実マイク、
-virtual audio、browser runtime、gesture gate、Home Assistant live action は
-別 layer の `held` / `blocked` として表示します。
-
-必要な proof layer だけ明示的に開きます。
-
-```powershell
-pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RunNoLiveSmoke
-pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RunRuntimeHttpChecks
-pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestRealCamera
-pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestVoicevoxStartup
-pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestVirtualAudio
-pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestGestureGate
-```
-
-`-RequestLiveHomeAssistant` は physical action の許可ではありません。action/restore
-id、期待 state、最大回数、停止条件が足りない場合は hold します。揃っている場合でも、
-この helper は physical execute を直接行わず、Home Assistant preflight / state check と
-「別 live owner の ladder で実行すべき」という blocked summary を出します。
-`git_unreadable` は true pin mismatch とは分けて表示し、通常ユーザー文脈で再確認します。
-
-### optional / runtime-browser
-
-Launch Manager、Start Stack、Projection Visual、AITuber Kit のブラウザ表示、マイク、
-実カメラ、VRM 表示は別の runtime/browser 確認です。README の install-readiness
-完了だけで browser UI proof まで完了したとは扱わないでください。
-画像やスクリーンショットを共有しなくても、sword-sign positive gesture detection は
-Camera Hub / gesture topic の positive event、timestamp、status label で、gesture から
-voice input gate への遷移は speech gate status と turn trace で示せます。raw camera image、
-raw screenshot、raw audio は local-only として扱います。
-
-### live caution
-
-実家電に影響する live action は、必ず対象、回数、間隔、停止条件、戻し方を決めてから実行してください。広い appliance fuzzing や長時間操作をいきなり実行しないでください。
+実機レビュー、local-media replay、runtime/browser、live Home Assistant の詳しい開き方は
+`docs/verification-commands.md` を見てください。live action は、対象、回数、間隔、
+停止条件、戻し方を決めてから実行します。
 
 ## うまく起動できないとき
 
