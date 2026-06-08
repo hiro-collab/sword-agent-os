@@ -323,84 +323,27 @@ pwsh -NoProfile -File .\scripts\test-distribution-maintenance.ps1
 ワンタッチ installer を使わず、clone や依存導入を手動で確認したい時だけ読む
 下位手順です。通常の入口は上の distribution installer です。
 
-まずトップレベルのリポジトリを clone します。
+手動で進める場合も、基本の順番は同じです。
 
 ```powershell
 git clone <sword-agent-os-repo-url>
 cd sword-agent-os
-$RepoRoot = (Resolve-Path .).Path
+pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -DryRun
+pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
 ```
 
+control plane / organ checkout を個別に確認したい場合や、依存導入を手で追いたい場合は
+`docs/remote-workstation-setup.md` の manual bootstrap 手順を参照してください。
 通常利用では、追加の workspace-local フォルダを作る必要はありません。
-確認だけしたい場合、次のコマンドは extra directory を作らず、現在の
-workspace root と main repo を表示します。
-
-```powershell
-pwsh -NoProfile -File .\scripts\bootstrap-workspace.ps1
-```
-
-control plane と organ checkout を確認します。最初は dry-run で、何が clone されるか確認してください。
-
-```powershell
-pwsh -NoProfile -File .\scripts\bootstrap-control-plane.ps1 -DryRun
-pwsh -NoProfile -File .\scripts\bootstrap-organs.ps1 -DryRun
-```
-
-問題なければ実行します。
-
-```powershell
-pwsh -NoProfile -File .\scripts\bootstrap-control-plane.ps1
-pwsh -NoProfile -File .\scripts\bootstrap-organs.ps1
-```
-
-標準例で主に使う依存関係を入れます。
-
-```powershell
-Set-Location $RepoRoot
-
-Push-Location (Join-Path $RepoRoot "control-plane\sword-voice-agent")
-uv sync
-Pop-Location
-
-Push-Location (Join-Path $RepoRoot "organs\expression\aituber-kit")
-npm install
-Pop-Location
-```
-
-`Push-Location` / `Pop-Location` を使うと、各 organ のインストール後に
-`sword-agent-os` の root に戻ります。途中で場所が分からなくなった場合は
-`Set-Location $RepoRoot` で root に戻れます。新しい PowerShell で途中から
-再開する場合は、先に `cd <sword-agent-os のパス>` してから
-`$RepoRoot = (Resolve-Path .).Path` をもう一度実行してください。
-
-その他の organ は、それぞれの README や起動ログに従って準備します。Launch Manager で特定サービスが unavailable / down になる場合は、その organ の README を確認してください。
 
 ### 開発用 / Codex 用 workspace セットアップ
 
 複数 Codex thread、worktree、private coordination repo、ローカル artifact cache を使って
-開発する場合は、通常利用とは別の workspace root を作ります。単に Sword Agent OS を
-起動して使うだけなら、前の「通常利用の手動セットアップ」で十分です。
+開発する場合だけ、通常利用とは別の workspace root を作ります。手順は
+`docs/remote-workstation-setup.md` にまとめています。
 
-```powershell
-cd $HOME\works
-New-Item -ItemType Directory -Force sword-agent-os-workspace
-cd sword-agent-os-workspace
-
-git clone <sword-agent-os-repo-url>
-cd sword-agent-os
-
-pwsh -NoProfile -File .\scripts\bootstrap-workspace.ps1 -DeveloperWorkspace
-```
-
-private coordination workspace も使う開発者だけ `-CloneCoordination` を付けます。
-
-```powershell
-pwsh -NoProfile -File .\scripts\bootstrap-workspace.ps1 -DeveloperWorkspace -CloneCoordination
-```
-
-control plane / organ checkout、依存関係、開発用 sibling directory の扱いは
-`docs/remote-workstation-setup.md` にまとめています。`coordination/`、`local/`、
-`worktrees/`、`_codex/` は本体 repo ではなく、GitHub にまとめて push する対象ではありません。
+`coordination/`、`local/`、`worktrees/`、`_codex/` は本体 repo ではなく、
+GitHub にまとめて push する対象ではありません。
 
 ## ローカル設定
 
