@@ -102,7 +102,16 @@ function Write-RootCauseTrace {
 function Get-HttpStatusDetail {
   param($ErrorRecord)
 
-  $response = $ErrorRecord.Exception.Response
+  if ($null -eq $ErrorRecord -or $null -eq $ErrorRecord.Exception) {
+    return "no-http-response"
+  }
+
+  $responseProperty = $ErrorRecord.Exception.PSObject.Properties["Response"]
+  if ($null -eq $responseProperty) {
+    return "no-http-response"
+  }
+
+  $response = $responseProperty.Value
   if ($null -eq $response) {
     return "no-http-response"
   }
