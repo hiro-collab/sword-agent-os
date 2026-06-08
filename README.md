@@ -849,6 +849,9 @@ pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1
 
 ## うまく起動できないとき
 
+完全版は `docs/troubleshooting.md` にあります。README では、初回導入で最初に見る
+症状だけを残します。
+
 | 症状 | 確認すること |
 | --- | --- |
 | Launcher が開かない | PowerShell で script 実行できるか、`8799` port が空いているか |
@@ -856,26 +859,12 @@ pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1
 | service が down のまま | Launch Manager の service card と各 organ README |
 | source pin が合わない / `ahead_of_manifest` が出る | `scripts/check-distribution-pins.ps1 -Profile standard` で対象 organ を確認します。`ahead_of_manifest` は nested repo が manifest より進んでいる状態で、正式採用待ちを意味します。配布前は `-Strict` で失敗扱いにし、親 manifest 更新と fresh install proof を行います |
 | `git_unreadable` が出る | 現在の実行ユーザーや制限付き環境が nested checkout の Git 情報を読めていません。通常ユーザー端末で再実行するか、診断目的で exact path の `safe.directory` override を使います。これは真の source pin mismatch とは分けて扱います |
-| AITuber Kit が down | `organs/expression/aituber-kit` で `npm install` 済みか |
 | Thought Core が down | control-plane `.env`、LLM 設定、`18787` port |
 | VOICEVOX が down | `scripts/check-voicevox-readiness.ps1` で endpoint-first に確認します。必要な時だけ通常ユーザー端末で `-StartIfNeeded` を付け、既存 VOICEVOX app の検出/起動を試します。install/update/download、global audio device、PATH/env 変更はしません |
 | カメラが動かない | 他アプリがカメラを掴んでいないか、カメラ名が合っているか |
 | `model_not_found` / Camera Hub topics timeout | `gesture_model.pkl` がある場合は `organs/reflex/mediapipe-sword-sign/gesture_model.pkl` に置いたか確認。ない場合は、Camera Hub / gesture proof は未準備として分け、カメラ不要の no-live / source-static 確認だけを先に進めます。これはローカル専用資材なので Git には入れません |
-| アバター / VRM が表示されない | clean install では `NEXT_PUBLIC_SELECTED_VRM_PATH=/vrm/nikechan_v1.vrm` の tracked sample で確認できます。手元のライセンス済み VRM を使う場合は `organs/expression/aituber-kit/public/vrm/` に置き、`NEXT_PUBLIC_SELECTED_VRM_PATH` を実ファイル名に合う `/vrm/<file>.vrm` へ変更します。`/vrm/Nutachisan.vrm` は local-only file なので、同名ファイルを別途置かない限り clean install では表示できません |
-| マイクが反応しない | Chrome のマイク権限、入力欄の focus |
-| 家電操作が失敗する | Home Assistant URL / token、action catalog mapping |
 | API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更 |
 | Home Control bridge が `config_error` になる / `/actions` が 503 になる | bridge process に generated organ `.env` が読み込まれていない、token が placeholder/too-short、または `HOME_CONTROL_CONFIG` が意図した config を指していない可能性があります。`scripts/start-home-control-bridge.ps1 -CheckOnly` で secret 値を出さずに health、action count、`config_error_kind`、`cause_code` を確認します |
-| Home Assistant state 確認で URL / entity を調べる必要が出る | まず `scripts/start-home-control-bridge.ps1 -CheckState -ActionId <allowed-action-id>` を使います。helper が state check できない時だけ、設定と Home Assistant 側を個別に確認します |
-| Environment State に家電情報が出ない | 中央 env の変更を `render-env-files.ps1 -Profile standard -Force` で organ `.env` へ反映したか確認。さらに `organs/action/home-assistant-server/config/home-control.yaml` が `home-control.example.yaml` と同じ demo 設定ではないか、`.cache/home_control/events.jsonl` に成功 action event があるか確認 |
-| `uv --env-file ..\home-assistant-server\.env` が失敗する | Windows では `uv --env-file` に渡す相対 backslash path が崩れることがあります。`$EnvPath = (Resolve-Path ..\home-assistant-server\.env).Path -replace "\\", "/"` のように forward slash 化した絶対 path を渡します |
-| クラウド開発環境 / AI エージェント / CI などの制限付き環境で `uv` cache 書き込みや Git ownership warning が出る | 通常のローカル端末で再実行するか、必要に応じて書き込み可能な local cache を `UV_CACHE_DIR` に指定します。これは利用中の検証環境の制限による摩擦であり、通常 install 手順の必須設定ではありません |
-| 制限付き環境で GitHub clone / nested checkout / dependency download が止まる | README の install step として必要な同じ command なら、network permission を許可して再実行します。通常のローカル install に管理者権限が必須という意味ではありません |
-| test workspace に `sword-agent-os` が既にある | 上書きせず timestamp 付き sibling directory に clone するか、意図して clean にした workspace でやり直します |
-| install 中に `npm audit` vulnerability が表示される | npm の依存監査警告です。現在の install / readiness / no-live smoke の pass/fail 判定とは別に読みます。公開運用や依存更新の前には、対象 organ で別途 `npm audit` と影響範囲を確認してください |
-| 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見る |
-| Dify compatibility が表示される | 通常の Thought Core 経路では Dify は必須ではありません。debug mode だけで確認します |
-| TouchDesigner が反応しない | `.toe` project が開いているか、UDP target が合っているか |
 
 ## OS の構造
 
