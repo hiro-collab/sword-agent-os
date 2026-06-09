@@ -34,7 +34,7 @@ needs a precise failure classification.
 | test workspace に `sword-agent-os` が既にある | 上書きせず timestamp 付き sibling directory に clone するか、意図して clean にした workspace でやり直します。既存の `sword-agent-os` directory をそのまま上書きしないでください。 |
 | install 中に `npm audit` vulnerability が表示される | npm の依存監査警告です。現在の install / readiness / no-live smoke の pass/fail 判定とは別に読みます。公開運用や依存更新の前には、対象 organ で別途 `npm audit` と影響範囲を確認してください。 |
 | 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見ます。SwitchBot remote-style のライトは `stateless_toggle` の場合があり、押すたびに状態が反転しても HA では現在 on/off が `unknown` のままです。その場合は `light_on` / `light_off` を HA state proof 可能とは扱わず、`verification.mode: external_observation` や別センサー/目視確認に分けます。 |
-| cover / vacuum は state tracking できそうに見える | 現在 state が読めることと、操作後の完了状態を信頼できることは別です。read-only state review と明示GO付きの execute/wait/check proof が通ってから、対象 action に `expected_effect`、`verification.mode: ha_state`、必要なら `accepted_states` / wait window を足します。 |
+| cover / vacuum は state tracking できそうに見える | 現在 state が読めることと、操作後の完了状態を信頼できることは別です。read-only state review と明示GO付きの execute/wait/check proof が通ってから、対象 action に `expected_effect`、`verification.mode: ha_state`、必要なら `accepted_states` / wait window を足します。vacuum は全 domain 件数ではなく、script が実際に target する `expected_effect.entity_id` だけで `CheckState` します。 |
 | Dify compatibility が表示される | 通常の Thought Core 経路では Dify は必須ではありません。debug mode だけで確認します。 |
 | TouchDesigner が反応しない | `.toe` project が開いているか、UDP target が合っているか確認します。 |
 

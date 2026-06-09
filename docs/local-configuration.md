@@ -126,6 +126,9 @@ For vacuum actions, keep `vacuum_start` and `vacuum_return` criteria separate.
 Start-side tracking must state which states prove progress and why. Return-side
 tracking should normally require `docked` after the wait window. Keep
 `accepted_states` narrow; do not use it to hide uncertainty.
+When Home Assistant exposes more than one vacuum entity for the same appliance,
+track only the entity actually targeted by the bridge script. A second local or
+cloud integration entity is useful context, not action proof.
 
 On the Home Assistant side, explicitly setting `mode: single` on bridge-referenced
 scripts is a low-impact readability improvement because it matches the Home

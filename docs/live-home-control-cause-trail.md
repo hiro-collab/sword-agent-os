@@ -167,3 +167,24 @@ next_probe: optional independent physical/camera confirmation if that proof laye
 safe_stop: yes
 physical_action_executed: no
 ```
+
+For the 2026-06-09 vacuum pilot, do not use all-vacuum domain counts as the
+action proof. The HA setup exposes more than one `vacuum` entity, while the
+script target is one redacted target entity. Use the configured
+`expected_effect.entity_id` only.
+
+```text
+proof_layer: live-execute + live-ha-state
+entrypoint: bridge helper + HA REST read-only state summary
+blocked_at: target-state-wait
+observed_status: warning
+cause_kind: async-state-transition
+evidence: multiple vacuum entities exist; bridge script targets one entity; start and return transitions can appear on different entities at different times; final target CheckState matched docked after an extra return
+next_probe: use target-specific CheckState after every return; report retry count if the first wait does not match
+safe_stop: yes
+physical_action_executed: yes
+```
+
+This can be `HA state matched` only after the target-specific `CheckState`
+matches. If another return was needed, report `restored / reversible with retry`
+and keep the retry count visible.

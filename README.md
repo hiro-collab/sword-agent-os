@@ -636,15 +636,26 @@ promoting them, use `verification.mode: ha_state`, keep `state_authority: ha_ent
 set `expected_effect`, and add `accepted_states` plus settle/timeout windows before
 claiming `tracked`.
 
+For vacuum proof, check the specific `expected_effect.entity_id` targeted by the
+script. Do not use all-domain `vacuum` counts as the action proof when Home
+Assistant exposes multiple vacuum entities or multiple state authorities.
+In the current live setup, read-only registry review showed separate local and
+cloud-side vacuum entities; bridge scripts target the cloud-side vacuum path.
+
 For vacuum actions, define start and return proof separately. `vacuum_start`
 must state which post-start states count as progress, and why; avoid accepting
 any state that merely hides uncertainty. `vacuum_return` should normally require
 `docked` after a wait window. A strong pilot is `start -> wait -> non-docked or
 cleaning/returning proof -> return -> wait -> docked proof`.
 If restore only succeeds after an extra return command, report it as
-`restored / reversible with retry` and keep the single action out of `tracked`
-until a later ticket proves one return command is reliable within the chosen
-timeout.
+`restored / reversible with retry`. `tracked` means the post-state check is
+configured; it does not by itself prove that one return command is always
+reliable within the chosen timeout.
+
+For air conditioner work, a same-device `climate` candidate may exist even when
+the current bridge script calls an `unknown` switch. Do not add `expected_effect`
+to that switch. Design a separate climate-service action and prove it before
+promoting aircon actions to `ha_state`.
 
 ここまで通ってから、preview、dry-run、execute の順に進めます。
 HTTP を直接使う場合の最小形は次です。
