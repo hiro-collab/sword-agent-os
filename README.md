@@ -526,6 +526,24 @@ pwsh -NoProfile -File .\scripts\evaluate-room-light-sunshine.ps1 -Json
 生成 model は出力・commit しません。共有用には sample id、window count、label count、
 probability summary、pass / partial / fail / blocked だけを使います。
 
+RR003 review 前に、実行中の Environment State が周期更新しているか、Home
+Assistant / Camera Hub / Vision Snapshot Processor の freshness が見えているか、
+HUD が Home Control の実行 mode を正直に表示しているかを確認する場合は、次の
+preflight helper を使います。helper は `/environment/current` を短時間サンプリングし、
+bounded manual change window の後に room-light evidence が materially changed したかを
+summary だけで報告します。token 値、Home Assistant entity、raw frame、screenshot、
+raw media は出力しません。
+
+```powershell
+pwsh -NoProfile -File .\scripts\check-rr003-env-state-review-preflight.ps1
+pwsh -NoProfile -File .\scripts\check-rr003-env-state-review-preflight.ps1 -SkipManualChange -Json
+```
+
+`room_light_claim=available-but-not-reliable-for-electric-on-off` は、Environment
+State の経路は見えているが、現在条件では電灯 ON/OFF proof としては弱いという意味です。
+`Action Mode UNKNOWN` は status/HUD wiring や再起動反映の gap として扱い、
+`Bridge OK` だけで live Home Control mode とは主張しません。
+
 ### 音声出力を含める場合の VOICEVOX 確認
 
 音声合成まで確認する場合は、先に VOICEVOX の endpoint を分けて確認します。
