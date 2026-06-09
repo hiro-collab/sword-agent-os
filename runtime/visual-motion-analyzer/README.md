@@ -47,6 +47,12 @@ When Projection Visual is running, use Browser mode:
 same analyzer, and deletes the raw browser frames and local config by default.
 Use `-KeepRawFrames` only for local debugging; do not commit or share those
 frames.
+Direct `node scripts/capture-self-mirror-frames.mjs` execution is a local
+capture primitive, not a review-safe cleanup wrapper: it leaves
+`raw-browser-frames` and `self_mirror_browser_config.json` in the output
+directory so the analyzer can consume them. Treat those as local-only temporary
+inputs; do not share, commit, or publish them, and clean them up after direct
+runs.
 
 For trigger-caused visible-motion review, use the
 `visualTest=self-mirror-baseline` route. The capture helper waits for the VRM

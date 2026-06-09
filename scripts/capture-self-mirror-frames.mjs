@@ -88,6 +88,11 @@ Options:
   --trigger none|context-nod|dance
   --trigger-at-ms <number>    Default: 700
   --headed                    Show the browser window.
+
+Security:
+  Direct node execution leaves raw-browser-frames and self_mirror_browser_config.json
+  in the output directory for local analyzer use. Prefer run-self-mirror-proof.ps1
+  for review runs because it deletes those raw inputs by default.
 `;
 }
 
@@ -517,6 +522,14 @@ async function main() {
       result_status: motionStimulusResult?.status ?? null,
       result_reason_code: motionStimulusResult?.reason_code ?? null,
     },
+    raw_inputs_policy: {
+      raw_browser_frames: "local_only_temporary_input",
+      browser_config: "local_only_temporary_input",
+      cleanup_owner: "run-self-mirror-proof.ps1_or_direct_caller",
+      direct_node_retains_raw_inputs: true,
+      share_or_commit: "prohibited",
+      preferred_review_wrapper: "scripts/run-self-mirror-proof.ps1",
+    },
     raw_frames_shared: false,
     raw_paths_shared: false,
     retention: "temporary_by_default",
@@ -529,6 +542,9 @@ async function main() {
   process.stdout.write("manifest_file=self_mirror_capture_manifest.json\n");
   process.stdout.write("raw_frames_shared=false\n");
   process.stdout.write("raw_paths_shared=false\n");
+  process.stdout.write("raw_inputs_retained_local_only=true\n");
+  process.stdout.write("cleanup_owner=run-self-mirror-proof.ps1_or_direct_caller\n");
+  process.stdout.write("do_not_share_or_commit=raw-browser-frames,self_mirror_browser_config.json\n");
 }
 
 main().catch((error) => {
