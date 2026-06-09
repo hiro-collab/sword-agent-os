@@ -26,13 +26,14 @@ needs a precise failure classification.
 | API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更します。 |
 | Home Control bridge が `config_error` になる / `/actions` が 503 になる | bridge process に generated organ `.env` が読み込まれていない、token が placeholder/too-short、または `HOME_CONTROL_CONFIG` が意図した config を指していない可能性があります。`scripts/start-home-control-bridge.ps1 -CheckOnly` で secret 値を出さずに health、action count、`config_error_kind`、`cause_code` を確認します。詳細分類は `docs/live-home-control-cause-trail.md` を見ます。 |
 | Home Assistant state 確認で URL / entity を調べる必要が出る | まず `scripts/start-home-control-bridge.ps1 -CheckState -ActionId <allowed-action-id>` を使います。helper が state check できない時だけ、設定と Home Assistant 側を個別に確認します。 |
+| `-CheckState` を全 action にかけると `matched` が 0 件になる | `-CheckState` は post-action / restore 後の確認です。実行前 preflight ではありません。実行前は `-CheckOnly` で health/catalog、`-CheckTracking -ActionId <allowed-action-id>` で `control_type` / `state_authority` / `verification.mode` / state tracking metadata を確認します。`tracked` 以外は HA state proof の対象ではありません。 |
 | Environment State に家電情報が出ない | 中央 env の変更を `render-env-files.ps1 -Profile standard -Force` で organ `.env` へ反映したか確認します。さらに `organs/action/home-assistant-server/config/home-control.yaml` が `home-control.example.yaml` と同じ demo 設定ではないか、`.cache/home_control/events.jsonl` に成功 action event があるか確認します。 |
 | `uv --env-file ..\home-assistant-server\.env` が失敗する | Windows では `uv --env-file` に渡す相対 backslash path が崩れることがあります。`$EnvPath = (Resolve-Path ..\home-assistant-server\.env).Path -replace "\\", "/"` のように forward slash 化した絶対 path を渡します。 |
 | クラウド開発環境 / AI エージェント / CI などの制限付き環境で `uv` cache 書き込みや Git ownership warning が出る | 通常のローカル端末で再実行するか、必要に応じて書き込み可能な local cache を `UV_CACHE_DIR` に指定します。これは利用中の検証環境の制限による摩擦であり、通常 install 手順の必須設定ではありません。 |
 | 制限付き環境で GitHub clone / nested checkout / dependency download が止まる | README の install step として必要な同じ command なら、network permission を許可して再実行します。通常のローカル install に管理者権限が必須という意味ではありません。 |
 | test workspace に `sword-agent-os` が既にある | 上書きせず timestamp 付き sibling directory に clone するか、意図して clean にした workspace でやり直します。既存の `sword-agent-os` directory をそのまま上書きしないでください。 |
 | install 中に `npm audit` vulnerability が表示される | npm の依存監査警告です。現在の install / readiness / no-live smoke の pass/fail 判定とは別に読みます。公開運用や依存更新の前には、対象 organ で別途 `npm audit` と影響範囲を確認してください。 |
-| 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見ます。 |
+| 電気の ON/OFF 判定がおかしい | Home Assistant state と camera 由来の `VISION LIGHT` を分けて見ます。SwitchBot remote-style のライトは `stateless_toggle` の場合があり、押すたびに状態が反転しても HA では現在 on/off が `unknown` のままです。その場合は `light_on` / `light_off` を HA state proof 可能とは扱わず、`verification.mode: external_observation` や別センサー/目視確認に分けます。 |
 | Dify compatibility が表示される | 通常の Thought Core 経路では Dify は必須ではありません。debug mode だけで確認します。 |
 | TouchDesigner が反応しない | `.toe` project が開いているか、UDP target が合っているか確認します。 |
 

@@ -7,7 +7,9 @@ param(
   [string]$ExpectedActionId = "",
   [string]$ActionId = "",
   [switch]$CheckOnly,
+  [switch]$CheckTracking,
   [switch]$CheckState,
+  [switch]$SelfTestTracking,
   [switch]$DryRun
 )
 
@@ -393,6 +395,133 @@ function Get-ActionRows {
   return @($Response)
 }
 
+function Get-ObjectPropertyValue {
+  param(
+    $Object,
+    [string]$Name,
+    $Default = $null
+  )
+
+  if ($null -eq $Object) {
+    return $Default
+  }
+  if ($Object -is [System.Collections.IDictionary] -and $Object.Contains($Name)) {
+    return $Object[$Name]
+  }
+
+  $property = $Object.PSObject.Properties[$Name]
+  if ($null -eq $property) {
+    return $Default
+  }
+  if ($null -eq $property.Value) {
+    return $Default
+  }
+
+  return $property.Value
+}
+
+function Get-ActionTrackingProbe {
+  param(
+    $Action,
+    [string]$ActionId
+  )
+
+  $effect = Get-ObjectPropertyValue -Object $Action -Name "expected_effect"
+  $trackingRaw = Get-ObjectPropertyValue -Object $Action -Name "state_tracking"
+  $trackingStatus = if ($null -eq $trackingRaw -or [string]::IsNullOrWhiteSpace([string]$trackingRaw)) {
+    if ($null -eq $effect) { "untracked" } else { "tracked" }
+  } else {
+    [string]$trackingRaw
+  }
+
+  $verificationRaw = Get-ObjectPropertyValue -Object $Action -Name "verification_mode"
+  $verificationMode = if ($null -eq $verificationRaw -or [string]::IsNullOrWhiteSpace([string]$verificationRaw)) { "legacy" } else { [string]$verificationRaw }
+  $controlTypeRaw = Get-ObjectPropertyValue -Object $Action -Name "control_type"
+  $controlType = if ($null -eq $controlTypeRaw -or [string]::IsNullOrWhiteSpace([string]$controlTypeRaw)) { "legacy" } else { [string]$controlTypeRaw }
+  $stateAuthorityRaw = Get-ObjectPropertyValue -Object $Action -Name "state_authority"
+  $stateAuthority = if ($null -eq $stateAuthorityRaw -or [string]::IsNullOrWhiteSpace([string]$stateAuthorityRaw)) { "legacy" } else { [string]$stateAuthorityRaw }
+  $effectExpectedStateRaw = Get-ObjectPropertyValue -Object $effect -Name "expected_state"
+  $effectExpectedState = if ($null -eq $effectExpectedStateRaw -or [string]::IsNullOrWhiteSpace([string]$effectExpectedStateRaw)) { "none" } else { [string]$effectExpectedStateRaw }
+
+  return [pscustomobject]@{
+    ActionId = $ActionId
+    TrackingStatus = $trackingStatus
+    VerificationMode = $verificationMode
+    ControlType = $controlType
+    StateAuthority = $stateAuthority
+    ExpectedState = $effectExpectedState
+    CanProduceHaStateProof = ($trackingStatus -eq "tracked")
+  }
+}
+
+function Assert-TrackingSelfTest {
+  param(
+    [bool]$Condition,
+    [string]$Message
+  )
+
+  if (-not $Condition) {
+    throw "tracking self-test failed: $Message"
+  }
+}
+
+function Invoke-TrackingSelfTest {
+  $legacyTracked = [pscustomobject]@{
+    action_id = "legacy_tracked"
+    expected_effect = [pscustomobject]@{ expected_state = "on" }
+  }
+  $newTracked = [pscustomobject]@{
+    action_id = "new_tracked"
+    control_type = "stateful_target"
+    state_authority = "ha_entity"
+    verification_mode = "ha_state"
+    state_tracking = "tracked"
+    expected_effect = [pscustomobject]@{ expected_state = "off" }
+  }
+  $externalRequired = [pscustomobject]@{
+    action_id = "external_required"
+    control_type = "stateless_toggle"
+    state_authority = "open_loop"
+    verification_mode = "external_observation"
+    state_tracking = "external_required"
+    expected_effect = [pscustomobject]@{ expected_state = "on" }
+  }
+  $ackOnly = [pscustomobject]@{
+    action_id = "ack_only"
+    control_type = "stateless_command"
+    state_authority = "submitted_only"
+    verification_mode = "command_ack_only"
+    state_tracking = "ack_only"
+  }
+
+  $legacyProbe = Get-ActionTrackingProbe -Action $legacyTracked -ActionId "legacy_tracked"
+  Assert-TrackingSelfTest -Condition ($legacyProbe.CanProduceHaStateProof -and $legacyProbe.VerificationMode -eq "legacy" -and $legacyProbe.ExpectedState -eq "on") -Message "legacy /actions payload should fall back to tracked when expected_effect exists"
+  Write-Host ("tracking_self_test: legacy_tracked={0}" -f $legacyProbe.TrackingStatus)
+
+  $newProbe = Get-ActionTrackingProbe -Action $newTracked -ActionId "new_tracked"
+  Assert-TrackingSelfTest -Condition ($newProbe.CanProduceHaStateProof -and $newProbe.ControlType -eq "stateful_target" -and $newProbe.StateAuthority -eq "ha_entity" -and $newProbe.VerificationMode -eq "ha_state" -and $newProbe.ExpectedState -eq "off") -Message "new tracked metadata should remain HA state proof capable"
+  Write-Host ("tracking_self_test: new_tracked={0}" -f $newProbe.TrackingStatus)
+
+  $externalProbe = Get-ActionTrackingProbe -Action $externalRequired -ActionId "external_required"
+  Assert-TrackingSelfTest -Condition ((-not $externalProbe.CanProduceHaStateProof) -and $externalProbe.TrackingStatus -eq "external_required") -Message "external_required must not be treated as HA state proof"
+  Write-Host "tracking_self_test: external_required=blocked"
+
+  $ackProbe = Get-ActionTrackingProbe -Action $ackOnly -ActionId "ack_only"
+  Assert-TrackingSelfTest -Condition ((-not $ackProbe.CanProduceHaStateProof) -and $ackProbe.TrackingStatus -eq "ack_only") -Message "ack_only must not be treated as HA state proof"
+  Write-Host "tracking_self_test: ack_only=blocked"
+
+  $fixtureRows = @($legacyTracked, $newTracked, $externalRequired, $ackOnly)
+  $missingRows = @($fixtureRows | Where-Object { [string]$_.action_id -eq "missing_action" })
+  Assert-TrackingSelfTest -Condition ($missingRows.Count -eq 0) -Message "missing action should remain a hard stop before preview/execute"
+  Write-Host "tracking_self_test: missing_action=blocked"
+  Write-Host "tracking self-test: ok"
+}
+
+if ($SelfTestTracking) {
+  Invoke-TrackingSelfTest
+  return
+}
+
 $homeAssistantServerRootPath = Resolve-RepoRelativePath `
   -Value $HomeAssistantServerRoot `
   -DefaultRelativePath "organs/action/home-assistant-server"
@@ -479,7 +608,7 @@ if (-not $CheckState) {
   Write-Host ("  URL    : http://{0}:{1}" -f $HostName, $Port)
 }
 
-if ($CheckOnly -or $CheckState) {
+if ($CheckOnly -or $CheckState -or $CheckTracking) {
   $baseUrl = "http://${HostName}:$Port"
   $stateActionId = ""
   if ($CheckState) {
@@ -497,6 +626,23 @@ if ($CheckOnly -or $CheckState) {
         -Evidence "state_action_id=missing" `
         -NextProbe "rerun with -CheckState -ActionId <allowed-action-id>"
       throw "-CheckState requires -ActionId or -ExpectedActionId"
+    }
+  }
+  $trackingActionId = ""
+  if ($CheckTracking) {
+    if (-not [string]::IsNullOrWhiteSpace($ActionId)) {
+      $trackingActionId = $ActionId
+    } elseif (-not [string]::IsNullOrWhiteSpace($ExpectedActionId)) {
+      $trackingActionId = $ExpectedActionId
+    } else {
+      Write-Cause -Code "live_home_control.bridge.state_tracking_action_missing"
+      Write-RootCauseTrace `
+        -BlockedAt "state-tracking" `
+        -ObservedStatus "blocked" `
+        -CauseKind "unsafe-ticket" `
+        -Evidence "tracking_action_id=missing" `
+        -NextProbe "rerun with -CheckTracking -ActionId <allowed-action-id>"
+      throw "-CheckTracking requires -ActionId or -ExpectedActionId"
     }
   }
 
@@ -554,11 +700,15 @@ if ($CheckOnly -or $CheckState) {
   if ([string]::IsNullOrWhiteSpace($catalogExpectedActionId) -and $CheckState) {
     $catalogExpectedActionId = $stateActionId
   }
+  if ([string]::IsNullOrWhiteSpace($catalogExpectedActionId) -and $CheckTracking) {
+    $catalogExpectedActionId = $trackingActionId
+  }
   $expectedStatus = "not-requested"
+  $matchedActions = @()
 
   if (-not [string]::IsNullOrWhiteSpace($catalogExpectedActionId)) {
-    $matches = @($actionRows | Where-Object { [string]$_.action_id -eq $catalogExpectedActionId })
-    if ($matches.Count -eq 0) {
+    $matchedActions = @($actionRows | Where-Object { [string]$_.action_id -eq $catalogExpectedActionId })
+    if ($matchedActions.Count -eq 0) {
       $expectedStatus = "missing"
     } else {
       $expectedStatus = "present"
@@ -578,6 +728,44 @@ if ($CheckOnly -or $CheckState) {
       -Evidence ("actions_count={0}; expected_action=missing" -f $actionRows.Count) `
       -NextProbe "fix live ticket action id or Home Control mapping"
     throw "Expected action was not returned by /actions; stop before preview/execute"
+  }
+
+  if ($CheckTracking) {
+    $trackingAction = $null
+    if ($matchedActions.Count -gt 0) {
+      $trackingAction = $matchedActions[0]
+    } else {
+      $trackingAction = @($actionRows | Where-Object { [string]$_.action_id -eq $trackingActionId })[0]
+    }
+
+    $trackingProbe = Get-ActionTrackingProbe -Action $trackingAction -ActionId $trackingActionId
+
+    if (-not $trackingProbe.CanProduceHaStateProof) {
+      $trackingCauseSuffix = $trackingProbe.TrackingStatus
+      if ([string]::IsNullOrWhiteSpace($trackingCauseSuffix)) {
+        $trackingCauseSuffix = "untracked"
+      }
+      Write-Host ("tracking: action_id={0} control_type={1} state_authority={2} verification_mode={3} state_tracking={4} expected_state=none status={4}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.TrackingStatus)
+      Write-Cause -Code ("live_home_control.bridge.state_tracking_{0}" -f $trackingCauseSuffix)
+      Write-RootCauseTrace `
+        -BlockedAt "state-tracking" `
+        -ObservedStatus "warning" `
+        -CauseKind "config-mismatch" `
+        -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking={4}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.TrackingStatus) `
+        -NextProbe "use preview/dry-run only; require external/manual proof before claiming physical state"
+      throw "Action cannot produce a Home Assistant state proof."
+    }
+
+    Write-Host ("tracking: action_id={0} control_type={1} state_authority={2} verification_mode={3} state_tracking=tracked expected_state={4} status=tracked" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState)
+    Write-Cause -Code "none"
+    Write-RootCauseTrace `
+      -BlockedAt "none" `
+      -ObservedStatus "ok" `
+      -CauseKind "none" `
+      -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking=tracked; expected_state={4}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState) `
+      -NextProbe "proceed only to ticketed preview/dry-run; use -CheckState only after execute/wait or restore/wait" `
+      -SafeStop "yes"
+    return
   }
 
   if ($CheckState) {
@@ -607,17 +795,28 @@ if ($CheckOnly -or $CheckState) {
     Write-Host ("state: action_id={0} expected_state={1} actual_state={2} status={3}" -f $state.action_id, $expectedState, $actualState, $stateStatus)
 
     if ($stateStatus -ne "matched") {
-      $stateCauseKind = if ($stateStatus -eq "unavailable") { "ha-unreachable" } elseif ($stateStatus -eq "untracked") { "config-mismatch" } else { "config-mismatch" }
+      $stateCauseKind = if ($stateStatus -eq "unavailable") { "ha-unreachable" } else { "config-mismatch" }
       $stateCauseCode = "live_home_control.bridge.state_$stateStatus"
       Write-Cause -Code $stateCauseCode
+      $stateNextProbe = if ($stateStatus -eq "external_required") {
+        "use external/manual proof before claiming physical state"
+      } elseif ($stateStatus -eq "ack_only") {
+        "do not claim appliance state from command acknowledgement"
+      } elseif ($stateStatus -eq "manual_required") {
+        "collect manual confirmation as a separate proof layer"
+      } elseif ($stateStatus -eq "unsupported") {
+        "fix action verification metadata or use another proof layer"
+      } else {
+        "wait the ticket interval, verify the ticketed action, or run a ticketed restore"
+      }
       Write-RootCauseTrace `
         -ProofLayer "live-ha-state" `
         -BlockedAt "state-check" `
         -ObservedStatus $stateStatus `
         -CauseKind $stateCauseKind `
         -Evidence ("action_id={0}; expected_state={1}; actual_state={2}" -f $stateActionId, $expectedState, $actualState) `
-        -NextProbe "wait the ticket interval, verify the ticketed action, or run a ticketed restore"
-      throw "Home Assistant state check did not match the expected state"
+        -NextProbe $stateNextProbe
+      throw "Home Assistant state check did not produce a matched HA state proof"
     }
 
     Write-Cause -Code "none"

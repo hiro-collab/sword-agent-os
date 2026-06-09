@@ -413,8 +413,9 @@ Home Assistant token、`HOME_CONTROL_API_TOKEN`、`ENVIRONMENT_API_TOKEN` を
 後から入れた場合は、`-Force` で再生成した後に起動確認してください。
 `-Force` は `organs\action\home-assistant-server\config\home-control.yaml`
 も再生成します。live 用 config を別ファイルや手元の控えから反映している場合は、最後の
-`-Force` の後で live config を再反映し、bridge helper の `-CheckOnly` と `-CheckState`
-で確認してから実行へ進んでください。
+`-Force` の後で live config を再反映し、bridge helper の `-CheckOnly` と
+`-CheckTracking` で起動と追跡メタデータを確認してから実行へ進んでください。
+`-CheckState` は実行後または restore 後の state confirmation に使います。
 
 ## 起動方法
 
@@ -586,8 +587,43 @@ secret 値を貼らず、key presence、placeholder/length class、config path�
 status、`config_error_kind`、`cause_code` だけを共有してください。原因の追跡用コードは
 [Live Home Control Cause Trail](docs/live-home-control-cause-trail.md) にまとめています。
 
-`/health` が non-error で、`/actions` に ticket の action があることを確認してから、
-preview、dry-run、execute の順に進めます。HTTP を直接使う場合の最小形は次です。
+`/health` が non-error で、`/actions` に ticket の action があることを確認したら、
+次にその action がどの種類の操作か、Home Assistant state confirmation まで追跡できるかを
+確認します。これは実行前の「追跡メタデータ確認」であり、現在の家電状態が期待状態かどうかは
+判定しません。
+
+```powershell
+pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckTracking -ActionId <allowed-action-id>
+```
+
+`-CheckTracking` が `tracked` なら、その action には後確認用の `expected_effect` があり、
+`-CheckState` で Home Assistant state proof を取れます。`external_required`、`ack_only`、
+`manual_required`、`unsupported` の場合は、preview / dry-run 自体は ticket 次第で進められても、
+その action では helper による Home Assistant state proof を主張できません。
+
+Action metadata は次のように分けます。
+
+| Field | Typical values | Meaning |
+| --- | --- | --- |
+| `control_type` | `stateful_target`, `stateless_toggle`, `stateless_command`, `position_command`, `mode_command`, `job_command` | The kind of appliance/control behavior. |
+| `state_authority` | `ha_entity`, `ha_inferred`, `open_loop`, `external_sensor`, `submitted_only` | Where the state claim comes from. Inferred/open-loop state is not physical proof. |
+| `verification.mode` | `ha_state`, `external_observation`, `command_ack_only`, `manual_confirmation` | What proof layer can confirm the action. |
+| `expected_effect` | HA domain/service/entity/expected state | Only used when `verification.mode` is `ha_state`. |
+
+SwitchBot remote-style devices may be `stateless_toggle`: a button press changes the
+physical state, but Home Assistant cannot know the current state. Do not model such a
+device as `light_on` / `light_off` with HA state proof unless the target state is
+actually readable. Use external observation, manual confirmation, or a separate sensor
+before claiming physical state.
+
+For the current live SwitchBot-style setup, actions backed by `switch` entities whose
+current state is `unknown` should stay out of `ha_state` proof. Keep them as
+`open_loop` or `submitted_only` until Home Assistant shows a reliable current state.
+`cover` and `vacuum_return` may become HA state-proof candidates, but only after a
+separate read-only state review and a ticketed execute/wait/post-state proof.
+
+ここまで通ってから、preview、dry-run、execute の順に進めます。
+HTTP を直接使う場合の最小形は次です。
 `<ticket-id>` は実行ごとに変えます。execute 回数は ticket に書いた回数だけです。
 
 ```powershell
@@ -621,8 +657,12 @@ execute response は `status=submitted` かつ `executed=true` で返ること�
 state confirmation、独立した物理/カメラ確認を同じ green にまとめないでください。
 
 6. ticket で決めた反映待ちの間隔を待ち、Home Assistant state を helper で確認します。
-   helper は action id、expected state、actual state、status だけを表示し、raw
-   Home Assistant URL / entity / token は表示しません。
+   `-CheckState` は実行後または restore 後の確認です。実行前に全 action を通すための
+   preflight ではありません。たとえば stateful な `light_on` は「今すでに on か」を見るので、
+   実行前に off なら mismatch になります。stateless toggle のライトでは、そもそも
+   HA state proof を取れないため `external_required` などで止めます。helper は action id、
+   expected state、actual state、status だけを表示し、raw Home Assistant URL / entity /
+   token は表示しません。
 
 ```powershell
 Start-Sleep -Seconds 30
@@ -634,6 +674,7 @@ pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckState -Actio
 
 ```powershell
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <restore-action-id>
+pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckTracking -ActionId <restore-action-id>
 ```
 
 proof は層ごとに分けます。no-live/mock、live bridge、preview、execute、

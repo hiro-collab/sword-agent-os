@@ -106,7 +106,21 @@ After adding Home Assistant token, `HOME_CONTROL_API_TOKEN`, or
 `-Force` also regenerates
 `organs\action\home-assistant-server\config\home-control.yaml`. If you maintain
 a live-specific config separately, reapply that config after the last `-Force`,
-then use the bridge helper `-CheckOnly` and `-CheckState` before execution.
+then use the bridge helper `-CheckOnly` and `-CheckTracking` before execution.
+Use `-CheckState` only after a ticketed execute/wait or restore/wait step.
+
+For each live Home Control action, set `control_type`, `state_authority`, and `verification.mode`.
+Use `verification.mode: ha_state` plus `expected_effect` only when Home Assistant
+can actually read the target state. For remote-control or toggle-only devices
+whose state stays unknown, use `control_type: stateless_toggle` and
+`state_authority: open_loop` plus `verification.mode: external_observation`
+instead of claiming HA state proof. For command-only actions, use
+`state_authority: submitted_only` and `verification.mode: command_ack_only`.
+
+On the Home Assistant side, explicitly setting `mode: single` on bridge-referenced
+scripts is a low-impact readability improvement because it matches the Home
+Assistant default. It does not prove appliance state; it only documents invocation
+behavior.
 
 Environment State `appliances` do not appear just because tokens exist. The
 Home Control config must point at the real Home Assistant URL, scripts, and

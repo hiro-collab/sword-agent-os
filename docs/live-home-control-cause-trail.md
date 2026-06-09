@@ -14,6 +14,7 @@ From the Sword Agent OS repo root:
 
 ```powershell
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <allowed-action-id>
+pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckTracking -ActionId <allowed-action-id>
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckState -ActionId <allowed-action-id>
 ```
 
@@ -25,15 +26,34 @@ HOME_ASSISTANT_TOKEN: present|missing|placeholder|too-short (value hidden)
 config: yaml_loaded=True action_count=<n> config_error_kind=<name|none>
 health: status=<ok|degraded|config_error> ok=<bool> actions_count=<n>
 actions: status=ok count=<n> expected_action=<present|missing|not-requested>
-state: action_id=<id> expected_state=<state|none> actual_state=<state|none> status=<matched|mismatch|untracked|unavailable>
+tracking: action_id=<id> control_type=<type> state_authority=<authority> verification_mode=<mode> state_tracking=<tracked|external_required|ack_only|manual_required|unsupported|untracked> expected_state=<state|none> status=<same>
+state: action_id=<id> expected_state=<state|none> actual_state=<state|none> status=<matched|mismatch|external_required|ack_only|manual_required|unsupported|untracked|unavailable>
 cause_code=<code>
 ```
 
 `cause_code=none` means the startup/catalog checks passed. It does not prove
 preview, execute, restore, or physical appliance state.
-For `-CheckState`, `cause_code=none` means Home Assistant state matched the
-configured expected state for that action. It still does not prove independent
-physical or camera confirmation.
+`-CheckTracking` is a pre-execution metadata check: it reports whether the action has
+configured HA state proof metadata (`tracked`) or needs a different proof layer
+(`external_required`, `ack_only`, `manual_required`, or `unsupported`). It does not
+read current Home Assistant state. `-CheckState` is a
+post-action or restore confirmation check: `cause_code=none` means Home
+Assistant state matched the configured expected state for that action at the
+time it was read. It still does not prove independent physical or camera
+confirmation. A `-CheckState` mismatch before execute is not a bridge startup
+failure; it may simply mean the target is not already in that action's expected
+post-state.
+
+Remote-control or SwitchBot-style devices can be `stateless_toggle`: one press changes
+the physical state, but Home Assistant cannot read whether the appliance is currently
+on or off. Those actions must not be reported as HA state proof; they require external
+observation, a separate sensor, or manual confirmation.
+
+Use `state_authority` to keep state sources separate. `ha_entity` can support
+Home Assistant state proof when the entity state is reliable. `ha_inferred` is a
+shadow or last-command state and is not physical proof. `open_loop` means no current
+state authority is available. `submitted_only` means the bridge can only prove that
+the script command was accepted/submitted.
 
 ## Cause Codes
 
@@ -53,7 +73,17 @@ physical or camera confirmation.
 | `live_home_control.bridge.actions_unavailable` | Authenticated `/actions` failed or returned unavailable | Stop before preview/execute; inspect bridge config and auth class |
 | `live_home_control.bridge.expected_action_missing` | `/actions` did not return the ticketed action id | Fix the live ticket or action mapping before preview |
 | `live_home_control.bridge.state_action_missing` | State check was requested without an action id | Rerun with `-CheckState -ActionId <allowed-action-id>` |
+| `live_home_control.bridge.state_tracking_action_missing` | Tracking metadata check was requested without an action id | Rerun with `-CheckTracking -ActionId <allowed-action-id>` |
+| `live_home_control.bridge.state_tracking_untracked` | The action has no configured `expected_effect` metadata for later HA state proof | Add `expected_effect` or keep the action out of HA state-proof claims |
+| `live_home_control.bridge.state_tracking_external_required` | The action is intentionally verified outside HA state | Use external/manual proof before claiming physical state |
+| `live_home_control.bridge.state_tracking_ack_only` | The action can only prove that the command was accepted/submitted | Do not claim appliance state; add tracking metadata only if the target state is readable |
+| `live_home_control.bridge.state_tracking_manual_required` | The action needs manual confirmation | Stop before state proof unless the ticket includes manual confirmation |
+| `live_home_control.bridge.state_tracking_unsupported` | The action declares a verification mode the helper cannot turn into HA state proof | Fix metadata or keep it out of state-proof flows |
 | `live_home_control.bridge.state_unavailable` | The bridge could not read redacted Home Assistant state for the action | Check bridge auth, Home Assistant availability, and rerun `-CheckState` |
+| `live_home_control.bridge.state_external_required` | The action needs external observation instead of HA state proof | Use camera/sensor/manual proof only if separately approved |
+| `live_home_control.bridge.state_ack_only` | The action can only prove command acknowledgement | Do not claim appliance state |
+| `live_home_control.bridge.state_manual_required` | The action needs manual confirmation instead of HA state proof | Get the manual proof layer separately |
+| `live_home_control.bridge.state_unsupported` | The action cannot produce HA state proof with the current metadata | Fix metadata or use another proof layer |
 | `live_home_control.bridge.state_untracked` | The action has no configured `expected_effect` to check | Add/verify expected-effect metadata before claiming HA state proof |
 | `live_home_control.bridge.state_mismatch` | Home Assistant state was read but did not match the configured expected state | Wait the ticket interval, verify the ticketed action, or run a ticketed restore |
 | `none` | Startup and action catalog checks passed | Continue only to ticketed preview/dry-run/execute after live guardrails are confirmed |
@@ -68,7 +98,7 @@ not raw logs.
 ```text
 proof_layer: source-static | no-live/mock | runtime/browser | live-bridge | live-preview | live-execute | live-ha-state | physical-state
 entrypoint: launcher | helper | direct-uvicorn | smoke-script | unknown
-blocked_at: none | env-render | config-load | process-env | service-start | health | action-catalog | preview | execute | restore | state-check | physical-confirmation
+blocked_at: none | env-render | config-load | process-env | service-start | health | action-catalog | state-tracking | preview | execute | restore | state-check | physical-confirmation
 observed_status: ok | warning | blocked | config_error | unavailable | timeout | unknown
 cause_kind: none | missing-file | placeholder-secret | missing-process-env | config-mismatch | port-conflict | auth-failure | ha-unreachable | action-not-in-catalog | unsafe-ticket | unknown
 evidence: short redacted facts only
@@ -95,6 +125,20 @@ physical_action_executed: no
 ```
 
 For a successful helper state check, use this shape:
+
+```text
+proof_layer: live-bridge
+entrypoint: helper
+blocked_at: none
+observed_status: ok
+cause_kind: none
+evidence: action_id=<allowed-action-id>; state_authority=ha_entity; state_tracking=tracked; expected_state=<state>
+next_probe: proceed to preview/dry-run; run CheckState only after execute/wait or restore/wait
+safe_stop: yes
+physical_action_executed: no
+```
+
+For a successful post-action helper state check, use this shape:
 
 ```text
 proof_layer: live-ha-state

@@ -360,7 +360,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "home-control\.yaml[\s\S]{0,200}再生成|再生成[\s\S]{0,200}home-control\.yaml" -Message "README should warn that render-env-files -Force regenerates home-control.yaml"
   Assert-TextMatch -Text $readme -Pattern "/actions/<allowed-action-id>/preview" -Message "README should show a concrete preview route shape"
   Assert-TextMatch -Text $readme -Pattern '"dry_run":true' -Message "README should show a dry-run execute body"
+  Assert-TextMatch -Text $readme -Pattern "-CheckTracking -ActionId" -Message "README should show helper-based state-tracking metadata check before execute"
   Assert-TextMatch -Text $readme -Pattern "-CheckState -ActionId" -Message "README should show helper-based Home Assistant state check"
+  Assert-TextMatch -Text $readme -Pattern "実行後または restore 後|post-action" -Message "README should separate CheckState from pre-execution checks"
   Assert-TextMatch -Text $readme -Pattern "live-home-control-cause-trail\.md" -Message "README should link live Home Control cause trail"
   Assert-PathPresent -Path (Join-Path $RepoRoot "docs\live-home-control-cause-trail.md")
   $bridgeHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\start-home-control-bridge.ps1")
@@ -369,6 +371,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $bridgeHelper -Pattern "cause_code" -Message "Home Control bridge helper should report cause codes"
   Assert-TextMatch -Text $bridgeHelper -Pattern "root_cause_trace" -Message "Home Control bridge helper should emit root-cause trace packet"
   Assert-TextMatch -Text $bridgeHelper -Pattern "HOME_ASSISTANT_TOKEN" -Message "Home Control bridge helper should classify Home Assistant token readiness"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "CheckTracking" -Message "Home Control bridge helper should provide a redacted state-tracking metadata mode"
   Assert-TextMatch -Text $bridgeHelper -Pattern "CheckState" -Message "Home Control bridge helper should provide a redacted state-check mode"
   Assert-TextMatch -Text $bridgeHelper -Pattern "bridge_start: status=starting" -Message "Home Control bridge helper should print startup status"
   Assert-TextMatch -Text $bridgeHelper -Pattern 'displayEnvPath = ConvertTo-DisplayLocalPath -Path \$EnvPath' -Message "Home Control bridge helper should redact env paths in live-ready errors"
@@ -381,6 +384,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $causeTrail -Pattern "blocked_at:" -Message "cause trail should define blocked_at field"
   Assert-TextMatch -Text $causeTrail -Pattern "missing-process-env" -Message "cause trail should cover missing process env failures"
   Assert-TextMatch -Text $causeTrail -Pattern "live-ha-state" -Message "cause trail should separate Home Assistant state proof"
+  Assert-TextMatch -Text $causeTrail -Pattern "state_tracking=tracked" -Message "cause trail should separate tracking metadata from post-state proof"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "UV_CACHE_DIR" -Message "public troubleshooting docs should include uv cache troubleshooting guidance"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "Git ownership warning" -Message "public troubleshooting docs should frame restricted-environment Git ownership warnings as validation friction"
   Assert-TextMatch -Text $readme -Pattern "doctor-distribution\.ps1" -Message "README should document the distribution doctor"
@@ -442,7 +446,8 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $fullInstallHelper -Pattern "run-local-media-replay\.ps1" -Message "full install helper should call the local media preview helper"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "check-voicevox-readiness\.ps1" -Message "full install helper should call the VOICEVOX readiness helper"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "test-local-media-voice-gate\.ps1" -Message "full install helper should call the voice-gate preview helper"
-  Assert-TextMatch -Text $fullInstallHelper -Pattern "start-home-control-bridge\.ps1" -Message "full install helper should use the Home Control bridge only for preflight/state checks"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "start-home-control-bridge\.ps1" -Message "full install helper should use the Home Control bridge only for preflight/tracking checks"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "CheckTracking" -Message "full install helper should use tracking metadata before live execute instead of post-state checks"
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\check-voicevox-readiness.ps1")
   $voicevoxHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\check-voicevox-readiness.ps1")
   Assert-TextMatch -Text $voicevoxHelper -Pattern "EndpointUrl" -Message "VOICEVOX helper should check endpoint first"
@@ -465,6 +470,24 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_stt_execution=true" -Message "voice-gate wrapper should default to no STT execution"
   Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_virtual_audio_route_change=true" -Message "voice-gate wrapper should avoid changing audio routes"
   Write-Host "README first-run guidance static ok"
+}
+
+function Test-HomeControlTrackingHelperFixtures {
+  Write-TestStep "Home Control tracking helper no-live fixtures"
+  $output = Invoke-Checked -Command @(
+    $PowerShellCommand,
+    "-NoProfile",
+    "-File",
+    (Join-Path $RepoRoot "scripts\start-home-control-bridge.ps1"),
+    "-SelfTestTracking"
+  )
+  $text = $output -join "`n"
+  Assert-TextMatch -Text $text -Pattern "tracking_self_test: legacy_tracked=tracked" -Message "tracking helper should keep legacy /actions payload fallback"
+  Assert-TextMatch -Text $text -Pattern "tracking_self_test: new_tracked=tracked" -Message "tracking helper should accept new tracked metadata"
+  Assert-TextMatch -Text $text -Pattern "tracking_self_test: external_required=blocked" -Message "tracking helper should block external-required actions from HA state proof"
+  Assert-TextMatch -Text $text -Pattern "tracking_self_test: ack_only=blocked" -Message "tracking helper should block ack-only actions from HA state proof"
+  Assert-TextMatch -Text $text -Pattern "tracking_self_test: missing_action=blocked" -Message "tracking helper should preserve missing-action hard stop evidence"
+  Assert-TextMatch -Text $text -Pattern "tracking self-test: ok" -Message "tracking helper no-live fixtures should complete"
 }
 
 function Test-ManifestAndVersion {
@@ -1584,6 +1607,7 @@ Test-BatchWrappers
 Test-MaintenanceSafetyStatic
 Test-PublicPathLeakStatic
 Test-ReadmeFirstRunGuidance
+Test-HomeControlTrackingHelperFixtures
 Test-ManifestAndVersion
 Test-UpdateFixtureHoldBehavior
 Test-DistributionPinCheckerFixtures
