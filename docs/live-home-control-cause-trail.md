@@ -106,7 +106,7 @@ message summaries, and manager summaries. The helper emits the same shape in
 not raw logs.
 
 ```text
-proof_layer: source-static | no-live/mock | runtime/browser | live-bridge | live-preview | live-execute | live-ha-state | physical-state
+proof_layer: source-static | no-live/mock | runtime/browser | live-bridge | live-preview | live-execute | live-ha-state | external-observation-route | physical-state
 entrypoint: launcher | helper | direct-uvicorn | smoke-script | unknown
 blocked_at: none | env-render | config-load | process-env | service-start | health | action-catalog | state-tracking | preview | execute | restore | state-check | physical-confirmation
 observed_status: ok | warning | blocked | config_error | unavailable | timeout | unknown
@@ -163,6 +163,11 @@ raw_media_saved: false
 raw_media_shared: false
 private_fields_omitted: token, ha_url, entity_id, raw_log, raw_catalog, raw_response, raw_frame, screenshot, audio, local_path
 ```
+
+The 2026-06-09 no-save camera check proved only that the local observation path
+could open a camera and read one frame without saving or displaying raw media.
+It is not a door/cover, AC, light, or fan physical-state proof until a separate
+scoped observation run records a semantic summary.
 
 For the confirmed 2026-06-02 failure, the redacted packet shape is:
 
@@ -249,8 +254,9 @@ backup exists, record that as `backup-external` instead of retrying API backup
 creation blindly. A backup proof only protects rollback; it does not prove
 script reload, command execution, HA state, or physical state.
 
-For the 2026-06-09 door/cover pilot, keep the action out of HA state-proof
-promotion:
+For the 2026-06-09 door/cover pilot, see
+`docs/live-home-control-integration-report-2026-06-09.md` and keep the action
+out of HA state-proof promotion:
 
 ```text
 proof_layer: live-execute + live-ha-state
@@ -258,8 +264,8 @@ entrypoint: bridge helper + HA REST read-only state summary
 blocked_at: closed-state-proof
 observed_status: warning
 cause_kind: partial-position-transition
-evidence: door_close submitted; target cover state stayed open; position moved down from near-open to partial instead of reaching closed; door_open restore needed one extra execute and returned position to near-open
-next_probe: keep door_open/door_close as command_ack_only until local config uses verification.position and ticketed execute/wait/CheckState proves the threshold
+evidence: door_close submitted; multiple cover attributes changed but did not reach clean closed proof; one cover reported closed with a nonzero position while another remained open at a partial position; door_open restore needed one extra execute and returned both positions to the open threshold
+next_probe: keep door_open/door_close as command_ack_only until target/group behavior is reviewed, local config uses verification.position, and ticketed execute/wait/CheckState proves the threshold
 safe_stop: yes
 physical_action_executed: yes
 ```
@@ -267,3 +273,22 @@ physical_action_executed: yes
 Do not treat `open` alone as restored for cover actions when
 `current_position` is available. For this target, state and position can disagree
 enough that `CheckState` proof must include the configured position threshold.
+
+For the 2026-06-09 AC switch-wrapper pilot, live execute succeeded but climate
+state proof did not:
+
+```text
+proof_layer: live-execute + live-ha-state
+entrypoint: bridge helper + HA REST read-only state summary
+blocked_at: climate-state-proof
+observed_status: warning
+cause_kind: switch-wrapper-not-climate-proof
+evidence: aircon_off and aircon_on submitted; switch distribution changed; climate state stayed fan_only; short-window temperature sensors were inconclusive
+next_probe: keep aircon_on/aircon_off as command_ack_only; prove a separate climate-domain action before claiming HA state proof
+safe_stop: yes
+physical_action_executed: yes
+```
+
+Do not use switch distribution changes, script submission, or short-window
+temperature drift as immediate proof that the AC mode changed. Promote AC only
+through a climate-domain route that can read back the intended state.
