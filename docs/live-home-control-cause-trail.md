@@ -188,3 +188,44 @@ physical_action_executed: yes
 This can be `HA state matched` only after the target-specific `CheckState`
 matches. If another return was needed, report `restored / reversible with retry`
 and keep the retry count visible.
+
+For the 2026-06-09 Home Assistant script maintenance pass, keep it out of live
+appliance proof:
+
+```text
+proof_layer: ha-config-maintenance
+entrypoint: HA backup + script config API + config check + script reload
+blocked_at: none
+observed_status: ok
+cause_kind: none
+evidence: automatic backup API failed first; user-created backup was used; 12 bridge-referenced scripts were changed from implicit default mode to explicit mode=single; config check ok; script domain reload ok; post-read verification mode_single=12/12
+next_probe: bridge CheckOnly / CheckTracking / CheckState for the next target action
+safe_stop: yes
+physical_action_executed: no
+```
+
+`mode: single` matches the Home Assistant script default. It is a readability and
+operator-safety maintenance change, not proof that any appliance state changed.
+If the Home Assistant backup API fails but a recent UI-created or automatic
+backup exists, record that as `backup-external` instead of retrying API backup
+creation blindly. A backup proof only protects rollback; it does not prove
+script reload, command execution, HA state, or physical state.
+
+For the 2026-06-09 door/cover pilot, keep the action out of HA state-proof
+promotion:
+
+```text
+proof_layer: live-execute + live-ha-state
+entrypoint: bridge helper + HA REST read-only state summary
+blocked_at: closed-state-proof
+observed_status: warning
+cause_kind: partial-position-transition
+evidence: door_close submitted; target cover state stayed open; position moved down from near-open to partial instead of reaching closed; door_open restore needed one extra execute and returned position to near-open
+next_probe: keep door_open/door_close as command_ack_only; design position-aware proof before any ha_state promotion
+safe_stop: yes
+physical_action_executed: yes
+```
+
+Do not treat `open` alone as restored for cover actions when
+`current_position` is available. For this target, state and position can disagree
+enough that position must be part of the proof design.

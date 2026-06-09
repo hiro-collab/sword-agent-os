@@ -69,7 +69,7 @@
       "version_source": "organs/action/home-assistant-server/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/home-assistant-server.git",
       "branch": "codex/add-fault-injection",
-      "commit": "161b49974ba26b5745008d5247b28662daf7821c",
+      "commit": "4d00a72c8343d413c3e943791b685d02226bc156",
       "adoption": "standard_candidate",
       "legacy_path": "organs/action/home-assistant-server",
       "notes": "Home Assistant safety bridge, allowlist, confirmation, audit, and fault injection."
