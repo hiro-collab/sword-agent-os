@@ -458,13 +458,14 @@ async function main() {
   const browser = await launchChromium(chromium, args);
   let triggerResult = { trigger: args.trigger, dispatched: false };
   let motionStimulusResult = null;
+  let selfMirrorReady = null;
   let framePaths = [];
   try {
     const page = await browser.newPage({ viewport: { width: args.width, height: args.height } });
     await page.goto(args.url, { waitUntil: "domcontentloaded", timeout: 20000 });
     await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
-    const readyState = await waitForSelfMirrorReady(page, args);
-    process.stdout.write(`self_mirror_ready=${JSON.stringify(readyState)}\n`);
+    selfMirrorReady = await waitForSelfMirrorReady(page, args);
+    process.stdout.write(`self_mirror_ready=${JSON.stringify(selfMirrorReady)}\n`);
     await page.waitForTimeout(args.settleMs);
     const capture = await captureFrames(page, frameDir, args);
     framePaths = capture.framePaths;
@@ -504,6 +505,7 @@ async function main() {
     sample_rate_fps: args.sampleRateFps,
     duration_ms: args.durationMs,
     frame_count: framePaths.length,
+    self_mirror_ready: selfMirrorReady,
     trigger: triggerResult,
     motion_stimulus_result: motionStimulusResult,
     runtime_join: {

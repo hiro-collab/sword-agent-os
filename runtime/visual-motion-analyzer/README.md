@@ -50,10 +50,12 @@ frames.
 
 For trigger-caused visible-motion review, use the
 `visualTest=self-mirror-baseline` route. The capture helper waits for the VRM
-debug/ready state before the first frame and records a `runtime_join` object
-that pairs the ROI run with the safe runtime result id. If the analyzer still
-reports `visual-pretrigger-motion`, keep the run classified as pretrigger
-contamination instead of a trigger-caused pass.
+debug/ready state before the first frame and records both `self_mirror_ready`
+and `runtime_join` summary objects in the Browser capture manifest. The runtime
+join pairs the ROI run with the planned safe result id echoed by the Motion
+Stimulus receiver; it is not an independently generated live runtime id. If the
+analyzer still reports `visual-pretrigger-motion`, keep the run classified as
+pretrigger contamination instead of a trigger-caused pass.
 
 Existing local frame configs can still be run directly:
 
