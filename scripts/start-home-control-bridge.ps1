@@ -99,6 +99,7 @@ function Write-RootCauseTrace {
   Write-Host ("  next_probe: {0}" -f $NextProbe)
   Write-Host ("  safe_stop: {0}" -f $SafeStop)
   Write-Host ("  physical_action_executed: {0}" -f $PhysicalActionExecuted)
+  Write-Host "  action_execution_scope: this_helper_invocation"
 }
 
 function Get-HttpStatusDetail {

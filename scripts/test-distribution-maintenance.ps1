@@ -402,6 +402,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "run-local-media-replay\.ps1" -Message "README should document the local media replay preview helper"
   Assert-TextMatch -Text $readme -Pattern "evaluate-room-light-sunshine\.ps1" -Message "README should document the sunshine room-light evaluator"
   Assert-TextMatch -Text $readme -Pattern "check-voicevox-readiness\.ps1" -Message "README should document the VOICEVOX readiness helper"
+  Assert-TextMatch -Text $readme -Pattern "Start Stack し直して" -Message "README should explain restart after forced env/config render"
   Assert-TextMatch -Text $readme -Pattern "run-full-install-verification\.ps1" -Message "README should document the full install verification helper"
   Assert-TextMatch -Text $verificationSurface -Pattern "default_safety=no-live/no-device" -Message "public verification docs should state the full verification helper default safety"
   Assert-TextMatch -Text $readme -Pattern "RequestLiveHomeAssistant[\s\S]{0,320}ConfirmHomeAssistantTicket|ConfirmHomeAssistantTicket[\s\S]{0,320}RequestLiveHomeAssistant" -Message "README should require explicit live HA request and ticket confirmation"
@@ -410,6 +411,10 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "vision\.room_light\.on\.20260603" -Message "README should show the room-light local media asset id"
   Assert-TextMatch -Text $verificationSurface -Pattern "raw_media_shared=false" -Message "public verification docs should show raw media is not shared in local-media results"
   Assert-TextMatch -Text $verificationSurface -Pattern "generated_output_written=false" -Message "public verification docs should show preview helper does not write generated output"
+  Assert-TextMatch -Text $verificationSurface -Pattern "SecretInputsRoot" -Message "public verification docs should explain separate secret input roots"
+  $localMediaPreparationHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\prepare-local-media-index.ps1")
+  Assert-TextMatch -Text $localMediaPreparationHelper -Pattern "SecretInputsRoot" -Message "local media preparation helper should support private secret inputs outside the workspace root"
+  Assert-TextMatch -Text $localMediaPreparationHelper -Pattern "<secret-inputs>" -Message "local media preparation helper should redact the secret inputs root"
   $localMediaHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-local-media-replay.ps1")
   Assert-TextMatch -Text $localMediaHelper -Pattern "local/media/media-index\.json" -Message "local media helper should resolve the local media index"
   Assert-TextMatch -Text $localMediaHelper -Pattern "source/static-command-preview" -Message "local media helper should label preview output as source/static-command-preview"
@@ -437,6 +442,8 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestRealCamera" -Message "full install helper should require explicit real camera request"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestVirtualAudio" -Message "full install helper should require explicit virtual audio request"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestVoicevoxStartup" -Message "full install helper should require explicit VOICEVOX startup request"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "SecretInputsRoot" -Message "full install helper should forward a separate secret inputs root"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "<secret-inputs>" -Message "full install helper should redact separate secret inputs root paths"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestLiveHomeAssistant" -Message "full install helper should require explicit live HA request"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "ConfirmHomeAssistantTicket" -Message "full install helper should require live HA ticket confirmation"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "git_unreadable" -Message "full install helper should separate git_unreadable from true pin mismatch"

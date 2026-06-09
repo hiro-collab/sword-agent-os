@@ -56,6 +56,13 @@ pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1 -DryRun
 pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1
 ```
 
+If the secret input bundle is outside the fresh clone root, pass both roots
+explicitly. The output and JSON still use placeholders rather than private paths:
+
+```powershell
+pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1 -WorkspaceRoot <fresh-clone-root> -SecretInputsRoot <private-secret-inputs-root> -DryRun
+```
+
 The seed file lives under `_secret_inputs\local-media-index.seed.json` and is
 not tracked. The preparation helper copies private media into ignored
 `local/media/assets/`, writes `local/media/media-index.json`, and prints only
@@ -118,6 +125,7 @@ pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestRealCa
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestVoicevoxStartup
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestVirtualAudio
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestGestureGate
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -WorkspaceRoot <fresh-clone-root> -SecretInputsRoot <private-secret-inputs-root>
 ```
 
 `-RequestLiveHomeAssistant` is not permission for physical action. Physical

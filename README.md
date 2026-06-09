@@ -50,6 +50,7 @@ pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
 notepad local\env\sword-agent-os.env
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1
+pwsh -NoProfile -File .\scripts\check-voicevox-readiness.ps1
 pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1
 pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes
 
@@ -63,6 +64,10 @@ API key を入れます。実家電操作をしない場合、Home Assistant tok
 
 起動後は Launch Manager で主要 service が ready になるのを待ち、
 Projection Visual を開いて次のような短い入力から確認します。
+音声出力まで含める場合、VOICEVOX が down なら通常ユーザー端末で
+`scripts\check-voicevox-readiness.ps1 -StartIfNeeded` を実行してから
+Start Stack をやり直します。音声出力を今回の proof に含めない場合だけ、
+Launch Manager 側の voice check を skip する判断として分けて記録します。
 
 ```text
 聞こえていますか
@@ -267,6 +272,7 @@ Home Assistant は `held` または `blocked` として分離表示します。
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RunNoLiveSmoke
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RunRuntimeHttpChecks
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -WorkspaceRoot <fresh-clone-root> -SecretInputsRoot <private-secret-inputs-root>
 ```
 
 live/device layer を開く場合も、flag を明示します。helper は raw media、raw audio、
@@ -416,6 +422,9 @@ Home Assistant token、`HOME_CONTROL_API_TOKEN`、`ENVIRONMENT_API_TOKEN` を
 `-Force` の後で live config を再反映し、bridge helper の `-CheckOnly` と
 `-CheckTracking` で起動と追跡メタデータを確認してから実行へ進んでください。
 `-CheckState` は実行後または restore 後の state confirmation に使います。
+すでに Launch Manager / stack が起動中の場合、`render-env-files.ps1 -Force` の
+変更は実行中 process へ自動反映されません。設定を再生成した後は対象 stack を停止し、
+fresh clone の `workspaceRoot` から Start Stack し直してから確認してください。
 
 ## 起動方法
 

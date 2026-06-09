@@ -115,10 +115,16 @@ evidence: short redacted facts only
 next_probe: one concrete next check
 safe_stop: yes/no
 physical_action_executed: yes/no
+action_execution_scope: this_helper_invocation
 ```
 
 Keep no-live/mock proof, live startup/catalog proof, preview proof, execute
 proof, and physical-state proof separate.
+In helper-only checks such as `-CheckTracking` or `-CheckState`,
+`physical_action_executed: no` means that this helper invocation did not send a
+device command. It does not erase a prior ticketed execute; report the earlier
+execute as a separate `live-execute` row and the later state read as
+`live-ha-state`.
 
 For actions that cannot produce Home Assistant state proof, keep the action in
 an external or manual proof route. Camera, screenshot, recording, raw media, and
@@ -210,6 +216,10 @@ next_probe: optional independent physical/camera confirmation if that proof laye
 safe_stop: yes
 physical_action_executed: no
 ```
+
+Here `physical_action_executed: no` is expected: the state check reads the
+post-action Home Assistant state but does not itself execute or restore the
+device.
 
 For the 2026-06-09 vacuum pilot, do not use all-vacuum domain counts as the
 action proof. The HA setup exposes more than one `vacuum` entity, while the

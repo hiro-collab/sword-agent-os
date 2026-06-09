@@ -2,6 +2,7 @@ param(
   [string]$Profile = "standard",
   [string]$DistributionManifestPath = "",
   [string]$WorkspaceRoot = "",
+  [string]$SecretInputsRoot = "",
   [switch]$Json,
   [switch]$SkipInstallDryRun,
   [switch]$SkipLocalMediaPreview,
@@ -30,6 +31,7 @@ Set-StrictMode -Version Latest
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $script:Layers = @()
 $script:ResolvedWorkspaceRoot = ""
+$script:ResolvedSecretInputsRoot = ""
 
 function Resolve-CurrentPowerShell {
   $currentProcess = Get-Process -Id $PID -ErrorAction SilentlyContinue
@@ -80,6 +82,9 @@ function ConvertTo-DisplayCommand {
     $displayArgument = [string]$argument
     if (-not [string]::IsNullOrWhiteSpace($script:ResolvedWorkspaceRoot)) {
       $displayArgument = $displayArgument.Replace($script:ResolvedWorkspaceRoot, "<workspace>")
+    }
+    if (-not [string]::IsNullOrWhiteSpace($script:ResolvedSecretInputsRoot)) {
+      $displayArgument = $displayArgument.Replace($script:ResolvedSecretInputsRoot, "<secret-inputs>")
     }
     $displayArgument = $displayArgument.Replace($RepoRoot, "<repo>")
     $displayArguments += $displayArgument
@@ -237,6 +242,11 @@ function Test-TicketComplete {
 
 $resolvedWorkspaceRoot = Get-WorkspaceRoot
 $script:ResolvedWorkspaceRoot = $resolvedWorkspaceRoot
+$resolvedSecretInputsRoot = ""
+if (-not [string]::IsNullOrWhiteSpace($SecretInputsRoot)) {
+  $resolvedSecretInputsRoot = [System.IO.Path]::GetFullPath($SecretInputsRoot)
+  $script:ResolvedSecretInputsRoot = $resolvedSecretInputsRoot
+}
 $distributionArgs = @("-Profile", $Profile)
 if (-not [string]::IsNullOrWhiteSpace($DistributionManifestPath)) {
   $distributionArgs += @("-DistributionManifestPath", $DistributionManifestPath)
@@ -337,12 +347,17 @@ else {
 }
 
 if (-not $SkipLocalMediaPreview) {
+  $localMediaPreparationArgs = @("-WorkspaceRoot", $resolvedWorkspaceRoot, "-DryRun", "-Json")
+  if (-not [string]::IsNullOrWhiteSpace($resolvedSecretInputsRoot)) {
+    $localMediaPreparationArgs += @("-SecretInputsRoot", $resolvedSecretInputsRoot)
+  }
+
   Add-CommandLayer `
     -Id "FIV-04" `
     -Name "Local media index preparation dry-run" `
     -ProofLayer "local-preparation/dry-run" `
     -ScriptName "prepare-local-media-index.ps1" `
-    -Arguments @("-WorkspaceRoot", $resolvedWorkspaceRoot, "-DryRun", "-Json") `
+    -Arguments $localMediaPreparationArgs `
     -PassDetail "local media seed is readable and index preparation can be previewed without copying media" `
     -FailureDetail "local media index preparation dry-run failed" `
     -BlockedPattern "local media seed file not found|secret input root not found|source media file is missing" `

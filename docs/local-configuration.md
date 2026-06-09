@@ -222,6 +222,14 @@ pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1 -DryRun
 pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1
 ```
 
+If the fresh clone and the private seed bundle are in different roots, keep
+`-WorkspaceRoot` pointed at the clone that will receive `local\media\...`, and
+point `-SecretInputsRoot` at the private `_secret_inputs` directory:
+
+```powershell
+pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1 -WorkspaceRoot <fresh-clone-root> -SecretInputsRoot <private-secret-inputs-root> -DryRun
+```
+
 The helper writes `local\media\media-index.json` and copies media into ignored
 `local\media\assets\`. It prints only redacted counts and asset ids. Do not
 commit raw media, private seed files, screenshots, transcripts, or absolute

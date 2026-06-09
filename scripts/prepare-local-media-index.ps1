@@ -1,5 +1,6 @@
 param(
   [string]$WorkspaceRoot = "",
+  [string]$SecretInputsRoot = "",
   [string]$SeedFile = "",
   [switch]$DryRun,
   [switch]$Json
@@ -24,13 +25,23 @@ function Get-WorkspaceRoot {
 }
 
 function Get-SeedFile {
-  param([Parameter(Mandatory = $true)][string]$ResolvedWorkspaceRoot)
+  param([Parameter(Mandatory = $true)][string]$ResolvedSecretRoot)
 
   if (-not [string]::IsNullOrWhiteSpace($SeedFile)) {
     return [System.IO.Path]::GetFullPath($SeedFile)
   }
 
-  return Join-Path $ResolvedWorkspaceRoot "_secret_inputs\local-media-index.seed.json"
+  return Join-Path $ResolvedSecretRoot "local-media-index.seed.json"
+}
+
+function Get-SecretInputsRoot {
+  param([Parameter(Mandatory = $true)][string]$ResolvedWorkspaceRoot)
+
+  if (-not [string]::IsNullOrWhiteSpace($SecretInputsRoot)) {
+    return [System.IO.Path]::GetFullPath($SecretInputsRoot)
+  }
+
+  return Join-Path $ResolvedWorkspaceRoot "_secret_inputs"
 }
 
 function Get-OptionalProperty {
@@ -107,6 +118,7 @@ function Write-PreparationResult {
     proof_layer = "local-preparation"
     detail = $Detail
     workspace = "<workspace>"
+    secret_inputs_root = "<secret-inputs>"
     seed_file = "_secret_inputs/local-media-index.seed.json"
     media_index = "local/media/media-index.json"
     asset_count = $AssetIds.Count
@@ -137,8 +149,8 @@ function Write-PreparationResult {
 }
 
 $resolvedWorkspaceRoot = Get-WorkspaceRoot
-$resolvedSeedFile = Get-SeedFile -ResolvedWorkspaceRoot $resolvedWorkspaceRoot
-$secretRoot = Join-Path $resolvedWorkspaceRoot "_secret_inputs"
+$secretRoot = Get-SecretInputsRoot -ResolvedWorkspaceRoot $resolvedWorkspaceRoot
+$resolvedSeedFile = Get-SeedFile -ResolvedSecretRoot $secretRoot
 $indexPath = Join-Path $resolvedWorkspaceRoot "local\media\media-index.json"
 $assetRoot = Join-Path $resolvedWorkspaceRoot "local\media\assets"
 
