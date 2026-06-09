@@ -116,6 +116,16 @@ whose state stays unknown, use `control_type: stateless_toggle` and
 `state_authority: open_loop` plus `verification.mode: external_observation`
 instead of claiming HA state proof. For command-only actions, use
 `state_authority: submitted_only` and `verification.mode: command_ack_only`.
+For HA-tracked cover, vacuum, climate, or mode commands, add
+`verification.accepted_states`, `settle_seconds`, and `timeout_seconds` only
+after read-only state review plus a ticketed execute/wait/post-state proof shows
+those states are reliable. These fields describe the proof window; they do not
+make an `unknown` or inferred entity physically verified.
+
+For vacuum actions, keep `vacuum_start` and `vacuum_return` criteria separate.
+Start-side tracking must state which states prove progress and why. Return-side
+tracking should normally require `docked` after the wait window. Keep
+`accepted_states` narrow; do not use it to hide uncertainty.
 
 On the Home Assistant side, explicitly setting `mode: single` on bridge-referenced
 scripts is a low-impact readability improvement because it matches the Home

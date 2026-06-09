@@ -609,6 +609,17 @@ Action metadata は次のように分けます。
 | `state_authority` | `ha_entity`, `ha_inferred`, `open_loop`, `external_sensor`, `submitted_only` | Where the state claim comes from. Inferred/open-loop state is not physical proof. |
 | `verification.mode` | `ha_state`, `external_observation`, `command_ack_only`, `manual_confirmation` | What proof layer can confirm the action. |
 | `expected_effect` | HA domain/service/entity/expected state | Only used when `verification.mode` is `ha_state`. |
+| `verification.accepted_states` | e.g. `["closed"]`, `["docked"]` | Optional HA states that also count as post-state proof. The primary `expected_effect.expected_state` is still included. |
+| `verification.settle_seconds` / `timeout_seconds` | e.g. `8` / `60` | The wait window to use in the ticketed execute/wait/check procedure. These are metadata; do not treat them as proof by themselves. |
+
+Report Home Control proof with separate labels:
+
+| Proof label | Meaning |
+| --- | --- |
+| `command accepted` | Bridge/Home Assistant accepted the command. This is send/submission proof, not appliance-state proof. |
+| `HA state matched` | Home Assistant current state matched `expected_state` or `accepted_states` after the ticketed wait. |
+| `external observed` | Camera, sensor, manual observation, or another independent source confirmed the physical result. |
+| `restored / reversible` | The pilot also proved the planned restore path, such as start/change then return/docked. |
 
 SwitchBot remote-style devices may be `stateless_toggle`: a button press changes the
 physical state, but Home Assistant cannot know the current state. Do not model such a
@@ -620,7 +631,20 @@ For the current live SwitchBot-style setup, actions backed by `switch` entities 
 current state is `unknown` should stay out of `ha_state` proof. Keep them as
 `open_loop` or `submitted_only` until Home Assistant shows a reliable current state.
 `cover` and `vacuum_return` may become HA state-proof candidates, but only after a
-separate read-only state review and a ticketed execute/wait/post-state proof.
+separate read-only state review and a ticketed execute/wait/post-state proof. When
+promoting them, use `verification.mode: ha_state`, keep `state_authority: ha_entity`,
+set `expected_effect`, and add `accepted_states` plus settle/timeout windows before
+claiming `tracked`.
+
+For vacuum actions, define start and return proof separately. `vacuum_start`
+must state which post-start states count as progress, and why; avoid accepting
+any state that merely hides uncertainty. `vacuum_return` should normally require
+`docked` after a wait window. A strong pilot is `start -> wait -> non-docked or
+cleaning/returning proof -> return -> wait -> docked proof`.
+If restore only succeeds after an extra return command, report it as
+`restored / reversible with retry` and keep the single action out of `tracked`
+until a later ticket proves one return command is reliable within the chosen
+timeout.
 
 ここまで通ってから、preview、dry-run、execute の順に進めます。
 HTTP を直接使う場合の最小形は次です。
@@ -651,12 +675,18 @@ Invoke-RestMethod `
   -Body '{"source":"first-run-live-pilot","request_id":"<ticket-id>-execute","dry_run":false}'
 ```
 
+確認必須 action の `confirmation_token` は一度だけ使えます。dry-run で token を
+使った場合、その token は消費済みです。本実行の直前に preview を取り直し、
+新しい token を execute だけに使ってください。
+
 execute response は `status=submitted` かつ `executed=true` で返ることがあります。
 これは操作要求が bridge から送信された層の結果であり、最終的に対象家電が期待状態に
 なった proof とは分けて扱います。preview、dry-run、execute、wait、Home Assistant
 state confirmation、独立した物理/カメラ確認を同じ green にまとめないでください。
 
 6. ticket で決めた反映待ちの間隔を待ち、Home Assistant state を helper で確認します。
+   `-CheckTracking` output may include `settle_seconds` / `timeout_seconds`;
+   use those as the wait window only for actions that are `tracked`.
    `-CheckState` は実行後または restore 後の確認です。実行前に全 action を通すための
    preflight ではありません。たとえば stateful な `light_on` は「今すでに on か」を見るので、
    実行前に off なら mismatch になります。stateless toggle のライトでは、そもそも
@@ -671,6 +701,8 @@ pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckState -Actio
 
 7. restore も ticket に書いた場合だけ、同じ順で preview、dry-run、1 回だけ execute、
    wait、state check を行います。
+   If restore needs another execute, record the retry count separately; do not
+   collapse that into a single-action green proof.
 
 ```powershell
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <restore-action-id>

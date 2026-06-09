@@ -26,8 +26,8 @@ HOME_ASSISTANT_TOKEN: present|missing|placeholder|too-short (value hidden)
 config: yaml_loaded=True action_count=<n> config_error_kind=<name|none>
 health: status=<ok|degraded|config_error> ok=<bool> actions_count=<n>
 actions: status=ok count=<n> expected_action=<present|missing|not-requested>
-tracking: action_id=<id> control_type=<type> state_authority=<authority> verification_mode=<mode> state_tracking=<tracked|external_required|ack_only|manual_required|unsupported|untracked> expected_state=<state|none> status=<same>
-state: action_id=<id> expected_state=<state|none> actual_state=<state|none> status=<matched|mismatch|external_required|ack_only|manual_required|unsupported|untracked|unavailable>
+tracking: action_id=<id> control_type=<type> state_authority=<authority> verification_mode=<mode> state_tracking=<tracked|external_required|ack_only|manual_required|unsupported|untracked> expected_state=<state|none> expected_states=<states|none> settle_seconds=<s> timeout_seconds=<s> status=<same>
+state: action_id=<id> expected_state=<state|none> expected_states=<states|none> actual_state=<state|none> status=<matched|mismatch|external_required|ack_only|manual_required|unsupported|untracked|unavailable>
 cause_code=<code>
 ```
 
@@ -36,13 +36,15 @@ preview, execute, restore, or physical appliance state.
 `-CheckTracking` is a pre-execution metadata check: it reports whether the action has
 configured HA state proof metadata (`tracked`) or needs a different proof layer
 (`external_required`, `ack_only`, `manual_required`, or `unsupported`). It does not
-read current Home Assistant state. `-CheckState` is a
-post-action or restore confirmation check: `cause_code=none` means Home
-Assistant state matched the configured expected state for that action at the
-time it was read. It still does not prove independent physical or camera
-confirmation. A `-CheckState` mismatch before execute is not a bridge startup
-failure; it may simply mean the target is not already in that action's expected
-post-state.
+read current Home Assistant state. For `tracked` actions, `expected_states`
+includes the primary `expected_effect.expected_state` plus any additional
+`verification.accepted_states`; `settle_seconds` and `timeout_seconds` are the
+ticketed wait window, not proof by themselves. `-CheckState` is a post-action or
+restore confirmation check: `cause_code=none` means Home Assistant state matched
+one of the configured expected states for that action at the time it was read.
+It still does not prove independent physical or camera confirmation. A
+`-CheckState` mismatch before execute is not a bridge startup failure; it may
+simply mean the target is not already in that action's expected post-state.
 
 Remote-control or SwitchBot-style devices can be `stateless_toggle`: one press changes
 the physical state, but Home Assistant cannot read whether the appliance is currently
@@ -54,6 +56,10 @@ Home Assistant state proof when the entity state is reliable. `ha_inferred` is a
 shadow or last-command state and is not physical proof. `open_loop` means no current
 state authority is available. `submitted_only` means the bridge can only prove that
 the script command was accepted/submitted.
+
+For `confirmation_required` actions, confirmation tokens are one-time tokens. A
+dry-run that uses a token consumes it. Before the real execute, request a fresh
+preview and use the new token only for that execute request.
 
 ## Cause Codes
 
@@ -74,7 +80,7 @@ the script command was accepted/submitted.
 | `live_home_control.bridge.expected_action_missing` | `/actions` did not return the ticketed action id | Fix the live ticket or action mapping before preview |
 | `live_home_control.bridge.state_action_missing` | State check was requested without an action id | Rerun with `-CheckState -ActionId <allowed-action-id>` |
 | `live_home_control.bridge.state_tracking_action_missing` | Tracking metadata check was requested without an action id | Rerun with `-CheckTracking -ActionId <allowed-action-id>` |
-| `live_home_control.bridge.state_tracking_untracked` | The action has no configured `expected_effect` metadata for later HA state proof | Add `expected_effect` or keep the action out of HA state-proof claims |
+| `live_home_control.bridge.state_tracking_untracked` | The action has no configured `expected_effect` metadata for later HA state proof | Add `expected_effect` plus reliable `verification.mode: ha_state`, or keep the action out of HA state-proof claims |
 | `live_home_control.bridge.state_tracking_external_required` | The action is intentionally verified outside HA state | Use external/manual proof before claiming physical state |
 | `live_home_control.bridge.state_tracking_ack_only` | The action can only prove that the command was accepted/submitted | Do not claim appliance state; add tracking metadata only if the target state is readable |
 | `live_home_control.bridge.state_tracking_manual_required` | The action needs manual confirmation | Stop before state proof unless the ticket includes manual confirmation |
@@ -85,7 +91,7 @@ the script command was accepted/submitted.
 | `live_home_control.bridge.state_manual_required` | The action needs manual confirmation instead of HA state proof | Get the manual proof layer separately |
 | `live_home_control.bridge.state_unsupported` | The action cannot produce HA state proof with the current metadata | Fix metadata or use another proof layer |
 | `live_home_control.bridge.state_untracked` | The action has no configured `expected_effect` to check | Add/verify expected-effect metadata before claiming HA state proof |
-| `live_home_control.bridge.state_mismatch` | Home Assistant state was read but did not match the configured expected state | Wait the ticket interval, verify the ticketed action, or run a ticketed restore |
+| `live_home_control.bridge.state_mismatch` | Home Assistant state was read but did not match the configured expected states | Wait the ticket interval, verify the ticketed action, or run a ticketed restore |
 | `none` | Startup and action catalog checks passed | Continue only to ticketed preview/dry-run/execute after live guardrails are confirmed |
 
 ## Report Shape
@@ -110,6 +116,16 @@ physical_action_executed: yes/no
 Keep no-live/mock proof, live startup/catalog proof, preview proof, execute
 proof, and physical-state proof separate.
 
+Use these short proof labels when summarizing a live action:
+
+```text
+command accepted: bridge/Home Assistant accepted the command, not appliance proof
+HA state matched: expected_state or accepted_states matched after the wait
+external observed: camera, sensor, manual observation, or other independent proof
+restored / reversible: restore path also reached its expected proof layer
+restored / reversible with retry: restore succeeded, but only after extra execute attempts
+```
+
 For the confirmed 2026-06-02 failure, the redacted packet shape is:
 
 ```text
@@ -132,8 +148,8 @@ entrypoint: helper
 blocked_at: none
 observed_status: ok
 cause_kind: none
-evidence: action_id=<allowed-action-id>; state_authority=ha_entity; state_tracking=tracked; expected_state=<state>
-next_probe: proceed to preview/dry-run; run CheckState only after execute/wait or restore/wait
+evidence: action_id=<allowed-action-id>; state_authority=ha_entity; state_tracking=tracked; expected_state=<state>; expected_states=<states>; settle_seconds=<s>; timeout_seconds=<s>
+next_probe: proceed to preview/dry-run; run CheckState only after ticketed execute/wait or restore/wait
 safe_stop: yes
 physical_action_executed: no
 ```
@@ -146,7 +162,7 @@ entrypoint: helper
 blocked_at: none
 observed_status: ok
 cause_kind: none
-evidence: action_id=<allowed-action-id>; expected_state=<state>; actual_state=<state>
+evidence: action_id=<allowed-action-id>; expected_state=<state>; expected_states=<states>; actual_state=<state>
 next_probe: optional independent physical/camera confirmation if that proof layer is required
 safe_stop: yes
 physical_action_executed: no
