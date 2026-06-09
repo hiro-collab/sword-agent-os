@@ -238,6 +238,7 @@ function Test-MaintenanceSafetyStatic {
     "scripts/doctor-distribution.ps1",
     "scripts/render-env-files.ps1",
     "scripts/start-home-control-bridge.ps1",
+    "scripts/run-home-control-light-proof.ps1",
     "scripts/check-voicevox-readiness.ps1",
     "scripts/evaluate-room-light-sunshine.ps1",
     "scripts/prepare-aituberkit-sword-adapter.ps1",
@@ -374,6 +375,8 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $bridgeHelper -Pattern "CheckTracking" -Message "Home Control bridge helper should provide a redacted state-tracking metadata mode"
   Assert-TextMatch -Text $bridgeHelper -Pattern "CheckState" -Message "Home Control bridge helper should provide a redacted state-check mode"
   Assert-TextMatch -Text $bridgeHelper -Pattern "bridge_start: status=starting" -Message "Home Control bridge helper should print startup status"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "UV_CACHE_DIR" -Message "Home Control bridge helper should use a local uv cache without changing persistent environment"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "UvCacheDir" -Message "Home Control bridge helper should expose a scoped uv cache override"
   Assert-TextMatch -Text $bridgeHelper -Pattern 'displayEnvPath = ConvertTo-DisplayLocalPath -Path \$EnvPath' -Message "Home Control bridge helper should redact env paths in live-ready errors"
   Assert-TextMatch -Text $bridgeHelper -Pattern 'ConvertTo-DisplayLocalPath -Path \$envFilePath' -Message "Home Control bridge helper should not print raw local env paths"
   Assert-TextMatch -Text $bridgeHelper -Pattern 'ConvertTo-DisplayLocalPath -Path \$configFilePath' -Message "Home Control bridge helper should not print raw local config paths"
@@ -404,6 +407,23 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "check-voicevox-readiness\.ps1" -Message "README should document the VOICEVOX readiness helper"
   Assert-TextMatch -Text $readme -Pattern "Start Stack し直して" -Message "README should explain restart after forced env/config render"
   Assert-TextMatch -Text $readme -Pattern "run-full-install-verification\.ps1" -Message "README should document the full install verification helper"
+  Assert-TextMatch -Text $readme -Pattern "run-home-control-light-proof\.ps1" -Message "README should document the physical light proof helper"
+  Assert-TextMatch -Text $verificationSurface -Pattern "run-home-control-light-proof\.ps1" -Message "public verification docs should document the physical light proof helper"
+  Assert-TextMatch -Text $troubleshootingSurface -Pattern "run-home-control-light-proof\.ps1" -Message "troubleshooting should point light physical proof to the bounded helper"
+  Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\run-home-control-light-proof.ps1")
+  Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\measure-camera-brightness.py")
+  $lightProofHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-home-control-light-proof.ps1")
+  $cameraBrightnessHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\measure-camera-brightness.py")
+  Assert-TextMatch -Text $lightProofHelper -Pattern "ConfirmLiveLightTicket" -Message "physical light proof helper should require explicit live ticket confirmation"
+  Assert-TextMatch -Text $lightProofHelper -Pattern "raw_media_saved" -Message "physical light proof helper should report raw media is not saved"
+  Assert-TextMatch -Text $lightProofHelper -Pattern "entity_id_shared" -Message "physical light proof helper should report entity ids are not shared"
+  Assert-TextMatch -Text $lightProofHelper -Pattern "preview_status" -Message "physical light proof helper should record preview status"
+  Assert-TextMatch -Text $lightProofHelper -Pattern "dry_run_status" -Message "physical light proof helper should record dry-run status"
+  Assert-TextMatch -Text $lightProofHelper -Pattern "cause_kind" -Message "physical light proof helper should classify bridge startup failures"
+  Assert-TextMatch -Text $lightProofHelper -Pattern "ConvertTo-RedactedText" -Message "physical light proof helper should redact diagnostic log tails"
+  Assert-TextMatch -Text $lightProofHelper -Pattern "inverted" -Message "physical light proof helper should classify opposite brightness movement without claiming expected on proof"
+  Assert-TextMatch -Text $cameraBrightnessHelper -Pattern "raw_media_saved" -Message "camera brightness helper should report raw media is not saved"
+  Assert-TextMatch -Text $cameraBrightnessHelper -Pattern "cv2\.VideoCapture" -Message "camera brightness helper should use OpenCV without writing frames"
   Assert-TextMatch -Text $verificationSurface -Pattern "default_safety=no-live/no-device" -Message "public verification docs should state the full verification helper default safety"
   Assert-TextMatch -Text $readme -Pattern "RequestLiveHomeAssistant[\s\S]{0,320}ConfirmHomeAssistantTicket|ConfirmHomeAssistantTicket[\s\S]{0,320}RequestLiveHomeAssistant" -Message "README should require explicit live HA request and ticket confirmation"
   Assert-TextMatch -Text $readme -Pattern "local-media replay" -Message "README should name local-media replay as a separate proof layer"

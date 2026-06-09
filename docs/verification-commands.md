@@ -139,6 +139,46 @@ then points to the separate live-owner ladder for actual execution.
 `git_unreadable` is not the same as a true source pin mismatch. Recheck in the
 normal user context before treating it as source drift.
 
+## Optional / Home Control Physical Light Proof
+
+Use this helper when the review needs a bounded SwitchBot remote-style light
+operation plus no-save camera brightness summary. It is narrower than the full
+install helper: it only targets the light off/on/off restore route and reports
+redacted aggregate metrics.
+
+Preview the route first:
+
+```powershell
+pwsh -NoProfile -File .\scripts\run-home-control-light-proof.ps1 -DryRun
+```
+
+Run the live ticket only after the operator has opened the physical-light
+scope. The helper starts a temporary Home Control bridge unless
+`-UseExistingBridge` is supplied. It performs preview and dry-run for each
+action, then uses a fresh preview token for live execute.
+
+```powershell
+pwsh -NoProfile -File .\scripts\run-home-control-light-proof.ps1 -ConfirmLiveLightTicket -OffActionId light_off -OnActionId light_on -Json
+```
+
+Report its rows separately:
+
+```text
+command_submission=<pass|blocked|preview-only>
+physical_brightness_observation=<pass|inverted|not-reproduced>
+restore_observed=<pass|not-reproduced>
+raw_media_saved=false
+raw_media_shared=false
+raw_secret_shared=false
+entity_id_shared=false
+```
+
+If brightness moves in the opposite direction, keep the result as `inverted`;
+that is evidence of an action mapping or observation-route mismatch, not proof
+that the requested `on` state was reached. If brightness does not move enough,
+keep it as `not-reproduced` and check camera ownership, ambient daylight,
+camera auto-exposure, target light mapping, and observation timing.
+
 ## Optional / Runtime-Browser
 
 Launch Manager, Start Stack, Projection Visual, AITuber Kit browser display,

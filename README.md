@@ -648,6 +648,27 @@ claiming `tracked`.
 For vacuum proof, check the specific `expected_effect.entity_id` targeted by the
 script. Do not use all-domain `vacuum` counts as the action proof when Home
 Assistant exposes multiple vacuum entities or multiple state authorities.
+
+For SwitchBot remote-style light checks, use the redacted physical-light helper
+instead of ad hoc scripts when the review needs command submission plus camera
+brightness observation. The helper starts a temporary bridge unless
+`-UseExistingBridge` is supplied, performs preview / dry-run for each action,
+and executes only when `-ConfirmLiveLightTicket` is present.
+
+```powershell
+pwsh -NoProfile -File .\scripts\run-home-control-light-proof.ps1 -DryRun
+pwsh -NoProfile -File .\scripts\run-home-control-light-proof.ps1 -ConfirmLiveLightTicket -OffActionId light_off -OnActionId light_on -Json
+```
+
+The output separates `command_submission`, `physical_brightness_observation`,
+and `restore_observed`. It reports aggregate brightness numbers only and keeps
+`raw_media_saved=false`, `raw_media_shared=false`, `raw_secret_shared=false`,
+and `entity_id_shared=false`. If the camera is owned by the standard stack,
+stop that stack first or run a documented split procedure; camera readiness
+alone is not appliance proof. If `physical_brightness_observation=inverted`,
+the physical light changed in the opposite direction; fix the local action
+mapping or rerun with the off/on action IDs swapped before claiming the
+requested `on` proof.
 In the current live setup, read-only registry review showed separate local and
 cloud-side vacuum entities; bridge scripts target the cloud-side vacuum path.
 
@@ -785,7 +806,7 @@ pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1
 | カメラが動かない | 他アプリがカメラを掴んでいないか、カメラ名が合っているか |
 | `model_not_found` / Camera Hub topics timeout | `gesture_model.pkl` がある場合は `organs/reflex/mediapipe-sword-sign/gesture_model.pkl` に置いたか確認。ない場合は、Camera Hub / gesture proof は未準備として分け、カメラ不要の no-live / source-static 確認だけを先に進めます。これはローカル専用資材なので Git には入れません |
 | API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更 |
-| Home Control bridge が `config_error` になる / `/actions` が 503 になる | bridge process に generated organ `.env` が読み込まれていない、token が placeholder/too-short、または `HOME_CONTROL_CONFIG` が意図した config を指していない可能性があります。`scripts/start-home-control-bridge.ps1 -CheckOnly` で secret 値を出さずに health、action count、`config_error_kind`、`cause_code` を確認します |
+| Home Control bridge が `config_error` になる / `/actions` が 503 になる | bridge process に generated organ `.env` が読み込まれていない、token が placeholder/too-short、または `HOME_CONTROL_CONFIG` が意図した config を指していない可能性があります。`scripts/start-home-control-bridge.ps1 -CheckOnly` で secret 値を出さずに health、action count、`config_error_kind`、`cause_code` を確認します。bridge helper は organ-local `.uv-cache` を一時利用するため、通常は persistent `UV_CACHE_DIR` を変更する必要はありません |
 
 ## OS の構造
 

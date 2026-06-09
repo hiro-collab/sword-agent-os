@@ -4,6 +4,7 @@ param(
   [string]$HomeAssistantServerRoot = "",
   [string]$EnvPath = "",
   [string]$ConfigPath = "",
+  [string]$UvCacheDir = "",
   [string]$ExpectedActionId = "",
   [string]$ActionId = "",
   [switch]$CheckOnly,
@@ -55,6 +56,19 @@ function ConvertTo-UvEnvFilePath {
   param([string]$Path)
 
   return ($Path -replace "\\", "/")
+}
+
+function Resolve-UvCacheDir {
+  param([string]$Value)
+
+  $candidate = $Value
+  if ([string]::IsNullOrWhiteSpace($candidate)) {
+    $candidate = Join-Path $homeAssistantServerRootPath ".uv-cache"
+  } elseif (-not [System.IO.Path]::IsPathRooted($candidate)) {
+    $candidate = Join-Path $RepoRoot $candidate
+  }
+
+  return [System.IO.Path]::GetFullPath($candidate)
 }
 
 function ConvertTo-CauseToken {
@@ -939,6 +953,8 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
 
 $uvCommand = Get-Command uv -ErrorAction Stop
 $uvEnvFilePath = ConvertTo-UvEnvFilePath -Path $envFilePath
+$uvCachePath = Resolve-UvCacheDir -Value $UvCacheDir
+$uvCacheDisplayPath = ConvertTo-DisplayLocalPath -Path $uvCachePath
 $uvArguments = @(
   "run",
   "--env-file",
@@ -958,6 +974,7 @@ $uvDisplayArguments[2] = ConvertTo-DisplayLocalPath -Path $envFilePath
 Write-Host "Starting Home Control bridge with generated organ .env loaded."
 Write-Host ("bridge_start: status=starting host={0} port={1} helper_pid={2}" -f $HostName, $Port, $PID)
 Write-Host ("bridge_start: log_path={0}" -f (ConvertTo-DisplayLocalPath -Path $configLogPath))
+Write-Host ("bridge_start: uv_cache={0}" -f $uvCacheDisplayPath)
 Write-Host ("bridge_start: check=pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <allowed-action-id>")
 Write-Host "bridge_start: stop=Ctrl+C"
 Write-Host "Secret values are hidden."
@@ -965,13 +982,17 @@ Write-Host "Secret values are hidden."
 if ($DryRun) {
   Write-Host ("dry-run: cd {0}" -f (ConvertTo-DisplayLocalPath -Path $homeAssistantServerRootPath))
   Write-Host ("dry-run: HOME_CONTROL_CONFIG={0}" -f (ConvertTo-DisplayLocalPath -Path $configFilePath))
+  Write-Host ("dry-run: UV_CACHE_DIR={0}" -f $uvCacheDisplayPath)
   Write-Host ("dry-run: uv {0}" -f ($uvDisplayArguments -join " "))
   return
 }
 
 $oldHomeControlConfig = [Environment]::GetEnvironmentVariable("HOME_CONTROL_CONFIG")
+$oldUvCacheDir = [Environment]::GetEnvironmentVariable("UV_CACHE_DIR")
 try {
   $env:HOME_CONTROL_CONFIG = $configFilePath
+  New-Item -ItemType Directory -Force -Path $uvCachePath | Out-Null
+  $env:UV_CACHE_DIR = $uvCachePath
   Push-Location -LiteralPath $homeAssistantServerRootPath
   try {
     & $uvCommand.Source @uvArguments
@@ -984,6 +1005,11 @@ try {
     Remove-Item Env:\HOME_CONTROL_CONFIG -ErrorAction SilentlyContinue
   } else {
     $env:HOME_CONTROL_CONFIG = $oldHomeControlConfig
+  }
+  if ($null -eq $oldUvCacheDir) {
+    Remove-Item Env:\UV_CACHE_DIR -ErrorAction SilentlyContinue
+  } else {
+    $env:UV_CACHE_DIR = $oldUvCacheDir
   }
 }
 

@@ -120,6 +120,9 @@ action_execution_scope: this_helper_invocation
 
 Keep no-live/mock proof, live startup/catalog proof, preview proof, execute
 proof, and physical-state proof separate.
+The bridge helper uses an organ-local `.uv-cache` for its child `uv run` so a
+restricted or agent environment does not need persistent `UV_CACHE_DIR` changes
+just to start the local bridge.
 In helper-only checks such as `-CheckTracking` or `-CheckState`,
 `physical_action_executed: no` means that this helper invocation did not send a
 device command. It does not erase a prior ticketed execute; report the earlier
@@ -150,6 +153,29 @@ conflict: source layers disagree; preserve redacted refs and do not silently re-
 restored / reversible: restore path also reached its expected proof layer
 restored / reversible with retry: restore succeeded, but only after extra execute attempts
 ```
+
+For SwitchBot remote-style light proof, prefer the bounded helper:
+
+```powershell
+pwsh -NoProfile -File .\scripts\run-home-control-light-proof.ps1 -DryRun
+pwsh -NoProfile -File .\scripts\run-home-control-light-proof.ps1 -ConfirmLiveLightTicket -OffActionId light_off -OnActionId light_on -Json
+```
+
+It keeps the proof layers separate:
+
+```text
+command_submission=<pass|blocked|preview-only>
+physical_brightness_observation=<pass|inverted|not-reproduced>
+restore_observed=<pass|not-reproduced>
+```
+
+The helper reports aggregate brightness metrics only. It does not save or
+share raw media, does not expose secrets, and does not turn camera readiness
+into physical-state proof if the brightness deltas are too small. If the
+brightness moves in the opposite direction, report `inverted` and check action
+mapping / observation route before claiming the requested physical state. If the
+standard stack owns the camera, stop the stack or use a documented split route
+before collecting independent no-save brightness proof.
 
 For external observation evidence, keep only compact redacted facts:
 
