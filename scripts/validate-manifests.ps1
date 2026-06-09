@@ -194,7 +194,8 @@ $contractFiles = @(
   "contracts/motion_mixer_snapshot/motion_mixer_snapshot.v0.schema.json",
   "contracts/motion_driver_result/motion_driver_result.v0.schema.json",
   "contracts/motion_trace_event/motion_trace_event.v0.schema.json",
-  "contracts/motion_memory_candidate/motion_memory_candidate.v0.schema.json"
+  "contracts/motion_memory_candidate/motion_memory_candidate.v0.schema.json",
+  "contracts/visual_motion_analysis/visual_motion_analysis.v0.schema.json"
 )
 
 $runtimeDirs = @(
@@ -213,7 +214,8 @@ $runtimeDirs = @(
   "runtime/action-boundary",
   "runtime/body-schema",
   "runtime/body-display-projection",
-  "runtime/motion-runtime"
+  "runtime/motion-runtime",
+  "runtime/visual-motion-analyzer"
 )
 foreach ($dir in $runtimeDirs) {
   Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath $dir)) "missing runtime directory: $dir"
@@ -687,6 +689,9 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/watch-diagnost
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-neural-monitoring-contract.ps1") -PathType Leaf) "neural monitoring contract checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-organ-test-packs.ps1") -PathType Leaf) "organ test pack runner missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/build-body-schema-snapshot.ps1") -PathType Leaf) "body schema snapshot builder missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-visual-motion-analyzer.ps1") -PathType Leaf) "visual motion analyzer wrapper missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-self-mirror-proof.ps1") -PathType Leaf) "Self Mirror proof wrapper missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/capture-self-mirror-frames.mjs") -PathType Leaf) "Self Mirror browser capture helper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/diagnostic-scheduler/neural-monitoring-test-plan.v0.md") -PathType Leaf) "neural monitoring test plan missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/organ-test-packs/README.md") -PathType Leaf) "organ test pack runtime README missing"
 

@@ -49,6 +49,9 @@ if ($Json) {
 Push-Location $VisionRoot
 try {
   & uv @arguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "visual motion analyzer failed"
+  }
 }
 finally {
   Pop-Location

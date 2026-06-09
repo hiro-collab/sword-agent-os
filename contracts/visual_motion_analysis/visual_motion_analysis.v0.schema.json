@@ -389,6 +389,7 @@
           "type": "string",
           "enum": [
             "visual-motion-detected",
+            "avatar-motion-not-required",
             "return-neutral-pass",
             "visual-missing-motion",
             "visual-wrong-region-motion",

@@ -2,7 +2,7 @@
   "schema_version": "organs.sources.v0",
   "id": "legacy-github",
   "description": "GitHub-backed organ implementation sources selected from the legacy sword-agent-system workspace. These are import candidates, not vendored source files.",
-  "checked_at": "2026-06-04",
+  "checked_at": "2026-06-09",
   "sources": [
     {
       "organ_id": "ai-talk-core",
@@ -55,7 +55,7 @@
       "version_source": "organs/environment/vision-snapshot-processor/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/vision-snapshot-processor.git",
       "branch": "main",
-      "commit": "22f9a34833d337094a86a101724141a95841c6f2",
+      "commit": "a2629395d7e4d892f70ee2ec3d0538178535e938",
       "adoption": "standard_candidate",
       "legacy_path": "organs/environment/vision-snapshot-processor",
       "notes": "Low-frequency vision snapshots such as room light state."
