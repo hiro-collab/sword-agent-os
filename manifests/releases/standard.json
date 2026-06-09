@@ -5,7 +5,7 @@
   "release_name": "Standard Local System Cell",
   "release_channel": "local-standard",
   "distribution_id": "standard",
-  "distribution_version": "0.1.26",
+  "distribution_version": "0.1.27",
   "body_plan_id": "system_cell_v0",
   "body_plan_version": "0.1.0",
   "versioning_policy": {

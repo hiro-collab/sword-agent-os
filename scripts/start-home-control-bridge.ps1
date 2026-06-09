@@ -420,6 +420,61 @@ function Get-ObjectPropertyValue {
   return $property.Value
 }
 
+function ConvertTo-NoneText {
+  param($Value)
+
+  if ($null -eq $Value -or [string]::IsNullOrWhiteSpace([string]$Value)) {
+    return "none"
+  }
+
+  return [string]$Value
+}
+
+function Get-PositionExpectationText {
+  param(
+    [string]$Attribute,
+    $Min,
+    $Max
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Attribute) -or $Attribute -eq "none") {
+    return "none"
+  }
+
+  $minText = ConvertTo-NoneText -Value $Min
+  $maxText = ConvertTo-NoneText -Value $Max
+  if ($minText -ne "none" -and $maxText -ne "none") {
+    return ("{0}<={1}<={2}" -f $minText, $Attribute, $maxText)
+  }
+  if ($minText -ne "none") {
+    return ("{0}>={1}" -f $Attribute, $minText)
+  }
+  if ($maxText -ne "none") {
+    return ("{0}<={1}" -f $Attribute, $maxText)
+  }
+
+  return "none"
+}
+
+function Get-PositionProofDisplay {
+  param($Action)
+
+  $positionProof = Get-ObjectPropertyValue -Object $Action -Name "position_proof"
+  if ($null -eq $positionProof) {
+    $verification = Get-ObjectPropertyValue -Object $Action -Name "verification"
+    $positionProof = Get-ObjectPropertyValue -Object $verification -Name "position"
+  }
+
+  $attribute = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $positionProof -Name "attribute")
+  $min = Get-ObjectPropertyValue -Object $positionProof -Name "min"
+  $max = Get-ObjectPropertyValue -Object $positionProof -Name "max"
+
+  return [pscustomobject]@{
+    Attribute = $attribute
+    Expected = Get-PositionExpectationText -Attribute $attribute -Min $min -Max $max
+  }
+}
+
 function Get-ActionTrackingProbe {
   param(
     $Action,
@@ -455,6 +510,7 @@ function Get-ActionTrackingProbe {
   $settleSeconds = if ($null -eq $settleSecondsRaw -or [string]::IsNullOrWhiteSpace([string]$settleSecondsRaw)) { "0" } else { [string]$settleSecondsRaw }
   $timeoutSecondsRaw = Get-ObjectPropertyValue -Object $Action -Name "timeout_seconds"
   $timeoutSeconds = if ($null -eq $timeoutSecondsRaw -or [string]::IsNullOrWhiteSpace([string]$timeoutSecondsRaw)) { "0" } else { [string]$timeoutSecondsRaw }
+  $positionDisplay = Get-PositionProofDisplay -Action $Action
 
   return [pscustomobject]@{
     ActionId = $ActionId
@@ -464,6 +520,8 @@ function Get-ActionTrackingProbe {
     StateAuthority = $stateAuthority
     ExpectedState = $effectExpectedState
     ExpectedStates = $acceptedStatesText
+    PositionAttribute = $positionDisplay.Attribute
+    ExpectedPosition = $positionDisplay.Expected
     SettleSeconds = $settleSeconds
     TimeoutSeconds = $timeoutSeconds
     CanProduceHaStateProof = ($trackingStatus -eq "tracked")
@@ -493,6 +551,7 @@ function Invoke-TrackingSelfTest {
     verification_mode = "ha_state"
     state_tracking = "tracked"
     expected_effect = [pscustomobject]@{ expected_state = "off" }
+    position_proof = [pscustomobject]@{ attribute = "current_position"; min = 95; max = 100 }
     expected_states = @("off", "closed")
     settle_seconds = 2
     timeout_seconds = 30
@@ -518,7 +577,7 @@ function Invoke-TrackingSelfTest {
   Write-Host ("tracking_self_test: legacy_tracked={0}" -f $legacyProbe.TrackingStatus)
 
   $newProbe = Get-ActionTrackingProbe -Action $newTracked -ActionId "new_tracked"
-  Assert-TrackingSelfTest -Condition ($newProbe.CanProduceHaStateProof -and $newProbe.ControlType -eq "stateful_target" -and $newProbe.StateAuthority -eq "ha_entity" -and $newProbe.VerificationMode -eq "ha_state" -and $newProbe.ExpectedState -eq "off" -and $newProbe.ExpectedStates -eq "off,closed" -and $newProbe.SettleSeconds -eq "2" -and $newProbe.TimeoutSeconds -eq "30") -Message "new tracked metadata should remain HA state proof capable"
+  Assert-TrackingSelfTest -Condition ($newProbe.CanProduceHaStateProof -and $newProbe.ControlType -eq "stateful_target" -and $newProbe.StateAuthority -eq "ha_entity" -and $newProbe.VerificationMode -eq "ha_state" -and $newProbe.ExpectedState -eq "off" -and $newProbe.ExpectedStates -eq "off,closed" -and $newProbe.PositionAttribute -eq "current_position" -and $newProbe.ExpectedPosition -eq "95<=current_position<=100" -and $newProbe.SettleSeconds -eq "2" -and $newProbe.TimeoutSeconds -eq "30") -Message "new tracked metadata should remain HA state proof capable"
   Write-Host ("tracking_self_test: new_tracked={0}" -f $newProbe.TrackingStatus)
 
   $externalProbe = Get-ActionTrackingProbe -Action $externalRequired -ActionId "external_required"
@@ -764,24 +823,24 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
       if ([string]::IsNullOrWhiteSpace($trackingCauseSuffix)) {
         $trackingCauseSuffix = "untracked"
       }
-      Write-Host ("tracking: action_id={0} control_type={1} state_authority={2} verification_mode={3} state_tracking={4} expected_state=none expected_states={5} settle_seconds={6} timeout_seconds={7} status={4}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.TrackingStatus, $trackingProbe.ExpectedStates, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds)
+      Write-Host ("tracking: action_id={0} control_type={1} state_authority={2} verification_mode={3} state_tracking={4} expected_state=none expected_states={5} expected_position={6} settle_seconds={7} timeout_seconds={8} status={4}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.TrackingStatus, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds)
       Write-Cause -Code ("live_home_control.bridge.state_tracking_{0}" -f $trackingCauseSuffix)
       Write-RootCauseTrace `
         -BlockedAt "state-tracking" `
         -ObservedStatus "warning" `
         -CauseKind "config-mismatch" `
-        -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking={4}; expected_states={5}; settle_seconds={6}; timeout_seconds={7}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.TrackingStatus, $trackingProbe.ExpectedStates, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds) `
+        -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking={4}; expected_states={5}; expected_position={6}; settle_seconds={7}; timeout_seconds={8}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.TrackingStatus, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds) `
         -NextProbe "use preview/dry-run only; require external/manual proof before claiming physical state"
       throw "Action cannot produce a Home Assistant state proof."
     }
 
-    Write-Host ("tracking: action_id={0} control_type={1} state_authority={2} verification_mode={3} state_tracking=tracked expected_state={4} expected_states={5} settle_seconds={6} timeout_seconds={7} status=tracked" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState, $trackingProbe.ExpectedStates, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds)
+    Write-Host ("tracking: action_id={0} control_type={1} state_authority={2} verification_mode={3} state_tracking=tracked expected_state={4} expected_states={5} expected_position={6} settle_seconds={7} timeout_seconds={8} status=tracked" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds)
     Write-Cause -Code "none"
     Write-RootCauseTrace `
       -BlockedAt "none" `
       -ObservedStatus "ok" `
       -CauseKind "none" `
-      -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking=tracked; expected_state={4}; expected_states={5}; settle_seconds={6}; timeout_seconds={7}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState, $trackingProbe.ExpectedStates, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds) `
+      -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking=tracked; expected_state={4}; expected_states={5}; expected_position={6}; settle_seconds={7}; timeout_seconds={8}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds) `
       -NextProbe "proceed only to ticketed preview/dry-run; use -CheckState only after execute/wait or restore/wait" `
       -SafeStop "yes"
     return
@@ -820,7 +879,13 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
     }
     $stateExpectedStatesText = if ($stateExpectedStates.Count -eq 0) { "none" } else { $stateExpectedStates -join "," }
     $actualState = if ($null -eq $state.actual_state) { "none" } else { [string]$state.actual_state }
-    Write-Host ("state: action_id={0} expected_state={1} expected_states={2} actual_state={3} status={4}" -f $state.action_id, $expectedState, $stateExpectedStatesText, $actualState, $stateStatus)
+    $positionAttribute = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $state -Name "position_attribute")
+    $expectedPositionMin = Get-ObjectPropertyValue -Object $state -Name "expected_position_min"
+    $expectedPositionMax = Get-ObjectPropertyValue -Object $state -Name "expected_position_max"
+    $expectedPosition = Get-PositionExpectationText -Attribute $positionAttribute -Min $expectedPositionMin -Max $expectedPositionMax
+    $actualPosition = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $state -Name "actual_position")
+    $positionStatus = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $state -Name "position_status")
+    Write-Host ("state: action_id={0} expected_state={1} expected_states={2} actual_state={3} expected_position={4} actual_position={5} position_status={6} status={7}" -f $state.action_id, $expectedState, $stateExpectedStatesText, $actualState, $expectedPosition, $actualPosition, $positionStatus, $stateStatus)
 
     if ($stateStatus -ne "matched") {
       $stateCauseKind = if ($stateStatus -eq "unavailable") { "ha-unreachable" } else { "config-mismatch" }
@@ -834,6 +899,8 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
         "collect manual confirmation as a separate proof layer"
       } elseif ($stateStatus -eq "unsupported") {
         "fix action verification metadata or use another proof layer"
+      } elseif ($stateStatus -eq "position_unavailable") {
+        "check that the target HA entity exposes current_position and rerun after the ticketed wait"
       } else {
         "wait the ticket interval, verify the ticketed action, or run a ticketed restore"
       }
@@ -842,7 +909,7 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
         -BlockedAt "state-check" `
         -ObservedStatus $stateStatus `
         -CauseKind $stateCauseKind `
-        -Evidence ("action_id={0}; expected_state={1}; expected_states={2}; actual_state={3}" -f $stateActionId, $expectedState, $stateExpectedStatesText, $actualState) `
+        -Evidence ("action_id={0}; expected_state={1}; expected_states={2}; actual_state={3}; expected_position={4}; actual_position={5}; position_status={6}" -f $stateActionId, $expectedState, $stateExpectedStatesText, $actualState, $expectedPosition, $actualPosition, $positionStatus) `
         -NextProbe $stateNextProbe
       throw "Home Assistant state check did not produce a matched HA state proof"
     }
@@ -853,7 +920,7 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
       -BlockedAt "none" `
       -ObservedStatus "ok" `
       -CauseKind "none" `
-      -Evidence ("action_id={0}; expected_state={1}; expected_states={2}; actual_state={3}" -f $stateActionId, $expectedState, $stateExpectedStatesText, $actualState) `
+      -Evidence ("action_id={0}; expected_state={1}; expected_states={2}; actual_state={3}; expected_position={4}; actual_position={5}; position_status={6}" -f $stateActionId, $expectedState, $stateExpectedStatesText, $actualState, $expectedPosition, $actualPosition, $positionStatus) `
       -NextProbe "optional independent physical/camera confirmation if that proof layer is required"
     return
   }

@@ -26,8 +26,8 @@ HOME_ASSISTANT_TOKEN: present|missing|placeholder|too-short (value hidden)
 config: yaml_loaded=True action_count=<n> config_error_kind=<name|none>
 health: status=<ok|degraded|config_error> ok=<bool> actions_count=<n>
 actions: status=ok count=<n> expected_action=<present|missing|not-requested>
-tracking: action_id=<id> control_type=<type> state_authority=<authority> verification_mode=<mode> state_tracking=<tracked|external_required|ack_only|manual_required|unsupported|untracked> expected_state=<state|none> expected_states=<states|none> settle_seconds=<s> timeout_seconds=<s> status=<same>
-state: action_id=<id> expected_state=<state|none> expected_states=<states|none> actual_state=<state|none> status=<matched|mismatch|external_required|ack_only|manual_required|unsupported|untracked|unavailable>
+tracking: action_id=<id> control_type=<type> state_authority=<authority> verification_mode=<mode> state_tracking=<tracked|external_required|ack_only|manual_required|unsupported|untracked> expected_state=<state|none> expected_states=<states|none> expected_position=<threshold|none> settle_seconds=<s> timeout_seconds=<s> status=<same>
+state: action_id=<id> expected_state=<state|none> expected_states=<states|none> actual_state=<state|none> expected_position=<threshold|none> actual_position=<number|none> position_status=<matched|mismatch|unavailable|none> status=<matched|mismatch|position_unavailable|external_required|ack_only|manual_required|unsupported|untracked|unavailable>
 cause_code=<code>
 ```
 
@@ -45,6 +45,9 @@ one of the configured expected states for that action at the time it was read.
 It still does not prove independent physical or camera confirmation. A
 `-CheckState` mismatch before execute is not a bridge startup failure; it may
 simply mean the target is not already in that action's expected post-state.
+For cover/door actions with `current_position`, state alone is not sufficient:
+configure `verification.position` and require the inclusive numeric threshold to
+match along with the accepted state before reporting `HA state matched`.
 
 Remote-control or SwitchBot-style devices can be `stateless_toggle`: one press changes
 the physical state, but Home Assistant cannot read whether the appliance is currently
@@ -86,6 +89,7 @@ preview and use the new token only for that execute request.
 | `live_home_control.bridge.state_tracking_manual_required` | The action needs manual confirmation | Stop before state proof unless the ticket includes manual confirmation |
 | `live_home_control.bridge.state_tracking_unsupported` | The action declares a verification mode the helper cannot turn into HA state proof | Fix metadata or keep it out of state-proof flows |
 | `live_home_control.bridge.state_unavailable` | The bridge could not read redacted Home Assistant state for the action | Check bridge auth, Home Assistant availability, and rerun `-CheckState` |
+| `live_home_control.bridge.state_position_unavailable` | The target state was readable, but the required position attribute was absent or non-numeric | Check that the target entity exposes `current_position`, wait the ticket window, and rerun `-CheckState` |
 | `live_home_control.bridge.state_external_required` | The action needs external observation instead of HA state proof | Use camera/sensor/manual proof only if separately approved |
 | `live_home_control.bridge.state_ack_only` | The action can only prove command acknowledgement | Do not claim appliance state |
 | `live_home_control.bridge.state_manual_required` | The action needs manual confirmation instead of HA state proof | Get the manual proof layer separately |
@@ -116,14 +120,48 @@ physical_action_executed: yes/no
 Keep no-live/mock proof, live startup/catalog proof, preview proof, execute
 proof, and physical-state proof separate.
 
+For actions that cannot produce Home Assistant state proof, keep the action in
+an external or manual proof route. Camera, screenshot, recording, raw media, and
+live appliance routes remain held until an explicit operator GO names the
+target, capture scope, storage policy, and stop condition.
+
+| Target family | Preferred external route | Fallback route | Do not claim |
+| --- | --- | --- | --- |
+| SwitchBot remote-style light | Environment State fed by a separate power/light sensor | Camera brightness summary or manual visual confirmation | `switch:unknown` as `on` / `off`; daylight camera brightness as electric-light certainty |
+| Fan | Environment State fed by power, vibration, rotation, or airflow evidence | Camera motion summary or manual visual confirmation | IR/script accepted as running/stopped proof; audio proof without recording GO |
+| Door / cover | Contact or position evidence through Environment State | Camera position summary or manual visual confirmation | `open` / `closed` state alone when position can disagree or partial movement is observed |
+| Aircon | Reliable climate state through Home Assistant or Environment State | Power plus temperature trend, visual LED/louver summary, or manual confirmation | IR/script accepted as real HVAC state; delayed temperature drift as immediate state proof |
+
 Use these short proof labels when summarizing a live action:
 
 ```text
-command accepted: bridge/Home Assistant accepted the command, not appliance proof
-HA state matched: expected_state or accepted_states matched after the wait
-external observed: camera, sensor, manual observation, or other independent proof
+command_ack_only: bridge/Home Assistant accepted the command, not appliance proof
+external_required: this action cannot produce HA state proof and needs another proof route
+external_observation: redacted camera, Environment State, separate-sensor, or manual evidence supports the physical-state claim
+manual_required: automated proof is insufficient; operator confirmation is needed before claiming state
+external_inconclusive: external evidence exists but is partial, stale, conflicted, or too ambiguous for the claim
+conflict: source layers disagree; preserve redacted refs and do not silently re-operate
 restored / reversible: restore path also reached its expected proof layer
 restored / reversible with retry: restore succeeded, but only after extra execute attempts
+```
+
+For external observation evidence, keep only compact redacted facts:
+
+```text
+proof_layer: physical-state
+proof_label: external_observation | manual_required | external_inconclusive | conflict
+action_id: <allowed-action-id>
+execution_ref: action:<redacted-id>
+subject: capability.<safe-redacted-target>
+observation_route: manual_visual | camera_summary | environment_state
+source_layer: user_confirmation | camera_vision | environment_state | action_feedback
+observed_value: on | off | open | closed | unknown | other
+confidence: 0.0-1.0
+freshness_ms: <number>
+evidence_refs: action:<safe-id> | snapshot:<safe-id> | metric:<safe-id>
+raw_media_saved: false
+raw_media_shared: false
+private_fields_omitted: token, ha_url, entity_id, raw_log, raw_catalog, raw_response, raw_frame, screenshot, audio, local_path
 ```
 
 For the confirmed 2026-06-02 failure, the redacted packet shape is:
@@ -148,7 +186,7 @@ entrypoint: helper
 blocked_at: none
 observed_status: ok
 cause_kind: none
-evidence: action_id=<allowed-action-id>; state_authority=ha_entity; state_tracking=tracked; expected_state=<state>; expected_states=<states>; settle_seconds=<s>; timeout_seconds=<s>
+evidence: action_id=<allowed-action-id>; state_authority=ha_entity; state_tracking=tracked; expected_state=<state>; expected_states=<states>; expected_position=<threshold|none>; settle_seconds=<s>; timeout_seconds=<s>
 next_probe: proceed to preview/dry-run; run CheckState only after ticketed execute/wait or restore/wait
 safe_stop: yes
 physical_action_executed: no
@@ -162,7 +200,7 @@ entrypoint: helper
 blocked_at: none
 observed_status: ok
 cause_kind: none
-evidence: action_id=<allowed-action-id>; expected_state=<state>; expected_states=<states>; actual_state=<state>
+evidence: action_id=<allowed-action-id>; expected_state=<state>; expected_states=<states>; actual_state=<state>; expected_position=<threshold|none>; actual_position=<number|none>; position_status=<matched|mismatch|unavailable|none>
 next_probe: optional independent physical/camera confirmation if that proof layer is required
 safe_stop: yes
 physical_action_executed: no
@@ -221,11 +259,11 @@ blocked_at: closed-state-proof
 observed_status: warning
 cause_kind: partial-position-transition
 evidence: door_close submitted; target cover state stayed open; position moved down from near-open to partial instead of reaching closed; door_open restore needed one extra execute and returned position to near-open
-next_probe: keep door_open/door_close as command_ack_only; design position-aware proof before any ha_state promotion
+next_probe: keep door_open/door_close as command_ack_only until local config uses verification.position and ticketed execute/wait/CheckState proves the threshold
 safe_stop: yes
 physical_action_executed: yes
 ```
 
 Do not treat `open` alone as restored for cover actions when
 `current_position` is available. For this target, state and position can disagree
-enough that position must be part of the proof design.
+enough that `CheckState` proof must include the configured position threshold.

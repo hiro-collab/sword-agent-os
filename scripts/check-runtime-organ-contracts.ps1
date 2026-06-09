@@ -321,6 +321,7 @@ function Invoke-EnvironmentStateChecks {
   Require-Path -ScopeName $scopeName -Id "environment_state.state_source" -Path "organs/environment/environment-state-server/src/environment_state_server/state.py"
   Require-Path -ScopeName $scopeName -Id "environment_state.feedback_source" -Path "organs/environment/environment-state-server/src/environment_state_server/feedback.py"
   Require-Path -ScopeName $scopeName -Id "environment_state.evidence_packet_schema" -Path "contracts/environment_evidence_packet/environment_evidence_packet.v0.schema.json"
+  Require-Path -ScopeName $scopeName -Id "environment_state.external_observation_example" -Path "contracts/environment_evidence_packet/examples/home-control-external-observation.example.json"
   Require-Condition -ScopeName $scopeName -Id "environment_state.evidence_packet_contract" -Condition (
     (Test-TextContains -Text $script:evidencePacketSchemaText -Needle "environment_evidence_packet.v0") -and
     (Test-TextContains -Text $script:evidencePacketSchemaText -Needle "source_layer") -and
@@ -332,6 +333,24 @@ function Invoke-EnvironmentStateChecks {
     (Test-TextContains -Text $script:evidencePacketSchemaText -Needle '"pattern": "^[a-z][a-z0-9_.-]*$"') -and
     (Test-EvidencePacketSubjectsAreSafe -Packet $script:evidencePacketExample)
   ) -Detail "Environment evidence packet subjects use stable redacted labels, not path-like private strings" -EvidenceRef "snapshot:environment-evidence-packet-example"
+  Require-Condition -ScopeName $scopeName -Id "environment_state.external_observation_contract" -Condition (
+    (Test-TextContains -Text $script:externalObservationExampleText -Needle "environment_state") -and
+    (Test-TextContains -Text $script:externalObservationExampleText -Needle "camera_vision") -and
+    (Test-TextContains -Text $script:externalObservationExampleText -Needle "action_feedback") -and
+    (Test-TextContains -Text $script:externalObservationExampleText -Needle "raw media is not stored") -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle "external_sensor")) -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle '"value_class": "moving"')) -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle '"source_layer": "home_assistant"')) -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle "token")) -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle "ha_url")) -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle "entity_id")) -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle "raw_frame")) -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle "raw_catalog")) -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle "raw_response")) -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle "C:\")) -and
+    (-not (Test-TextContains -Text $script:externalObservationExampleText -Needle "Users\")) -and
+    (Test-EvidencePacketSubjectsAreSafe -Packet $script:externalObservationExample)
+  ) -Detail "external observation example keeps HA state proof separate and excludes raw/private fields" -EvidenceRef "snapshot:home-control-external-observation-example"
   Require-Condition -ScopeName $scopeName -Id "environment_state.service_contracts" -Condition (
     $null -ne $service -and
     (Test-ArrayContainsAll -Value (Get-OptionalProperty -Object $service -Name "contracts" -Default @()) -Expected @("environment", "reflex", "access-control"))
@@ -468,6 +487,8 @@ $script:correlationText = Read-TextFile -Path "runtime/event-journal/correlation
 $script:actionBoundaryText = Read-TextFile -Path "runtime/action-boundary/README.md"
 $script:evidencePacketSchemaText = Read-TextFile -Path "contracts/environment_evidence_packet/environment_evidence_packet.v0.schema.json"
 $script:evidencePacketExample = Read-JsonFile -Path "contracts/environment_evidence_packet/examples/rr001-home-assistant-camera-conflict.example.json"
+$script:externalObservationExampleText = Read-TextFile -Path "contracts/environment_evidence_packet/examples/home-control-external-observation.example.json"
+$script:externalObservationExample = Read-JsonFile -Path "contracts/environment_evidence_packet/examples/home-control-external-observation.example.json"
 $script:updateDiagnosticsText = Read-TextFile -Path "scripts/update-diagnostics-status.ps1"
 $script:neuralContractText = Read-TextFile -Path "scripts/check-neural-monitoring-contract.ps1"
 

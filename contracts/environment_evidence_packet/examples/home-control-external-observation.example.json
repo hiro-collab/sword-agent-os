@@ -1,0 +1,111 @@
+{
+  "schema_version": "environment_evidence_packet.v0",
+  "packet_id": "eep_home_control_external_observation_example",
+  "organism_id": "nikechan_local",
+  "turn_id": "turn_home_control_external_observation_example",
+  "generated_at": "2026-06-09T00:00:00Z",
+  "consumer": "action_boundary",
+  "scope": {
+    "subjects": [
+      "capability.lighting.room_a",
+      "capability.cover.entry_a"
+    ],
+    "question": "Can an HA command-only action be treated as physically confirmed?"
+  },
+  "observations": [
+    {
+      "observation_id": "obs_light_command_ack_example",
+      "subject": "capability.lighting.room_a",
+      "capability": "lighting.command",
+      "source_layer": "action_feedback",
+      "state": "observed",
+      "value_class": "present",
+      "observed_at": "2026-06-09T00:00:00Z",
+      "freshness_ms": 1000,
+      "confidence": 0.9,
+      "evidence_refs": [
+        "action:home_control_command_ack_redacted"
+      ],
+      "redaction": "summary_only"
+    },
+    {
+      "observation_id": "obs_light_sensor_example",
+      "subject": "capability.lighting.room_a",
+      "capability": "lighting.state",
+      "source_layer": "environment_state",
+      "state": "observed",
+      "value_class": "on",
+      "observed_at": "2026-06-09T00:00:02Z",
+      "freshness_ms": 2500,
+      "confidence": 0.8,
+      "evidence_refs": [
+        "metric:power_bucket_redacted"
+      ],
+      "redaction": "summary_only"
+    },
+    {
+      "observation_id": "obs_cover_camera_summary_example",
+      "subject": "capability.cover.entry_a",
+      "capability": "cover.position",
+      "source_layer": "camera_vision",
+      "state": "uncertain",
+      "value_class": "other",
+      "observed_at": "2026-06-09T00:00:05Z",
+      "freshness_ms": 3000,
+      "confidence": 0.55,
+      "evidence_refs": [
+        "snapshot:cover_position_summary_redacted"
+      ],
+      "redaction": "summary_only"
+    }
+  ],
+  "conflicts": [
+    {
+      "conflict_id": "conf_cover_closed_not_proven_example",
+      "subject": "capability.cover.entry_a",
+      "conflict_type": "source_state_disagreement",
+      "source_layers": [
+        "action_feedback",
+        "camera_vision"
+      ],
+      "status": "needs_confirmation",
+      "selected_policy_id": "policy_home_control_no_physical_claim_without_external_match",
+      "selected_authority": "camera_vision",
+      "preserved_evidence_refs": [
+        "snapshot:cover_position_summary_redacted"
+      ]
+    }
+  ],
+  "policy_switches": [
+    {
+      "switch_id": "sw_home_control_external_example",
+      "conflict_id": "conf_cover_closed_not_proven_example",
+      "policy_id": "policy_home_control_no_physical_claim_without_external_match",
+      "reason": "Command acknowledgement is not physical state proof; use redacted external observation or manual confirmation before claiming closed.",
+      "selected_authority": "camera_vision",
+      "operation_log_ref": "action:home_control_command_ack_redacted",
+      "redaction": "summary_only"
+    }
+  ],
+  "confirmation_loop": {
+    "operation_count": 1,
+    "post_operation_check_count": 1,
+    "auto_reoperation_count": 0,
+    "limits": {
+      "max_operations": 1,
+      "max_post_operation_checks": 2,
+      "max_auto_reoperations": 0
+    },
+    "state": "held"
+  },
+  "packet_summary": {
+    "state": "uncertain",
+    "confidence": 0.55,
+    "sufficiency": "partial",
+    "notes": [
+      "Example only; raw media is not stored.",
+      "Camera or recording capture stays held until explicit operator GO."
+    ]
+  },
+  "redaction": "summary_only"
+}
