@@ -39,7 +39,7 @@ When Projection Visual is running, use Browser mode:
 ```powershell
 .\scripts\run-self-mirror-proof.ps1 `
   -Mode Browser `
-  -Url "http://127.0.0.1:18880/projection-visual/?mode=passive&visualTest=idle-neutral" `
+  -Url "http://127.0.0.1:18880/projection-visual/?mode=passive&visualTest=self-mirror-baseline" `
   -Trigger context-nod
 ```
 
@@ -47,6 +47,13 @@ When Projection Visual is running, use Browser mode:
 same analyzer, and deletes the raw browser frames and local config by default.
 Use `-KeepRawFrames` only for local debugging; do not commit or share those
 frames.
+
+For trigger-caused visible-motion review, use the
+`visualTest=self-mirror-baseline` route. The capture helper waits for the VRM
+debug/ready state before the first frame and records a `runtime_join` object
+that pairs the ROI run with the safe runtime result id. If the analyzer still
+reports `visual-pretrigger-motion`, keep the run classified as pretrigger
+contamination instead of a trigger-caused pass.
 
 Existing local frame configs can still be run directly:
 

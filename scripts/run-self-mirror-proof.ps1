@@ -5,7 +5,7 @@ param(
   [string]$ConfigPath = "",
   [string]$OutputDir = "",
 
-  [string]$Url = "http://127.0.0.1:18880/projection-visual/?mode=passive&visualTest=idle-neutral",
+  [string]$Url = "http://127.0.0.1:18880/projection-visual/?mode=passive&visualTest=self-mirror-baseline",
   [ValidateSet("none", "context-nod", "dance")]
   [string]$Trigger = "none",
 
@@ -14,6 +14,7 @@ param(
   [double]$SampleRateFps = 8,
   [int]$DurationMs = 6000,
   [int]$SettleMs = 900,
+  [int]$ReadyTimeoutMs = 15000,
   [int]$TriggerAtMs = 700,
   [string]$BrowserExecutable = "",
 
@@ -25,6 +26,7 @@ param(
   [string]$SourceRefId = "redacted_self_mirror_light_001",
 
   [switch]$Headed,
+  [switch]$SkipSelfMirrorReady,
   [switch]$KeepRawFrames
 )
 
@@ -290,6 +292,7 @@ $captureArgs = @(
   "--sample-rate-fps", [string]$SampleRateFps,
   "--duration-ms", [string]$DurationMs,
   "--settle-ms", [string]$SettleMs,
+  "--ready-timeout-ms", [string]$ReadyTimeoutMs,
   "--trigger", $Trigger,
   "--trigger-at-ms", [string]$TriggerAtMs,
   "--analysis-run-id", $AnalysisRunId,
@@ -305,6 +308,9 @@ if (-not [string]::IsNullOrWhiteSpace($BrowserExecutable)) {
 }
 if ($Headed) {
   $captureArgs += "--headed"
+}
+if ($SkipSelfMirrorReady) {
+  $captureArgs += "--skip-self-mirror-ready"
 }
 
 $browserConfigPath = Join-Path $resolvedOutputDir "self_mirror_browser_config.json"

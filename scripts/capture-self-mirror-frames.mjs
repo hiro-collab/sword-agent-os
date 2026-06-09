@@ -13,13 +13,15 @@ const requireFromAituber = createRequire(aituberPackageJson);
 
 function parseArgs(argv) {
   const args = {
-    url: "http://127.0.0.1:18880/projection-visual/?mode=passive&visualTest=idle-neutral",
+    url: "http://127.0.0.1:18880/projection-visual/?mode=passive&visualTest=self-mirror-baseline",
     out: path.join(repoRoot, ".cache", "agent-os", "self-mirror", timestampSlug()),
     width: 1920,
     height: 1080,
     sampleRateFps: 8,
     durationMs: 6000,
     settleMs: 900,
+    readyTimeoutMs: 15000,
+    waitForSelfMirrorReady: true,
     headed: false,
     browserExecutable: "",
     trigger: "none",
@@ -49,6 +51,8 @@ function parseArgs(argv) {
     else if (arg === "--sample-rate-fps") args.sampleRateFps = Number(readValue());
     else if (arg === "--duration-ms") args.durationMs = Number(readValue());
     else if (arg === "--settle-ms") args.settleMs = Number(readValue());
+    else if (arg === "--ready-timeout-ms") args.readyTimeoutMs = Number(readValue());
+    else if (arg === "--skip-self-mirror-ready") args.waitForSelfMirrorReady = false;
     else if (arg === "--headed") args.headed = true;
     else if (arg === "--browser-executable") args.browserExecutable = readValue();
     else if (arg === "--trigger") args.trigger = readValue();
@@ -78,6 +82,8 @@ Options:
   --sample-rate-fps <number>  Default: 8
   --duration-ms <number>      Default: 6000
   --settle-ms <number>        Default: 900
+  --ready-timeout-ms <number> Default: 15000
+  --skip-self-mirror-ready    Do not wait for VRM/debug readiness before capture.
   --browser-executable <path> Optional Chrome/Edge executable fallback.
   --trigger none|context-nod|dance
   --trigger-at-ms <number>    Default: 700
@@ -215,6 +221,7 @@ function buildMotionStimulus(args) {
       motion_event_id: args.motionEventId,
       stimulus_id: stimulusId,
       stimulus_instance_id: args.stimulusInstanceId,
+      runtime_result_id: args.driverResultId,
       driver_result_id: args.driverResultId,
       request_id: "self_mirror_browser_capture",
     },
@@ -252,9 +259,83 @@ async function readTriggerResult(page) {
         status: String(result.status ?? "unknown"),
         reason_code: String(result.reason_code ?? "unknown"),
         safe_visible_state: String(result.safe_visible_state ?? "unknown"),
+        motion_event_id: typeof result.motion_event_id === "string" ? result.motion_event_id : undefined,
+        stimulus_id: typeof result.stimulus_id === "string" ? result.stimulus_id : undefined,
+        stimulus_instance_id: typeof result.stimulus_instance_id === "string" ? result.stimulus_instance_id : undefined,
+        runtime_result_id: typeof result.runtime_result_id === "string" ? result.runtime_result_id : undefined,
       };
     })
     .catch(() => null);
+}
+
+function expectedVisualTestMode(urlText) {
+  try {
+    const value = new URL(urlText).searchParams.get("visualTest")?.trim().toLowerCase();
+    if (value === "idle-neutral" || value === "self-mirror-baseline") return value;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function readSelfMirrorReadyState(page, expectedMode) {
+  return await page.evaluate((mode) => {
+    const viewerDebug = window.__projectionVisualVrmViewerDebug;
+    const runtimeDebug = window.__projectionVisualMotionRuntimeDebugSnapshot;
+    const canvas = document.querySelector("canvas");
+    const visualTestMode = viewerDebug && typeof viewerDebug === "object" ? viewerDebug.visualTestMode : null;
+    const runtime = runtimeDebug && typeof runtimeDebug === "object" ? runtimeDebug : {};
+    return {
+      hasCanvas: Boolean(canvas),
+      visualTestMode: typeof visualTestMode === "string" ? visualTestMode : null,
+      expectedVisualTestMode: mode,
+      visualTestModeMatches: !mode || visualTestMode === mode,
+      vrmReady: runtime.vrmReady === true,
+      sceneVisible: runtime.sceneVisible === true,
+      frameSeq: Number.isFinite(runtime.frameSeq) ? runtime.frameSeq : 0,
+    };
+  }, expectedMode);
+}
+
+async function waitForSelfMirrorReady(page, args) {
+  if (!args.waitForSelfMirrorReady) {
+    return { skipped: true };
+  }
+
+  const expectedMode = expectedVisualTestMode(args.url);
+  await page.waitForFunction(
+    (mode) => {
+      const viewerDebug = window.__projectionVisualVrmViewerDebug;
+      const runtimeDebug = window.__projectionVisualMotionRuntimeDebugSnapshot;
+      const canvas = document.querySelector("canvas");
+      if (!canvas || !runtimeDebug || typeof runtimeDebug !== "object") return false;
+      if (mode) {
+        if (!viewerDebug || typeof viewerDebug !== "object") return false;
+        if (viewerDebug.visualTestMode !== mode) return false;
+      }
+      return runtimeDebug.vrmReady === true && runtimeDebug.sceneVisible === true;
+    },
+    expectedMode,
+    { timeout: args.readyTimeoutMs }
+  );
+
+  const readyState = await readSelfMirrorReadyState(page, expectedMode);
+  const firstFrameSeq = readyState.frameSeq;
+  await page.waitForFunction(
+    (startSeq) => {
+      const runtimeDebug = window.__projectionVisualMotionRuntimeDebugSnapshot;
+      return (
+        runtimeDebug &&
+        typeof runtimeDebug === "object" &&
+        Number.isFinite(runtimeDebug.frameSeq) &&
+        runtimeDebug.frameSeq >= startSeq + 3
+      );
+    },
+    firstFrameSeq,
+    { timeout: Math.min(args.readyTimeoutMs, 5000) }
+  );
+
+  return await readSelfMirrorReadyState(page, expectedMode);
 }
 
 async function pathExists(filePath) {
@@ -359,6 +440,9 @@ async function main() {
   if (!Number.isFinite(args.durationMs) || args.durationMs < 500) {
     throw new Error("--duration-ms must be at least 500");
   }
+  if (!Number.isFinite(args.readyTimeoutMs) || args.readyTimeoutMs < 0) {
+    throw new Error("--ready-timeout-ms must be zero or greater");
+  }
   if (!Number.isFinite(args.triggerAtMs) || args.triggerAtMs < 1) {
     throw new Error("--trigger-at-ms must be at least 1");
   }
@@ -379,6 +463,8 @@ async function main() {
     const page = await browser.newPage({ viewport: { width: args.width, height: args.height } });
     await page.goto(args.url, { waitUntil: "domcontentloaded", timeout: 20000 });
     await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    const readyState = await waitForSelfMirrorReady(page, args);
+    process.stdout.write(`self_mirror_ready=${JSON.stringify(readyState)}\n`);
     await page.waitForTimeout(args.settleMs);
     const capture = await captureFrames(page, frameDir, args);
     framePaths = capture.framePaths;
@@ -420,6 +506,15 @@ async function main() {
     frame_count: framePaths.length,
     trigger: triggerResult,
     motion_stimulus_result: motionStimulusResult,
+    runtime_join: {
+      analysis_run_id: args.analysisRunId,
+      motion_event_id: args.motionEventId,
+      stimulus_instance_id: args.stimulusInstanceId,
+      driver_result_id: args.driverResultId,
+      runtime_result_id: motionStimulusResult?.runtime_result_id ?? null,
+      result_status: motionStimulusResult?.status ?? null,
+      result_reason_code: motionStimulusResult?.reason_code ?? null,
+    },
     raw_frames_shared: false,
     raw_paths_shared: false,
     retention: "temporary_by_default",
