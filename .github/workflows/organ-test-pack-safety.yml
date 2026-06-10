@@ -15,6 +15,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Bootstrap nested checkouts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -NoDeps -NoEnv
+
       - name: Validate organ test pack safety
         shell: pwsh
         run: |

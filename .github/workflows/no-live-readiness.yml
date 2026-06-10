@@ -11,6 +11,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Bootstrap nested checkouts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -NoDeps -NoEnv
+
       - name: Create local env for no-live check
         shell: pwsh
         run: |
