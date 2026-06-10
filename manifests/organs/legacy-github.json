@@ -41,7 +41,7 @@
       "version_source": "organs/environment/environment-state-server/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/environment-state-server.git",
       "branch": "main",
-      "commit": "719ce3e00a71b4f1a0f7abb728a4477fb5250fd3",
+      "commit": "b351ce8ac9422224c30cf8115fd38e5c5272d1ca",
       "adoption": "standard_candidate",
       "legacy_path": "organs/environment/environment-state-server",
       "notes": "Environment snapshot, indicators, health aggregation, and feedback capture."

@@ -180,6 +180,19 @@ function Invoke-CameraBrightness {
   return $payload
 }
 
+function Get-BrightnessMean {
+  param([object]$Payload)
+
+  if ($null -eq $Payload) {
+    return $null
+  }
+  $property = $Payload.PSObject.Properties["mean_brightness"]
+  if ($null -eq $property -or $null -eq $property.Value) {
+    return $null
+  }
+  return [double]$property.Value
+}
+
 function Invoke-ApiJson {
   param(
     [Parameter(Mandatory = $true)][string]$Method,
@@ -418,20 +431,26 @@ try {
   Start-Sleep -Seconds $WaitSeconds
   $restoreBrightness = Invoke-CameraBrightness -Label "restore-off"
 
-  $deltaOnVsOff = [Math]::Round(([double]$onBrightness.mean_brightness - [double]$offBrightness.mean_brightness), 3)
-  $deltaOnVsRestore = [Math]::Round(([double]$onBrightness.mean_brightness - [double]$restoreBrightness.mean_brightness), 3)
-  $restoreReturnDelta = [Math]::Round(([double]$restoreBrightness.mean_brightness - [double]$offBrightness.mean_brightness), 3)
-  $invertedDeltaOffVsOn = [Math]::Round(([double]$offBrightness.mean_brightness - [double]$onBrightness.mean_brightness), 3)
-  $invertedDeltaRestoreVsOn = [Math]::Round(([double]$restoreBrightness.mean_brightness - [double]$onBrightness.mean_brightness), 3)
+  $offMean = Get-BrightnessMean -Payload $offBrightness
+  $onMean = Get-BrightnessMean -Payload $onBrightness
+  $restoreMean = Get-BrightnessMean -Payload $restoreBrightness
+  $brightnessMeasurementsOk = ($null -ne $offMean -and $null -ne $onMean -and $null -ne $restoreMean)
+  $deltaOnVsOff = if ($brightnessMeasurementsOk) { [Math]::Round(($onMean - $offMean), 3) } else { $null }
+  $deltaOnVsRestore = if ($brightnessMeasurementsOk) { [Math]::Round(($onMean - $restoreMean), 3) } else { $null }
+  $restoreReturnDelta = if ($brightnessMeasurementsOk) { [Math]::Round(($restoreMean - $offMean), 3) } else { $null }
+  $invertedDeltaOffVsOn = if ($brightnessMeasurementsOk) { [Math]::Round(($offMean - $onMean), 3) } else { $null }
+  $invertedDeltaRestoreVsOn = if ($brightnessMeasurementsOk) { [Math]::Round(($restoreMean - $onMean), 3) } else { $null }
   $commandsSubmitted = (
     [bool]$offAction.execute_submitted -and
     [bool]$onAction.execute_submitted -and
     [bool]$restoreAction.execute_submitted
   )
-  $physicalObserved = ($deltaOnVsOff -ge $MinDelta -and $deltaOnVsRestore -ge $MinDelta)
-  $physicalInverted = ($invertedDeltaOffVsOn -ge $MinDelta -and $invertedDeltaRestoreVsOn -ge $MinDelta)
-  $restoreObserved = ([Math]::Abs($restoreReturnDelta) -le $MinDelta)
-  $physicalObservationLabel = if ($physicalObserved) {
+  $physicalObserved = ($brightnessMeasurementsOk -and $deltaOnVsOff -ge $MinDelta -and $deltaOnVsRestore -ge $MinDelta)
+  $physicalInverted = ($brightnessMeasurementsOk -and $invertedDeltaOffVsOn -ge $MinDelta -and $invertedDeltaRestoreVsOn -ge $MinDelta)
+  $restoreObserved = ($brightnessMeasurementsOk -and [Math]::Abs($restoreReturnDelta) -le $MinDelta)
+  $physicalObservationLabel = if (-not $brightnessMeasurementsOk) {
+    "measurement-unavailable"
+  } elseif ($physicalObserved) {
     "pass"
   } elseif ($physicalInverted) {
     "inverted"
@@ -457,13 +476,14 @@ try {
     operation_count = if ($ConfirmLiveLightTicket) { 3 } else { 0 }
     command_submission = if ($commandsSubmitted) { "pass" } elseif ($ConfirmLiveLightTicket) { "blocked" } else { "preview-only" }
     physical_brightness_observation = $physicalObservationLabel
+    brightness_measurement = if ($brightnessMeasurementsOk) { "pass" } else { "unavailable" }
     restore_observed = if ($restoreObserved) { "pass" } else { "not-reproduced" }
     min_delta = $MinDelta
     brightness = [PSCustomObject]@{
-      initial_mean = $initialBrightness.mean_brightness
-      off_mean = $offBrightness.mean_brightness
-      on_mean = $onBrightness.mean_brightness
-      restore_mean = $restoreBrightness.mean_brightness
+      initial_mean = Get-BrightnessMean -Payload $initialBrightness
+      off_mean = $offMean
+      on_mean = $onMean
+      restore_mean = $restoreMean
       delta_on_vs_off = $deltaOnVsOff
       delta_on_vs_restore = $deltaOnVsRestore
       restore_return_delta = $restoreReturnDelta

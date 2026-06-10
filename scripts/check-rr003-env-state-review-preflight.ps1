@@ -414,9 +414,9 @@ function Get-RoomLightClaim {
   $state = ([string]$RoomLight.effective_state).ToLowerInvariant()
   $confidence = ([string]$RoomLight.effective_confidence_label).ToLowerInvariant()
   if ($state -notin @("on", "off") -or $confidence -notin @("high")) {
-    return "available-but-not-reliable-for-electric-on-off"
+    return "available-but-not-decisive-current-light-observation"
   }
-  return "reliable-electric-on-off"
+  return "reliable-current-light-observation"
 }
 
 function Get-RoomLightDelta {
@@ -490,11 +490,11 @@ function Get-RoomLightResponsiveness {
       detail = "no_material_room_light_change"
     }
   }
-  if ($Claim -eq "reliable-electric-on-off") {
+  if ($Claim -eq "reliable-current-light-observation") {
     return [PSCustomObject]@{
       status = "pass"
       delta = $delta
-      detail = "material_change_with_reliable_claim"
+      detail = "material_change_with_reliable_current_light_observation"
     }
   }
   return [PSCustomObject]@{
@@ -585,7 +585,7 @@ function ConvertTo-OverallStatus {
     $EnvironmentStatePeriodicUpdate -eq "pass" -and
     @($sourceValues | Where-Object { $_ -in @("fresh", "recent") }).Count -eq 4 -and
     $RoomLightResponsiveness -eq "pass" -and
-    $RoomLightClaim -eq "reliable-electric-on-off" -and
+    $RoomLightClaim -eq "reliable-current-light-observation" -and
     $HomeActionMode -ne "unknown" -and
     $HudModeVisibility -eq "pass"
   ) {
@@ -734,6 +734,7 @@ $result = [PSCustomObject]@{
   non_claims = @(
     "not_raw_camera_or_media_proof",
     "not_home_assistant_physical_state_proof",
+    "not_open_loop_appliance_on_off_proof",
     "not_live_appliance_execution",
     "bridge_ok_is_connection_only_not_live_mode",
     "unknown_daylight_or_low_confidence_is_not_robust_electric_light_recognition",
