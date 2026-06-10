@@ -1,0 +1,31 @@
+name: no-live-readiness
+
+on:
+  workflow_dispatch:
+
+jobs:
+  readiness:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create local env for no-live check
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path local\env | Out-Null
+          @"
+          THOUGHT_CORE_LLM_ENABLED=false
+          HOME_ASSISTANT_ENABLED=false
+          "@ | Set-Content -Encoding UTF8 local\env\sword-agent-os.env
+
+      - name: Render env files
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
+
+      - name: Check launch readiness without endpoint checks
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1 -SkipPortChecks

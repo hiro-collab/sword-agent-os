@@ -1,0 +1,45 @@
+name: repo-sanity
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sanity:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate JSON manifests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Get-ChildItem -Path manifests -Recurse -Filter *.json | ForEach-Object {
+            Write-Host "Checking JSON: $($_.FullName)"
+            Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json | Out-Null
+          }
+
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $failed = $false
+          Get-ChildItem -Path scripts -Recurse -Filter *.ps1 | ForEach-Object {
+            Write-Host "Parsing PS1: $($_.FullName)"
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              $errors | ForEach-Object { Write-Error $_.Message }
+            }
+          }
+          if ($failed) { throw "PowerShell parse error found." }
+
+      - name: Show version
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File .\scripts\show-version.ps1 -Profile standard

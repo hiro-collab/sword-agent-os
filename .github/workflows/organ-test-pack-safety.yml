@@ -1,0 +1,21 @@
+name: organ-test-pack-safety
+
+on:
+  pull_request:
+    paths:
+      - "manifests/tests/**"
+      - "scripts/run-organ-test-packs.ps1"
+  workflow_dispatch:
+
+jobs:
+  test-pack-safety:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate organ test pack safety
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1 -Json
