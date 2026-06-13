@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$VisionRoot = Join-Path $RepoRoot "organs\environment\vision-snapshot-processor"
+$AnalyzerRoot = Join-Path $RepoRoot "runtime\visual-motion-analyzer"
 
 function Resolve-LocalPath {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -21,8 +21,8 @@ function Resolve-LocalPath {
   return [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $Path))
 }
 
-if (-not (Test-Path -LiteralPath $VisionRoot -PathType Container)) {
-  throw "vision-snapshot-processor checkout not found"
+if (-not (Test-Path -LiteralPath $AnalyzerRoot -PathType Container)) {
+  throw "Self Mirror visual analyzer runtime package not found"
 }
 
 $resolvedConfigPath = Resolve-LocalPath -Path $ConfigPath
@@ -38,7 +38,7 @@ New-Item -ItemType Directory -Force -Path $resolvedOutputDir | Out-Null
 
 $arguments = @(
   "--cache-dir", ".uv-cache",
-  "run", "python", "-m", "vision_snapshot_processor.visual_motion_analyzer",
+  "run", "python", "-m", "self_mirror_visual_analyzer.visual_motion_analyzer",
   "--config", $resolvedConfigPath,
   "--output-dir", $resolvedOutputDir
 )
@@ -46,7 +46,7 @@ if ($Json) {
   $arguments += "--json"
 }
 
-Push-Location $VisionRoot
+Push-Location $AnalyzerRoot
 try {
   & uv @arguments
   if ($LASTEXITCODE -ne 0) {

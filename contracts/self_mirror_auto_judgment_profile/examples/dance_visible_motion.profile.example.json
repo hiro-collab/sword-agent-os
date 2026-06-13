@@ -1,0 +1,101 @@
+{
+  "schema_version": "self_mirror_auto_judgment_profile.v0",
+  "profile_id": "smm_prof_dance_visible_motion_bootstrap_v0",
+  "profile_version": "0.1.0",
+  "scenario_id": "rr003.visible_motion.dance_visible_motion.self_mirror.v0",
+  "scenario_key": "dance_visible_motion",
+  "status": "calibration",
+  "reference_case_refs": [
+    "smm_ref_dance_visible_motion_same_run_20260612_165945"
+  ],
+  "minimum_reference_coverage": {
+    "minimum_reference_cases": 1,
+    "min_pass_cases": 1,
+    "min_fail_or_unclear_cases": 0,
+    "required_roi_ids": [
+      "avatar_full",
+      "avatar_torso",
+      "avatar_left_arm",
+      "avatar_right_arm"
+    ],
+    "required_false_positive_categories": []
+  },
+  "threshold_profile_id": "smm_thr_dance_visible_motion_bootstrap_v0",
+  "thresholds": {
+    "pretrigger_quiet_max_movement_score": 0.01,
+    "active_motion_min_score_by_roi": {
+      "avatar_full": 0.06,
+      "avatar_torso": 0.06,
+      "avatar_left_arm": 0.06,
+      "avatar_right_arm": 0.06
+    },
+    "active_changed_ratio_min_by_roi": {
+      "avatar_full": 0.01,
+      "avatar_torso": 0.01,
+      "avatar_left_arm": 0.01,
+      "avatar_right_arm": 0.01
+    },
+    "min_expected_roi_pass_count": 4,
+    "min_consecutive_samples": 2,
+    "guard_ui_motion_max_score": 1.0,
+    "guard_to_avatar_ratio_max": 1.5
+  },
+  "run_ref_policy": {
+    "required_fields": [
+      "motion_event_id",
+      "stimulus_instance_id",
+      "runtime_result_id",
+      "runtime_status",
+      "runtime_reason_code"
+    ],
+    "require_matching_refs_when_summary_id_matches": true
+  },
+  "confidence_model": {
+    "min_confidence_for_pass": 0.75,
+    "min_confidence_for_fail": 0.6,
+    "below_threshold_result": "unclear",
+    "factors": [
+      "sample_support",
+      "threshold_margin",
+      "reference_coverage",
+      "pretrigger_quietness",
+      "guard_quietness"
+    ]
+  },
+  "needs_human_review_rules": [
+    "insufficient_reference_coverage",
+    "low_confidence",
+    "pretrigger_motion",
+    "guard_or_layout_false_positive_suspected",
+    "unknown_scenario",
+    "stale_or_mismatched_profile",
+    "semantic_question_outside_self_mirror_scope"
+  ],
+  "redaction_policy": {
+    "raw_frame_included": false,
+    "raw_screenshot_included": false,
+    "raw_video_included": false,
+    "raw_audio_included": false,
+    "raw_transcript_included": false,
+    "provider_payload_included": false,
+    "local_path_included": false,
+    "secret_included": false,
+    "device_entity_id_included": false,
+    "raw_log_included": false
+  },
+  "authority_boundary": {
+    "self_mirror_role": "observation_and_evaluation_only",
+    "observation_only": true,
+    "direct_correction_dispatch": false,
+    "issue_closure_authority": false,
+    "git_or_publication_authority": false
+  },
+  "does_not_prove": [
+    "not_raw_media_proof",
+    "not_human_observation_authority",
+    "not_physical_display_proof",
+    "not_semantic_dance_quality_proof",
+    "not_semantic_expression_correctness",
+    "not_rr003_representative_pass"
+  ]
+}

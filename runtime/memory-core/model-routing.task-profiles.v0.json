@@ -1,0 +1,128 @@
+{
+  "schema_version": "model-routing.task-profiles.v0",
+  "owner_module": "memory_core",
+  "profiles": [
+    {
+      "schema_version": "task_profile.v0",
+      "task_profile_id": "memory_core.memory_candidate_tag_suggestion.v0",
+      "task_class": "memory_candidate_tag_suggestion",
+      "owner_module": "memory_core",
+      "input_kind": "memory_summary",
+      "output_kind": "memory_candidate",
+      "risk_level": "medium",
+      "privacy_level": "internal",
+      "latency_target": "async",
+      "context_need": "medium",
+      "reasoning_depth": "medium",
+      "determinism_required": "high",
+      "side_effect": "none",
+      "proof_authority_allowed": false,
+      "default_route_policy": "single",
+      "fallback_policy": "human_review",
+      "runtime_modifiers": [
+        "important_or_safety_tag",
+        "privacy_high",
+        "review_blocker",
+        "repeated_failure",
+        "provider_unavailable"
+      ],
+      "non_claims": [
+        "not_durable_memory_commit",
+        "not_current_state_truth",
+        "not_issue_closure",
+        "not_rr003_pass"
+      ]
+    },
+    {
+      "schema_version": "task_profile.v0",
+      "task_profile_id": "memory_core.memory_promotion_policy.v0",
+      "task_class": "memory_promotion_policy",
+      "owner_module": "memory_core",
+      "input_kind": "memory_summary",
+      "output_kind": "memory_policy_decision",
+      "risk_level": "high",
+      "privacy_level": "sensitive",
+      "latency_target": "async",
+      "context_need": "high",
+      "reasoning_depth": "medium",
+      "determinism_required": "must",
+      "side_effect": "memory_lifecycle",
+      "proof_authority_allowed": false,
+      "default_route_policy": "no_llm",
+      "fallback_policy": "human_review",
+      "runtime_modifiers": [
+        "important_or_safety_tag",
+        "privacy_high",
+        "safety_or_side_effect",
+        "review_blocker",
+        "issue_blocker"
+      ],
+      "non_claims": [
+        "not_memory_promotion_final_authority",
+        "not_current_state_truth",
+        "not_deletion_authority",
+        "not_review_ready"
+      ]
+    },
+    {
+      "schema_version": "task_profile.v0",
+      "task_profile_id": "memory_core.memory_lifecycle_policy.v0",
+      "task_class": "memory_lifecycle_policy",
+      "owner_module": "memory_core",
+      "input_kind": "memory_summary",
+      "output_kind": "memory_policy_decision",
+      "risk_level": "critical",
+      "privacy_level": "sensitive",
+      "latency_target": "async",
+      "context_need": "high",
+      "reasoning_depth": "deep",
+      "determinism_required": "must",
+      "side_effect": "memory_lifecycle",
+      "proof_authority_allowed": false,
+      "default_route_policy": "human_review",
+      "fallback_policy": "fail_closed",
+      "runtime_modifiers": [
+        "privacy_high",
+        "safety_or_side_effect",
+        "review_blocker",
+        "issue_blocker",
+        "important_or_safety_tag"
+      ],
+      "non_claims": [
+        "not_delete_or_tombstone_final_authority",
+        "not_retention_policy_override",
+        "not_current_state_truth",
+        "not_publication_authority"
+      ]
+    },
+    {
+      "schema_version": "task_profile.v0",
+      "task_profile_id": "memory_core.current_state_revalidation_check.v0",
+      "task_class": "current_state_revalidation_check",
+      "owner_module": "memory_core",
+      "input_kind": "current_state_observation",
+      "output_kind": "proof_status",
+      "risk_level": "high",
+      "privacy_level": "internal",
+      "latency_target": "interactive",
+      "context_need": "medium",
+      "reasoning_depth": "shallow",
+      "determinism_required": "must",
+      "side_effect": "none",
+      "proof_authority_allowed": false,
+      "default_route_policy": "no_llm",
+      "fallback_policy": "human_review",
+      "runtime_modifiers": [
+        "deterministic_confident",
+        "important_or_safety_tag",
+        "privacy_high",
+        "review_blocker"
+      ],
+      "non_claims": [
+        "not_current_state_truth_without_revalidation",
+        "not_memory_promotion_final_authority",
+        "not_live_device_proof"
+      ]
+    }
+  ]
+}

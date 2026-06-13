@@ -1,0 +1,383 @@
+{
+  "schema_version": "self_mirror_scenarios.v0",
+  "default_scenario_key": "context_nod",
+  "coordinate_system": {
+    "kind": "normalized_viewport",
+    "origin": "top_left",
+    "note": "Coordinates are normalized against the Playwright page viewport, not the Chrome window including browser UI."
+  },
+  "scenarios": {
+    "context_nod": {
+      "scenario_key": "context_nod",
+      "scenario_id": "rr003.visible_motion.context_nod.self_mirror.v0",
+      "label": "Context nod avatar-full visible motion",
+      "trigger": "context-nod",
+      "expected_motion": "avatar_motion",
+      "runtime_join_required": true,
+      "expected_avatar_roi_ids": ["avatar_full"],
+      "guard_roi_ids": ["speech_bubble", "left_hud", "right_hud", "input_bar", "bottom_controls"],
+      "window_template": {
+        "active_duration_ms": 2100,
+        "release_duration_ms": 1400,
+        "late_watch_duration_ms": 5000
+      },
+      "thresholds": {
+        "active_motion_min_score": 0.08,
+        "settle_motion_max_score": 0.06,
+        "min_consecutive_samples": 2,
+        "threshold_too_strict_ratio": 0.75
+      },
+      "synthetic_fixture": {
+        "avatar_motion_roi_ids": ["avatar_full"],
+        "guard_motion_roi_ids": [],
+        "motion_amplitude_px_min": 6
+      },
+      "rois": [
+        {
+          "roi_id": "avatar_full",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": true,
+          "rect_norm": { "x": 0.43, "y": 0.00, "w": 0.32, "h": 0.86 }
+        },
+        {
+          "roi_id": "avatar_face_head",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.52, "y": 0.04, "w": 0.15, "h": 0.24 }
+        },
+        {
+          "roi_id": "avatar_wide",
+          "kind": "diagnostic",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.34, "y": 0.00, "w": 0.48, "h": 0.88 }
+        },
+        {
+          "roi_id": "speech_bubble",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.22, "y": 0.28, "w": 0.31, "h": 0.38 }
+        },
+        {
+          "roi_id": "left_hud",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.02, "w": 0.23, "h": 0.48 }
+        },
+        {
+          "roi_id": "right_hud",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.78, "y": 0.02, "w": 0.22, "h": 0.78 }
+        },
+        {
+          "roi_id": "bottom_controls",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.78, "w": 0.20, "h": 0.10 }
+        },
+        {
+          "roi_id": "input_bar",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.88, "w": 1.00, "h": 0.12 }
+        }
+      ]
+    },
+    "dance_visible_motion": {
+      "scenario_key": "dance_visible_motion",
+      "scenario_id": "rr003.visible_motion.dance_visible_motion.self_mirror.v0",
+      "label": "Dance visible body and arm ROI motion",
+      "trigger": "dance",
+      "expected_motion": "broad_avatar_motion",
+      "runtime_join_required": true,
+      "expected_avatar_roi_ids": ["avatar_full", "avatar_torso", "avatar_left_arm", "avatar_right_arm"],
+      "guard_roi_ids": ["speech_bubble", "left_hud", "right_hud", "input_bar", "bottom_controls"],
+      "window_template": {
+        "active_duration_ms": 3200,
+        "release_duration_ms": 1500,
+        "late_watch_duration_ms": 12000
+      },
+      "thresholds": {
+        "active_motion_min_score": 0.06,
+        "settle_motion_max_score": 0.08,
+        "min_consecutive_samples": 2,
+        "threshold_too_strict_ratio": 0.75
+      },
+      "synthetic_fixture": {
+        "avatar_motion_roi_ids": ["avatar_full", "avatar_torso", "avatar_left_arm", "avatar_right_arm"],
+        "guard_motion_roi_ids": [],
+        "motion_amplitude_px_min": 8
+      },
+      "rois": [
+        {
+          "roi_id": "avatar_full",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": true,
+          "rect_norm": { "x": 0.37, "y": 0.00, "w": 0.41, "h": 0.86 }
+        },
+        {
+          "roi_id": "avatar_face_head",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.52, "y": 0.04, "w": 0.17, "h": 0.25 }
+        },
+        {
+          "roi_id": "avatar_torso",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": true,
+          "rect_norm": { "x": 0.51, "y": 0.30, "w": 0.20, "h": 0.38 }
+        },
+        {
+          "roi_id": "avatar_left_arm",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": true,
+          "rect_norm": { "x": 0.36, "y": 0.23, "w": 0.17, "h": 0.50 }
+        },
+        {
+          "roi_id": "avatar_right_arm",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": true,
+          "rect_norm": { "x": 0.60, "y": 0.23, "w": 0.17, "h": 0.50 }
+        },
+        {
+          "roi_id": "avatar_wide",
+          "kind": "diagnostic",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.30, "y": 0.00, "w": 0.54, "h": 0.88 }
+        },
+        {
+          "roi_id": "speech_bubble",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.22, "y": 0.28, "w": 0.31, "h": 0.38 }
+        },
+        {
+          "roi_id": "left_hud",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.02, "w": 0.23, "h": 0.48 }
+        },
+        {
+          "roi_id": "right_hud",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.78, "y": 0.02, "w": 0.22, "h": 0.78 }
+        },
+        {
+          "roi_id": "bottom_controls",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.78, "w": 0.20, "h": 0.10 }
+        },
+        {
+          "roi_id": "input_bar",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.88, "w": 1.00, "h": 0.12 }
+        }
+      ]
+    },
+    "expression_visible_change": {
+      "scenario_key": "expression_visible_change",
+      "scenario_id": "rr003.visible_motion.expression_visible_change.self_mirror.v0",
+      "label": "Expression visible face/head ROI change",
+      "trigger": "expression-visible",
+      "expected_motion": "face_visible_change",
+      "runtime_join_required": true,
+      "expected_avatar_roi_ids": ["avatar_face_head"],
+      "guard_roi_ids": ["speech_bubble", "left_hud", "right_hud", "input_bar", "bottom_controls"],
+      "window_template": {
+        "active_duration_ms": 1800,
+        "release_duration_ms": 1200,
+        "late_watch_duration_ms": 5000
+      },
+      "thresholds": {
+        "active_motion_min_score": 0.035,
+        "settle_motion_max_score": 0.05,
+        "min_consecutive_samples": 2,
+        "threshold_too_strict_ratio": 0.70,
+        "idle_delta_min_score": 0.015
+      },
+      "synthetic_fixture": {
+        "avatar_motion_roi_ids": ["avatar_face_head"],
+        "guard_motion_roi_ids": [],
+        "motion_amplitude_px": 5
+      },
+      "rois": [
+        {
+          "roi_id": "avatar_face_head",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": true,
+          "rect_norm": { "x": 0.52, "y": 0.04, "w": 0.17, "h": 0.25 }
+        },
+        {
+          "roi_id": "avatar_full",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.37, "y": 0.00, "w": 0.41, "h": 0.86 }
+        },
+        {
+          "roi_id": "avatar_wide",
+          "kind": "diagnostic",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.30, "y": 0.00, "w": 0.54, "h": 0.88 }
+        },
+        {
+          "roi_id": "speech_bubble",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.22, "y": 0.28, "w": 0.31, "h": 0.38 }
+        },
+        {
+          "roi_id": "left_hud",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.02, "w": 0.23, "h": 0.48 }
+        },
+        {
+          "roi_id": "right_hud",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.78, "y": 0.02, "w": 0.22, "h": 0.78 }
+        },
+        {
+          "roi_id": "bottom_controls",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.78, "w": 0.20, "h": 0.10 }
+        },
+        {
+          "roi_id": "input_bar",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.88, "w": 1.00, "h": 0.12 }
+        }
+      ]
+    },
+    "idle_baseline": {
+      "scenario_key": "idle_baseline",
+      "scenario_id": "rr003.visible_motion.idle_baseline.self_mirror.v0",
+      "label": "Idle baseline avatar-full stability",
+      "trigger": "none",
+      "expected_motion": "none",
+      "runtime_join_required": false,
+      "expected_avatar_roi_ids": [],
+      "guard_roi_ids": ["speech_bubble", "left_hud", "right_hud", "input_bar", "bottom_controls"],
+      "window_template": {
+        "active_duration_ms": 2100,
+        "release_duration_ms": 1400,
+        "late_watch_duration_ms": 0
+      },
+      "thresholds": {
+        "active_motion_min_score": 0.08,
+        "settle_motion_max_score": 0.06,
+        "min_consecutive_samples": 2,
+        "threshold_too_strict_ratio": 0.75
+      },
+      "synthetic_fixture": {
+        "avatar_motion_roi_ids": [],
+        "guard_motion_roi_ids": [],
+        "motion_amplitude_px_min": 6
+      },
+      "rois": [
+        {
+          "roi_id": "avatar_full",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.43, "y": 0.00, "w": 0.32, "h": 0.86 }
+        },
+        {
+          "roi_id": "avatar_face_head",
+          "kind": "avatar",
+          "counts_as_avatar_motion": true,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.52, "y": 0.04, "w": 0.15, "h": 0.24 }
+        },
+        {
+          "roi_id": "avatar_wide",
+          "kind": "diagnostic",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.34, "y": 0.00, "w": 0.48, "h": 0.88 }
+        },
+        {
+          "roi_id": "speech_bubble",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.22, "y": 0.28, "w": 0.31, "h": 0.38 }
+        },
+        {
+          "roi_id": "left_hud",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.02, "w": 0.23, "h": 0.48 }
+        },
+        {
+          "roi_id": "right_hud",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.78, "y": 0.02, "w": 0.22, "h": 0.78 }
+        },
+        {
+          "roi_id": "bottom_controls",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.78, "w": 0.20, "h": 0.10 }
+        },
+        {
+          "roi_id": "input_bar",
+          "kind": "guard_ui",
+          "counts_as_avatar_motion": false,
+          "expected_for_pass": false,
+          "rect_norm": { "x": 0.00, "y": 0.88, "w": 1.00, "h": 0.12 }
+        }
+      ]
+    }
+  },
+  "future_scenarios": {
+    "pointing": {
+      "status": "not_yet_supported",
+      "note": "Arm sweep ROIs should be added only after avatar-full v0 proves stable across viewport sizes."
+    },
+    "semantic_dance_quality": {
+      "status": "not_yet_supported",
+      "note": "dance_visible_motion checks broad body/arm ROI movement only; semantic dance quality, rhythm, choreography, and user-facing dance closure need browser/runtime evidence and Test-QA/manager consumption."
+    },
+    "semantic_expression_correctness": {
+      "status": "not_yet_supported",
+      "note": "expression_visible_change checks only visible face/head ROI change; semantic smile/frown/emotion correctness remains future/user-observation scope."
+    }
+  }
+}

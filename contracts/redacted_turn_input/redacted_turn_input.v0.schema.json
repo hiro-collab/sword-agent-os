@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/redacted_turn_input/redacted_turn_input.v0.schema.json",
+  "title": "Agent OS redacted_turn_input.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "turn_input_id",
+    "generated_at",
+    "proof_layer",
+    "source_label",
+    "source_modality",
+    "input_gate_state",
+    "stt",
+    "handoff",
+    "thought_core",
+    "evidence_refs",
+    "redaction",
+    "safety",
+    "does_not_prove"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "redacted_turn_input.v0"
+    },
+    "turn_input_id": {
+      "type": "string",
+      "pattern": "^rti_[A-Za-z0-9_.:-]+$",
+      "maxLength": 120
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proof_layer": {
+      "type": "string",
+      "enum": [
+        "source-static",
+        "source-no-live"
+      ]
+    },
+    "source_label": {
+      "type": "string",
+      "enum": [
+        "ai_talk_core_web",
+        "manual_text",
+        "gesture_voice_bridge",
+        "test_fixture"
+      ]
+    },
+    "source_modality": {
+      "type": "string",
+      "enum": [
+        "speech",
+        "text",
+        "gesture_release",
+        "mixed",
+        "unknown"
+      ]
+    },
+    "input_gate_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_enabled",
+        "mic_enabled",
+        "reason",
+        "source"
+      ],
+      "properties": {
+        "input_enabled": {
+          "type": "boolean"
+        },
+        "mic_enabled": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$",
+          "maxLength": 120
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$",
+          "maxLength": 120
+        },
+        "gate_event_ref": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "stt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transcript_present",
+        "final_result",
+        "transcript_bucket",
+        "raw_transcript_included",
+        "raw_audio_included",
+        "provider_payload_included"
+      ],
+      "properties": {
+        "transcript_present": {
+          "type": "boolean"
+        },
+        "final_result": {
+          "type": "boolean"
+        },
+        "transcript_bucket": {
+          "type": "string",
+          "enum": [
+            "none",
+            "redacted_partial",
+            "redacted_present",
+            "redacted_final",
+            "held"
+          ]
+        },
+        "stt_event_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "raw_transcript_included": {
+          "const": false
+        },
+        "raw_audio_included": {
+          "const": false
+        },
+        "provider_payload_included": {
+          "const": false
+        }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "handoff_id",
+        "handoff_source",
+        "handoff_field",
+        "handoff_ref"
+      ],
+      "properties": {
+        "handoff_id": {
+          "type": "string",
+          "pattern": "^handoff_[A-Za-z0-9_.:-]+$",
+          "maxLength": 120
+        },
+        "handoff_source": {
+          "type": "string",
+          "enum": [
+            "ai_talk_core",
+            "control_plane_adapter",
+            "projection_visual",
+            "source_static_fixture"
+          ]
+        },
+        "handoff_field": {
+          "type": "string",
+          "enum": [
+            "redacted_transcript_ref",
+            "turn_text_redacted",
+            "input_summary",
+            "event_ref"
+          ]
+        },
+        "handoff_ref": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "thought_core": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "turn_id",
+        "completion_seen",
+        "completion_event_ref"
+      ],
+      "properties": {
+        "turn_id": {
+          "type": "string",
+          "pattern": "^turn_[A-Za-z0-9_.:-]+$",
+          "maxLength": 120
+        },
+        "completion_seen": {
+          "type": "boolean"
+        },
+        "completion_event_ref": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "default": []
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_profile",
+        "shareability_class",
+        "raw_transcript_included",
+        "raw_audio_included",
+        "raw_media_included",
+        "prompt_text_included",
+        "response_text_included",
+        "provider_payload_included",
+        "private_path_included",
+        "private_endpoint_included",
+        "secret_or_token_included",
+        "home_control_device_detail_included"
+      ],
+      "properties": {
+        "redaction_profile": {
+          "const": "redacted_turn_input_summary_v0"
+        },
+        "shareability_class": {
+          "type": "string",
+          "enum": [
+            "source_static",
+            "source_no_live"
+          ]
+        },
+        "raw_transcript_included": {
+          "const": false
+        },
+        "raw_audio_included": {
+          "const": false
+        },
+        "raw_media_included": {
+          "const": false
+        },
+        "prompt_text_included": {
+          "const": false
+        },
+        "response_text_included": {
+          "const": false
+        },
+        "provider_payload_included": {
+          "const": false
+        },
+        "private_path_included": {
+          "const": false
+        },
+        "private_endpoint_included": {
+          "const": false
+        },
+        "secret_or_token_included": {
+          "const": false
+        },
+        "home_control_device_detail_included": {
+          "const": false
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_gate_only_is_stt_proof",
+        "stt_only_is_thought_core_completion_proof",
+        "action_execution_claimed",
+        "motion_proof_claimed",
+        "ordinary_conversation_quality_claimed",
+        "robust_gesture_green_claimed",
+        "source_adoption_or_git_claimed",
+        "rr003_representative_pass_claimed"
+      ],
+      "properties": {
+        "input_gate_only_is_stt_proof": {
+          "const": false
+        },
+        "stt_only_is_thought_core_completion_proof": {
+          "const": false
+        },
+        "action_execution_claimed": {
+          "const": false
+        },
+        "motion_proof_claimed": {
+          "const": false
+        },
+        "ordinary_conversation_quality_claimed": {
+          "const": false
+        },
+        "robust_gesture_green_claimed": {
+          "const": false
+        },
+        "source_adoption_or_git_claimed": {
+          "const": false
+        },
+        "rr003_representative_pass_claimed": {
+          "const": false
+        }
+      }
+    },
+    "does_not_prove": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.:-]*$",
+        "maxLength": 120
+      },
+      "allOf": [
+        { "contains": { "const": "not_live_camera_audio" } },
+        { "contains": { "const": "not_browser_runtime" } },
+        { "contains": { "const": "not_vb_cable_or_sample_audio_stt" } },
+        { "contains": { "const": "not_action_execution" } },
+        { "contains": { "const": "not_home_control_state" } },
+        { "contains": { "const": "not_motion_proof" } },
+        { "contains": { "const": "not_ordinary_conversation_quality" } },
+        { "contains": { "const": "not_robust_gesture_gate_green" } },
+        { "contains": { "const": "not_source_adoption_or_git" } },
+        { "contains": { "const": "not_rr003_representative_pass" } }
+      ]
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^(event|turn|handoff|gate|stt|thought|summary|source):[A-Za-z0-9_.:-]+$",
+      "maxLength": 160
+    }
+  }
+}

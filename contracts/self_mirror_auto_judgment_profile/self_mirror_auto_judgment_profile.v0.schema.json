@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/self_mirror_auto_judgment_profile.v0.schema.json",
+  "title": "Self Mirror Auto Judgment Profile v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "profile_version",
+    "scenario_id",
+    "scenario_key",
+    "status",
+    "reference_case_refs",
+    "minimum_reference_coverage",
+    "threshold_profile_id",
+    "thresholds",
+    "run_ref_policy",
+    "confidence_model",
+    "needs_human_review_rules",
+    "redaction_policy",
+    "authority_boundary",
+    "does_not_prove"
+  ],
+  "properties": {
+    "schema_version": { "const": "self_mirror_auto_judgment_profile.v0" },
+    "profile_id": { "type": "string", "minLength": 1 },
+    "profile_version": { "type": "string", "minLength": 1 },
+    "scenario_id": { "type": "string", "minLength": 1 },
+    "scenario_key": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["draft", "calibration", "active", "deprecated"] },
+    "reference_case_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "minimum_reference_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_reference_cases",
+        "min_pass_cases",
+        "min_fail_or_unclear_cases",
+        "required_roi_ids",
+        "required_false_positive_categories"
+      ],
+      "properties": {
+        "minimum_reference_cases": { "type": "integer", "minimum": 0 },
+        "min_pass_cases": { "type": "integer", "minimum": 0 },
+        "min_fail_or_unclear_cases": { "type": "integer", "minimum": 0 },
+        "required_roi_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "required_false_positive_categories": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "threshold_profile_id": { "type": "string", "minLength": 1 },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pretrigger_quiet_max_movement_score",
+        "active_motion_min_score_by_roi",
+        "active_changed_ratio_min_by_roi",
+        "min_expected_roi_pass_count",
+        "min_consecutive_samples",
+        "guard_ui_motion_max_score",
+        "guard_to_avatar_ratio_max"
+      ],
+      "properties": {
+        "pretrigger_quiet_max_movement_score": { "type": "number", "minimum": 0 },
+        "active_motion_min_score_by_roi": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0 }
+        },
+        "active_changed_ratio_min_by_roi": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0 }
+        },
+        "min_expected_roi_pass_count": { "type": "integer", "minimum": 1 },
+        "min_consecutive_samples": { "type": "integer", "minimum": 1 },
+        "guard_ui_motion_max_score": { "type": "number", "minimum": 0 },
+        "guard_to_avatar_ratio_max": { "type": "number", "minimum": 0 }
+      }
+    },
+    "run_ref_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_fields", "require_matching_refs_when_summary_id_matches"],
+      "properties": {
+        "required_fields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "require_matching_refs_when_summary_id_matches": { "type": "boolean" }
+      }
+    },
+    "confidence_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min_confidence_for_pass",
+        "min_confidence_for_fail",
+        "below_threshold_result",
+        "factors"
+      ],
+      "properties": {
+        "min_confidence_for_pass": { "type": "number", "minimum": 0, "maximum": 1 },
+        "min_confidence_for_fail": { "type": "number", "minimum": 0, "maximum": 1 },
+        "below_threshold_result": { "const": "unclear" },
+        "factors": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "needs_human_review_rules": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "redaction_policy": { "$ref": "#/$defs/no_raw_flags" },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "self_mirror_role",
+        "observation_only",
+        "direct_correction_dispatch",
+        "issue_closure_authority",
+        "git_or_publication_authority"
+      ],
+      "properties": {
+        "self_mirror_role": { "const": "observation_and_evaluation_only" },
+        "observation_only": { "const": true },
+        "direct_correction_dispatch": { "const": false },
+        "issue_closure_authority": { "const": false },
+        "git_or_publication_authority": { "const": false }
+      }
+    },
+    "does_not_prove": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "contains": { "const": "not_raw_media_proof" }
+    }
+  },
+  "$defs": {
+    "no_raw_flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_frame_included",
+        "raw_screenshot_included",
+        "raw_video_included",
+        "raw_audio_included",
+        "raw_transcript_included",
+        "provider_payload_included",
+        "local_path_included",
+        "secret_included",
+        "device_entity_id_included",
+        "raw_log_included"
+      ],
+      "properties": {
+        "raw_frame_included": { "const": false },
+        "raw_screenshot_included": { "const": false },
+        "raw_video_included": { "const": false },
+        "raw_audio_included": { "const": false },
+        "raw_transcript_included": { "const": false },
+        "provider_payload_included": { "const": false },
+        "local_path_included": { "const": false },
+        "secret_included": { "const": false },
+        "device_entity_id_included": { "const": false },
+        "raw_log_included": { "const": false }
+      }
+    }
+  }
+}

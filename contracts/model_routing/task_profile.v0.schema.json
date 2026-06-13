@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/model_routing/task_profile.v0.schema.json",
+  "title": "Agent OS model-routing task profiles v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "owner_module",
+    "profiles"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "model-routing.task-profiles.v0"
+    },
+    "owner_module": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/task_profile"
+      }
+    }
+  },
+  "$defs": {
+    "task_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "task_profile_id",
+        "task_class",
+        "owner_module",
+        "input_kind",
+        "output_kind",
+        "risk_level",
+        "privacy_level",
+        "latency_target",
+        "context_need",
+        "reasoning_depth",
+        "determinism_required",
+        "side_effect",
+        "proof_authority_allowed",
+        "default_route_policy",
+        "fallback_policy",
+        "runtime_modifiers",
+        "non_claims"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "task_profile.v0"
+        },
+        "task_profile_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$",
+          "maxLength": 120
+        },
+        "task_class": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$",
+          "maxLength": 120
+        },
+        "owner_module": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "input_kind": {
+          "type": "string",
+          "enum": [
+            "redacted_user_turn",
+            "audio_status_request",
+            "action_or_state_request",
+            "motion_expression_request",
+            "memory_summary",
+            "issue_summary",
+            "review_packet",
+            "proof_summary",
+            "release_or_publication_request",
+            "current_state_observation"
+          ]
+        },
+        "output_kind": {
+          "type": "string",
+          "enum": [
+            "response_text",
+            "route_summary",
+            "action_preview",
+            "motion_request",
+            "memory_candidate",
+            "memory_policy_decision",
+            "issue_candidate",
+            "proof_status",
+            "review_summary",
+            "hold_or_escalation"
+          ]
+        },
+        "risk_level": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "privacy_level": {
+          "type": "string",
+          "enum": [
+            "public",
+            "internal",
+            "sensitive",
+            "secret_forbidden"
+          ]
+        },
+        "latency_target": {
+          "type": "string",
+          "enum": [
+            "realtime",
+            "interactive",
+            "async",
+            "batch"
+          ]
+        },
+        "context_need": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "reasoning_depth": {
+          "type": "string",
+          "enum": [
+            "none",
+            "shallow",
+            "medium",
+            "deep"
+          ]
+        },
+        "determinism_required": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "must"
+          ]
+        },
+        "side_effect": {
+          "type": "string",
+          "enum": [
+            "none",
+            "display_only",
+            "memory_lifecycle",
+            "issue_lifecycle",
+            "home_action",
+            "live_device",
+            "git_or_publication"
+          ]
+        },
+        "proof_authority_allowed": {
+          "const": false
+        },
+        "default_route_policy": {
+          "type": "string",
+          "enum": [
+            "no_llm",
+            "single",
+            "two_tier",
+            "human_review"
+          ]
+        },
+        "fallback_policy": {
+          "type": "string",
+          "enum": [
+            "local_fallback",
+            "deterministic_hold",
+            "human_review",
+            "fail_closed"
+          ]
+        },
+        "runtime_modifiers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/runtime_modifier"
+          }
+        },
+        "non_claims": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]*$",
+            "maxLength": 120
+          }
+        }
+      }
+    },
+    "runtime_modifier": {
+      "type": "string",
+      "enum": [
+        "deterministic_confident",
+        "repeated_failure",
+        "review_blocker",
+        "issue_blocker",
+        "important_or_safety_tag",
+        "explicit_deep_review",
+        "provider_unavailable",
+        "privacy_high",
+        "latency_pressure",
+        "cost_pressure",
+        "safety_or_side_effect"
+      ]
+    }
+  }
+}

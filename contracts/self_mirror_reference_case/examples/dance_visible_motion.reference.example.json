@@ -1,0 +1,207 @@
+{
+  "schema_version": "self_mirror_reference_case.v0",
+  "reference_case_id": "smm_ref_dance_visible_motion_same_run_20260612_165945",
+  "scenario_id": "rr003.visible_motion.dance_visible_motion.self_mirror.v0",
+  "scenario_key": "dance_visible_motion",
+  "trigger": {
+    "kind": "natural_language_dance_request",
+    "utterance_class": "natural_ja_dance_request",
+    "trigger_at_ms": 1000,
+    "raw_utterance_included": false
+  },
+  "created_at": "2026-06-12T17:00:58+09:00",
+  "profile_id": "smm_prof_dance_visible_motion_bootstrap_v0",
+  "profile_version": "0.1.0",
+  "proof_layer": "visible_motion",
+  "run_refs": {
+    "turn_id": "aituber_1781251194508_ztu63z",
+    "motion_requested_event_id": "evt_87b9a560110f46e6ab6c8011cad09012",
+    "motion_event_id": "mot_evt_aituber_1781251194508_ztu63z_001",
+    "stimulus_id": "mot_stim_aituber_1781251194508_ztu63z_dance_sequence",
+    "stimulus_instance_id": "mot_inst_aituber_1781251194508_ztu63z_001",
+    "runtime_result_id": "mot_res_aituber_1781251194508_ztu63z_pending_001",
+    "runtime_status": "started",
+    "runtime_reason_code": "motion_runtime_vrma_started"
+  },
+  "metric_summary_ref": {
+    "schema_version": "self_mirror_metric_summary.v0",
+    "summary_id": "smm_sum_vismot_run_rr003_natural_language_dance_same_run_self_mirror_20260612_165945",
+    "analysis_run_id": "vismot_run_rr003_natural_language_dance_same-run-self-mirror-20260612-165945",
+    "artifact_label": "same-run-self-mirror-20260612-165945",
+    "local_path_included": false
+  },
+  "roi_set": {
+    "expected_roi_ids": [
+      "avatar_full",
+      "avatar_torso",
+      "avatar_left_arm",
+      "avatar_right_arm"
+    ],
+    "guard_roi_ids": [
+      "speech_bubble",
+      "left_hud",
+      "right_hud",
+      "bottom_controls",
+      "input_bar"
+    ],
+    "coordinate_system": "normalized_viewport"
+  },
+  "time_windows": {
+    "pretrigger": { "start_ms": 0, "end_ms": 1000 },
+    "active": { "start_ms": 1000, "end_ms": 5000 },
+    "release": { "start_ms": 5000, "end_ms": 5001 },
+    "settle": { "start_ms": 5001, "end_ms": 5002 }
+  },
+  "pretrigger_metrics": [
+    {
+      "roi_id": "avatar_full",
+      "sample_count": 7,
+      "movement_score": 0.0,
+      "changed_ratio": 0.0,
+      "confidence": 0.45,
+      "expected_for_pass": true,
+      "counts_as_avatar_motion": true,
+      "pass_label": "visual-motion-detected",
+      "raw_frame_included": false,
+      "raw_screenshot_included": false
+    },
+    {
+      "roi_id": "avatar_torso",
+      "sample_count": 7,
+      "movement_score": 0.0,
+      "changed_ratio": 0.0,
+      "confidence": 0.45,
+      "expected_for_pass": true,
+      "counts_as_avatar_motion": true,
+      "pass_label": "visual-motion-detected",
+      "raw_frame_included": false,
+      "raw_screenshot_included": false
+    },
+    {
+      "roi_id": "avatar_left_arm",
+      "sample_count": 7,
+      "movement_score": 0.0,
+      "changed_ratio": 0.0,
+      "confidence": 0.45,
+      "expected_for_pass": true,
+      "counts_as_avatar_motion": true,
+      "pass_label": "visual-motion-detected",
+      "raw_frame_included": false,
+      "raw_screenshot_included": false
+    },
+    {
+      "roi_id": "avatar_right_arm",
+      "sample_count": 7,
+      "movement_score": 0.0,
+      "changed_ratio": 0.0,
+      "confidence": 0.45,
+      "expected_for_pass": true,
+      "counts_as_avatar_motion": true,
+      "pass_label": "visual-motion-detected",
+      "raw_frame_included": false,
+      "raw_screenshot_included": false
+    }
+  ],
+  "active_window_metrics": [
+    {
+      "roi_id": "avatar_full",
+      "sample_count": 32,
+      "movement_score": 1.0,
+      "changed_ratio": 0.237528,
+      "confidence": 1.0,
+      "expected_for_pass": true,
+      "counts_as_avatar_motion": true,
+      "pass_label": "visual-motion-detected",
+      "raw_frame_included": false,
+      "raw_screenshot_included": false
+    },
+    {
+      "roi_id": "avatar_torso",
+      "sample_count": 32,
+      "movement_score": 1.0,
+      "changed_ratio": 0.25683,
+      "confidence": 1.0,
+      "expected_for_pass": true,
+      "counts_as_avatar_motion": true,
+      "pass_label": "visual-motion-detected",
+      "raw_frame_included": false,
+      "raw_screenshot_included": false
+    },
+    {
+      "roi_id": "avatar_left_arm",
+      "sample_count": 32,
+      "movement_score": 0.798563,
+      "changed_ratio": 0.460922,
+      "confidence": 1.0,
+      "expected_for_pass": true,
+      "counts_as_avatar_motion": true,
+      "pass_label": "visual-motion-detected",
+      "raw_frame_included": false,
+      "raw_screenshot_included": false
+    },
+    {
+      "roi_id": "avatar_right_arm",
+      "sample_count": 32,
+      "movement_score": 1.0,
+      "changed_ratio": 0.129043,
+      "confidence": 1.0,
+      "expected_for_pass": true,
+      "counts_as_avatar_motion": true,
+      "pass_label": "visual-motion-detected",
+      "raw_frame_included": false,
+      "raw_screenshot_included": false
+    },
+    {
+      "roi_id": "speech_bubble",
+      "sample_count": 32,
+      "movement_score": 1.0,
+      "changed_ratio": 0.692083,
+      "confidence": 1.0,
+      "expected_for_pass": false,
+      "counts_as_avatar_motion": false,
+      "pass_label": "guard-ui-motion-excluded",
+      "raw_frame_included": false,
+      "raw_screenshot_included": false
+    }
+  ],
+  "release_window_metrics": [],
+  "settle_window_metrics": [],
+  "human_observation_labels": {
+    "baseline_quiet": "not_collected",
+    "visible_motion_after_trigger": "not_collected",
+    "moved_parts": ["not_collected"],
+    "motion_quality_label": "not_collected",
+    "false_positive_seen": "not_collected",
+    "false_positive_categories": ["not_collected"],
+    "observation_confidence": 0.0,
+    "raw_freeform_text_included": false
+  },
+  "expected_result": "pass",
+  "expected_reason_codes": ["visual-pass"],
+  "confidence": 1.0,
+  "redaction": {
+    "raw_frame_included": false,
+    "raw_screenshot_included": false,
+    "raw_video_included": false,
+    "raw_audio_included": false,
+    "raw_transcript_included": false,
+    "provider_payload_included": false,
+    "local_path_included": false,
+    "secret_included": false,
+    "device_entity_id_included": false,
+    "raw_log_included": false
+  },
+  "retention": {
+    "retention_class": "calibration_summary",
+    "raw_artifact_retained": false,
+    "durable_memory_by_default": false
+  },
+  "does_not_prove": [
+    "not_raw_media_proof",
+    "not_human_observation_authority",
+    "not_physical_display_proof",
+    "not_semantic_dance_quality_proof",
+    "not_semantic_expression_correctness",
+    "not_rr003_representative_pass"
+  ]
+}

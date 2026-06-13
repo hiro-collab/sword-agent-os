@@ -1,0 +1,505 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/self_mirror_metric_summary.v0.schema.json",
+  "title": "Self Mirror Metric Summary v0",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "summary_id",
+    "scenario_id",
+    "observed_target",
+    "activation_sampling",
+    "evidence_export",
+    "evidence_layer",
+    "result",
+    "classification",
+    "needs_attention",
+    "latest_observation_ref",
+    "consumer_retry_policy",
+    "latest_state",
+    "observation_queue",
+    "timeline_ref",
+    "raw_frame_included",
+    "raw_screenshot_included",
+    "roi_window_metrics",
+    "does_not_prove"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "self_mirror_metric_summary.v0"
+    },
+    "summary_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_refs": {
+      "type": "object",
+      "properties": {
+        "motion_event_id": { "type": "string" },
+        "stimulus_instance_id": { "type": "string" },
+        "runtime_result_id": { "type": "string" },
+        "runtime_status": { "type": "string" },
+        "runtime_reason_code": { "type": "string" }
+      }
+    },
+    "event_timeline": {
+      "type": "object",
+      "properties": {
+        "user_request_at_ms": { "type": "integer", "minimum": 0 },
+        "motion_requested_at_ms": { "type": "integer", "minimum": 0 },
+        "bridge_dispatched_at_ms": { "type": "integer", "minimum": 0 },
+        "runtime_started_at_ms": { "type": "integer", "minimum": 0 },
+        "first_visible_motion_at_ms": { "type": "integer", "minimum": 0 },
+        "capture_started_at_ms": { "type": "integer", "minimum": 0 },
+        "capture_ended_at_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "motion_diagnostics": {
+      "type": "object",
+      "properties": {
+        "schema_version": { "const": "self_mirror_motion_diagnostics.v0" },
+        "diagnostic_result": {
+          "type": "string",
+          "enum": [
+            "event-correlated-motion",
+            "late-visible-motion",
+            "motion-outside-expected-roi",
+            "guard-or-ui-only-motion",
+            "idle-only-motion",
+            "runtime-started-no-visible-motion",
+            "no-visible-motion"
+          ]
+        },
+        "timeline_stage": {
+          "type": "string",
+          "enum": [
+            "event-timeline-unavailable",
+            "request-not-emitted",
+            "motion-requested-but-not-dispatched",
+            "runtime-not-started",
+            "runtime-started"
+          ]
+        },
+        "pass_authority_from_diagnostic_roi": { "const": false },
+        "anchor_status": {
+          "type": "object",
+          "properties": {
+            "schema_version": { "const": "self_mirror_event_anchor_status.v0" },
+            "available_anchor_ids": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "missing_anchor_ids": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "all_required_available": { "type": "boolean" },
+            "raw_log_included": { "const": false },
+            "raw_provider_payload_included": { "const": false },
+            "local_path_included": { "const": false }
+          }
+        },
+        "available_anchor_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "missing_anchor_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "raw_frame_included": { "const": false },
+        "raw_screenshot_included": { "const": false }
+      }
+    },
+    "observed_target": {
+      "type": "string",
+      "enum": ["avatar", "projection_visual", "motion_roi", "hud"]
+    },
+    "activation_sampling": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "event_driven",
+        "periodic_lightweight",
+        "continuous_monitor"
+      ]
+    },
+    "evidence_export": {
+      "type": "string",
+      "enum": [
+        "status_only",
+        "metric_summary",
+        "verification_capture",
+        "diagnostic_local"
+      ]
+    },
+    "observation_policy": {
+      "type": "object",
+      "required": [
+        "activation_sampling",
+        "evidence_export",
+        "timing",
+        "depth",
+        "shareable_output",
+        "timeline_export_expected",
+        "verification_capture_is_completion_proof"
+      ],
+      "properties": {
+        "activation_sampling": { "type": "string" },
+        "evidence_export": { "type": "string" },
+        "timing": { "type": "string" },
+        "depth": { "type": "string" },
+        "shareable_output": { "type": "string" },
+        "timeline_export_expected": { "type": "boolean" },
+        "local_only_diagnostics": { "type": "boolean" },
+        "verification_capture_is_completion_proof": { "const": false }
+      }
+    },
+    "evidence_layer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "result": {
+      "type": "string",
+      "enum": ["pass", "partial", "blocked", "fail"]
+    },
+    "needs_attention": {
+      "type": "boolean"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "needs_human_review": {
+      "type": "boolean"
+    },
+    "reference_profile_id": {
+      "type": "string"
+    },
+    "threshold_profile_id": {
+      "type": "string"
+    },
+    "reference_case_refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "auto_judgment_result": {
+      "type": "string",
+      "enum": ["pass", "fail", "unclear"]
+    },
+    "auto_judgment": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "result",
+        "confidence",
+        "needs_human_review",
+        "reason_codes",
+        "observation_only",
+        "raw_frame_included",
+        "raw_screenshot_included",
+        "local_path_included",
+        "direct_correction_dispatch"
+      ],
+      "properties": {
+        "schema_version": { "const": "self_mirror_auto_judgment_result.v0" },
+        "result": {
+          "type": "string",
+          "enum": ["pass", "fail", "unclear"]
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "needs_human_review": { "type": "boolean" },
+        "reason_codes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "matched_reference_case_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "threshold_profile_id": { "type": "string" },
+        "reference_profile_id": { "type": "string" },
+        "suspected_false_positive_source": { "type": "string" },
+        "manual_observation_used": { "type": "boolean" },
+        "manual_observation_ref": { "type": "string" },
+        "observation_only": { "const": true },
+        "raw_frame_included": { "const": false },
+        "raw_screenshot_included": { "const": false },
+        "raw_video_included": { "const": false },
+        "local_path_included": { "const": false },
+        "direct_correction_dispatch": { "const": false },
+        "issue_closure_authority": { "const": false },
+        "git_or_publication_authority": { "const": false }
+      }
+    },
+    "observed_issue": {
+      "type": "string"
+    },
+    "recommended_correction": {
+      "type": "string"
+    },
+    "latest_observation_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "consumer_retry_policy": {
+      "type": "object",
+      "required": [
+        "self_mirror_is_command_channel",
+        "self_mirror_retry_authority",
+        "self_mirror_observation_ref",
+        "retry_policy_kind",
+        "retry_limit_default",
+        "retry_limit_configurable",
+        "retry_policy_source",
+        "retry_execution_owner",
+        "external_side_effect_auto_retry_allowed",
+        "applies_to_side_effect_class"
+      ],
+      "properties": {
+        "self_mirror_is_command_channel": { "const": false },
+        "self_mirror_retry_authority": { "const": false },
+        "self_mirror_observation_ref": { "type": "string", "minLength": 1 },
+        "retry_policy_kind": { "const": "consumer_config_reference" },
+        "retry_limit_default": { "const": 2 },
+        "retry_limit_configurable": { "const": true },
+        "retry_policy_source": { "type": "string", "minLength": 1 },
+        "retry_execution_owner": { "const": "thought_core_or_output_owner" },
+        "external_side_effect_auto_retry_allowed": { "const": false },
+        "applies_to_side_effect_class": { "const": "internal_self_display_only" },
+        "failure_escalation_policy": {
+          "type": "object",
+          "properties": {
+            "self_mirror_escalation_authority": { "const": false },
+            "one_off_failure_route": { "const": "trace_only" },
+            "candidate_routes": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "candidate_when": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "required_trace_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "required": ["status", "reason_code", "non_claims"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pass", "partial", "blocked", "fail"]
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_issue": {
+          "type": "string"
+        },
+        "recommended_correction": {
+          "type": "string"
+        },
+        "recommendation_is_observation_only": {
+          "const": true
+        },
+        "non_claims": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "latest_state": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "observation_id",
+        "summary_id",
+        "scenario_id",
+        "observed_target",
+        "result",
+        "confidence",
+        "raw_frame_included",
+        "raw_screenshot_included",
+        "raw_video_included",
+        "local_path_included",
+        "direct_correction_dispatch",
+        "durable_memory_by_default"
+      ],
+      "properties": {
+        "schema_version": { "const": "self_mirror_observation.v0" },
+        "observation_id": { "type": "string", "minLength": 1 },
+        "summary_id": { "type": "string", "minLength": 1 },
+        "scenario_id": { "type": "string", "minLength": 1 },
+        "observed_target": {
+          "type": "string",
+          "enum": ["avatar", "projection_visual", "motion_roi", "hud"]
+        },
+        "result": {
+          "type": "string",
+          "enum": ["pass", "partial", "blocked", "fail"]
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "raw_frame_included": { "const": false },
+        "raw_screenshot_included": { "const": false },
+        "raw_video_included": { "const": false },
+        "local_path_included": { "const": false },
+        "direct_correction_dispatch": { "const": false },
+        "retry_authority": { "const": false },
+        "durable_memory_by_default": { "const": false }
+      }
+    },
+    "observation_queue": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "retention",
+        "max_entries",
+        "durable_memory_by_default",
+        "raw_frame_included",
+        "raw_screenshot_included",
+        "raw_video_included",
+        "local_path_included",
+        "direct_correction_dispatch",
+        "entries"
+      ],
+      "properties": {
+        "schema_version": { "const": "self_mirror_observation_queue.v0" },
+        "retention": { "const": "bounded_ring_buffer" },
+        "max_entries": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "durable_memory_by_default": { "const": false },
+        "raw_frame_included": { "const": false },
+        "raw_screenshot_included": { "const": false },
+        "raw_video_included": { "const": false },
+        "local_path_included": { "const": false },
+        "direct_correction_dispatch": { "const": false },
+        "consumer_retry_policy": {
+          "type": "object",
+          "properties": {
+            "self_mirror_is_command_channel": { "const": false },
+            "self_mirror_retry_authority": { "const": false },
+            "retry_policy_kind": { "const": "consumer_config_reference" },
+            "retry_limit_default": { "const": 2 },
+            "retry_limit_configurable": { "const": true },
+            "retry_policy_source": { "type": "string", "minLength": 1 },
+            "retry_execution_owner": { "const": "thought_core_or_output_owner" },
+            "external_side_effect_auto_retry_allowed": { "const": false }
+          }
+        },
+        "entries": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "properties": {
+              "schema_version": { "const": "self_mirror_observation.v0" },
+              "raw_frame_included": { "const": false },
+              "raw_screenshot_included": { "const": false },
+              "raw_video_included": { "const": false },
+              "local_path_included": { "const": false },
+              "direct_correction_dispatch": { "const": false },
+              "retry_authority": { "const": false },
+              "durable_memory_by_default": { "const": false }
+            }
+          }
+        }
+      }
+    },
+    "timeline_ref": {
+      "type": "object",
+      "required": ["kind", "artifact", "raw_frame_included", "raw_screenshot_included", "authority"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["csv", "html", "jsonl"]
+        },
+        "artifact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "raw_frame_included": {
+          "const": false
+        },
+        "raw_screenshot_included": {
+          "const": false
+        },
+        "authority": {
+          "const": false
+        }
+      }
+    },
+    "raw_frame_included": {
+      "const": false
+    },
+    "raw_screenshot_included": {
+      "const": false
+    },
+    "roi_window_metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "roi_id",
+          "observed_target",
+          "time_window",
+          "sample_count",
+          "movement_score",
+          "changed_ratio",
+          "confidence",
+          "raw_frame_included",
+          "raw_screenshot_included"
+        ],
+        "properties": {
+          "roi_id": { "type": "string" },
+          "observed_target": {
+            "type": "string",
+            "enum": ["avatar", "projection_visual", "motion_roi", "hud"]
+          },
+          "time_window": { "type": "string" },
+          "sample_count": { "type": "integer", "minimum": 0 },
+          "movement_score": { "type": "number", "minimum": 0 },
+          "changed_ratio": { "type": "number", "minimum": 0 },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "raw_frame_included": { "const": false },
+          "raw_screenshot_included": { "const": false }
+        }
+      }
+    },
+    "does_not_prove": {
+      "type": "array",
+      "items": { "type": "string" },
+      "contains": { "const": "not_raw_media_proof" }
+    },
+    "boundary": {
+      "type": "object",
+      "properties": {
+        "decision_boundary": {
+          "type": "object",
+          "properties": {
+            "self_mirror_role": {
+              "const": "observation_and_evaluation_only"
+            },
+            "does_not_decide_correction": {
+              "const": true
+            },
+            "does_not_execute_correction": {
+              "const": true
+            }
+          }
+        }
+      }
+    }
+  }
+}

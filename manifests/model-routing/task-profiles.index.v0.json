@@ -1,0 +1,35 @@
+{
+  "schema_version": "task-profiles.index.v0",
+  "index_id": "agent-os.task-profiles.index.v0",
+  "profile_schema_ref": "contracts/model_routing/task_profile.v0.schema.json",
+  "route_selection_schema_ref": "contracts/model_routing/model_route_selection.v0.schema.json",
+  "entries": [
+    {
+      "owner_module": "thought_core",
+      "profile_path": "control-plane/sword-voice-agent/services/thought-core/model-routing.task-profiles.v0.json",
+      "task_classes": [
+        "ordinary_conversation_response",
+        "audio_status_check",
+        "motion_or_expression_intent",
+        "home_action_preview_or_review"
+      ]
+    },
+    {
+      "owner_module": "memory_core",
+      "profile_path": "runtime/memory-core/model-routing.task-profiles.v0.json",
+      "task_classes": [
+        "memory_candidate_tag_suggestion",
+        "memory_promotion_policy",
+        "memory_lifecycle_policy",
+        "current_state_revalidation_check"
+      ]
+    }
+  ],
+  "non_claims": [
+    "no_provider_runtime_call",
+    "no_env_key_config_edit",
+    "no_runtime_modifier_behavior",
+    "no_git_or_publication_authority",
+    "no_rr003_pass_claim"
+  ]
+}

@@ -1,0 +1,9 @@
+[project]
+name = "sword-memory-core"
+version = "0.1.0"
+description = "Sword Agent OS Memory Core runtime substrate"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv]
+cache-dir = ".uv-cache"

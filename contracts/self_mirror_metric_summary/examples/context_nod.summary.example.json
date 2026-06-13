@@ -1,0 +1,260 @@
+{
+  "schema_version": "self_mirror_metric_summary.v0",
+  "summary_id": "smm_sum_vismot_run_rr003_self_mirror_context_nod_synthetic_001",
+  "analysis_run_id": "vismot_run_rr003_self_mirror_context_nod_synthetic_001",
+  "scenario_id": "rr003.visible_motion.context_nod.self_mirror.v0",
+  "observed_target": "avatar",
+  "activation_sampling": "event_driven",
+  "evidence_export": "verification_capture",
+  "observation_policy": {
+    "activation_sampling": "event_driven",
+    "evidence_export": "verification_capture",
+    "timing": "after_motion_expression_or_display_event",
+    "depth": "summary_plus_redacted_timeline_views",
+    "shareable_output": "summary_plus_csv_html_or_jsonl_supporting_views",
+    "timeline_export_expected": true,
+    "local_only_diagnostics": false,
+    "verification_capture_is_completion_proof": false
+  },
+  "evidence_layer": "synthetic-method-proof",
+  "proof_layer": "no_live_runtime",
+  "result": "pass",
+  "needs_attention": false,
+  "observed_issue": "",
+  "recommended_correction": "",
+  "latest_observation_ref": "smm_obs_vismot_run_rr003_self_mirror_context_nod_synthetic_001",
+  "consumer_retry_policy": {
+    "self_mirror_is_command_channel": false,
+    "self_mirror_retry_authority": false,
+    "self_mirror_observation_ref": "smm_obs_vismot_run_rr003_self_mirror_context_nod_synthetic_001",
+    "retry_policy_kind": "consumer_config_reference",
+    "retry_limit_default": 2,
+    "retry_limit_configurable": true,
+    "retry_policy_source": "THOUGHT_CORE_SELF_MIRROR_RETRY_LIMIT|thought_core.self_mirror_retry.limit|selfMirrorRetryPolicyState",
+    "retry_execution_owner": "thought_core_or_output_owner",
+    "external_side_effect_auto_retry_allowed": false,
+    "applies_to_side_effect_class": "internal_self_display_only",
+    "failure_escalation_policy": {
+      "self_mirror_escalation_authority": false,
+      "one_off_failure_route": "trace_only",
+      "candidate_routes": [
+        "memory_core_candidate",
+        "issue_ticket_candidate"
+      ],
+      "candidate_when": [
+        "repeated_failure",
+        "important_or_safety_tag",
+        "review_blocker",
+        "user_reported",
+        "likely_implementation_gap",
+        "configured_limit_exhausted"
+      ]
+    },
+    "required_trace_fields": [
+      "retry_count",
+      "retry_limit",
+      "retry_policy_source",
+      "retry_reason",
+      "self_mirror_observation_ref",
+      "action_kind",
+      "side_effect_class",
+      "final_status",
+      "gave_up_reason",
+      "failure_pattern"
+    ]
+  },
+  "latest_state": {
+    "schema_version": "self_mirror_observation.v0",
+    "observation_id": "smm_obs_vismot_run_rr003_self_mirror_context_nod_synthetic_001",
+    "summary_id": "smm_sum_vismot_run_rr003_self_mirror_context_nod_synthetic_001",
+    "analysis_run_id": "vismot_run_rr003_self_mirror_context_nod_synthetic_001",
+    "scenario_id": "rr003.visible_motion.context_nod.self_mirror.v0",
+    "observed_target": "avatar",
+    "activation_sampling": "event_driven",
+    "evidence_export": "verification_capture",
+    "evidence_layer": "synthetic-method-proof",
+    "result": "pass",
+    "reason_code": "visual-pass",
+    "needs_attention": false,
+    "observed_issue": "",
+    "recommended_correction": "",
+    "confidence": 1.0,
+    "raw_frame_included": false,
+    "raw_screenshot_included": false,
+    "raw_video_included": false,
+    "local_path_included": false,
+    "direct_correction_dispatch": false,
+    "retry_authority": false,
+    "consumer_retry_policy_ref": "consumer_retry_policy",
+    "durable_memory_by_default": false,
+    "does_not_prove": [
+      "not_raw_media_proof",
+      "not_environment_vision",
+      "not_rr003_representative_pass"
+    ]
+  },
+  "observation_queue": {
+    "schema_version": "self_mirror_observation_queue.v0",
+    "retention": "bounded_ring_buffer",
+    "max_entries": 8,
+    "durable_memory_by_default": false,
+    "raw_frame_included": false,
+    "raw_screenshot_included": false,
+    "raw_video_included": false,
+    "local_path_included": false,
+    "direct_correction_dispatch": false,
+    "consumer_retry_policy": {
+      "self_mirror_is_command_channel": false,
+      "self_mirror_retry_authority": false,
+      "self_mirror_observation_ref": "smm_obs_vismot_run_rr003_self_mirror_context_nod_synthetic_001",
+      "retry_policy_kind": "consumer_config_reference",
+      "retry_limit_default": 2,
+      "retry_limit_configurable": true,
+      "retry_policy_source": "THOUGHT_CORE_SELF_MIRROR_RETRY_LIMIT|thought_core.self_mirror_retry.limit|selfMirrorRetryPolicyState",
+      "retry_execution_owner": "thought_core_or_output_owner",
+      "external_side_effect_auto_retry_allowed": false,
+      "applies_to_side_effect_class": "internal_self_display_only"
+    },
+    "entries": [
+      {
+        "schema_version": "self_mirror_observation.v0",
+        "observation_id": "smm_obs_vismot_run_rr003_self_mirror_context_nod_synthetic_001",
+        "summary_id": "smm_sum_vismot_run_rr003_self_mirror_context_nod_synthetic_001",
+        "scenario_id": "rr003.visible_motion.context_nod.self_mirror.v0",
+        "observed_target": "avatar",
+        "result": "pass",
+        "confidence": 1.0,
+        "raw_frame_included": false,
+        "raw_screenshot_included": false,
+        "raw_video_included": false,
+        "local_path_included": false,
+        "direct_correction_dispatch": false,
+        "retry_authority": false,
+        "durable_memory_by_default": false
+      }
+    ]
+  },
+  "classification": {
+    "status": "pass",
+    "reason_code": "visual-pass",
+    "observed_issue": "",
+    "recommended_correction": "",
+    "recommendation_is_observation_only": true,
+    "non_claims": [
+      "not_raw_media_proof",
+      "not_raw_screenshot_proof",
+      "not_physical_display_proof",
+      "not_environment_vision",
+      "not_external_room_or_light_proof",
+      "not_home_assistant_state_proof",
+      "not_physical_action_proof",
+      "not_semantic_full_body_or_dance_quality_proof",
+      "not_rr003_representative_pass"
+    ]
+  },
+  "timeline_ref": {
+    "kind": "csv",
+    "artifact": "visual_motion_roi_timeseries.csv",
+    "shared": true,
+    "raw_frame_included": false,
+    "raw_screenshot_included": false,
+    "authority": false
+  },
+  "supporting_views": [
+    {
+      "kind": "html",
+      "artifact": "visual_motion_chart.html",
+      "shared": false,
+      "authority": false,
+      "raw_frame_included": false,
+      "raw_screenshot_included": false
+    }
+  ],
+  "raw_frame_included": false,
+  "raw_screenshot_included": false,
+  "raw_media_included": false,
+  "roi_window_metrics": [
+    {
+      "roi_id": "avatar_full",
+      "observed_target": "avatar",
+      "time_window": "active",
+      "start_ms": 700,
+      "end_ms": 2800,
+      "sample_count": 17,
+      "movement_score": 0.129294,
+      "changed_ratio": 0.0,
+      "confidence": 1.0,
+      "evidence_layer": "synthetic-method-proof",
+      "timeline_ref": {
+        "kind": "csv",
+        "artifact": "visual_motion_roi_timeseries.csv",
+        "shared": true,
+        "raw_frame_included": false,
+        "raw_screenshot_included": false,
+        "authority": false
+      },
+      "raw_frame_included": false,
+      "raw_screenshot_included": false,
+      "counts_as_avatar_motion": true,
+      "expected_for_pass": true,
+      "pass_label": "visual-motion-detected",
+      "does_not_prove": [
+        "not_raw_media_proof",
+        "not_environment_vision",
+        "not_rr003_representative_pass"
+      ],
+      "non_claims": [
+        "not_raw_media_proof",
+        "not_environment_vision",
+        "not_rr003_representative_pass"
+      ]
+    }
+  ],
+  "does_not_prove": [
+    "not_raw_media_proof",
+    "not_raw_screenshot_proof",
+    "not_physical_display_proof",
+    "not_environment_vision",
+    "not_external_room_or_light_proof",
+    "not_home_assistant_state_proof",
+    "not_physical_action_proof",
+    "not_semantic_full_body_or_dance_quality_proof",
+    "not_rr003_representative_pass"
+  ],
+  "source": {
+    "kind": "synthetic_test_frames",
+    "source_ref_id": "redacted_self_mirror_context_nod_synthetic_001",
+    "raw_source_shared": false
+  },
+  "scenario": {
+    "scenario_key": "context_nod",
+    "label": "Context nod avatar-full visible motion",
+    "expected_motion": "avatar_motion",
+    "runtime_join_required": false
+  },
+  "artifact_policy": {
+    "authority_product": "self_mirror_metric_summary.v0",
+    "timeline_export_authority": false,
+    "graph_export_authority": false,
+    "raw_frames_shared": false,
+    "raw_paths_shared": false,
+    "raw_frames_retained": false,
+    "shareable_output": "summary_plus_csv_html_or_jsonl_supporting_views"
+  },
+  "boundary": {
+    "observes": "self/avatar/display output",
+    "does_not_observe": [
+      "external_room_environment",
+      "room_light_state",
+      "home_assistant_state",
+      "physical_device_action"
+    ],
+    "decision_boundary": {
+      "self_mirror_role": "observation_and_evaluation_only",
+      "does_not_decide_correction": true,
+      "does_not_execute_correction": true,
+      "motion_runtime_owns_motion_execution": true,
+      "thought_core_owns_decision": true
+    }
+  }
+}

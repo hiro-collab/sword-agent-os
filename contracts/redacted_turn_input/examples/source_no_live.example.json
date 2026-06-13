@@ -1,0 +1,77 @@
+{
+  "schema_version": "redacted_turn_input.v0",
+  "turn_input_id": "rti_rr003_04_source_no_live_001",
+  "generated_at": "2026-06-13T00:00:00Z",
+  "proof_layer": "source-no-live",
+  "source_label": "ai_talk_core_web",
+  "source_modality": "speech",
+  "input_gate_state": {
+    "input_enabled": true,
+    "mic_enabled": true,
+    "reason": "gesture_gate_open",
+    "source": "gesture_voice_input",
+    "gate_event_ref": "gate:rr003_04_source_no_live_open"
+  },
+  "stt": {
+    "transcript_present": true,
+    "final_result": true,
+    "transcript_bucket": "redacted_final",
+    "stt_event_ref": "stt:rr003_04_redacted_final",
+    "raw_transcript_included": false,
+    "raw_audio_included": false,
+    "provider_payload_included": false
+  },
+  "handoff": {
+    "handoff_id": "handoff_rr003_04_source_no_live_001",
+    "handoff_source": "ai_talk_core",
+    "handoff_field": "redacted_transcript_ref",
+    "handoff_ref": "handoff:rr003_04_redacted_turn_input"
+  },
+  "thought_core": {
+    "turn_id": "turn_rr003_04_source_no_live_001",
+    "completion_seen": true,
+    "completion_event_ref": "thought:rr003_04_turn_completion_seen"
+  },
+  "evidence_refs": [
+    "gate:rr003_04_source_no_live_open",
+    "stt:rr003_04_redacted_final",
+    "handoff:rr003_04_redacted_turn_input",
+    "thought:rr003_04_turn_completion_seen"
+  ],
+  "redaction": {
+    "redaction_profile": "redacted_turn_input_summary_v0",
+    "shareability_class": "source_no_live",
+    "raw_transcript_included": false,
+    "raw_audio_included": false,
+    "raw_media_included": false,
+    "prompt_text_included": false,
+    "response_text_included": false,
+    "provider_payload_included": false,
+    "private_path_included": false,
+    "private_endpoint_included": false,
+    "secret_or_token_included": false,
+    "home_control_device_detail_included": false
+  },
+  "safety": {
+    "input_gate_only_is_stt_proof": false,
+    "stt_only_is_thought_core_completion_proof": false,
+    "action_execution_claimed": false,
+    "motion_proof_claimed": false,
+    "ordinary_conversation_quality_claimed": false,
+    "robust_gesture_green_claimed": false,
+    "source_adoption_or_git_claimed": false,
+    "rr003_representative_pass_claimed": false
+  },
+  "does_not_prove": [
+    "not_live_camera_audio",
+    "not_browser_runtime",
+    "not_vb_cable_or_sample_audio_stt",
+    "not_action_execution",
+    "not_home_control_state",
+    "not_motion_proof",
+    "not_ordinary_conversation_quality",
+    "not_robust_gesture_gate_green",
+    "not_source_adoption_or_git",
+    "not_rr003_representative_pass"
+  ]
+}

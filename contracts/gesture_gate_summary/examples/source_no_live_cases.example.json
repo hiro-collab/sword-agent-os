@@ -1,0 +1,138 @@
+{
+  "schema_version": "gesture_gate_summary.v0",
+  "summary_id": "ggs_rr003_04_source_no_live_001",
+  "generated_at": "2026-06-13T00:00:00Z",
+  "proof_layer": "source-no-live",
+  "input_mode": "source_static_preview",
+  "cases": [
+    {
+      "case_id": "gesture.sword.source_no_live",
+      "fixture_label": "gesture.sword.redacted",
+      "gesture_label": "sword_sign",
+      "expected_gate": "open",
+      "observed_gate": "open",
+      "accepted_activation_candidate": true,
+      "proof_scope": "positive_gate_summary",
+      "result": "pass",
+      "known_limitations": [],
+      "evidence_refs": [
+        "gesture:rr003_04_sword_summary"
+      ],
+      "redaction": {
+        "redaction_profile": "gesture_gate_summary_v0",
+        "shareability_class": "source_no_live",
+        "raw_video_included": false,
+        "raw_frame_included": false,
+        "raw_audio_included": false,
+        "raw_transcript_included": false,
+        "raw_media_path_included": false,
+        "private_path_included": false,
+        "provider_payload_included": false,
+        "secret_or_token_included": false,
+        "device_detail_included": false
+      }
+    },
+    {
+      "case_id": "gesture.victory.source_no_live",
+      "fixture_label": "gesture.victory.redacted",
+      "gesture_label": "victory",
+      "expected_gate": "closed",
+      "observed_gate": "open",
+      "accepted_activation_candidate": true,
+      "proof_scope": "known_limitation_tracking",
+      "result": "known_limitation_fail",
+      "known_limitations": [
+        "victory_false_open"
+      ],
+      "evidence_refs": [
+        "gesture:rr003_04_victory_known_limitation"
+      ],
+      "redaction": {
+        "redaction_profile": "gesture_gate_summary_v0",
+        "shareability_class": "source_no_live",
+        "raw_video_included": false,
+        "raw_frame_included": false,
+        "raw_audio_included": false,
+        "raw_transcript_included": false,
+        "raw_media_path_included": false,
+        "private_path_included": false,
+        "provider_payload_included": false,
+        "secret_or_token_included": false,
+        "device_detail_included": false
+      }
+    },
+    {
+      "case_id": "gesture.open_hand.source_no_live",
+      "fixture_label": "gesture.open_hand.redacted",
+      "gesture_label": "open_hand",
+      "expected_gate": "closed",
+      "observed_gate": "closed",
+      "accepted_activation_candidate": false,
+      "proof_scope": "negative_gate_summary",
+      "result": "pass",
+      "known_limitations": [],
+      "evidence_refs": [
+        "gesture:rr003_04_open_hand_summary"
+      ],
+      "redaction": {
+        "redaction_profile": "gesture_gate_summary_v0",
+        "shareability_class": "source_no_live",
+        "raw_video_included": false,
+        "raw_frame_included": false,
+        "raw_audio_included": false,
+        "raw_transcript_included": false,
+        "raw_media_path_included": false,
+        "private_path_included": false,
+        "provider_payload_included": false,
+        "secret_or_token_included": false,
+        "device_detail_included": false
+      }
+    }
+  ],
+  "aggregate": {
+    "sword_open_pass": true,
+    "victory_closed_pass": false,
+    "open_hand_closed_pass": true,
+    "victory_false_open_remaining": true,
+    "robust_gesture_gate_green": false,
+    "gate_summary_result": "partial_known_limitation"
+  },
+  "redaction": {
+    "redaction_profile": "gesture_gate_summary_v0",
+    "shareability_class": "source_no_live",
+    "raw_video_included": false,
+    "raw_frame_included": false,
+    "raw_audio_included": false,
+    "raw_transcript_included": false,
+    "raw_media_path_included": false,
+    "private_path_included": false,
+    "provider_payload_included": false,
+    "secret_or_token_included": false,
+    "device_detail_included": false
+  },
+  "safety": {
+    "gesture_gate_only_is_stt_proof": false,
+    "gesture_gate_only_is_thought_core_proof": false,
+    "gesture_gate_only_is_response_quality_proof": false,
+    "action_execution_claimed": false,
+    "home_control_state_claimed": false,
+    "motion_or_expression_proof_claimed": false,
+    "robust_gesture_green_claimed": false,
+    "source_adoption_or_git_claimed": false,
+    "rr003_representative_pass_claimed": false
+  },
+  "does_not_prove": [
+    "not_live_camera_audio",
+    "not_raw_media_publication",
+    "not_browser_runtime",
+    "not_stt_or_handoff_proof",
+    "not_thought_core_turn_proof",
+    "not_response_quality",
+    "not_action_execution",
+    "not_home_control_state",
+    "not_motion_or_expression_proof",
+    "not_robust_gesture_gate_green",
+    "not_source_adoption_or_git",
+    "not_rr003_representative_pass"
+  ]
+}

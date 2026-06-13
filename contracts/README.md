@@ -22,6 +22,23 @@ against these shapes at the boundary.
   local paths.
   - Example:
     `environment_evidence_packet/examples/rr001-home-assistant-camera-conflict.example.json`
+- `redacted_turn_input/redacted_turn_input.v0.schema.json`: compact,
+  redacted voice/input handoff summary for source-static and source-no-live
+  proof rows. It carries gate state, STT presence/finality metadata, handoff
+  refs, Thought Core turn completion refs, safety flags, and non-claims without
+  embedding raw transcripts, raw audio, provider payloads, local paths, action
+  proof, motion proof, or ordinary conversation quality proof.
+  - Example:
+    `redacted_turn_input/examples/source_no_live.example.json`
+- `gesture_gate_summary/gesture_gate_summary.v0.schema.json`: compact,
+  redacted gesture gate case summary for source-static and source-no-live proof
+  rows. It keeps positive/negative gesture-gate outcomes, accepted activation
+  candidate state, the `victory_false_open` known limitation, robust-gate false
+  status, redaction flags, and non-claims separate from STT, Thought Core
+  completion, action/Home Control, motion/expression, browser/runtime, live
+  camera/audio, source adoption, Git, readiness, or RR003 pass.
+  - Example:
+    `gesture_gate_summary/examples/source_no_live_cases.example.json`
 - `body_plan/body_plan.v0.schema.json`: static body plan and organism identity.
 - `driver_manifest/driver_manifest.v0.schema.json`: driver capabilities,
   action declarations, risk class defaults, and dummy/real separation.

@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/gesture_gate_summary/gesture_gate_summary.v0.schema.json",
+  "title": "Agent OS gesture_gate_summary.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "summary_id",
+    "generated_at",
+    "proof_layer",
+    "input_mode",
+    "cases",
+    "aggregate",
+    "redaction",
+    "safety",
+    "does_not_prove"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "gesture_gate_summary.v0"
+    },
+    "summary_id": {
+      "type": "string",
+      "pattern": "^ggs_[A-Za-z0-9_.:-]+$",
+      "maxLength": 120
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proof_layer": {
+      "type": "string",
+      "enum": [
+        "source-static",
+        "source-no-live"
+      ]
+    },
+    "input_mode": {
+      "type": "string",
+      "enum": [
+        "source_static_preview",
+        "actual_replay_summary",
+        "camera_hub_summary",
+        "synthetic_redacted_gesture_state"
+      ]
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/case_summary"
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sword_open_pass",
+        "victory_closed_pass",
+        "open_hand_closed_pass",
+        "victory_false_open_remaining",
+        "robust_gesture_gate_green",
+        "gate_summary_result"
+      ],
+      "properties": {
+        "sword_open_pass": {
+          "type": "boolean"
+        },
+        "victory_closed_pass": {
+          "type": "boolean"
+        },
+        "open_hand_closed_pass": {
+          "type": "boolean"
+        },
+        "victory_false_open_remaining": {
+          "type": "boolean"
+        },
+        "robust_gesture_gate_green": {
+          "const": false
+        },
+        "gate_summary_result": {
+          "type": "string",
+          "enum": [
+            "partial_known_limitation",
+            "pass",
+            "fail",
+            "blocked",
+            "held"
+          ]
+        }
+      }
+    },
+    "redaction": {
+      "$ref": "#/$defs/redaction"
+    },
+    "safety": {
+      "$ref": "#/$defs/safety"
+    },
+    "does_not_prove": {
+      "$ref": "#/$defs/non_claims"
+    }
+  },
+  "$defs": {
+    "case_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "fixture_label",
+        "gesture_label",
+        "expected_gate",
+        "observed_gate",
+        "accepted_activation_candidate",
+        "proof_scope",
+        "result",
+        "known_limitations",
+        "evidence_refs",
+        "redaction"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$",
+          "maxLength": 120
+        },
+        "fixture_label": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$",
+          "maxLength": 120
+        },
+        "gesture_label": {
+          "type": "string",
+          "enum": [
+            "sword_sign",
+            "victory",
+            "open_hand",
+            "none",
+            "unknown"
+          ]
+        },
+        "expected_gate": {
+          "type": "string",
+          "enum": [
+            "open",
+            "closed"
+          ]
+        },
+        "observed_gate": {
+          "type": "string",
+          "enum": [
+            "open",
+            "closed",
+            "unknown"
+          ]
+        },
+        "accepted_activation_candidate": {
+          "type": "boolean"
+        },
+        "proof_scope": {
+          "type": "string",
+          "enum": [
+            "positive_gate_summary",
+            "negative_gate_summary",
+            "known_limitation_tracking",
+            "upstream_false_positive_tracking",
+            "source_static_preview"
+          ]
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "known_limitation_fail",
+            "blocked",
+            "held"
+          ]
+        },
+        "known_limitations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "victory_false_open"
+            ]
+          },
+          "default": []
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          },
+          "default": []
+        },
+        "redaction": {
+          "$ref": "#/$defs/redaction"
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_profile",
+        "shareability_class",
+        "raw_video_included",
+        "raw_frame_included",
+        "raw_audio_included",
+        "raw_transcript_included",
+        "raw_media_path_included",
+        "private_path_included",
+        "provider_payload_included",
+        "secret_or_token_included",
+        "device_detail_included"
+      ],
+      "properties": {
+        "redaction_profile": {
+          "const": "gesture_gate_summary_v0"
+        },
+        "shareability_class": {
+          "type": "string",
+          "enum": [
+            "source_static",
+            "source_no_live"
+          ]
+        },
+        "raw_video_included": {
+          "const": false
+        },
+        "raw_frame_included": {
+          "const": false
+        },
+        "raw_audio_included": {
+          "const": false
+        },
+        "raw_transcript_included": {
+          "const": false
+        },
+        "raw_media_path_included": {
+          "const": false
+        },
+        "private_path_included": {
+          "const": false
+        },
+        "provider_payload_included": {
+          "const": false
+        },
+        "secret_or_token_included": {
+          "const": false
+        },
+        "device_detail_included": {
+          "const": false
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gesture_gate_only_is_stt_proof",
+        "gesture_gate_only_is_thought_core_proof",
+        "gesture_gate_only_is_response_quality_proof",
+        "action_execution_claimed",
+        "home_control_state_claimed",
+        "motion_or_expression_proof_claimed",
+        "robust_gesture_green_claimed",
+        "source_adoption_or_git_claimed",
+        "rr003_representative_pass_claimed"
+      ],
+      "properties": {
+        "gesture_gate_only_is_stt_proof": {
+          "const": false
+        },
+        "gesture_gate_only_is_thought_core_proof": {
+          "const": false
+        },
+        "gesture_gate_only_is_response_quality_proof": {
+          "const": false
+        },
+        "action_execution_claimed": {
+          "const": false
+        },
+        "home_control_state_claimed": {
+          "const": false
+        },
+        "motion_or_expression_proof_claimed": {
+          "const": false
+        },
+        "robust_gesture_green_claimed": {
+          "const": false
+        },
+        "source_adoption_or_git_claimed": {
+          "const": false
+        },
+        "rr003_representative_pass_claimed": {
+          "const": false
+        }
+      }
+    },
+    "non_claims": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.:-]*$",
+        "maxLength": 120
+      },
+      "allOf": [
+        { "contains": { "const": "not_live_camera_audio" } },
+        { "contains": { "const": "not_raw_media_publication" } },
+        { "contains": { "const": "not_browser_runtime" } },
+        { "contains": { "const": "not_stt_or_handoff_proof" } },
+        { "contains": { "const": "not_thought_core_turn_proof" } },
+        { "contains": { "const": "not_response_quality" } },
+        { "contains": { "const": "not_action_execution" } },
+        { "contains": { "const": "not_home_control_state" } },
+        { "contains": { "const": "not_motion_or_expression_proof" } },
+        { "contains": { "const": "not_robust_gesture_gate_green" } },
+        { "contains": { "const": "not_source_adoption_or_git" } },
+        { "contains": { "const": "not_rr003_representative_pass" } }
+      ]
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^(summary|gate|gesture|replay|source):[A-Za-z0-9_.:-]+$",
+      "maxLength": 160
+    }
+  }
+}

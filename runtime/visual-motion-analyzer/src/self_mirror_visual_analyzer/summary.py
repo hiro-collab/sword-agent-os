@@ -1,0 +1,522 @@
+from __future__ import annotations
+
+from collections import defaultdict
+from typing import Any
+
+
+NON_CLAIMS = [
+    "not_raw_media_proof",
+    "not_raw_screenshot_proof",
+    "not_physical_display_proof",
+    "not_environment_vision",
+    "not_external_room_or_light_proof",
+    "not_home_assistant_state_proof",
+    "not_physical_action_proof",
+    "not_semantic_full_body_or_dance_quality_proof",
+    "not_expression_request_or_runtime_result_proof",
+    "not_expression_semantic_proof",
+    "not_rr003_representative_pass",
+]
+
+
+def build_self_mirror_metric_summary(
+    visual_summary: dict[str, Any],
+    rows: list[dict[str, Any]],
+    *,
+    timeline_artifact: str = "visual_motion_roi_timeseries.csv",
+    chart_artifact: str = "visual_motion_chart.html",
+    jsonl_artifact: str | None = None,
+) -> dict[str, Any]:
+    scenario = dict(visual_summary.get("scenario", {}))
+    scenario_id = str(visual_summary.get("scenario_id", "unknown"))
+    proof_layer = str(visual_summary.get("proof_layer", "unknown"))
+    activation_sampling = str(visual_summary.get("activation_sampling", "event_driven"))
+    evidence_export = str(visual_summary.get("evidence_export", "verification_capture"))
+    reason_code = str(visual_summary.get("classification", {}).get("reason_code", visual_summary.get("result", "unknown")))
+    result = _result_status(str(visual_summary.get("result", "unknown")))
+    needs_attention = result != "pass"
+    recommended_correction = (
+        str(visual_summary.get("classification", {}).get("next_action", ""))
+        if needs_attention
+        else ""
+    )
+    summary_id = f"smm_sum_{_safe_slug(visual_summary.get('analysis_run_id', scenario_id))}"
+    windows = {
+        str(window.get("window_id")): {
+            "start_ms": int(window.get("start_ms", 0)),
+            "end_ms": int(window.get("end_ms", 0)),
+        }
+        for window in visual_summary.get("windows", [])
+        if isinstance(window, dict)
+    }
+    roi_results = {
+        str(roi.get("roi_id")): roi
+        for roi in visual_summary.get("roi_results", [])
+        if isinstance(roi, dict)
+    }
+    timeline_ref = {
+        "kind": "csv",
+        "artifact": timeline_artifact,
+        "shared": True,
+        "raw_frame_included": False,
+        "raw_screenshot_included": False,
+        "authority": False,
+    }
+    supporting_views: list[dict[str, Any]] = [
+        {
+            "kind": "html",
+            "artifact": chart_artifact,
+            "shared": False,
+            "authority": False,
+            "raw_frame_included": False,
+            "raw_screenshot_included": False,
+        }
+    ]
+    if jsonl_artifact:
+        supporting_views.append(
+            {
+                "kind": "jsonl",
+                "artifact": jsonl_artifact,
+                "shared": True,
+                "authority": False,
+                "raw_frame_included": False,
+                "raw_screenshot_included": False,
+            }
+        )
+    latest_state = _latest_state(
+        summary_id=summary_id,
+        visual_summary=visual_summary,
+        scenario_id=scenario_id,
+        observed_target=_observed_target(visual_summary),
+        result=result,
+        reason_code=reason_code,
+        needs_attention=needs_attention,
+        recommended_correction=recommended_correction,
+        activation_sampling=activation_sampling,
+        evidence_export=evidence_export,
+        proof_layer=proof_layer,
+    )
+
+    summary_confidence = _summary_confidence(visual_summary)
+    motion_diagnostics = _motion_diagnostics_summary(visual_summary)
+    return {
+        "schema_version": "self_mirror_metric_summary.v0",
+        "summary_id": summary_id,
+        "analysis_run_id": visual_summary.get("analysis_run_id"),
+        "scenario_id": scenario_id,
+        "observed_target": _observed_target(visual_summary),
+        "run_refs": _run_refs(visual_summary),
+        "event_timeline": _safe_dict(visual_summary.get("event_timeline", {})),
+        "projection_visual_diagnostics": _safe_dict(
+            visual_summary.get("projection_visual_diagnostics", {})
+        ),
+        "motion_diagnostics": motion_diagnostics,
+        "activation_sampling": activation_sampling,
+        "evidence_export": evidence_export,
+        "observation_policy": _observation_policy(activation_sampling, evidence_export),
+        "evidence_layer": _evidence_layer(proof_layer),
+        "proof_layer": proof_layer,
+        "result": result,
+        "confidence": summary_confidence,
+        "needs_attention": needs_attention,
+        "needs_human_review": needs_attention,
+        "observed_issue": _observed_issue(reason_code),
+        "recommended_correction": recommended_correction,
+        "latest_observation_ref": latest_state["observation_id"],
+        "consumer_retry_policy": _consumer_retry_policy(latest_state["observation_id"]),
+        "latest_state": latest_state,
+        "observation_queue": {
+            "schema_version": "self_mirror_observation_queue.v0",
+            "retention": "bounded_ring_buffer",
+            "max_entries": 8,
+            "durable_memory_by_default": False,
+            "raw_frame_included": False,
+            "raw_screenshot_included": False,
+            "raw_video_included": False,
+            "local_path_included": False,
+            "direct_correction_dispatch": False,
+            "consumer_retry_policy": _consumer_retry_policy(latest_state["observation_id"]),
+            "entries": [latest_state],
+        },
+        "classification": {
+            "status": result,
+            "reason_code": reason_code,
+            "diagnostic_result": motion_diagnostics.get("diagnostic_result", ""),
+            "event_window_classification": motion_diagnostics.get("event_window_classification", ""),
+            "timeline_stage": motion_diagnostics.get("timeline_stage", ""),
+            "available_anchor_ids": motion_diagnostics.get("available_anchor_ids", []),
+            "missing_anchor_ids": motion_diagnostics.get("missing_anchor_ids", []),
+            "observed_issue": _observed_issue(reason_code),
+            "recommended_correction": recommended_correction,
+            "recommendation_is_observation_only": True,
+            "non_claims": NON_CLAIMS,
+        },
+        "timeline_ref": timeline_ref,
+        "supporting_views": supporting_views,
+        "raw_frame_included": False,
+        "raw_screenshot_included": False,
+        "raw_media_included": False,
+        "roi_window_metrics": _roi_window_metrics(
+            visual_summary=visual_summary,
+            rows=rows,
+            windows=windows,
+            roi_results=roi_results,
+            timeline_ref=timeline_ref,
+        ),
+        "does_not_prove": NON_CLAIMS,
+        "source": {
+            "kind": str(visual_summary.get("source_ref", {}).get("kind", "unknown")),
+            "source_ref_id": str(visual_summary.get("source_ref", {}).get("source_ref_id", "redacted_unknown")),
+            "raw_source_shared": False,
+        },
+        "scenario": {
+            "scenario_key": str(scenario.get("scenario_key", "")),
+            "label": str(scenario.get("label", "")),
+            "expected_motion": str(scenario.get("expected_motion", "")),
+            "runtime_join_required": bool(scenario.get("runtime_join_required", False)),
+        },
+        "artifact_policy": {
+            "authority_product": "self_mirror_metric_summary.v0",
+            "timeline_export_authority": False,
+            "graph_export_authority": False,
+            "raw_frames_shared": False,
+            "raw_paths_shared": False,
+            "raw_frames_retained": bool(visual_summary.get("artifact_policy", {}).get("raw_frames_retained", False)),
+            "shareable_output": _observation_policy(activation_sampling, evidence_export)["shareable_output"],
+        },
+        "boundary": {
+            "observes": "self/avatar/display output",
+            "does_not_observe": [
+                "external_room_environment",
+                "room_light_state",
+                "home_assistant_state",
+                "physical_device_action",
+            ],
+            "decision_boundary": {
+                "self_mirror_role": "observation_and_evaluation_only",
+                "does_not_decide_correction": True,
+                "does_not_execute_correction": True,
+                "motion_runtime_owns_motion_execution": True,
+                "thought_core_owns_decision": True,
+            },
+        },
+    }
+
+
+def _roi_window_metrics(
+    *,
+    visual_summary: dict[str, Any],
+    rows: list[dict[str, Any]],
+    windows: dict[str, dict[str, int]],
+    roi_results: dict[str, dict[str, Any]],
+    timeline_ref: dict[str, Any],
+) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        grouped[(str(row.get("roi_id", "")), str(row.get("window_id", "")))].append(row)
+
+    metrics: list[dict[str, Any]] = []
+    for (roi_id, window_id), window_rows in sorted(grouped.items()):
+        if not roi_id or not window_id:
+            continue
+        window = windows.get(window_id, {"start_ms": 0, "end_ms": 0})
+        roi_result = roi_results.get(roi_id, {})
+        movement_score = max((float(row.get("motion_score", 0.0)) for row in window_rows), default=0.0)
+        changed_ratio = max((float(row.get("changed_pixel_ratio", 0.0)) for row in window_rows), default=0.0)
+        threshold = float(visual_summary.get("thresholds", {}).get("active_motion_min_score", 0.0))
+        metrics.append(
+            {
+                "roi_id": roi_id,
+                "observed_target": _target_for_roi(roi_result),
+                "time_window": window_id,
+                "start_ms": window["start_ms"],
+                "end_ms": window["end_ms"],
+                "sample_count": len(window_rows),
+                "movement_score": round(movement_score, 6),
+                "changed_ratio": round(changed_ratio, 6),
+                "confidence": _metric_confidence(movement_score, threshold, len(window_rows)),
+                "evidence_layer": _evidence_layer(str(visual_summary.get("proof_layer", "unknown"))),
+                "timeline_ref": timeline_ref,
+                "raw_frame_included": False,
+                "raw_screenshot_included": False,
+                "counts_as_avatar_motion": bool(roi_result.get("counts_as_avatar_motion", False)),
+                "expected_for_pass": bool(roi_result.get("expected_for_pass", False)),
+                "pass_label": str(roi_result.get("pass_label", "")),
+                "does_not_prove": NON_CLAIMS,
+                "non_claims": NON_CLAIMS,
+            }
+        )
+    return metrics
+
+
+def _latest_state(
+    *,
+    summary_id: str,
+    visual_summary: dict[str, Any],
+    scenario_id: str,
+    observed_target: str,
+    result: str,
+    reason_code: str,
+    needs_attention: bool,
+    recommended_correction: str,
+    activation_sampling: str,
+    evidence_export: str,
+    proof_layer: str,
+) -> dict[str, Any]:
+    motion_diagnostics = _motion_diagnostics_summary(visual_summary)
+    return {
+        "schema_version": "self_mirror_observation.v0",
+        "observation_id": f"smm_obs_{_safe_slug(visual_summary.get('analysis_run_id', summary_id))}",
+        "summary_id": summary_id,
+        "analysis_run_id": visual_summary.get("analysis_run_id"),
+        "scenario_id": scenario_id,
+        "observed_target": observed_target,
+        "activation_sampling": activation_sampling,
+        "evidence_export": evidence_export,
+        "evidence_layer": _evidence_layer(proof_layer),
+        "result": result,
+        "reason_code": reason_code,
+        "diagnostic_result": motion_diagnostics.get("diagnostic_result", ""),
+        "event_window_classification": motion_diagnostics.get("event_window_classification", ""),
+        "timeline_stage": motion_diagnostics.get("timeline_stage", ""),
+        "available_anchor_ids": motion_diagnostics.get("available_anchor_ids", []),
+        "missing_anchor_ids": motion_diagnostics.get("missing_anchor_ids", []),
+        "needs_attention": needs_attention,
+        "observed_issue": _observed_issue(reason_code),
+        "recommended_correction": recommended_correction,
+        "confidence": _summary_confidence(visual_summary),
+        "raw_frame_included": False,
+        "raw_screenshot_included": False,
+        "raw_video_included": False,
+        "local_path_included": False,
+        "direct_correction_dispatch": False,
+        "retry_authority": False,
+        "consumer_retry_policy_ref": "consumer_retry_policy",
+        "durable_memory_by_default": False,
+        "does_not_prove": NON_CLAIMS,
+    }
+
+
+def _run_refs(summary: dict[str, Any]) -> dict[str, Any]:
+    runtime_join = summary.get("runtime_join", {})
+    return {
+        "motion_event_id": summary.get("motion_event_id", ""),
+        "stimulus_instance_id": summary.get("stimulus_instance_id", ""),
+        "runtime_result_id": runtime_join.get("runtime_result_id", summary.get("driver_result_id", "")),
+        "driver_result_id": runtime_join.get("driver_result_id", summary.get("driver_result_id", "")),
+        "multi_stimulus_group_id": runtime_join.get("multi_stimulus_group_id", ""),
+        "runtime_status": runtime_join.get("result_status", ""),
+        "runtime_reason_code": runtime_join.get("result_reason_code", ""),
+        "runtime_safe_visible_state": runtime_join.get("result_safe_visible_state", ""),
+    }
+
+
+def _motion_diagnostics_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    diagnostics = summary.get("motion_diagnostics", {})
+    if not isinstance(diagnostics, dict):
+        return {}
+    return _safe_dict(diagnostics)
+
+
+def _safe_dict(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    safe: dict[str, Any] = {}
+    for key, item in value.items():
+        if isinstance(item, dict):
+            safe[str(key)] = _safe_dict(item)
+        elif isinstance(item, list):
+            safe[str(key)] = [
+                _safe_dict(entry) if isinstance(entry, dict) else entry
+                for entry in item
+                if not _looks_like_path_or_secret(entry)
+            ]
+        elif not _looks_like_path_or_secret(item):
+            safe[str(key)] = item
+    return safe
+
+
+def _looks_like_path_or_secret(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    lowered = value.lower()
+    if "\\" in value or "/" in value:
+        return True
+    return any(marker in lowered for marker in ("token", "secret", "apikey", "api_key", "bearer "))
+
+
+def _observed_target(summary: dict[str, Any]) -> str:
+    expected = str(summary.get("scenario", {}).get("expected_motion", ""))
+    if expected in {"avatar_motion", "broad_avatar_motion", "face_visible_change", "expression_visible_change"}:
+        return "avatar"
+    if expected == "none":
+        return "motion_roi"
+    return "projection_visual"
+
+
+def _target_for_roi(roi_result: dict[str, Any]) -> str:
+    if bool(roi_result.get("counts_as_avatar_motion", False)):
+        return "avatar"
+    return "projection_visual"
+
+
+def _evidence_layer(proof_layer: str) -> str:
+    if proof_layer == "no_live_runtime":
+        return "synthetic-method-proof"
+    if proof_layer == "browser_runtime":
+        return "browser-runtime-roi-proof"
+    return proof_layer
+
+
+def _result_status(reason_code: str) -> str:
+    if reason_code == "visual-pass":
+        return "pass"
+    if reason_code in {"runtime-not-joined", "capture-not-ready"}:
+        return "blocked"
+    if reason_code in {"visual-pretrigger-motion", "guard-only-motion", "did-not-settle"}:
+        return "partial"
+    return "fail"
+
+
+def _metric_confidence(movement_score: float, threshold: float, sample_count: int) -> float:
+    if sample_count <= 0:
+        return 0.0
+    if threshold <= 0:
+        return 0.5
+    margin = max(0.0, min(1.0, movement_score / threshold))
+    sample_support = min(1.0, sample_count / 3.0)
+    return round(min(1.0, 0.25 + 0.55 * margin + 0.20 * sample_support), 3)
+
+
+def _summary_confidence(visual_summary: dict[str, Any]) -> float:
+    values = [
+        float(row.get("confidence", 0.0))
+        for row in visual_summary.get("roi_results", [])
+        if isinstance(row, dict)
+    ]
+    if values and max(values) > 0.0:
+        return round(max(0.0, min(1.0, max(values))), 3)
+
+    threshold = float(visual_summary.get("thresholds", {}).get("active_motion_min_score", 0.0))
+    peak_values = [
+        float(row.get("active_peak_motion_score", 0.0))
+        for row in visual_summary.get("roi_results", [])
+        if isinstance(row, dict) and bool(row.get("expected_for_pass", False))
+    ]
+    if not peak_values:
+        peak_values = [
+            float(row.get("active_peak_motion_score", 0.0))
+            for row in visual_summary.get("roi_results", [])
+            if isinstance(row, dict)
+        ]
+    return _metric_confidence(max(peak_values, default=0.0), threshold, len(peak_values))
+
+
+def _observation_policy(activation_sampling: str, evidence_export: str) -> dict[str, Any]:
+    activation_policies = {
+        "disabled": {
+            "timing": "no_capture_or_analyze",
+        },
+        "event_driven": {
+            "timing": "after_motion_expression_or_display_event",
+        },
+        "periodic_lightweight": {
+            "timing": "periodic_health_or_freshness_check",
+        },
+        "continuous_monitor": {
+            "timing": "continuous_or_near_continuous_observation",
+        },
+    }
+    export_policies = {
+        "status_only": {
+            "depth": "status_and_freshness_only",
+            "shareable_output": "status_only",
+            "timeline_export_expected": False,
+            "local_only_diagnostics": False,
+        },
+        "metric_summary": {
+            "depth": "machine_readable_metric_summary",
+            "shareable_output": "self_mirror_metric_summary.v0",
+            "timeline_export_expected": False,
+            "local_only_diagnostics": False,
+        },
+        "verification_capture": {
+            "depth": "summary_plus_redacted_timeline_views",
+            "shareable_output": "summary_plus_csv_html_or_jsonl_supporting_views",
+            "timeline_export_expected": True,
+            "local_only_diagnostics": False,
+        },
+        "diagnostic_local": {
+            "depth": "extra_local_diagnostics_when_explicitly_enabled",
+            "shareable_output": "local_only_unless_redacted_and_reviewed",
+            "timeline_export_expected": True,
+            "local_only_diagnostics": True,
+        },
+    }
+    activation = activation_policies.get(activation_sampling, activation_policies["event_driven"])
+    export = export_policies.get(evidence_export, export_policies["verification_capture"])
+    return {
+        "activation_sampling": activation_sampling,
+        "evidence_export": evidence_export,
+        "timing": activation["timing"],
+        "depth": export["depth"],
+        "shareable_output": export["shareable_output"],
+        "timeline_export_expected": export["timeline_export_expected"],
+        "local_only_diagnostics": export["local_only_diagnostics"],
+        "verification_capture_is_completion_proof": False,
+    }
+
+
+def _consumer_retry_policy(observation_ref: str) -> dict[str, Any]:
+    return {
+        "self_mirror_is_command_channel": False,
+        "self_mirror_retry_authority": False,
+        "self_mirror_observation_ref": observation_ref,
+        "retry_policy_kind": "consumer_config_reference",
+        "retry_limit_default": 2,
+        "retry_limit_configurable": True,
+        "retry_policy_source": (
+            "THOUGHT_CORE_SELF_MIRROR_RETRY_LIMIT|"
+            "thought_core.self_mirror_retry.limit|"
+            "selfMirrorRetryPolicyState"
+        ),
+        "retry_execution_owner": "thought_core_or_output_owner",
+        "external_side_effect_auto_retry_allowed": False,
+        "applies_to_side_effect_class": "internal_self_display_only",
+        "failure_escalation_policy": {
+            "self_mirror_escalation_authority": False,
+            "one_off_failure_route": "trace_only",
+            "candidate_routes": ["memory_core_candidate", "issue_ticket_candidate"],
+            "candidate_when": [
+                "repeated_failure",
+                "important_or_safety_tag",
+                "review_blocker",
+                "user_reported",
+                "likely_implementation_gap",
+                "configured_limit_exhausted",
+            ],
+        },
+        "required_trace_fields": [
+            "retry_count",
+            "retry_limit",
+            "retry_policy_source",
+            "retry_reason",
+            "self_mirror_observation_ref",
+            "action_kind",
+            "side_effect_class",
+            "final_status",
+            "gave_up_reason",
+            "failure_pattern",
+        ],
+    }
+
+
+def _observed_issue(reason_code: str) -> str:
+    if reason_code == "visual-pass":
+        return ""
+    return reason_code
+
+
+def _safe_slug(value: Any) -> str:
+    text = str(value).strip().lower()
+    return "".join(char if char.isalnum() else "_" for char in text).strip("_") or "unknown"
