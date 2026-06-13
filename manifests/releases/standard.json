@@ -69,7 +69,7 @@
       "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
       "fork_repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "fork_branch": "experiment/aituber-gesture-voice-bridge",
-      "fork_commit": "ca8d07368fc18304e074c5e1603961e5dadf7726",
+      "fork_commit": "c79e3bdeba89b09879f0d488ac450b734b337927",
       "sword_adapter_version": "0.1.3",
       "patchset_id": "sword-aituberkit",
       "patchset_version": "0.1.3",
