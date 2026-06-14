@@ -7,6 +7,40 @@ README は最初の入口です。この文書は、README を読んだ後に
 「標準構成とは何か」「何が GitHub に含まれ、何がローカル準備なのか」
 「どこまで動けば何を証明したことになるのか」を確認するために使います。
 
+## Mainline At A Glance
+
+Sword Agent OS の標準構成は、次の mainline を持つ cyber-system です。
+
+```text
+input / observation
+-> state understanding
+-> Thought Core or Reflex decision
+-> guarded action or expression
+-> environment / avatar / voice / HUD / projection output
+-> observation, self-observation, event/status/memory feedback
+```
+
+この文書では、この mainline を読むために必要なものだけを扱います。
+debug tree や coordination history ではなく、標準構成の地図です。
+
+| 初見の問い | まず見る場所 |
+| --- | --- |
+| 何を入れれば標準構成になるか | `What The Standard Distribution Is` |
+| 最初にどこまで動けばよいか | `First Success` |
+| 代表 loop は何か | `Representative Standard Loop` |
+| 実装はどこに入るか | `Organ Checkout Map` |
+| 何が正本か | `Manifest And Pin Authority` |
+| 何を証明していないか | `Proof Layers` |
+
+標準構成の mainline ではないもの:
+
+- `coordination/` の長い作業履歴や thread message。
+- 一回限りの helper/browser/debug 証跡。
+- `local/`、cache、raw media、private config、machine-specific log。
+- nested checkout 内の未採用差分を親 manifest pin 更新なしに正本扱いすること。
+
+これらは検証や開発には重要ですが、標準構成を理解する入口ではありません。
+
 ## What The Standard Distribution Is
 
 標準ディストリビューションは、家の中で使う AI エージェントを例にした

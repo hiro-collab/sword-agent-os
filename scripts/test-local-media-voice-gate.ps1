@@ -7,8 +7,17 @@ param(
 
   [string]$WorkspaceRoot = "",
   [string]$GateEvents = "",
+  [string]$GestureEvents = "",
   [string]$SttDiagnostic = "",
   [string]$ThoughtCoreEvents = "",
+  [ValidateSet("auto", "gate-events", "gesture-events")]
+  [string]$GateSource = "auto",
+  [ValidateSet("any", "open", "closed")]
+  [string]$ExpectedGate = "any",
+  [string]$TargetGesture = "sword_sign",
+  [double]$MinConfidence = 0.8,
+  [double]$ActivationDelay = 0.3,
+  [double]$ReleaseDelay = 0.5,
   [string]$ProofLayer = "source/static-command-preview",
   [switch]$Json
 )
@@ -114,6 +123,7 @@ $relativePath = ConvertTo-SafeLocalMediaRelativePath -Path ([string](Get-Optiona
 $assetKind = [string](Get-OptionalProperty -Object $asset -Name "kind" -Default "unknown")
 
 Assert-SafeDiagnosticInput -Path $GateEvents
+Assert-SafeDiagnosticInput -Path $GestureEvents
 Assert-SafeDiagnosticInput -Path $SttDiagnostic
 Assert-SafeDiagnosticInput -Path $ThoughtCoreEvents
 
@@ -125,10 +135,19 @@ if ($Mode -eq "collect-local") {
     "--media-index", $indexPath,
     "--mode", "collect-local",
     "--proof-layer", $ProofLayer,
+    "--gate-source", $GateSource,
+    "--expected-gate", $ExpectedGate,
+    "--target-gesture", $TargetGesture,
+    "--min-confidence", ([string]$MinConfidence),
+    "--activation-delay", ([string]$ActivationDelay),
+    "--release-delay", ([string]$ReleaseDelay),
     "--print-json"
   )
   if (-not [string]::IsNullOrWhiteSpace($GateEvents)) {
     $arguments += @("--gate-events", $GateEvents)
+  }
+  if (-not [string]::IsNullOrWhiteSpace($GestureEvents)) {
+    $arguments += @("--gesture-events", $GestureEvents)
   }
   if (-not [string]::IsNullOrWhiteSpace($SttDiagnostic)) {
     $arguments += @("--stt-diagnostic", $SttDiagnostic)
@@ -157,6 +176,9 @@ $result = [PSCustomObject]@{
   media_index = "local/media/media-index.json"
   intended_helper = "sword_voice_agent.apps.local_media_voice_gate_proof"
   intended_modes = @("preview", "collect-local")
+  gate_source = $GateSource
+  expected_gate = $ExpectedGate
+  target_gesture = $TargetGesture
   held_proof_layers = @("virtual audio", "real mic", "browser runtime", "live Home Assistant", "long-run/stress")
   raw_media_shared = $false
   raw_transcript_shared = $false
@@ -181,6 +203,9 @@ Write-Host ("asset_id={0}" -f $result.asset_id)
 Write-Host ("asset_kind={0}" -f $result.asset_kind)
 Write-Host ("duration_sec={0}" -f $result.duration_sec)
 Write-Host ("media_index={0}" -f $result.media_index)
+Write-Host ("gate_source={0}" -f $result.gate_source)
+Write-Host ("expected_gate={0}" -f $result.expected_gate)
+Write-Host ("target_gesture={0}" -f $result.target_gesture)
 Write-Host "raw_media_shared=false"
 Write-Host "raw_transcript_shared=false"
 Write-Host "raw_prompt_shared=false"

@@ -120,6 +120,115 @@
       "type": "string",
       "enum": ["avatar", "projection_visual", "motion_roi", "hud"]
     },
+    "test_observability": {
+      "const": "self_mirror_metric"
+    },
+    "observability": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "test_observability",
+        "observability_surface_status",
+        "capture_surface_kind",
+        "proof_ceiling",
+        "authority_roi_ids",
+        "guard_roi_ids",
+        "window_coverage",
+        "diagnostic_artifact",
+        "visual_failure_reason_codes",
+        "does_not_prove",
+        "raw_frame_included",
+        "raw_screenshot_included",
+        "raw_video_included",
+        "local_path_included",
+        "provider_payload_included",
+        "home_control_or_device_state_included"
+      ],
+      "properties": {
+        "schema_version": { "const": "self_mirror_test_observability.v0" },
+        "test_observability": { "const": "self_mirror_metric" },
+        "observability_surface_status": {
+          "type": "string",
+          "enum": [
+            "present",
+            "missing_surface_blocker",
+            "support_only",
+            "accepted_limitation"
+          ]
+        },
+        "capture_surface_kind": { "type": "string", "minLength": 1 },
+        "browser_process_kind": { "type": "string" },
+        "same_page_or_target": { "type": ["boolean", "null"] },
+        "proof_ceiling": { "type": "string", "minLength": 1 },
+        "authority_roi_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "guard_roi_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "window_coverage": {
+          "type": "object",
+          "required": [
+            "expected_rows",
+            "observed_rows",
+            "missing_rows",
+            "active_sample_count",
+            "raw_frame_included",
+            "raw_screenshot_included"
+          ],
+          "properties": {
+            "expected_rows": { "type": "integer", "minimum": 0 },
+            "observed_rows": { "type": "integer", "minimum": 0 },
+            "missing_rows": { "type": "integer", "minimum": 0 },
+            "active_sample_count": { "type": "integer", "minimum": 0 },
+            "raw_frame_included": { "const": false },
+            "raw_screenshot_included": { "const": false }
+          }
+        },
+        "diagnostic_artifact": {
+          "type": "object",
+          "required": [
+            "included",
+            "support_only",
+            "raw_media_included",
+            "raw_frame_included",
+            "raw_screenshot_included",
+            "raw_video_included",
+            "local_path_included",
+            "publication_allowed"
+          ],
+          "properties": {
+            "included": { "type": "boolean" },
+            "support_only": { "const": true },
+            "raw_media_included": { "const": false },
+            "raw_frame_included": { "const": false },
+            "raw_screenshot_included": { "const": false },
+            "raw_video_included": { "const": false },
+            "local_path_included": { "const": false },
+            "raw_frames_retained": { "type": "boolean" },
+            "publication_allowed": { "const": false }
+          }
+        },
+        "missing_surface_reason": { "type": ["string", "null"] },
+        "visual_failure_reason_codes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "does_not_prove": {
+          "type": "array",
+          "items": { "type": "string" },
+          "contains": { "const": "not_raw_media_proof" }
+        },
+        "raw_frame_included": { "const": false },
+        "raw_screenshot_included": { "const": false },
+        "raw_video_included": { "const": false },
+        "local_path_included": { "const": false },
+        "provider_payload_included": { "const": false },
+        "home_control_or_device_state_included": { "const": false }
+      }
+    },
     "activation_sampling": {
       "type": "string",
       "enum": [

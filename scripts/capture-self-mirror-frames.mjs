@@ -991,6 +991,7 @@ async function main() {
   const runtimeJoin = {
     analysis_run_id: args.analysisRunId,
     motion_event_id: args.motionEventId,
+    stimulus_id: args.stimulusId || null,
     stimulus_instance_id: args.stimulusInstanceId,
     planned_driver_result_id: args.driverResultId,
     planned_runtime_result_id: plannedRuntimeResultId,
@@ -1006,6 +1007,7 @@ async function main() {
     analysis_run_id: args.analysisRunId,
     scenario_id: args.scenarioId,
     motion_event_id: args.motionEventId,
+    stimulus_id: args.stimulusId || null,
     stimulus_instance_id: args.stimulusInstanceId,
     driver_result_id: joinedDriverResultId,
     proof_layer: args.proofLayer,
@@ -1018,6 +1020,7 @@ async function main() {
       sample_rate_fps: args.sampleRateFps,
     },
     capture_ready: selfMirrorReady,
+    target_identity: captureTargetIdentity(args),
     event_timeline: eventTimeline,
     runtime_join: runtimeJoin,
     projection_visual_diagnostics: projectionVisualDiagnostics,

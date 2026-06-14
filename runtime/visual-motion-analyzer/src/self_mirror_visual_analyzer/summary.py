@@ -99,13 +99,29 @@ def build_self_mirror_metric_summary(
 
     summary_confidence = _summary_confidence(visual_summary)
     motion_diagnostics = _motion_diagnostics_summary(visual_summary)
+    observability = _observability_block(
+        visual_summary=visual_summary,
+        rows=rows,
+        windows=windows,
+        roi_results=roi_results,
+        motion_diagnostics=motion_diagnostics,
+        reason_code=reason_code,
+    )
     return {
         "schema_version": "self_mirror_metric_summary.v0",
         "summary_id": summary_id,
         "analysis_run_id": visual_summary.get("analysis_run_id"),
         "scenario_id": scenario_id,
         "observed_target": _observed_target(visual_summary),
+        "test_observability": observability["test_observability"],
+        "observability": observability,
         "run_refs": _run_refs(visual_summary),
+        "capture_target_identity": _safe_dict(
+            visual_summary.get("capture_target_identity", {})
+        ),
+        "controlled_chrome_observation": _safe_dict(
+            visual_summary.get("controlled_chrome_observation", {})
+        ),
         "event_timeline": _safe_dict(visual_summary.get("event_timeline", {})),
         "projection_visual_diagnostics": _safe_dict(
             visual_summary.get("projection_visual_diagnostics", {})
@@ -301,6 +317,7 @@ def _run_refs(summary: dict[str, Any]) -> dict[str, Any]:
     runtime_join = summary.get("runtime_join", {})
     return {
         "motion_event_id": summary.get("motion_event_id", ""),
+        "stimulus_id": runtime_join.get("stimulus_id", summary.get("stimulus_id", "")),
         "stimulus_instance_id": summary.get("stimulus_instance_id", ""),
         "runtime_result_id": runtime_join.get("runtime_result_id", summary.get("driver_result_id", "")),
         "driver_result_id": runtime_join.get("driver_result_id", summary.get("driver_result_id", "")),
@@ -309,6 +326,199 @@ def _run_refs(summary: dict[str, Any]) -> dict[str, Any]:
         "runtime_reason_code": runtime_join.get("result_reason_code", ""),
         "runtime_safe_visible_state": runtime_join.get("result_safe_visible_state", ""),
     }
+
+
+def _observability_block(
+    *,
+    visual_summary: dict[str, Any],
+    rows: list[dict[str, Any]],
+    windows: dict[str, dict[str, int]],
+    roi_results: dict[str, dict[str, Any]],
+    motion_diagnostics: dict[str, Any],
+    reason_code: str,
+) -> dict[str, Any]:
+    capture_target_identity = _safe_dict(
+        visual_summary.get("capture_target_identity", {})
+    )
+    authority_roi_ids = _authority_roi_ids(roi_results)
+    guard_roi_ids = _guard_roi_ids(roi_results)
+    window_coverage = _window_coverage(
+        rows=rows,
+        windows=windows,
+        roi_results=roi_results,
+        authority_roi_ids=authority_roi_ids,
+    )
+    status, missing_reason = _observability_status(
+        visual_summary=visual_summary,
+        rows=rows,
+        authority_roi_ids=authority_roi_ids,
+        observed_rows=window_coverage["observed_rows"],
+    )
+    return {
+        "schema_version": "self_mirror_test_observability.v0",
+        "test_observability": "self_mirror_metric",
+        "observability_surface_status": status,
+        "capture_surface_kind": _capture_surface_kind(
+            visual_summary, capture_target_identity
+        ),
+        "browser_process_kind": str(capture_target_identity.get("browser_process_kind", "")),
+        "same_page_or_target": capture_target_identity.get("same_page_or_target"),
+        "proof_ceiling": _proof_ceiling(visual_summary, capture_target_identity),
+        "authority_roi_ids": authority_roi_ids,
+        "guard_roi_ids": guard_roi_ids,
+        "window_coverage": window_coverage,
+        "diagnostic_artifact": _diagnostic_artifact_summary(visual_summary),
+        "missing_surface_reason": missing_reason,
+        "visual_failure_reason_codes": _visual_failure_reason_codes(
+            reason_code=reason_code,
+            motion_diagnostics=motion_diagnostics,
+            surface_status=status,
+        ),
+        "does_not_prove": NON_CLAIMS,
+        "raw_frame_included": False,
+        "raw_screenshot_included": False,
+        "raw_video_included": False,
+        "local_path_included": False,
+        "provider_payload_included": False,
+        "home_control_or_device_state_included": False,
+    }
+
+
+def _authority_roi_ids(roi_results: dict[str, dict[str, Any]]) -> list[str]:
+    return sorted(
+        roi_id
+        for roi_id, roi in roi_results.items()
+        if bool(roi.get("counts_as_avatar_motion", False))
+        and bool(roi.get("expected_for_pass", False))
+    )
+
+
+def _guard_roi_ids(roi_results: dict[str, dict[str, Any]]) -> list[str]:
+    return sorted(
+        roi_id
+        for roi_id, roi in roi_results.items()
+        if not bool(roi.get("counts_as_avatar_motion", False))
+        and str(roi.get("kind", "")) != "diagnostic"
+    )
+
+
+def _window_coverage(
+    *,
+    rows: list[dict[str, Any]],
+    windows: dict[str, dict[str, int]],
+    roi_results: dict[str, dict[str, Any]],
+    authority_roi_ids: list[str],
+) -> dict[str, Any]:
+    window_ids = {window_id for window_id in windows if window_id}
+    roi_ids = {roi_id for roi_id in roi_results if roi_id}
+    observed_pairs = {
+        (str(row.get("roi_id", "")), str(row.get("window_id", "")))
+        for row in rows
+        if row.get("roi_id") and row.get("window_id")
+    }
+    expected_pairs = {
+        (roi_id, window_id)
+        for roi_id in roi_ids
+        for window_id in window_ids
+    }
+    active_sample_count = sum(
+        1
+        for row in rows
+        if str(row.get("window_id", "")) == "active"
+        and str(row.get("roi_id", "")) in authority_roi_ids
+    )
+    return {
+        "expected_rows": len(expected_pairs),
+        "observed_rows": len(observed_pairs),
+        "missing_rows": max(0, len(expected_pairs - observed_pairs)),
+        "active_sample_count": active_sample_count,
+        "raw_frame_included": False,
+        "raw_screenshot_included": False,
+    }
+
+
+def _observability_status(
+    *,
+    visual_summary: dict[str, Any],
+    rows: list[dict[str, Any]],
+    authority_roi_ids: list[str],
+    observed_rows: int,
+) -> tuple[str, str | None]:
+    expected_motion = str(visual_summary.get("scenario", {}).get("expected_motion", ""))
+    if not rows or observed_rows <= 0:
+        return "missing_surface_blocker", "missing-roi-window-metrics"
+    if expected_motion != "none" and not authority_roi_ids:
+        return "missing_surface_blocker", "missing-authority-roi"
+    return "present", None
+
+
+def _capture_surface_kind(
+    visual_summary: dict[str, Any], capture_target_identity: dict[str, Any]
+) -> str:
+    value = str(capture_target_identity.get("capture_surface_kind", ""))
+    if value:
+        return value
+    proof_layer = str(visual_summary.get("proof_layer", ""))
+    if proof_layer == "no_live_runtime":
+        return "source_no_live_or_synthetic"
+    if visual_summary.get("controlled_chrome_observation"):
+        return "controlled_chrome_summary_metric"
+    if proof_layer == "browser_runtime":
+        return "helper_or_browser_runtime"
+    return "unknown"
+
+
+def _proof_ceiling(
+    visual_summary: dict[str, Any], capture_target_identity: dict[str, Any]
+) -> str:
+    value = str(capture_target_identity.get("proof_ceiling", ""))
+    if value:
+        return value
+    proof_layer = str(visual_summary.get("proof_layer", ""))
+    if proof_layer == "no_live_runtime":
+        return "source_no_live_or_synthetic_only"
+    if visual_summary.get("controlled_chrome_observation"):
+        return "controlled_chrome_self_mirror_summary_only_not_physical_display"
+    if proof_layer == "browser_runtime":
+        return "helper_browser_runtime_only"
+    return proof_layer or "unknown"
+
+
+def _diagnostic_artifact_summary(visual_summary: dict[str, Any]) -> dict[str, Any]:
+    artifact_policy = _safe_dict(visual_summary.get("artifact_policy", {}))
+    return {
+        "included": bool(artifact_policy),
+        "support_only": True,
+        "raw_media_included": False,
+        "raw_frame_included": False,
+        "raw_screenshot_included": False,
+        "raw_video_included": False,
+        "local_path_included": False,
+        "raw_frames_retained": bool(artifact_policy.get("raw_frames_retained", False)),
+        "publication_allowed": False,
+    }
+
+
+def _visual_failure_reason_codes(
+    *,
+    reason_code: str,
+    motion_diagnostics: dict[str, Any],
+    surface_status: str,
+) -> list[str]:
+    if surface_status != "missing_surface_blocker" and reason_code == "visual-pass":
+        return []
+    codes: list[str] = []
+    if surface_status == "missing_surface_blocker":
+        codes.append("missing-surface-blocker")
+    if reason_code and reason_code != "visual-pass":
+        codes.append(reason_code)
+    diagnostic_result = str(motion_diagnostics.get("diagnostic_result", ""))
+    if diagnostic_result and diagnostic_result != "event-correlated-motion":
+        codes.append(diagnostic_result)
+    timeline_stage = str(motion_diagnostics.get("timeline_stage", ""))
+    if timeline_stage and timeline_stage not in {"runtime-started", "event-timeline-unavailable"}:
+        codes.append(timeline_stage)
+    return list(dict.fromkeys(codes))
 
 
 def _motion_diagnostics_summary(summary: dict[str, Any]) -> dict[str, Any]:

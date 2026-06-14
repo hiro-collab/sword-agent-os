@@ -47,6 +47,8 @@ SOURCE_REF_KINDS = {
     "local_video_file",
     "browser_frame_provider",
     "synthetic_test_frames",
+    "controlled_chrome_metric_summary",
+    "projection_visual_roi_metrics",
 }
 ACTIVATION_SAMPLING_MODES = {
     "disabled",
@@ -114,6 +116,8 @@ def analyze_frames(
     runtime_join: dict[str, Any] | None = None,
     event_timeline: dict[str, Any] | None = None,
     projection_visual_diagnostics: dict[str, Any] | None = None,
+    capture_target_identity: dict[str, Any] | None = None,
+    stimulus_id: str = "",
     capture_ready: dict[str, Any] | None = None,
     raw_frames_retained: bool = False,
     activation_sampling: str = "event_driven",
@@ -175,12 +179,16 @@ def analyze_frames(
         capture_ready=capture_ready,
         proof_layer=proof_layer,
     )
+    normalized_event_timeline = _normalized_event_timeline(
+        event_timeline, safe_projection_visual_diagnostics
+    )
+    safe_capture_target_identity = _safe_capture_target_identity(capture_target_identity)
     motion_diagnostics = _motion_diagnostics(
         rows=rows,
         roi_results=roi_results,
         thresholds=limits,
         runtime_join=runtime_join,
-        event_timeline=event_timeline,
+        event_timeline=normalized_event_timeline,
         projection_visual_diagnostics=safe_projection_visual_diagnostics,
     )
     evaluation_window_ms = max((window.end_ms for window in parsed_windows), default=0)
@@ -198,6 +206,7 @@ def analyze_frames(
         "activation_sampling": _safe_activation_sampling(activation_sampling),
         "evidence_export": _safe_evidence_export(evidence_export),
         "motion_event_id": motion_event_id,
+        "stimulus_id": str(stimulus_id or (runtime_join or {}).get("stimulus_id", "")),
         "stimulus_instance_id": stimulus_instance_id,
         "driver_result_id": driver_result_id,
         "mixer_tick_ids": [],
@@ -243,9 +252,11 @@ def analyze_frames(
         "capture": {
             "capture_ready": _capture_is_ready(capture_ready),
             "self_mirror_ready": _safe_summary_object(capture_ready),
+            "target_identity": safe_capture_target_identity,
         },
+        "capture_target_identity": safe_capture_target_identity,
         "runtime_join": _safe_summary_object(runtime_join),
-        "event_timeline": _safe_event_timeline(event_timeline),
+        "event_timeline": _safe_event_timeline(normalized_event_timeline),
         "projection_visual_diagnostics": safe_projection_visual_diagnostics,
         "motion_diagnostics": motion_diagnostics,
         "roi_results": roi_results,
@@ -283,6 +294,16 @@ def analyze_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
     sample_rate_fps = float(sampling.get("sample_rate_fps", config.get("sample_rate_fps", 8)))
     windows = list(config["windows"])
     rois = list(config["rois"])
+    if "controlled_chrome_observation" in config:
+        return _analyze_controlled_chrome_observation(
+            config=config,
+            source_ref=source_ref,
+            sampling=sampling,
+            scenario=scenario,
+            sample_rate_fps=sample_rate_fps,
+            windows=windows,
+            rois=rois,
+        )
     if "synthetic_fixture" in config:
         frames = _generate_synthetic_fixture_frames(
             dict(config["synthetic_fixture"]),
@@ -325,6 +346,12 @@ def analyze_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
             if config.get("projection_visual_diagnostics")
             else None
         ),
+        capture_target_identity=(
+            dict(config.get("target_identity", config.get("capture_target_identity", {})))
+            if config.get("target_identity") or config.get("capture_target_identity")
+            else None
+        ),
+        stimulus_id=str(config.get("stimulus_id", "")),
         capture_ready=dict(config.get("capture_ready", {})) if config.get("capture_ready") else None,
         raw_frames_retained=bool(config.get("raw_frames_retained", False)),
         activation_sampling=str(
@@ -334,6 +361,197 @@ def analyze_config(config: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
             config.get("evidence_export", config.get("self_mirror_evidence_export", "verification_capture"))
         ),
     )
+
+
+def _analyze_controlled_chrome_observation(
+    *,
+    config: dict[str, Any],
+    source_ref: dict[str, Any],
+    sampling: dict[str, Any],
+    scenario: dict[str, Any],
+    sample_rate_fps: float,
+    windows: list[dict[str, Any]],
+    rois: list[dict[str, Any]],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    observation = dict(config["controlled_chrome_observation"])
+    _reject_raw_evidence_flags(observation)
+    if sample_rate_fps <= 0:
+        raise ValueError("sample_rate_fps must be greater than 0")
+
+    parsed_windows = [_parse_window(window) for window in windows]
+    parsed_rois = [_parse_roi(roi) for roi in rois]
+    limits = {
+        "active_motion_min_score": 0.12,
+        "settle_motion_max_score": 0.05,
+        "min_consecutive_samples": 2,
+        "threshold_too_strict_ratio": 0.75,
+    }
+    if config.get("thresholds"):
+        limits.update(dict(config["thresholds"]))
+
+    rows = _rows_from_controlled_chrome_window_metrics(
+        observation.get("roi_window_metrics", []),
+        analysis_run_id=str(config["analysis_run_id"]),
+        windows=parsed_windows,
+        rois=parsed_rois,
+    )
+    if not rows:
+        raise ValueError(
+            "controlled_chrome_observation.roi_window_metrics must contain summary-only ROI/window metrics"
+        )
+
+    roi_results = _summarize_rois(rows, parsed_rois, limits)
+    label_by_roi = {row["roi_id"]: row["pass_label"] for row in roi_results}
+    for row in rows:
+        row["pass_label"] = label_by_roi.get(str(row["roi_id"]), "")
+
+    target_identity = _safe_capture_target_identity(observation.get("target_identity", {}))
+    capture_ready = dict(config.get("capture_ready", observation.get("capture_ready", {"skipped": True})))
+    projection_visual_diagnostics = _controlled_chrome_projection_visual_diagnostics(
+        config.get("projection_visual_diagnostics"),
+        observation=observation,
+        target_identity=target_identity,
+    )
+    safe_projection_visual_diagnostics = _safe_projection_visual_diagnostics(
+        projection_visual_diagnostics
+    )
+    runtime_join = dict(config.get("runtime_join", observation.get("runtime_join", {})))
+    event_timeline = dict(config.get("event_timeline", observation.get("event_timeline", {})))
+    normalized_event_timeline = _normalized_event_timeline(
+        event_timeline, safe_projection_visual_diagnostics
+    )
+    result = _overall_result(
+        roi_results,
+        limits,
+        scenario_id=str(config["scenario_id"]),
+        scenario_key=str(scenario.get("scenario_key", config.get("scenario_key", ""))),
+        expected_motion=str(scenario.get("expected_motion", config.get("expected_motion", "avatar_motion"))),
+        runtime_join_required=bool(
+            scenario.get("runtime_join_required", config.get("runtime_join_required", False))
+        ),
+        runtime_join=runtime_join,
+        projection_visual_diagnostics=safe_projection_visual_diagnostics,
+        capture_ready=capture_ready,
+        proof_layer=str(config.get("proof_layer", "visible_motion")),
+    )
+    motion_diagnostics = _motion_diagnostics(
+        rows=rows,
+        roi_results=roi_results,
+        thresholds=limits,
+        runtime_join=runtime_join,
+        event_timeline=normalized_event_timeline,
+        projection_visual_diagnostics=safe_projection_visual_diagnostics,
+    )
+    evaluation_window_ms = max((window.end_ms for window in parsed_windows), default=0)
+    viewport = dict(observation.get("viewport", {}))
+    viewport_width = int(viewport.get("width", 0) or 0)
+    viewport_height = int(viewport.get("height", 0) or 0)
+    summary = {
+        "schema_version": "visual_motion_analysis.v0",
+        "analysis_run_id": str(config["analysis_run_id"]),
+        "scenario_id": str(config["scenario_id"]),
+        "scenario": {
+            "scenario_key": str(scenario.get("scenario_key", config.get("scenario_key", config["scenario_id"]))),
+            "label": str(scenario.get("label", config.get("scenario_label", config["scenario_id"]))),
+            "expected_motion": str(
+                scenario.get("expected_motion", config.get("expected_motion", "avatar_motion"))
+            ),
+            "runtime_join_required": bool(
+                scenario.get("runtime_join_required", config.get("runtime_join_required", False))
+            ),
+        },
+        "proof_layer": str(config.get("proof_layer", "visible_motion")),
+        "activation_sampling": _safe_activation_sampling(
+            str(config.get("activation_sampling", config.get("self_mirror_activation_sampling", "event_driven")))
+        ),
+        "evidence_export": _safe_evidence_export(
+            str(config.get("evidence_export", config.get("self_mirror_evidence_export", "metric_summary")))
+        ),
+        "motion_event_id": str(config["motion_event_id"]),
+        "stimulus_id": str(runtime_join.get("stimulus_id", config.get("stimulus_id", ""))),
+        "stimulus_instance_id": str(config["stimulus_instance_id"]),
+        "driver_result_id": str(config["driver_result_id"]),
+        "mixer_tick_ids": [],
+        "source_ref": {
+            "kind": _safe_source_ref_kind(str(source_ref.get("kind", "controlled_chrome_metric_summary"))),
+            "source_ref_id": _safe_source_ref_id(str(source_ref.get("source_ref_id", "redacted_controlled_chrome"))),
+            "raw_source_shared": False,
+        },
+        "sampling": {
+            "sample_rate_fps": sample_rate_fps,
+            "evaluation_window_ms": evaluation_window_ms,
+            "frame_count": _controlled_chrome_sample_count(rows),
+            "source": "summary_only_controlled_chrome_roi_metrics",
+        },
+        "windows": [
+            {"window_id": window.window_id, "start_ms": window.start_ms, "end_ms": window.end_ms}
+            for window in parsed_windows
+        ],
+        "roi_config": {
+            "viewport": {"width": viewport_width, "height": viewport_height},
+            "rois": [
+                {
+                    "roi_id": roi.roi_id,
+                    "kind": roi.kind,
+                    "counts_as_avatar_motion": roi.counts_as_avatar_motion,
+                    "expected_for_pass": roi.expected_for_pass,
+                    "rect_norm": roi.rect_norm,
+                    "out_of_frame": roi.out_of_frame,
+                }
+                for roi in parsed_rois
+            ],
+        },
+        "thresholds": {
+            "active_motion_min_score": float(limits["active_motion_min_score"]),
+            "settle_motion_max_score": float(limits["settle_motion_max_score"]),
+            "min_consecutive_samples": int(limits["min_consecutive_samples"]),
+            "threshold_too_strict_ratio": float(limits["threshold_too_strict_ratio"]),
+        },
+        "result": result,
+        "classification": {
+            "reason_code": result,
+            "next_action": _next_action_for_result(result),
+        },
+        "capture": {
+            "capture_ready": _capture_is_ready(capture_ready),
+            "self_mirror_ready": _safe_summary_object(capture_ready),
+            "target_identity": target_identity,
+        },
+        "capture_target_identity": target_identity,
+        "controlled_chrome_observation": _safe_controlled_chrome_observation_summary(
+            observation,
+            target_identity=target_identity,
+        ),
+        "runtime_join": _safe_summary_object(runtime_join),
+        "event_timeline": _safe_event_timeline(normalized_event_timeline),
+        "projection_visual_diagnostics": safe_projection_visual_diagnostics,
+        "motion_diagnostics": motion_diagnostics,
+        "roi_results": roi_results,
+        "artifact_policy": {
+            "raw_frames_shared": False,
+            "raw_paths_shared": False,
+            "chart_shared": False,
+            "raw_frames_retained": False,
+            "cleanup_note_required": True,
+        },
+        "redaction": {
+            "redaction_status": "summary_only",
+            "shareability_class": "review_packet",
+            "public_safe": False,
+        },
+        "safety": {
+            "raw_prompt_shared": False,
+            "raw_transcript_shared": False,
+            "raw_log_shared": False,
+            "raw_media_shared": False,
+            "raw_path_shared": False,
+            "raw_asset_filename_shared": False,
+            "provider_payload_shared": False,
+            "private_endpoint_shared": False,
+            "home_assistant_route_retained": False,
+        },
+    }
+    return summary, rows
 
 
 def write_outputs(
@@ -655,6 +873,226 @@ def _safe_source_ref_id(value: str) -> str:
 
 def _safe_source_ref_kind(value: str) -> str:
     return value if value in SOURCE_REF_KINDS else "local_frame_sequence"
+
+
+def _rows_from_controlled_chrome_window_metrics(
+    metrics: Any,
+    *,
+    analysis_run_id: str,
+    windows: list[Window],
+    rois: list[Roi],
+) -> list[dict[str, Any]]:
+    if not isinstance(metrics, list):
+        raise ValueError("controlled_chrome_observation.roi_window_metrics must be a list")
+    window_by_id = {window.window_id: window for window in windows}
+    roi_by_id = {roi.roi_id: roi for roi in rois}
+    rows: list[dict[str, Any]] = []
+    for metric in metrics:
+        if not isinstance(metric, dict):
+            raise ValueError("controlled Chrome ROI/window metric entries must be objects")
+        roi_id = str(metric.get("roi_id", ""))
+        window_id = str(metric.get("window_id", metric.get("time_window", "")))
+        if roi_id not in roi_by_id:
+            raise ValueError(f"controlled Chrome ROI/window metric references unknown ROI: {roi_id}")
+        if window_id not in window_by_id:
+            raise ValueError(f"controlled Chrome ROI/window metric references unknown window: {window_id}")
+        roi = roi_by_id[roi_id]
+        window = window_by_id[window_id]
+        sample_count = max(1, int(metric.get("sample_count", 1)))
+        sample_count = min(sample_count, 60)
+        motion_score = _safe_metric_value(metric.get("motion_score", metric.get("movement_score", 0.0)))
+        changed_ratio = _safe_metric_value(metric.get("changed_pixel_ratio", metric.get("changed_ratio", motion_score)))
+        optical_flow_mean = _safe_metric_value(metric.get("optical_flow_mean", 0.0))
+        optical_flow_p95 = _safe_metric_value(metric.get("optical_flow_p95", 0.0))
+        bbox_delta = _safe_metric_value(metric.get("bbox_delta", 0.0))
+        centroid_delta = _safe_metric_value(metric.get("centroid_delta", 0.0))
+        ssim_to_baseline = _safe_metric_value(metric.get("ssim_to_baseline", 1.0 - min(motion_score, 1.0)))
+        for index in range(sample_count):
+            if sample_count == 1:
+                time_ms = (window.start_ms + window.end_ms) // 2
+            else:
+                span = max(1, window.end_ms - window.start_ms - 1)
+                time_ms = window.start_ms + int(round((index + 0.5) * span / sample_count))
+            rows.append(
+                {
+                    "analysis_run_id": analysis_run_id,
+                    "time_ms": time_ms,
+                    "window_id": window.window_id,
+                    "roi_id": roi.roi_id,
+                    "roi_kind": roi.kind,
+                    "counts_as_avatar_motion": roi.counts_as_avatar_motion,
+                    "changed_pixel_ratio": round(changed_ratio, 6),
+                    "optical_flow_mean": round(optical_flow_mean, 6),
+                    "optical_flow_p95": round(optical_flow_p95, 6),
+                    "bbox_delta": round(bbox_delta, 6),
+                    "centroid_delta": round(centroid_delta, 6),
+                    "ssim_to_baseline": round(ssim_to_baseline, 6),
+                    "motion_score": round(motion_score, 6),
+                    "pass_label": "",
+                }
+            )
+    return rows
+
+
+def _safe_metric_value(value: Any) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return _clamp(parsed, 0.0, 1.0)
+
+
+def _controlled_chrome_sample_count(rows: list[dict[str, Any]]) -> int:
+    return len({int(row.get("time_ms", 0)) for row in rows})
+
+
+def _reject_raw_evidence_flags(observation: dict[str, Any]) -> None:
+    raw_flag_keys = {
+        "raw_frame_included",
+        "raw_screenshot_included",
+        "raw_video_included",
+        "raw_media_included",
+        "raw_log_included",
+        "raw_path_included",
+        "local_path_included",
+        "private_path_included",
+        "provider_payload_included",
+        "cookies_included",
+        "local_storage_included",
+        "session_storage_included",
+        "session_store_included",
+        "passwords_included",
+        "unrelated_tabs_included",
+    }
+    for key in raw_flag_keys:
+        if observation.get(key) is True:
+            raise ValueError(
+                "controlled Chrome Self Mirror observation must be summary-only; "
+                f"raw/private flag is true: {key}"
+            )
+
+
+def _safe_capture_target_identity(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    allowed = {
+        "schema_version",
+        "capture_surface_kind",
+        "chrome_tab_safe_id",
+        "safe_target_id",
+        "target_id",
+        "visual_session_id",
+        "projection_visual_instance_id",
+        "surface_class",
+        "surface_instance_id",
+        "same_page_or_target",
+        "explicitly_correlated",
+        "target_identity_match",
+        "surface_match",
+        "browser_process_kind",
+        "proof_ceiling",
+        "target_identity_status",
+        "surface_match_status",
+        "capture_target_url_present",
+        "trigger_target_url_present",
+    }
+    safe: dict[str, Any] = {
+        "schema_version": "self_mirror_capture_target_identity.v0",
+        "raw_frame_included": False,
+        "raw_screenshot_included": False,
+        "raw_video_included": False,
+        "local_path_included": False,
+    }
+    for key, item in value.items():
+        if key not in allowed:
+            if key in {"capture_target_url", "trigger_target_url"}:
+                safe[f"{key}_present"] = True
+            continue
+        copied = _safe_diagnostic_value(item)
+        if copied is not None:
+            safe[key] = copied
+    return safe
+
+
+def _normalized_event_timeline(
+    event_timeline: dict[str, Any] | None,
+    projection_visual_diagnostics: dict[str, Any] | None,
+) -> dict[str, Any]:
+    safe = _safe_event_timeline(event_timeline)
+    diagnostics = _safe_projection_visual_diagnostics(projection_visual_diagnostics)
+    nested_timeline = diagnostics.get("event_timeline")
+    if isinstance(nested_timeline, dict):
+        for key, value in _safe_event_timeline(nested_timeline).items():
+            safe.setdefault(key, value)
+    for field_name in EVENT_ANCHORS.values():
+        value = _safe_numeric_ms(diagnostics, field_name)
+        if value is not None:
+            safe.setdefault(field_name, value)
+    return safe
+
+
+def _controlled_chrome_projection_visual_diagnostics(
+    configured: Any,
+    *,
+    observation: dict[str, Any],
+    target_identity: dict[str, Any],
+) -> dict[str, Any]:
+    diagnostics: dict[str, Any] = {}
+    if isinstance(configured, dict):
+        diagnostics.update(configured)
+    if isinstance(observation.get("projection_visual_diagnostics"), dict):
+        diagnostics.update(observation["projection_visual_diagnostics"])
+    for key in (
+        "visual_session_id",
+        "projection_visual_instance_id",
+        "surface_class",
+        "surface_instance_id",
+        "same_page_or_target",
+        "target_identity_match",
+        "surface_match",
+        "target_identity_status",
+        "surface_match_status",
+    ):
+        if key in target_identity:
+            diagnostics[key] = target_identity[key]
+    if isinstance(observation.get("event_timeline"), dict):
+        diagnostics["event_timeline"] = observation["event_timeline"]
+    return diagnostics
+
+
+def _safe_controlled_chrome_observation_summary(
+    observation: dict[str, Any],
+    *,
+    target_identity: dict[str, Any],
+) -> dict[str, Any]:
+    cleanup_status = observation.get("cleanup_status", {})
+    if not isinstance(cleanup_status, dict):
+        cleanup_status = {}
+    safe_cleanup = {
+        key: value
+        for key, value in cleanup_status.items()
+        if key
+        in {
+            "browser_target_finalized",
+            "runtime_stopped",
+            "raw_frames_deleted",
+            "temporary_config_deleted",
+            "local_listener_after_cleanup",
+        }
+        and not _looks_like_path_or_secret(value)
+    }
+    return {
+        "schema_version": "self_mirror_controlled_chrome_observation.v0",
+        "source_kind": "controlled_chrome_metric_summary",
+        "capture_target_identity": target_identity,
+        "raw_frame_included": False,
+        "raw_screenshot_included": False,
+        "raw_video_included": False,
+        "raw_log_included": False,
+        "local_path_included": False,
+        "provider_payload_included": False,
+        "cleanup_status": safe_cleanup,
+    }
 
 
 def _safe_activation_sampling(value: str) -> str:
@@ -1185,6 +1623,13 @@ def _motion_diagnostics(
     )
     target_mismatch = _projection_visual_target_mismatch(safe_projection_visual_diagnostics)
     frame_applied = _projection_visual_frame_applied(safe_projection_visual_diagnostics, event_timeline)
+    driver_applied = _projection_visual_driver_applied(safe_projection_visual_diagnostics, event_timeline)
+    anchor_status = _anchor_status(
+        event_timeline,
+        runtime_started=runtime_started,
+        driver_applied=driver_applied,
+        frame_applied=frame_applied,
+    )
     diagnostic_result = _diagnostic_result(
         target_mismatch=target_mismatch,
         runtime_started=runtime_started,
@@ -1210,9 +1655,9 @@ def _motion_diagnostics(
         "event_window_classification": diagnostic_result,
         "timeline_stage": _timeline_stage(event_timeline, runtime_started=runtime_started),
         "event_timeline": _safe_event_timeline(event_timeline),
-        "anchor_status": _anchor_status(event_timeline),
-        "available_anchor_ids": _anchor_status(event_timeline)["available_anchor_ids"],
-        "missing_anchor_ids": _anchor_status(event_timeline)["missing_anchor_ids"],
+        "anchor_status": anchor_status,
+        "available_anchor_ids": anchor_status["available_anchor_ids"],
+        "missing_anchor_ids": anchor_status["missing_anchor_ids"],
         "anchor": "runtime_started_when_available",
         "active_window_anchor": "runtime_started_or_configured_trigger",
         "normal_window_ids": ["active"],
@@ -1230,6 +1675,7 @@ def _motion_diagnostics(
         "idle_like_expected_roi_ids": idle_like_expected_ids,
         "projection_visual_diagnostics_present": bool(safe_projection_visual_diagnostics),
         "projection_visual_target_mismatch": target_mismatch,
+        "projection_visual_driver_applied": driver_applied,
         "projection_visual_frame_applied": frame_applied,
         "projection_visual_diagnostics": safe_projection_visual_diagnostics,
         "idle_baseline_peak_by_roi": {
@@ -1482,6 +1928,25 @@ def _projection_visual_frame_applied(
     return False
 
 
+def _projection_visual_driver_applied(
+    projection_visual_diagnostics: dict[str, Any] | None,
+    event_timeline: dict[str, Any] | None,
+) -> bool:
+    diagnostics = _safe_projection_visual_diagnostics(projection_visual_diagnostics)
+    if _safe_numeric_ms(diagnostics, "driver_applied_at_ms") is not None:
+        return True
+    if _safe_numeric_ms(event_timeline, "driver_applied_at_ms") is not None:
+        return True
+    driver_result = str(diagnostics.get("last_driver_result", "")).lower()
+    return driver_result in {
+        "applied",
+        "frame-applied",
+        "frame_applied",
+        "visual-committed",
+        "visual_committed",
+    }
+
+
 def _projection_visual_runtime_started(
     projection_visual_diagnostics: dict[str, Any] | None,
     event_timeline: dict[str, Any] | None,
@@ -1500,23 +1965,44 @@ def _projection_visual_runtime_started(
     return reason in {"motion_runtime_expression_frame_queued", "motion_runtime_vrma_started"}
 
 
-def _anchor_status(event_timeline: dict[str, Any] | None) -> dict[str, Any]:
+def _anchor_status(
+    event_timeline: dict[str, Any] | None,
+    *,
+    runtime_started: bool = False,
+    driver_applied: bool = False,
+    frame_applied: bool = False,
+) -> dict[str, Any]:
     safe_timeline = _safe_event_timeline(event_timeline)
-    available = [
+    available = {
         anchor_id
         for anchor_id, field_name in EVENT_ANCHORS.items()
         if field_name in safe_timeline
-    ]
+    }
+    support_anchor_sources: dict[str, str] = {
+        anchor_id: "event_timeline"
+        for anchor_id, field_name in EVENT_ANCHORS.items()
+        if field_name in safe_timeline
+    }
+    support_flags = {
+        "runtime_started": runtime_started,
+        "driver_applied": driver_applied,
+        "frame_applied": frame_applied,
+    }
+    for anchor_id, present in support_flags.items():
+        if present and anchor_id not in available:
+            available.add(anchor_id)
+            support_anchor_sources[anchor_id] = "projection_visual_diagnostics"
     missing = [
         anchor_id
         for anchor_id, field_name in EVENT_ANCHORS.items()
-        if field_name not in safe_timeline
+        if anchor_id not in available
     ]
     return {
         "schema_version": "self_mirror_event_anchor_status.v0",
-        "available_anchor_ids": available,
+        "available_anchor_ids": sorted(available),
         "missing_anchor_ids": missing,
         "all_required_available": len(missing) == 0,
+        "support_anchor_sources": support_anchor_sources,
         "raw_log_included": False,
         "raw_provider_payload_included": False,
         "local_path_included": False,
@@ -1708,6 +2194,7 @@ def _safe_summary_object(value: dict[str, Any] | None) -> dict[str, Any]:
         "frameSeq",
         "analysis_run_id",
         "motion_event_id",
+        "stimulus_id",
         "stimulus_instance_id",
         "planned_driver_result_id",
         "planned_runtime_result_id",

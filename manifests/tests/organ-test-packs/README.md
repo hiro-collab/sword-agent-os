@@ -3,6 +3,7 @@
 This directory contains Agent OS test-pack manifests. Test packs declare how to
 verify organ capabilities from outside the organ implementation.
 
+- Parent placement policy: `../README.md`
 - `standard.json`: first standard-cell pack for the selected thought-core-v0
   compatibility organs.
 

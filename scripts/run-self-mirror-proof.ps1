@@ -270,6 +270,22 @@ function Update-BrowserAnalyzerConfig {
     if ($captureManifest.PSObject.Properties.Name -contains "runtime_join") {
       Set-JsonObjectProperty -Object $config -Name "runtime_join" -Value $captureManifest.runtime_join
     }
+    if ($captureManifest.PSObject.Properties.Name -contains "target_identity") {
+      Set-JsonObjectProperty -Object $config -Name "target_identity" -Value $captureManifest.target_identity
+    }
+    if (
+      $captureManifest.PSObject.Properties.Name -contains "trigger" -and
+      $null -ne $captureManifest.trigger -and
+      $captureManifest.trigger.PSObject.Properties.Name -contains "stimulus_id"
+    ) {
+      $manifestStimulusId = [string]$captureManifest.trigger.stimulus_id
+      if (-not [string]::IsNullOrWhiteSpace($manifestStimulusId)) {
+        Set-JsonObjectProperty -Object $config -Name "stimulus_id" -Value $manifestStimulusId
+        if ($config.PSObject.Properties.Name -contains "runtime_join") {
+          Set-JsonObjectProperty -Object $config.runtime_join -Name "stimulus_id" -Value $manifestStimulusId
+        }
+      }
+    }
     if ($captureManifest.PSObject.Properties.Name -contains "event_timeline") {
       Set-JsonObjectProperty -Object $config -Name "event_timeline" -Value $captureManifest.event_timeline
     }

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from self_mirror_visual_analyzer.summary import build_self_mirror_metric_summary
 from self_mirror_visual_analyzer.visual_motion_analyzer import analyze_frames, write_outputs
 
 
@@ -66,6 +67,20 @@ class SelfMirrorMetricSummaryTest(unittest.TestCase):
             self.assertEqual(payload["schema_version"], "self_mirror_metric_summary.v0")
             self.assertEqual(payload["scenario_id"], "rr003.visible_motion.context_nod.self_mirror.v0")
             self.assertEqual(payload["observed_target"], "avatar")
+            self.assertEqual(payload["test_observability"], "self_mirror_metric")
+            self.assertEqual(payload["observability"]["schema_version"], "self_mirror_test_observability.v0")
+            self.assertEqual(payload["observability"]["test_observability"], "self_mirror_metric")
+            self.assertEqual(payload["observability"]["observability_surface_status"], "present")
+            self.assertEqual(payload["observability"]["capture_surface_kind"], "source_no_live_or_synthetic")
+            self.assertEqual(payload["observability"]["proof_ceiling"], "source_no_live_or_synthetic_only")
+            self.assertEqual(payload["observability"]["authority_roi_ids"], ["avatar_full"])
+            self.assertEqual(payload["observability"]["guard_roi_ids"], ["speech_bubble"])
+            self.assertGreaterEqual(payload["observability"]["window_coverage"]["observed_rows"], 1)
+            self.assertTrue(payload["observability"]["diagnostic_artifact"]["support_only"])
+            self.assertFalse(payload["observability"]["diagnostic_artifact"]["raw_media_included"])
+            self.assertFalse(payload["observability"]["raw_frame_included"])
+            self.assertFalse(payload["observability"]["raw_screenshot_included"])
+            self.assertFalse(payload["observability"]["provider_payload_included"])
             self.assertIn("run_refs", payload)
             self.assertEqual(payload["run_refs"]["motion_event_id"], "mot_evt_test_self_mirror_summary_001")
             self.assertEqual(payload["run_refs"]["stimulus_instance_id"], "mot_inst_test_self_mirror_summary_001")
@@ -179,6 +194,41 @@ class SelfMirrorMetricSummaryTest(unittest.TestCase):
             self.assertNotIn("frame_0", serialized)
             self.assertNotIn(".png", serialized)
 
+    def test_observability_block_marks_missing_surface_without_raw_media(self) -> None:
+        payload = build_self_mirror_metric_summary(
+            {
+                "analysis_run_id": "vismot_run_test_missing_surface_001",
+                "scenario_id": "rr003.visible_motion.missing_surface.self_mirror.v0",
+                "proof_layer": "browser_runtime",
+                "result": "runtime-not-joined",
+                "classification": {
+                    "reason_code": "runtime-not-joined",
+                    "next_action": "Inspect runtime refs.",
+                },
+                "scenario": {
+                    "expected_motion": "avatar_motion",
+                },
+                "windows": [],
+                "roi_results": [],
+            },
+            [],
+        )
+
+        observability = payload["observability"]
+        self.assertEqual(payload["test_observability"], "self_mirror_metric")
+        self.assertEqual(observability["observability_surface_status"], "missing_surface_blocker")
+        self.assertEqual(observability["missing_surface_reason"], "missing-roi-window-metrics")
+        self.assertEqual(observability["proof_ceiling"], "helper_browser_runtime_only")
+        self.assertEqual(observability["authority_roi_ids"], [])
+        self.assertEqual(observability["guard_roi_ids"], [])
+        self.assertEqual(observability["window_coverage"]["observed_rows"], 0)
+        self.assertIn("missing-surface-blocker", observability["visual_failure_reason_codes"])
+        self.assertIn("runtime-not-joined", observability["visual_failure_reason_codes"])
+        self.assertFalse(observability["diagnostic_artifact"]["raw_media_included"])
+        self.assertFalse(observability["raw_frame_included"])
+        self.assertFalse(observability["raw_screenshot_included"])
+        self.assertFalse(observability["provider_payload_included"])
+
     def test_face_visible_change_summary_stays_avatar_visual_change_not_semantic_expression(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -247,6 +297,137 @@ class SelfMirrorMetricSummaryTest(unittest.TestCase):
             self.assertIn("not_expression_semantic_proof", payload["does_not_prove"])
             self.assertFalse(payload["raw_frame_included"])
             self.assertFalse(payload["raw_screenshot_included"])
+
+    def test_helper_summary_propagates_target_identity_stimulus_and_pv_anchors(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            frames = [_frame() for _ in range(8)]
+            frames[2][10:26, 10:22] = 255
+            frames[3][10:26, 12:24] = 255
+
+            visual_summary, rows = analyze_frames(
+                frames,
+                analysis_run_id="vismot_run_test_helper_summary_propagation_001",
+                scenario_id="rr003.visible_motion.expression_visible_change.self_mirror.v0",
+                motion_event_id="mot_evt_test_helper_summary_propagation_001",
+                stimulus_id="mot_stim_test_helper_summary_propagation_expression",
+                stimulus_instance_id="mot_inst_test_helper_summary_propagation_001",
+                driver_result_id="driver_result_test_helper_summary_propagation_001",
+                sample_rate_fps=10,
+                windows=[
+                    {"window_id": "pretrigger", "start_ms": 0, "end_ms": 100},
+                    {"window_id": "active", "start_ms": 100, "end_ms": 400},
+                    {"window_id": "release", "start_ms": 400, "end_ms": 600},
+                    {"window_id": "settle", "start_ms": 600, "end_ms": 800},
+                ],
+                rois=[
+                    {
+                        "roi_id": "avatar_face_head",
+                        "kind": "avatar",
+                        "counts_as_avatar_motion": True,
+                        "expected_for_pass": True,
+                        "rect_norm": {"x": 0.0, "y": 0.0, "w": 0.5, "h": 1.0},
+                    },
+                    {
+                        "roi_id": "speech_bubble",
+                        "kind": "guard_ui",
+                        "counts_as_avatar_motion": False,
+                        "expected_for_pass": False,
+                        "rect_norm": {"x": 0.5, "y": 0.0, "w": 0.5, "h": 1.0},
+                    },
+                ],
+                proof_layer="browser_runtime",
+                scenario_key="expression_visible_change",
+                scenario_label="Expression visible face/head ROI change",
+                expected_motion="face_visible_change",
+                runtime_join_required=True,
+                runtime_join={
+                    "motion_event_id": "mot_evt_test_helper_summary_propagation_001",
+                    "stimulus_id": "mot_stim_test_helper_summary_propagation_expression",
+                    "stimulus_instance_id": "mot_inst_test_helper_summary_propagation_001",
+                    "runtime_result_id": "mot_res_test_helper_summary_propagation_001",
+                    "driver_result_id": "driver_result_test_helper_summary_propagation_001",
+                    "result_status": "started",
+                    "result_reason_code": "motion_runtime_expression_frame_queued",
+                    "result_safe_visible_state": "expression_change_requested",
+                },
+                event_timeline={
+                    "bridge_dispatched_at_ms": 100,
+                    "capture_started_at_ms": 0,
+                },
+                projection_visual_diagnostics={
+                    "schema_version": "projection_visual_in_page_diagnostics.v0",
+                    "motion_event_id": "mot_evt_test_helper_summary_propagation_001",
+                    "stimulus_id": "mot_stim_test_helper_summary_propagation_expression",
+                    "stimulus_instance_id": "mot_inst_test_helper_summary_propagation_001",
+                    "runtime_result_id": "mot_res_test_helper_summary_propagation_001",
+                    "driver_result_id": "driver-result-30",
+                    "runtime_started_at_ms": 120,
+                    "driver_applied_at_ms": 140,
+                    "frame_applied_at_ms": 160,
+                    "expression_weight_applied": True,
+                    "frame_applied_count": 30,
+                    "last_driver_result": "applied",
+                    "last_driver_reason_code": "motion_driver_applied",
+                    "last_safe_visible_state": "expression_changed",
+                    "same_page_or_target": True,
+                    "target_identity_match": True,
+                    "surface_match": True,
+                    "raw_frame_included": True,
+                    "local_path_included": True,
+                },
+                capture_target_identity={
+                    "schema_version": "self_mirror_capture_target_identity.v0",
+                    "capture_surface_kind": "helper_playwright_page",
+                    "browser_process_kind": "helper_launched",
+                    "same_page_or_target": True,
+                    "proof_ceiling": "helper_browser_runtime_only",
+                    "capture_target_url": "http://127.0.0.1/private-redacted-route",
+                    "trigger_target_url": "http://127.0.0.1/private-redacted-route",
+                },
+            )
+
+            self_mirror_path, *_rest = write_outputs(visual_summary, rows, root / "out")
+            payload = json.loads(self_mirror_path.read_text(encoding="utf-8"))
+            serialized = json.dumps(payload, ensure_ascii=False)
+
+            self.assertEqual(payload["result"], "pass")
+            self.assertEqual(
+                payload["run_refs"]["stimulus_id"],
+                "mot_stim_test_helper_summary_propagation_expression",
+            )
+            self.assertEqual(
+                payload["capture_target_identity"]["capture_surface_kind"],
+                "helper_playwright_page",
+            )
+            self.assertEqual(
+                payload["capture_target_identity"]["browser_process_kind"],
+                "helper_launched",
+            )
+            self.assertTrue(payload["capture_target_identity"]["same_page_or_target"])
+            self.assertEqual(
+                payload["capture_target_identity"]["proof_ceiling"],
+                "helper_browser_runtime_only",
+            )
+            self.assertTrue(payload["capture_target_identity"]["capture_target_url_present"])
+            self.assertTrue(payload["capture_target_identity"]["trigger_target_url_present"])
+            self.assertEqual(payload["observability"]["capture_surface_kind"], "helper_playwright_page")
+            self.assertEqual(payload["observability"]["proof_ceiling"], "helper_browser_runtime_only")
+            self.assertEqual(
+                payload["projection_visual_diagnostics"]["stimulus_id"],
+                "mot_stim_test_helper_summary_propagation_expression",
+            )
+            self.assertFalse(payload["projection_visual_diagnostics"]["raw_frame_included"])
+            self.assertFalse(payload["projection_visual_diagnostics"]["local_path_included"])
+            self.assertIn("runtime_started", payload["latest_state"]["available_anchor_ids"])
+            self.assertIn("driver_applied", payload["latest_state"]["available_anchor_ids"])
+            self.assertIn("frame_applied", payload["latest_state"]["available_anchor_ids"])
+            self.assertEqual(
+                payload["motion_diagnostics"]["anchor_status"]["support_anchor_sources"]["frame_applied"],
+                "event_timeline",
+            )
+            self.assertNotIn("http://", serialized)
+            self.assertNotIn(str(root), serialized)
 
     def test_missing_face_visible_change_needs_human_review_without_raw_media(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

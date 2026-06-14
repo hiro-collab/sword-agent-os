@@ -95,6 +95,22 @@ Write-Output ""
 Write-Output "Services: $($status.summary.services_available)/$($status.summary.services_total) available, $($status.summary.services_unavailable) unavailable, $($status.summary.services_unknown) unknown"
 Write-Output "Capabilities: $($status.summary.capabilities_available)/$($status.summary.capabilities_total) available, $($status.summary.capabilities_unavailable) unavailable, $($status.summary.capabilities_unknown) unknown"
 Write-Output ""
+
+if ($null -ne $status.PSObject.Properties["no_provider_child_provenance_diagnostics"]) {
+  $provenance = $status.no_provider_child_provenance_diagnostics
+  Write-Output "No-provider child provenance:"
+  Write-Output "  child_process_identity_class: $($provenance.child_process_identity_class)"
+  Write-Output "  stale_or_reused_process_class: $($provenance.stale_or_reused_process_class)"
+  Write-Output "  thought_core_llm_enabled_class: $($provenance.env_binding.thought_core_llm_enabled_class)"
+  Write-Output "  thought_core_action_llm_enabled_class: $($provenance.env_binding.thought_core_action_llm_enabled_class)"
+  Write-Output "  provider_config_presence_class: $($provenance.env_binding.provider_config_presence_class)"
+  Write-Output "  start_script_env_override_class: $($provenance.env_binding.start_script_env_override_class)"
+  Write-Output "  direct_dify_exclusion_class: $($provenance.provider_boundary.direct_dify_exclusion_class)"
+  Write-Output "  runtime_import_provenance_class: $($provenance.source_static.runtime_import_provenance_class)"
+  Write-Output "  payload_marker_class: $($provenance.payload_preflight.payload_marker_class)"
+  Write-Output ""
+}
+
 Write-Output "Service states:"
 $status.services |
   Select-Object service_id, state, freshness, health_type, probe_mode, detail |

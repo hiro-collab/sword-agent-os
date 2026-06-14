@@ -4,6 +4,33 @@ This page is the durable entry point for using and extending Agent OS modules.
 Use it when a thread needs to decide where a feature, test, adapter, or
 diagnostic belongs.
 
+## Fast Route
+
+Use this order before opening source files:
+
+1. Name the system responsibility: input, state, decision, action, expression,
+   observation, self-observation, memory, or diagnostics.
+2. Pick the authority layer:
+   `manifests/` for static selection, `contracts/` for boundary shape,
+   `runtime/` for OS substrate, `organs/` for concrete capability code, and
+   `scripts/` for setup or verification entrypoints.
+3. Check whether the work is runtime behavior or a diagnostic reader. A
+   diagnostic may observe and summarize; it must not become the action
+   authority.
+4. Keep proof claims at the layer that was actually tested. Source/static,
+   no-live/mock, runtime/browser, live device, and physical observation are not
+   interchangeable.
+
+The main loop is:
+
+```text
+input/observation -> state -> decision -> guarded action/expression
+-> observation/self-observation -> feedback
+```
+
+If a proposed change does not fit one step in that loop, write down why before
+adding a new module or route.
+
 ## Core Model
 
 | Need | Use | Do not use |
@@ -35,6 +62,34 @@ Use this split:
 - If it inspects, summarizes, tests, or explains operation, it is diagnostics.
 - If it does both, keep the write/action path in runtime and expose a separate
   diagnostic reader or projection.
+
+## Runtime vs Organs vs Services
+
+Use `runtime/` for Agent OS substrate responsibilities and authorities: memory,
+event journal, status store, process registry, routers, action boundary, action
+catalog, organ drivers, and organ test-pack execution.
+
+Use `organs/` for concrete capability modules or external organs. An organ is a
+role or module category, such as action, environment, reflex, expression,
+speech-input, display, or diagnostics. Many organs are also runnable services,
+but their source does not need to live under a directory named `services/`.
+
+Use `service` for the execution/process shape: an independently launched
+server, worker, UI, bridge, or adapter. Today, service code can live under
+`control-plane/` or under an organ directory. Do not introduce a top-level
+`services/` directory merely to make server code fit the word "service".
+`manifests/services/` names selected runnable or observable services for
+profiles; it does not imply that implementation code must live under a
+directory named `services/`.
+
+In short: `organ` names what capability owns the responsibility; `service`
+names how it runs; `runtime` names OS substrate authority.
+
+Memory Core and Event Journal are core runtime substrate. They may eventually
+run as managed processes, but their source-home and authority remain
+`runtime/memory-core/` and `runtime/event-journal/` unless a later explicit
+architecture decision moves them. They should not be moved under `organs/` just
+because they can run like services.
 
 ## Body Plan Family
 

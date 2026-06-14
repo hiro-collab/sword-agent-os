@@ -1265,8 +1265,264 @@ class VisualMotionAnalyzerTest(unittest.TestCase):
         self.assertIn("same_page_or_target: true", capture_source)
         self.assertIn('browser_process_kind: "helper_launched"', capture_source)
         self.assertIn('proof_ceiling: "helper_browser_runtime_only"', capture_source)
+        self.assertIn("stimulus_id: args.stimulusId || null", capture_source)
         self.assertIn('target_identity: captureTargetIdentity(args)', capture_source)
         self.assertIn('return "redacted_non_local_url";', capture_source)
+
+    def test_browser_wrapper_propagates_capture_manifest_target_and_stimulus(self) -> None:
+        repo_root = Path(__file__).resolve().parents[3]
+        proof_source = (repo_root / "scripts" / "run-self-mirror-proof.ps1").read_text(encoding="utf-8")
+
+        self.assertIn('$captureManifest.PSObject.Properties.Name -contains "target_identity"', proof_source)
+        self.assertIn('Set-JsonObjectProperty -Object $config -Name "target_identity"', proof_source)
+        self.assertIn('$captureManifest.trigger.PSObject.Properties.Name -contains "stimulus_id"', proof_source)
+        self.assertIn('Set-JsonObjectProperty -Object $config -Name "stimulus_id"', proof_source)
+        self.assertIn('Set-JsonObjectProperty -Object $config.runtime_join -Name "stimulus_id"', proof_source)
+
+    def test_controlled_chrome_observation_metrics_produce_summary_without_frame_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = _controlled_chrome_metric_config(
+                scenario_id="rr003.visible_motion.dance_visible_motion.controlled_chrome.v0",
+                expected_motion="broad_avatar_motion",
+                expected_roi_id="avatar_full",
+                motion_event_id="mot_evt_controlled_chrome_dance_test",
+                stimulus_id="mot_stim_controlled_chrome_voice_dance_please",
+                stimulus_instance_id="mot_inst_controlled_chrome_dance_test",
+                runtime_result_id="mot_res_controlled_chrome_dance_test",
+                driver_result_id="",
+                result_reason_code="motion_runtime_vrma_started",
+                result_safe_visible_state="motion_started",
+            )
+
+            summary, rows = analyze_config(config)
+            self_mirror_path, *_rest = write_outputs(summary, rows, root / "out")
+            payload = json.loads(self_mirror_path.read_text(encoding="utf-8"))
+            serialized = json.dumps(payload, ensure_ascii=False)
+
+            self.assertEqual(summary["result"], "visual-pass")
+            self.assertEqual(summary["source_ref"]["kind"], "controlled_chrome_metric_summary")
+            self.assertEqual(
+                summary["capture"]["target_identity"]["capture_surface_kind"],
+                "controlled_chrome_extension_tab",
+            )
+            self.assertEqual(payload["schema_version"], "self_mirror_metric_summary.v0")
+            self.assertEqual(payload["result"], "pass")
+            self.assertEqual(payload["source"]["kind"], "controlled_chrome_metric_summary")
+            self.assertEqual(payload["run_refs"]["stimulus_id"], "mot_stim_controlled_chrome_voice_dance_please")
+            self.assertEqual(payload["run_refs"]["runtime_result_id"], "mot_res_controlled_chrome_dance_test")
+            self.assertEqual(payload["capture_target_identity"]["chrome_tab_safe_id"], "chrome_tab_safe_test")
+            self.assertEqual(payload["test_observability"], "self_mirror_metric")
+            self.assertEqual(payload["observability"]["observability_surface_status"], "present")
+            self.assertEqual(payload["observability"]["capture_surface_kind"], "controlled_chrome_extension_tab")
+            self.assertEqual(payload["observability"]["browser_process_kind"], "chrome_extension_controlled_user_chrome")
+            self.assertTrue(payload["observability"]["same_page_or_target"])
+            self.assertEqual(payload["observability"]["proof_ceiling"], "controlled_chrome_self_mirror_summary_only")
+            self.assertEqual(payload["observability"]["authority_roi_ids"], ["avatar_full"])
+            self.assertEqual(payload["observability"]["guard_roi_ids"], ["speech_bubble"])
+            self.assertEqual(payload["observability"]["window_coverage"]["expected_rows"], 8)
+            self.assertEqual(payload["observability"]["window_coverage"]["observed_rows"], 8)
+            self.assertEqual(payload["observability"]["window_coverage"]["missing_rows"], 0)
+            self.assertEqual(payload["observability"]["window_coverage"]["active_sample_count"], 3)
+            self.assertTrue(payload["observability"]["diagnostic_artifact"]["included"])
+            self.assertTrue(payload["observability"]["diagnostic_artifact"]["support_only"])
+            self.assertFalse(payload["observability"]["diagnostic_artifact"]["raw_media_included"])
+            self.assertFalse(payload["observability"]["raw_frame_included"])
+            self.assertFalse(payload["observability"]["raw_screenshot_included"])
+            self.assertFalse(payload["observability"]["provider_payload_included"])
+            self.assertFalse(payload["observability"]["home_control_or_device_state_included"])
+            self.assertEqual(payload["observability"]["visual_failure_reason_codes"], [])
+            self.assertIn("not_physical_display_proof", payload["observability"]["does_not_prove"])
+            self.assertEqual(
+                payload["controlled_chrome_observation"]["source_kind"],
+                "controlled_chrome_metric_summary",
+            )
+            self.assertFalse(payload["raw_frame_included"])
+            self.assertFalse(payload["raw_screenshot_included"])
+            self.assertNotIn(str(root), serialized)
+            self.assertNotIn("frame_001", serialized)
+            self.assertNotIn("http://", serialized)
+
+    def test_controlled_chrome_expression_preserves_distinct_runtime_and_driver_result_ids(self) -> None:
+        config = _controlled_chrome_metric_config(
+            scenario_id="rr003.visible_motion.expression_visible_change.controlled_chrome.v0",
+            expected_motion="face_visible_change",
+            expected_roi_id="avatar_face_head",
+            motion_event_id="mot_evt_controlled_chrome_expression_test",
+            stimulus_id="mot_stim_controlled_chrome_voice_smile_please",
+            stimulus_instance_id="mot_inst_controlled_chrome_expression_test",
+            runtime_result_id="mot_res_controlled_chrome_expression_test",
+            driver_result_id="driver_result_controlled_chrome_expression_test",
+            result_reason_code="motion_runtime_expression_frame_queued",
+            result_safe_visible_state="expression_change_requested",
+        )
+
+        summary, rows = analyze_config(config)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self_mirror_path, *_rest = write_outputs(summary, rows, Path(temp_dir) / "out")
+            payload = json.loads(self_mirror_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(summary["result"], "visual-pass")
+        self.assertEqual(payload["run_refs"]["runtime_result_id"], "mot_res_controlled_chrome_expression_test")
+        self.assertEqual(payload["run_refs"]["driver_result_id"], "driver_result_controlled_chrome_expression_test")
+        self.assertEqual(payload["run_refs"]["runtime_status"], "started")
+        self.assertEqual(payload["run_refs"]["runtime_reason_code"], "motion_runtime_expression_frame_queued")
+
+    def test_controlled_chrome_expression_subthreshold_current_packet_remains_nonpass(self) -> None:
+        config = _controlled_chrome_metric_config(
+            scenario_id="rr003.visible_motion.expression_visible_change.controlled_chrome.v0",
+            expected_motion="face_visible_change",
+            expected_roi_id="avatar_face_head",
+            motion_event_id="mot_evt_controlled_chrome_expression_subthreshold_test",
+            stimulus_id="mot_stim_controlled_chrome_voice_smile_please",
+            stimulus_instance_id="mot_inst_controlled_chrome_expression_subthreshold_test",
+            runtime_result_id="mot_res_controlled_chrome_expression_subthreshold_test",
+            driver_result_id="driver_result_controlled_chrome_expression_subthreshold_test",
+            result_reason_code="motion_runtime_expression_frame_queued",
+            result_safe_visible_state="expression_change_requested",
+        )
+        config["thresholds"]["active_motion_min_score"] = 0.12
+        config["controlled_chrome_observation"]["roi_window_metrics"] = [
+            {"roi_id": "avatar_face_head", "window_id": "pretrigger", "sample_count": 3, "motion_score": 0.0},
+            {"roi_id": "avatar_face_head", "window_id": "active", "sample_count": 4, "motion_score": 0.035417},
+            {"roi_id": "avatar_face_head", "window_id": "release", "sample_count": 2, "motion_score": 0.035417},
+            {"roi_id": "avatar_face_head", "window_id": "settle", "sample_count": 2, "motion_score": 0.0},
+        ]
+        config["projection_visual_diagnostics"] = {
+            "schema_version": "projection_visual_in_page_diagnostics.v0",
+            "expression_weight_applied": True,
+            "frame_applied_count": 1,
+            "last_driver_result": "applied",
+            "last_driver_reason_code": "motion_driver_applied",
+            "last_safe_visible_state": "expression_changed",
+            "same_page_or_target": True,
+            "target_identity_match": True,
+            "surface_match": True,
+        }
+
+        summary, rows = analyze_config(config)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self_mirror_path, *_rest = write_outputs(summary, rows, Path(temp_dir) / "out")
+            payload = json.loads(self_mirror_path.read_text(encoding="utf-8"))
+
+        avatar = _roi(summary, "avatar_face_head")
+        self.assertEqual(summary["result"], "visual-missing-motion")
+        self.assertEqual(avatar["pass_label"], "visual-missing-motion")
+        self.assertEqual(avatar["active_peak_motion_score"], 0.035417)
+        self.assertEqual(summary["thresholds"]["active_motion_min_score"], 0.12)
+        self.assertEqual(summary["motion_diagnostics"]["diagnostic_result"], "frame-applied-but-pixel-static")
+        self.assertEqual(payload["result"], "fail")
+        self.assertEqual(payload["observed_issue"], "visual-missing-motion")
+        self.assertFalse(payload["raw_frame_included"])
+        self.assertFalse(payload["raw_screenshot_included"])
+
+    def test_controlled_chrome_expression_candidate_profile_keeps_current_packet_nonpass(self) -> None:
+        config = _controlled_chrome_metric_config(
+            scenario_id="rr003.visible_motion.expression_visible_change.controlled_chrome.profile.v0",
+            expected_motion="face_visible_change",
+            expected_roi_id="avatar_face_head",
+            motion_event_id="mot_evt_controlled_chrome_expression_profile_current_packet_test",
+            stimulus_id="mot_stim_controlled_chrome_voice_smile_please",
+            stimulus_instance_id="mot_inst_controlled_chrome_expression_profile_current_packet_test",
+            runtime_result_id="mot_res_controlled_chrome_expression_profile_current_packet_test",
+            driver_result_id="driver_result_controlled_chrome_expression_profile_current_packet_test",
+            result_reason_code="motion_runtime_expression_frame_queued",
+            result_safe_visible_state="expression_change_requested",
+        )
+        config["thresholds"]["active_motion_min_score"] = 0.05
+        config["thresholds"]["threshold_too_strict_ratio"] = 0.75
+        config["controlled_chrome_observation"]["roi_window_metrics"] = [
+            {"roi_id": "avatar_face_head", "window_id": "pretrigger", "sample_count": 3, "motion_score": 0.0},
+            {"roi_id": "avatar_face_head", "window_id": "active", "sample_count": 4, "motion_score": 0.035417},
+            {"roi_id": "avatar_face_head", "window_id": "release", "sample_count": 2, "motion_score": 0.035417},
+            {"roi_id": "avatar_face_head", "window_id": "settle", "sample_count": 2, "motion_score": 0.0},
+        ]
+        config["projection_visual_diagnostics"] = {
+            "schema_version": "projection_visual_in_page_diagnostics.v0",
+            "expression_weight_applied": True,
+            "frame_applied_count": 1,
+            "last_driver_result": "applied",
+            "last_driver_reason_code": "motion_driver_applied",
+            "last_safe_visible_state": "expression_changed",
+            "same_page_or_target": True,
+            "target_identity_match": True,
+            "surface_match": True,
+        }
+
+        summary, rows = analyze_config(config)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self_mirror_path, *_rest = write_outputs(summary, rows, Path(temp_dir) / "out")
+            payload = json.loads(self_mirror_path.read_text(encoding="utf-8"))
+
+        avatar = _roi(summary, "avatar_face_head")
+        self.assertEqual(summary["result"], "visual-missing-motion")
+        self.assertEqual(avatar["pass_label"], "visual-missing-motion")
+        self.assertEqual(summary["thresholds"]["active_motion_min_score"], 0.05)
+        self.assertEqual(payload["result"], "fail")
+
+    def test_controlled_chrome_expression_candidate_profile_passes_clearer_delta(self) -> None:
+        config = _controlled_chrome_metric_config(
+            scenario_id="rr003.visible_motion.expression_visible_change.controlled_chrome.profile.v0",
+            expected_motion="face_visible_change",
+            expected_roi_id="avatar_face_head",
+            motion_event_id="mot_evt_controlled_chrome_expression_profile_clear_delta_test",
+            stimulus_id="mot_stim_controlled_chrome_voice_smile_please",
+            stimulus_instance_id="mot_inst_controlled_chrome_expression_profile_clear_delta_test",
+            runtime_result_id="mot_res_controlled_chrome_expression_profile_clear_delta_test",
+            driver_result_id="driver_result_controlled_chrome_expression_profile_clear_delta_test",
+            result_reason_code="motion_runtime_expression_frame_queued",
+            result_safe_visible_state="expression_change_requested",
+        )
+        config["thresholds"]["active_motion_min_score"] = 0.05
+        config["thresholds"]["threshold_too_strict_ratio"] = 0.75
+        config["controlled_chrome_observation"]["roi_window_metrics"] = [
+            {"roi_id": "avatar_face_head", "window_id": "pretrigger", "sample_count": 3, "motion_score": 0.0},
+            {"roi_id": "avatar_face_head", "window_id": "active", "sample_count": 4, "motion_score": 0.055},
+            {"roi_id": "avatar_face_head", "window_id": "release", "sample_count": 2, "motion_score": 0.055},
+            {"roi_id": "avatar_face_head", "window_id": "settle", "sample_count": 2, "motion_score": 0.0},
+        ]
+        config["projection_visual_diagnostics"] = {
+            "schema_version": "projection_visual_in_page_diagnostics.v0",
+            "expression_weight_applied": True,
+            "frame_applied_count": 1,
+            "last_driver_result": "applied",
+            "last_driver_reason_code": "motion_driver_applied",
+            "last_safe_visible_state": "expression_changed",
+            "same_page_or_target": True,
+            "target_identity_match": True,
+            "surface_match": True,
+        }
+
+        summary, rows = analyze_config(config)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self_mirror_path, *_rest = write_outputs(summary, rows, Path(temp_dir) / "out")
+            payload = json.loads(self_mirror_path.read_text(encoding="utf-8"))
+
+        avatar = _roi(summary, "avatar_face_head")
+        self.assertEqual(summary["result"], "visual-pass")
+        self.assertEqual(avatar["pass_label"], "visual-motion-detected")
+        self.assertEqual(summary["thresholds"]["active_motion_min_score"], 0.05)
+        self.assertEqual(summary["motion_diagnostics"]["diagnostic_result"], "event-correlated-motion")
+        self.assertEqual(payload["result"], "pass")
+        self.assertIn("not_expression_semantic_proof", payload["does_not_prove"])
+
+    def test_controlled_chrome_observation_rejects_raw_media_flags(self) -> None:
+        config = _controlled_chrome_metric_config(
+            scenario_id="rr003.visible_motion.dance_visible_motion.controlled_chrome.v0",
+            expected_motion="broad_avatar_motion",
+            expected_roi_id="avatar_full",
+            motion_event_id="mot_evt_controlled_chrome_raw_flag_test",
+            stimulus_id="mot_stim_controlled_chrome_raw_flag_test",
+            stimulus_instance_id="mot_inst_controlled_chrome_raw_flag_test",
+            runtime_result_id="mot_res_controlled_chrome_raw_flag_test",
+            driver_result_id="",
+            result_reason_code="motion_runtime_vrma_started",
+            result_safe_visible_state="motion_started",
+        )
+        config["controlled_chrome_observation"]["raw_screenshot_included"] = True
+
+        with self.assertRaisesRegex(ValueError, "summary-only"):
+            analyze_config(config)
 
     def test_roi_calibration_keeps_guard_and_face_head_boundaries_explicit(self) -> None:
         catalog_path = Path(__file__).resolve().parents[1] / "self-mirror-scenarios.json"
@@ -1373,6 +1629,120 @@ def _roi(summary: dict[str, object], roi_id: str) -> dict[str, object]:
         if row["roi_id"] == roi_id:
             return row
     raise AssertionError(f"ROI not found: {roi_id}")
+
+
+def _controlled_chrome_metric_config(
+    *,
+    scenario_id: str,
+    expected_motion: str,
+    expected_roi_id: str,
+    motion_event_id: str,
+    stimulus_id: str,
+    stimulus_instance_id: str,
+    runtime_result_id: str,
+    driver_result_id: str,
+    result_reason_code: str,
+    result_safe_visible_state: str,
+) -> dict:
+    windows = [
+        {"window_id": "pretrigger", "start_ms": 0, "end_ms": 300},
+        {"window_id": "active", "start_ms": 300, "end_ms": 900},
+        {"window_id": "release", "start_ms": 900, "end_ms": 1200},
+        {"window_id": "settle", "start_ms": 1200, "end_ms": 1600},
+    ]
+    rois = [
+        {
+            "roi_id": expected_roi_id,
+            "kind": "avatar",
+            "counts_as_avatar_motion": True,
+            "expected_for_pass": True,
+            "rect_norm": {"x": 0.2, "y": 0.15, "w": 0.3, "h": 0.6},
+        },
+        {
+            "roi_id": "speech_bubble",
+            "kind": "guard_ui",
+            "counts_as_avatar_motion": False,
+            "expected_for_pass": False,
+            "rect_norm": {"x": 0.55, "y": 0.05, "w": 0.35, "h": 0.35},
+        },
+    ]
+    roi_window_metrics = [
+        {"roi_id": expected_roi_id, "window_id": "pretrigger", "sample_count": 2, "motion_score": 0.0},
+        {"roi_id": expected_roi_id, "window_id": "active", "sample_count": 3, "motion_score": 0.42},
+        {"roi_id": expected_roi_id, "window_id": "release", "sample_count": 2, "motion_score": 0.02},
+        {"roi_id": expected_roi_id, "window_id": "settle", "sample_count": 2, "motion_score": 0.0},
+        {"roi_id": "speech_bubble", "window_id": "pretrigger", "sample_count": 2, "motion_score": 0.0},
+        {"roi_id": "speech_bubble", "window_id": "active", "sample_count": 3, "motion_score": 0.0},
+        {"roi_id": "speech_bubble", "window_id": "release", "sample_count": 2, "motion_score": 0.0},
+        {"roi_id": "speech_bubble", "window_id": "settle", "sample_count": 2, "motion_score": 0.0},
+    ]
+    runtime_join = {
+        "motion_event_id": motion_event_id,
+        "stimulus_id": stimulus_id,
+        "stimulus_instance_id": stimulus_instance_id,
+        "runtime_result_id": runtime_result_id,
+        "result_status": "started",
+        "result_reason_code": result_reason_code,
+        "result_safe_visible_state": result_safe_visible_state,
+    }
+    if driver_result_id:
+        runtime_join["driver_result_id"] = driver_result_id
+    return {
+        "analysis_run_id": f"vismot_run_{stimulus_instance_id}",
+        "scenario_id": scenario_id,
+        "scenario": {
+            "scenario_key": scenario_id,
+            "label": scenario_id,
+            "expected_motion": expected_motion,
+            "runtime_join_required": True,
+        },
+        "proof_layer": "visible_motion",
+        "motion_event_id": motion_event_id,
+        "stimulus_id": stimulus_id,
+        "stimulus_instance_id": stimulus_instance_id,
+        "driver_result_id": driver_result_id,
+        "source_ref": {
+            "kind": "controlled_chrome_metric_summary",
+            "source_ref_id": "redacted_controlled_chrome_tab_safe_test",
+        },
+        "sampling": {"sample_rate_fps": 8},
+        "windows": windows,
+        "rois": rois,
+        "thresholds": {
+            "active_motion_min_score": 0.12,
+            "settle_motion_max_score": 0.05,
+            "min_consecutive_samples": 2,
+        },
+        "runtime_join": runtime_join,
+        "event_timeline": {
+            "motion_requested_at_ms": 300,
+            "runtime_started_at_ms": 330,
+        },
+        "controlled_chrome_observation": {
+            "schema_version": "self_mirror_controlled_chrome_observation.v0",
+            "target_identity": {
+                "schema_version": "self_mirror_capture_target_identity.v0",
+                "capture_surface_kind": "controlled_chrome_extension_tab",
+                "chrome_tab_safe_id": "chrome_tab_safe_test",
+                "same_page_or_target": True,
+                "browser_process_kind": "chrome_extension_controlled_user_chrome",
+                "proof_ceiling": "controlled_chrome_self_mirror_summary_only",
+                "capture_target_url": "http://127.0.0.1/private-redacted-route",
+            },
+            "viewport": {"width": 1280, "height": 720},
+            "roi_window_metrics": roi_window_metrics,
+            "raw_frame_included": False,
+            "raw_screenshot_included": False,
+            "raw_video_included": False,
+            "raw_log_included": False,
+            "provider_payload_included": False,
+            "cleanup_status": {
+                "browser_target_finalized": True,
+                "runtime_stopped": True,
+                "raw_frames_deleted": True,
+            },
+        },
+    }
 
 
 if __name__ == "__main__":

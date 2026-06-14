@@ -574,10 +574,15 @@ function New-DigestInput {
       detail = $_.detail
     }
   })
-  return [PSCustomObject]@{
+  $digestInput = [PSCustomObject]@{
     services = $services
     capabilities = $capabilities
   }
+  $provenanceProperty = $Status.PSObject.Properties["no_provider_child_provenance_diagnostics"]
+  if ($null -ne $provenanceProperty) {
+    $digestInput | Add-Member -NotePropertyName "no_provider_child_provenance_diagnostics" -NotePropertyValue $provenanceProperty.Value
+  }
+  return $digestInput
 }
 
 function Get-ObjectDigest {
@@ -593,6 +598,8 @@ function Get-ObjectDigest {
     $sha.Dispose()
   }
 }
+
+. (Join-Path $PSScriptRoot "diagnostics-provenance.ps1")
 
 function New-EventId {
   param([Parameter(Mandatory = $true)][int]$Index)
@@ -902,6 +909,14 @@ $summary = [PSCustomObject]@{
   capabilities_unknown = @($capabilities | Where-Object { $_.state -eq "unknown" }).Count
 }
 
+$noProviderChildProvenanceDiagnostics = New-NoProviderChildProvenanceDiagnostics `
+  -Profile $profile `
+  -ServiceManifest $serviceManifest `
+  -PidMap $pidMap `
+  -Workspace $workspace `
+  -StackState $stackState `
+  -ManifestOnlyMode ([bool]$ManifestOnly)
+
 $status = [PSCustomObject]@{
   schema_version = "diagnostics.status.v0"
   generated_at = $now.ToString("o")
@@ -918,6 +933,7 @@ $status = [PSCustomObject]@{
     recorded_processes = $pidMap.Count
   }
   summary = $summary
+  no_provider_child_provenance_diagnostics = $noProviderChildProvenanceDiagnostics
   services = @($services | Sort-Object service_id)
   capabilities = @($capabilities | Sort-Object driver_id, capability)
 }

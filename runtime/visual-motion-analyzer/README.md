@@ -98,6 +98,20 @@ directory so the analyzer can consume them. Treat those as local-only temporary
 inputs; do not share, commit, or publish them, and clean them up after direct
 runs.
 
+Controlled Chrome routes must not be silently downgraded to Browser helper
+routes. For controlled Chrome review, the analyzer can consume a
+`controlled_chrome_observation` config object containing summary-only
+Projection Visual / Chrome-extension-readable ROI window metrics. That source
+uses `source_ref.kind=controlled_chrome_metric_summary`, preserves safe target
+identity such as `capture_surface_kind=controlled_chrome_extension_tab` and a
+safe tab/target id, and still emits the normal
+`self_mirror_metric_summary.v0` authority packet. This adapter is source-no-live
+plumbing: it does not attach to Chrome by itself and does not prove controlled
+Chrome visibility until a coordinated controlled Chrome run supplies matching
+summary metrics. If raw screenshots, frame sequences, video, crops, storage, or
+logs are required to compute those metrics, stop and route a security/user
+artifact-retention subgate before runtime proof.
+
 For trigger-caused visible-motion review, use the
 `visualTest=self-mirror-baseline` route. The capture helper waits for the VRM
 debug/ready state before the first frame and records both `self_mirror_ready`

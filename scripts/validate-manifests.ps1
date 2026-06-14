@@ -195,7 +195,8 @@ $contractFiles = @(
   "contracts/motion_driver_result/motion_driver_result.v0.schema.json",
   "contracts/motion_trace_event/motion_trace_event.v0.schema.json",
   "contracts/motion_memory_candidate/motion_memory_candidate.v0.schema.json",
-  "contracts/visual_motion_analysis/visual_motion_analysis.v0.schema.json"
+  "contracts/visual_motion_analysis/visual_motion_analysis.v0.schema.json",
+  "contracts/self_mirror_metric_summary/self_mirror_metric_summary.v0.schema.json"
 )
 
 $runtimeDirs = @(

@@ -8,6 +8,34 @@ Sword Agent OS は、AI エージェントを「思考」「反射」「環境�
 
 上の画像は標準表示例です。これは、単なるキャラクターチャット UI ではありません。アバターは OS の表示レイヤーの一つです。中の Thought Core や器官を差し替えることで、自律的な AI エージェントとしても、人が使うサイバー器官としても扱える構成を目指しています。
 
+## まず押さえること
+
+この repo のメインラインは、AI エージェントをローカルな cyber-system として
+動かすことです。標準構成では次の loop を一つの身体として扱います。
+
+```text
+入力/観察
+-> 状態理解
+-> Thought Core / Reflex の判断
+-> Action Boundary または Expression
+-> 家電操作、音声、アバター、HUD、投影
+-> 結果観察、自己観察、記録、次の判断
+```
+
+初めて読む場合は、次の順で見れば十分です。
+
+1. この README の `15分 quick-start` で起動までの最短ルートを見る。
+2. `docs/standard-distribution-map.md` で標準構成、local-only 資材、
+   proof layer、live 操作境界を見る。
+3. `docs/module-usage-index.md` で「変更をどこに入れるか」を決める。
+4. 実装を触る前に、`manifests/`、`contracts/`、`runtime/`、
+   `organs/` のどれの責任かを分ける。
+
+迷ったら、まず `manifests/distributions/standard.json` が標準構成、
+`manifests/body-plans/` が身体構造、`contracts/` が境界、
+`runtime/` が OS の基盤、`organs/` と `control-plane/` が具体機能、
+`scripts/` が導入・起動・検証の入口です。
+
 ## 標準ディストリビューションの流れ
 
 Sword Agent OS は、用途に合わせて organ / module を組み替えられる OS です。
@@ -80,6 +108,7 @@ Home Assistant 実操作は、対象、回数、戻し方、停止条件を決�
 
 | 読む人 | まず読む節 | ゴール |
 | --- | --- | --- |
+| 初めて全体像を知りたい人 | `まず押さえること`、`標準ディストリビューションの流れ`、`フォルダ構成` | 何がメインで、どの順に読めばよいかを掴む |
 | 標準構成を起動したい人 | `15分 quick-start`、`ローカル設定`、`起動方法` | 画面を開き、基本入力と表示を確認する |
 | Home Assistant / 実家電を試す人 | `ローカル設定`、`最初の動作確認`、`安全とローカルデータ` | 家電状態確認と低リスク操作を安全に確認する |
 | organ / module を開発する人 | `OS の構造`、`開発者向け入口`、`検証コマンド` | organ の差し替え、契約、テストを把握する |
@@ -126,6 +155,11 @@ sword-agent-os/
 `control-plane/` / `organs/` の nested checkout です。`../coordination/`,
 `../worktrees/`, `../_codex/`, `../local/` は複数エージェント開発や
 Codex 作業用の workspace-local 領域であり、通常利用では作成不要です。
+
+もし repo 内に `sword-agent-os/sword-agent-os/` のような二重パスが見えた場合、
+それは標準構成の入口ではありません。誤った作業ディレクトリや生成キャッシュの
+影であり、読む人はトップレベルの `sword-agent-os/README.md`、`manifests/`、
+`runtime/`、`organs/` を正本として扱ってください。
 
 ## clone する前に用意するもの
 
@@ -856,6 +890,20 @@ speech / gesture input
 ## 開発者向け入口
 
 コードや manifest を変更する開発者はここから読みます。
+
+まず変更先を次の順で決めます。
+
+1. 標準構成に何を入れるかを変えるなら `manifests/`。
+2. organ 間のデータ形や境界を変えるなら `contracts/`。
+3. OS substrate、状態、イベント、action boundary、diagnostics 基盤を変えるなら
+   `runtime/`。
+4. 具体的な能力、driver、UI、外部 service の実装を変えるなら
+   `control-plane/` または `organs/` の nested checkout。
+5. 導入、起動、検証、保守の入口を変えるなら `scripts/` と `docs/`。
+
+迷った場合は [Module usage index](docs/module-usage-index.md) で責任レイヤーを
+決めてから source を開いてください。runtime proof、source/static proof、
+live device proof、physical observation proof は同じものとして扱いません。
 
 - [Remote workstation setup](docs/remote-workstation-setup.md)
 - [Thread startup guide](docs/thread-startup-guide.md)

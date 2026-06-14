@@ -332,6 +332,124 @@ function Test-PublicPathLeakStatic {
   Write-Host "path leak static ok: README/docs/scripts/manifests"
 }
 
+function Get-TestLayoutSourceFiles {
+  $excludedDirectoryNames = New-Object "System.Collections.Generic.HashSet[string]" ([System.StringComparer]::OrdinalIgnoreCase)
+  foreach ($name in @(
+      ".git",
+      ".venv",
+      ".uv-cache",
+      ".cache",
+      "node_modules",
+      "test-runs",
+      "dist",
+      "build",
+      ".next",
+      "coverage"
+    )) {
+    $excludedDirectoryNames.Add($name) | Out-Null
+  }
+
+  $excludedRelativeRoots = @(
+    "control-plane\sword-voice-agent",
+    "organs\speech-input\ai-talk-core",
+    "organs\reflex\mediapipe-sword-sign",
+    "organs\environment\environment-state-server",
+    "organs\environment\vision-snapshot-processor",
+    "organs\action\home-assistant-server",
+    "organs\expression\tts-service",
+    "organs\expression\aituber-kit",
+    "organs\display\touchdesigner-ai-controller",
+    "organs\diagnostics\system-house-renderer"
+  )
+
+  $stack = New-Object "System.Collections.Generic.Stack[System.IO.DirectoryInfo]"
+  $stack.Push((Get-Item -LiteralPath $RepoRoot))
+  while ($stack.Count -gt 0) {
+    $directory = $stack.Pop()
+    foreach ($childDirectory in $directory.GetDirectories()) {
+      $relativeChild = $childDirectory.FullName.Substring($RepoRoot.Length).TrimStart(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+      )
+      $isNestedCheckout = $false
+      foreach ($excludedRoot in $excludedRelativeRoots) {
+        if ($relativeChild.Equals($excludedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+          $isNestedCheckout = $true
+          break
+        }
+      }
+      if ($isNestedCheckout) {
+        continue
+      }
+      if (-not $excludedDirectoryNames.Contains($childDirectory.Name)) {
+        $stack.Push($childDirectory)
+      }
+    }
+    foreach ($file in $directory.GetFiles()) {
+      $file
+    }
+  }
+}
+
+function Test-TestLayoutPolicy {
+  Write-TestStep "test layout policy static checks"
+  $policyPath = Join-Path $RepoRoot "manifests\tests\README.md"
+  $packReadmePath = Join-Path $RepoRoot "manifests\tests\organ-test-packs\README.md"
+  $standardPackPath = Join-Path $RepoRoot "manifests\tests\organ-test-packs\standard.json"
+  Assert-PathPresent -Path $policyPath
+  Assert-PathPresent -Path $packReadmePath
+  Assert-PathPresent -Path $standardPackPath
+
+  $policy = Get-Content -Raw -LiteralPath $policyPath
+  Assert-TextMatch -Text $policy -Pattern "Module-internal unit and contract tests" -Message "test layout policy should describe module-local tests"
+  Assert-TextMatch -Text $policy -Pattern "organ-test-packs" -Message "test layout policy should describe cross-module test packs"
+  Assert-TextMatch -Text $policy -Pattern "Generated SQLite databases and evidence" -Message "test layout policy should keep generated memory proof out of source"
+  Assert-TextMatch -Text $policy -Pattern "service.*execution/process shape" -Message "test layout policy should clarify service as process shape"
+  Assert-TextMatch -Text $policy -Pattern "Memory Core and Event Journal are runtime substrate" -Message "test layout policy should keep Memory Core/Event Journal as runtime substrate"
+
+  $testNamePattern = "^(test_.+\.py|.+_test\.py|smoke_test\.py|.+\.(test|spec)\.(ts|tsx|js|jsx|mjs))$"
+  $allowedSegments = @("tests", "__tests__", "test")
+  $legacyExceptions = @(
+    "organs\speech-input\ai-talk-core\smoke_test.py",
+    "organs\voice\ai-talk-core\smoke_test.py"
+  )
+  $violations = @()
+  $warnings = @()
+  foreach ($file in Get-TestLayoutSourceFiles) {
+    if ($file.Name -notmatch $testNamePattern) {
+      continue
+    }
+    $relativePath = $file.FullName.Substring($RepoRoot.Length).TrimStart(
+      [System.IO.Path]::DirectorySeparatorChar,
+      [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    if ($legacyExceptions -contains $relativePath) {
+      $warnings += "legacy test-layout exception: $relativePath"
+      continue
+    }
+    $segments = $relativePath -split "[\\/]"
+    $inAllowedSegment = $false
+    foreach ($segment in $allowedSegments) {
+      if ($segments -contains $segment) {
+        $inAllowedSegment = $true
+        break
+      }
+    }
+    if (-not $inAllowedSegment) {
+      $violations += $relativePath
+    }
+  }
+
+  foreach ($warning in $warnings) {
+    Write-Warning $warning
+  }
+  if ($violations.Count -gt 0) {
+    $violationText = $violations -join "; "
+    throw "test files outside allowed roots: $violationText"
+  }
+  Write-Host "test layout policy ok: $($warnings.Count) warning(s), 0 failure(s)"
+}
+
 function Test-ReadmeFirstRunGuidance {
   Write-TestStep "README first-run guidance static checks"
   $readme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "README.md")
@@ -1633,6 +1751,7 @@ Test-PowerShellSyntax
 Test-BatchWrappers
 Test-MaintenanceSafetyStatic
 Test-PublicPathLeakStatic
+Test-TestLayoutPolicy
 Test-ReadmeFirstRunGuidance
 Test-HomeControlTrackingHelperFixtures
 Test-ManifestAndVersion
