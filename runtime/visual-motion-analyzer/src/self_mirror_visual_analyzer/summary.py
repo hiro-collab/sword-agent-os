@@ -18,6 +18,27 @@ NON_CLAIMS = [
     "not_rr003_representative_pass",
 ]
 
+RAW_PRIVATE_FLAG_KEYS = {
+    "raw_frame_included",
+    "raw_screenshot_included",
+    "raw_video_included",
+    "raw_media_included",
+    "raw_log_included",
+    "raw_path_included",
+    "local_path_included",
+    "private_path_included",
+    "provider_payload_included",
+    "raw_provider_payload_included",
+    "cookies_included",
+    "local_storage_included",
+    "session_storage_included",
+    "session_store_included",
+    "passwords_included",
+    "unrelated_tabs_included",
+    "browser_storage_included",
+    "home_control_or_device_state_included",
+}
+
 
 def build_self_mirror_metric_summary(
     visual_summary: dict[str, Any],
@@ -28,18 +49,21 @@ def build_self_mirror_metric_summary(
     jsonl_artifact: str | None = None,
 ) -> dict[str, Any]:
     scenario = dict(visual_summary.get("scenario", {}))
-    scenario_id = str(visual_summary.get("scenario_id", "unknown"))
-    proof_layer = str(visual_summary.get("proof_layer", "unknown"))
-    activation_sampling = str(visual_summary.get("activation_sampling", "event_driven"))
-    evidence_export = str(visual_summary.get("evidence_export", "verification_capture"))
-    reason_code = str(visual_summary.get("classification", {}).get("reason_code", visual_summary.get("result", "unknown")))
-    result = _result_status(str(visual_summary.get("result", "unknown")))
-    needs_attention = result != "pass"
-    recommended_correction = (
-        str(visual_summary.get("classification", {}).get("next_action", ""))
-        if needs_attention
-        else ""
+    scenario_id = _safe_text(visual_summary.get("scenario_id", "unknown"), default="unknown")
+    proof_layer = _safe_text(visual_summary.get("proof_layer", "unknown"), default="unknown")
+    activation_sampling = _safe_text(visual_summary.get("activation_sampling", "event_driven"), default="event_driven")
+    evidence_export = _safe_text(
+        visual_summary.get("evidence_export", "verification_capture"),
+        default="verification_capture",
     )
+    classification = visual_summary.get("classification", {})
+    if not isinstance(classification, dict):
+        classification = {}
+    reason_code = _safe_text(
+        classification.get("reason_code", visual_summary.get("result", "unknown")),
+        default="unknown",
+    )
+    result = _result_status(_safe_text(visual_summary.get("result", "unknown"), default="unknown"))
     summary_id = f"smm_sum_{_safe_slug(visual_summary.get('analysis_run_id', scenario_id))}"
     windows = {
         str(window.get("window_id")): {
@@ -83,6 +107,27 @@ def build_self_mirror_metric_summary(
                 "raw_screenshot_included": False,
             }
         )
+    summary_confidence = _summary_confidence(visual_summary)
+    motion_diagnostics = _motion_diagnostics_summary(visual_summary)
+    observability = _observability_block(
+        visual_summary=visual_summary,
+        rows=rows,
+        windows=windows,
+        roi_results=roi_results,
+        motion_diagnostics=motion_diagnostics,
+        reason_code=reason_code,
+    )
+    if result == "pass" and observability["observability_surface_status"] == "missing_surface_blocker":
+        result = "blocked"
+        reason_code = "missing-surface-blocker"
+    needs_attention = result != "pass"
+    recommended_correction = (
+        _safe_text(classification.get("next_action", ""), default="")
+        if needs_attention
+        else ""
+    )
+    if needs_attention and not recommended_correction:
+        recommended_correction = "Inspect the Self Mirror metric surface before making a visual proof claim."
     latest_state = _latest_state(
         summary_id=summary_id,
         visual_summary=visual_summary,
@@ -96,21 +141,10 @@ def build_self_mirror_metric_summary(
         evidence_export=evidence_export,
         proof_layer=proof_layer,
     )
-
-    summary_confidence = _summary_confidence(visual_summary)
-    motion_diagnostics = _motion_diagnostics_summary(visual_summary)
-    observability = _observability_block(
-        visual_summary=visual_summary,
-        rows=rows,
-        windows=windows,
-        roi_results=roi_results,
-        motion_diagnostics=motion_diagnostics,
-        reason_code=reason_code,
-    )
     return {
         "schema_version": "self_mirror_metric_summary.v0",
         "summary_id": summary_id,
-        "analysis_run_id": visual_summary.get("analysis_run_id"),
+        "analysis_run_id": _safe_text(visual_summary.get("analysis_run_id"), default="redacted_unknown"),
         "scenario_id": scenario_id,
         "observed_target": _observed_target(visual_summary),
         "test_observability": observability["test_observability"],
@@ -181,14 +215,17 @@ def build_self_mirror_metric_summary(
         ),
         "does_not_prove": NON_CLAIMS,
         "source": {
-            "kind": str(visual_summary.get("source_ref", {}).get("kind", "unknown")),
-            "source_ref_id": str(visual_summary.get("source_ref", {}).get("source_ref_id", "redacted_unknown")),
+            "kind": _safe_text(visual_summary.get("source_ref", {}).get("kind", "unknown"), default="unknown"),
+            "source_ref_id": _safe_text(
+                visual_summary.get("source_ref", {}).get("source_ref_id", "redacted_unknown"),
+                default="redacted_unknown",
+            ),
             "raw_source_shared": False,
         },
         "scenario": {
-            "scenario_key": str(scenario.get("scenario_key", "")),
-            "label": str(scenario.get("label", "")),
-            "expected_motion": str(scenario.get("expected_motion", "")),
+            "scenario_key": _safe_text(scenario.get("scenario_key", ""), default=""),
+            "label": _safe_text(scenario.get("label", ""), default=""),
+            "expected_motion": _safe_text(scenario.get("expected_motion", ""), default=""),
             "runtime_join_required": bool(scenario.get("runtime_join_required", False)),
         },
         "artifact_policy": {
@@ -229,6 +266,8 @@ def _roi_window_metrics(
 ) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
+        if not isinstance(row, dict):
+            continue
         grouped[(str(row.get("roi_id", "")), str(row.get("window_id", "")))].append(row)
 
     metrics: list[dict[str, Any]] = []
@@ -284,7 +323,7 @@ def _latest_state(
         "schema_version": "self_mirror_observation.v0",
         "observation_id": f"smm_obs_{_safe_slug(visual_summary.get('analysis_run_id', summary_id))}",
         "summary_id": summary_id,
-        "analysis_run_id": visual_summary.get("analysis_run_id"),
+        "analysis_run_id": _safe_text(visual_summary.get("analysis_run_id"), default="redacted_unknown"),
         "scenario_id": scenario_id,
         "observed_target": observed_target,
         "activation_sampling": activation_sampling,
@@ -315,16 +354,24 @@ def _latest_state(
 
 def _run_refs(summary: dict[str, Any]) -> dict[str, Any]:
     runtime_join = summary.get("runtime_join", {})
+    if not isinstance(runtime_join, dict):
+        runtime_join = {}
     return {
-        "motion_event_id": summary.get("motion_event_id", ""),
-        "stimulus_id": runtime_join.get("stimulus_id", summary.get("stimulus_id", "")),
-        "stimulus_instance_id": summary.get("stimulus_instance_id", ""),
-        "runtime_result_id": runtime_join.get("runtime_result_id", summary.get("driver_result_id", "")),
-        "driver_result_id": runtime_join.get("driver_result_id", summary.get("driver_result_id", "")),
-        "multi_stimulus_group_id": runtime_join.get("multi_stimulus_group_id", ""),
-        "runtime_status": runtime_join.get("result_status", ""),
-        "runtime_reason_code": runtime_join.get("result_reason_code", ""),
-        "runtime_safe_visible_state": runtime_join.get("result_safe_visible_state", ""),
+        "motion_event_id": _safe_text(summary.get("motion_event_id", ""), default=""),
+        "stimulus_id": _safe_text(runtime_join.get("stimulus_id", summary.get("stimulus_id", "")), default=""),
+        "stimulus_instance_id": _safe_text(summary.get("stimulus_instance_id", ""), default=""),
+        "runtime_result_id": _safe_text(
+            runtime_join.get("runtime_result_id", summary.get("driver_result_id", "")),
+            default="",
+        ),
+        "driver_result_id": _safe_text(
+            runtime_join.get("driver_result_id", summary.get("driver_result_id", "")),
+            default="",
+        ),
+        "multi_stimulus_group_id": _safe_text(runtime_join.get("multi_stimulus_group_id", ""), default=""),
+        "runtime_status": _safe_text(runtime_join.get("result_status", ""), default=""),
+        "runtime_reason_code": _safe_text(runtime_join.get("result_reason_code", ""), default=""),
+        "runtime_safe_visible_state": _safe_text(runtime_join.get("result_safe_visible_state", ""), default=""),
     }
 
 
@@ -414,6 +461,7 @@ def _window_coverage(
     observed_pairs = {
         (str(row.get("roi_id", "")), str(row.get("window_id", "")))
         for row in rows
+        if isinstance(row, dict)
         if row.get("roi_id") and row.get("window_id")
     }
     expected_pairs = {
@@ -424,6 +472,7 @@ def _window_coverage(
     active_sample_count = sum(
         1
         for row in rows
+        if isinstance(row, dict)
         if str(row.get("window_id", "")) == "active"
         and str(row.get("roi_id", "")) in authority_roi_ids
     )
@@ -533,17 +582,38 @@ def _safe_dict(value: Any) -> dict[str, Any]:
         return {}
     safe: dict[str, Any] = {}
     for key, item in value.items():
+        safe_key = _safe_text(key, default="")
+        if not safe_key:
+            continue
+        if safe_key in RAW_PRIVATE_FLAG_KEYS:
+            safe[safe_key] = False
+            continue
         if isinstance(item, dict):
-            safe[str(key)] = _safe_dict(item)
+            safe[safe_key] = _safe_dict(item)
         elif isinstance(item, list):
-            safe[str(key)] = [
+            safe[safe_key] = [
                 _safe_dict(entry) if isinstance(entry, dict) else entry
                 for entry in item
                 if not _looks_like_path_or_secret(entry)
+                and (not isinstance(entry, str) or len(entry) <= 180)
             ]
         elif not _looks_like_path_or_secret(item):
-            safe[str(key)] = item
+            if isinstance(item, str):
+                safe_item = _safe_text(item, default="")
+                if safe_item:
+                    safe[safe_key] = safe_item
+            else:
+                safe[safe_key] = item
     return safe
+
+
+def _safe_text(value: Any, *, default: str = "", max_length: int = 180) -> str:
+    if value is None:
+        return default
+    text = str(value)
+    if len(text) > max_length or _looks_like_path_or_secret(text):
+        return default
+    return text
 
 
 def _looks_like_path_or_secret(value: Any) -> bool:
@@ -729,4 +799,6 @@ def _observed_issue(reason_code: str) -> str:
 
 def _safe_slug(value: Any) -> str:
     text = str(value).strip().lower()
+    if len(text) > 180 or _looks_like_path_or_secret(text):
+        return "redacted"
     return "".join(char if char.isalnum() else "_" for char in text).strip("_") or "unknown"

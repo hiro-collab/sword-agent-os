@@ -229,6 +229,105 @@ class SelfMirrorMetricSummaryTest(unittest.TestCase):
         self.assertFalse(observability["raw_screenshot_included"])
         self.assertFalse(observability["provider_payload_included"])
 
+    def test_fuzzed_summary_inputs_redact_private_markers_and_cannot_overclaim_pass(self) -> None:
+        long_label = "face-visible-" + ("x" * 240)
+        payload = build_self_mirror_metric_summary(
+            {
+                "analysis_run_id": "private/source/run001",
+                "scenario_id": "private/source/scenario001",
+                "proof_layer": "browser_runtime",
+                "result": "visual-pass",
+                "classification": {
+                    "reason_code": "visual-pass",
+                    "next_action": "inspect private/source/frame001.png",
+                },
+                "source_ref": {
+                    "kind": "browser_frame_provider",
+                    "source_ref_id": "private/source/frame001.png",
+                },
+                "scenario": {
+                    "scenario_key": long_label,
+                    "label": "token-redacted-fake-" + long_label,
+                    "expected_motion": "face_visible_change",
+                    "runtime_join_required": True,
+                },
+                "windows": [
+                    {"window_id": "active", "start_ms": 100, "end_ms": 400},
+                    "wrong-typed-window",
+                ],
+                "roi_results": "wrong-typed-roi-results",
+                "runtime_join": "wrong-typed-runtime-join",
+                "motion_event_id": "private/source/motion_event",
+                "capture_target_identity": {
+                    "capture_surface_kind": "helper_playwright_page",
+                    "proof_ceiling": "helper_browser_runtime_only",
+                    "capture_target_url": "private/source/target",
+                    "raw_frame_included": True,
+                    "local_path_included": True,
+                    "long_label": long_label,
+                },
+                "projection_visual_diagnostics": {
+                    "schema_version": "projection_visual_in_page_diagnostics.v0",
+                    "runtime_status": long_label,
+                    "runtime_reason_code": "motion_runtime_expression_frame_queued",
+                    "raw_frame_included": True,
+                    "provider_payload_included": True,
+                    "debug_path": "private/source/debug.json",
+                    "safe_marker": "safe-short-marker",
+                },
+                "controlled_chrome_observation": {
+                    "schema_version": "self_mirror_controlled_chrome_observation.v0",
+                    "raw_screenshot_included": True,
+                    "private_path_included": True,
+                    "cleanup_status": {
+                        "local_path": "private/source/frame001.png",
+                    },
+                },
+                "motion_diagnostics": {
+                    "schema_version": "self_mirror_motion_diagnostics.v0",
+                    "diagnostic_result": "event-correlated-motion",
+                    "anchor_status": {
+                        "raw_log_included": True,
+                        "raw_provider_payload_included": True,
+                        "private_path_included": True,
+                    },
+                },
+            },
+            ["wrong-typed-row"],
+        )
+
+        serialized = json.dumps(payload, ensure_ascii=False)
+
+        self.assertEqual(payload["result"], "blocked")
+        self.assertEqual(payload["observed_issue"], "missing-surface-blocker")
+        self.assertEqual(payload["analysis_run_id"], "redacted_unknown")
+        self.assertEqual(payload["scenario_id"], "unknown")
+        self.assertEqual(payload["summary_id"], "smm_sum_redacted")
+        self.assertEqual(payload["observability"]["observability_surface_status"], "missing_surface_blocker")
+        self.assertEqual(payload["observability"]["missing_surface_reason"], "missing-roi-window-metrics")
+        self.assertIn("missing-surface-blocker", payload["observability"]["visual_failure_reason_codes"])
+        self.assertFalse(payload["projection_visual_diagnostics"]["raw_frame_included"])
+        self.assertFalse(payload["projection_visual_diagnostics"]["provider_payload_included"])
+        self.assertEqual(payload["projection_visual_diagnostics"]["safe_marker"], "safe-short-marker")
+        self.assertFalse(payload["controlled_chrome_observation"]["raw_screenshot_included"])
+        self.assertFalse(payload["controlled_chrome_observation"]["private_path_included"])
+        self.assertFalse(payload["capture_target_identity"]["raw_frame_included"])
+        self.assertFalse(payload["capture_target_identity"]["local_path_included"])
+        self.assertFalse(payload["motion_diagnostics"]["anchor_status"]["raw_log_included"])
+        self.assertFalse(payload["motion_diagnostics"]["anchor_status"]["raw_provider_payload_included"])
+        self.assertFalse(payload["motion_diagnostics"]["anchor_status"]["private_path_included"])
+        self.assertEqual(payload["run_refs"]["motion_event_id"], "")
+        self.assertEqual(payload["source"]["source_ref_id"], "redacted_unknown")
+        self.assertEqual(payload["scenario"]["scenario_key"], "")
+        self.assertEqual(payload["scenario"]["label"], "")
+        self.assertIn("not_raw_media_proof", payload["does_not_prove"])
+        self.assertIn("not_expression_semantic_proof", payload["does_not_prove"])
+        self.assertNotIn("private/source", serialized)
+        self.assertNotIn("frame001", serialized)
+        self.assertNotIn(".png", serialized)
+        self.assertNotIn("token-redacted-fake", serialized)
+        self.assertNotIn(long_label, serialized)
+
     def test_face_visible_change_summary_stays_avatar_visual_change_not_semantic_expression(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
