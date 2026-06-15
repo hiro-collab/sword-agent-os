@@ -118,7 +118,7 @@ class SelfMirrorReferenceJudgmentTest(unittest.TestCase):
     def test_redaction_rejects_raw_media_paths_and_correction_authority(self) -> None:
         reference_case = load_reference_case(REFERENCE_EXAMPLE)
         unsafe_case = copy.deepcopy(reference_case)
-        unsafe_case["metric_summary_ref"]["artifact_label"] = "C:\\Users\\kawai\\private\\frame_001.png"
+        unsafe_case["metric_summary_ref"]["artifact_label"] = "C:\\Users\\example\\private\\frame_001.png"
 
         profile = load_auto_judgment_profile(PROFILE_EXAMPLE)
         unsafe_profile = copy.deepcopy(profile)
