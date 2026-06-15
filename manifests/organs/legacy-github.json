@@ -27,7 +27,7 @@
       "version_source": "organs/reflex/mediapipe-sword-sign/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
       "branch": "feature/camera-hub-topic-envelope",
-      "commit": "e0fa84cfbc48370813a0c8ca556a6bf6b6e43350",
+      "commit": "0130db25a01c76c751a2ef5f72827fef8eb0e788",
       "adoption": "standard_candidate",
       "legacy_path": "organs/reflex/mediapipe-sword-sign",
       "notes": "Camera Hub, gesture inference, and reflex topic surface."
@@ -41,7 +41,7 @@
       "version_source": "organs/environment/environment-state-server/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/environment-state-server.git",
       "branch": "main",
-      "commit": "1280a9da003aa45f9ef1273dfc78de855aa0ce4e",
+      "commit": "14156947eb6e3116a9b4adf273630c28c3c2a8e9",
       "adoption": "standard_candidate",
       "legacy_path": "organs/environment/environment-state-server",
       "notes": "Environment snapshot, indicators, health aggregation, and feedback capture."
@@ -55,7 +55,7 @@
       "version_source": "organs/environment/vision-snapshot-processor/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/vision-snapshot-processor.git",
       "branch": "main",
-      "commit": "a2629395d7e4d892f70ee2ec3d0538178535e938",
+      "commit": "64b52a8852316383db61bf8b8f5af6595d2fe296",
       "adoption": "standard_candidate",
       "legacy_path": "organs/environment/vision-snapshot-processor",
       "notes": "Low-frequency vision snapshots such as room light state."
@@ -69,7 +69,7 @@
       "version_source": "organs/action/home-assistant-server/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/home-assistant-server.git",
       "branch": "codex/add-fault-injection",
-      "commit": "7165c8a0297a00bb2226dd62fcc3a4fd5d7c458b",
+      "commit": "d6f212f2f1725ecb00c794e055db365fc4de4c8a",
       "adoption": "standard_candidate",
       "legacy_path": "organs/action/home-assistant-server",
       "notes": "Home Assistant safety bridge, allowlist, confirmation, audit, and fault injection."
