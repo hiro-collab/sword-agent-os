@@ -495,12 +495,12 @@ if ($RequestLiveHomeAssistant) {
       -FailureDetail "Home Assistant bridge preflight failed" | Out-Null
     Add-CommandLayer `
       -Id "FIV-12b" `
-      -Name "Home Assistant allowed action state tracking metadata" `
+      -Name "Home Assistant allowed action state tracking / live-readiness metadata" `
       -ProofLayer "home-assistant/state-tracking" `
       -ScriptName "start-home-control-bridge.ps1" `
       -Arguments @("-CheckTracking", "-ActionId", $AllowedActionId) `
-      -PassDetail "allowed action state-tracking metadata check completed; no physical action executed" `
-      -FailureDetail "allowed action state-tracking metadata check failed" | Out-Null
+      -PassDetail "allowed action state-tracking and live-readiness metadata check completed; no physical action executed" `
+      -FailureDetail "allowed action state-tracking/live-readiness metadata check failed" | Out-Null
     Add-HeldLayer -Id "FIV-12c" -Name "Post-action Home Assistant state confirmation" -ProofLayer "home-assistant/post-action-state-check" -Detail "held until a ticketed execute/wait or restore/wait has occurred"
     Add-Layer -Id "FIV-13" -Name "Ticketed physical action plus restore" -Status "blocked" -ProofLayer "home-assistant/live-ticketed" -Detail "ticket fields are complete, but this helper intentionally does not execute physical actions; use the documented preview/dry-run/execute ladder under a single live owner"
   }

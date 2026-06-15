@@ -238,6 +238,7 @@ function Test-MaintenanceSafetyStatic {
     "scripts/doctor-distribution.ps1",
     "scripts/render-env-files.ps1",
     "scripts/start-home-control-bridge.ps1",
+    "scripts/inspect-home-control-switchbot-surfaces.ps1",
     "scripts/run-home-control-light-proof.ps1",
     "scripts/check-voicevox-readiness.ps1",
     "scripts/evaluate-room-light-sunshine.ps1",
@@ -481,6 +482,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern '"dry_run":true' -Message "README should show a dry-run execute body"
   Assert-TextMatch -Text $readme -Pattern "-CheckTracking -ActionId" -Message "README should show helper-based state-tracking metadata check before execute"
   Assert-TextMatch -Text $readme -Pattern "-CheckState -ActionId" -Message "README should show helper-based Home Assistant state check"
+  Assert-TextMatch -Text $readme -Pattern "live_test_readiness" -Message "README should document Home Control live-test readiness metadata"
+  Assert-TextMatch -Text $readme -Pattern "restore_action_id" -Message "README should document Home Control restore action metadata"
+  Assert-TextMatch -Text $readme -Pattern "proof_ceiling" -Message "README should document Home Control proof ceiling metadata"
   Assert-TextMatch -Text $readme -Pattern "実行後または restore 後|post-action" -Message "README should separate CheckState from pre-execution checks"
   Assert-TextMatch -Text $readme -Pattern "live-home-control-cause-trail\.md" -Message "README should link live Home Control cause trail"
   Assert-PathPresent -Path (Join-Path $RepoRoot "docs\live-home-control-cause-trail.md")
@@ -491,6 +495,10 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $bridgeHelper -Pattern "root_cause_trace" -Message "Home Control bridge helper should emit root-cause trace packet"
   Assert-TextMatch -Text $bridgeHelper -Pattern "HOME_ASSISTANT_TOKEN" -Message "Home Control bridge helper should classify Home Assistant token readiness"
   Assert-TextMatch -Text $bridgeHelper -Pattern "CheckTracking" -Message "Home Control bridge helper should provide a redacted state-tracking metadata mode"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "live_test_readiness" -Message "Home Control bridge helper should report live-test readiness"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "live_test_blockers" -Message "Home Control bridge helper should report exact live-test blockers"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "restore_action" -Message "Home Control bridge helper should report restore action classes"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "safety_requirements" -Message "Home Control bridge helper should report safety requirement classes"
   Assert-TextMatch -Text $bridgeHelper -Pattern "CheckState" -Message "Home Control bridge helper should provide a redacted state-check mode"
   Assert-TextMatch -Text $bridgeHelper -Pattern "bridge_start: status=starting" -Message "Home Control bridge helper should print startup status"
   Assert-TextMatch -Text $bridgeHelper -Pattern "UV_CACHE_DIR" -Message "Home Control bridge helper should use a local uv cache without changing persistent environment"
@@ -506,6 +514,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $causeTrail -Pattern "missing-process-env" -Message "cause trail should cover missing process env failures"
   Assert-TextMatch -Text $causeTrail -Pattern "live-ha-state" -Message "cause trail should separate Home Assistant state proof"
   Assert-TextMatch -Text $causeTrail -Pattern "state_tracking=tracked" -Message "cause trail should separate tracking metadata from post-state proof"
+  Assert-TextMatch -Text $causeTrail -Pattern "live_test_readiness" -Message "cause trail should explain live-test readiness as separate from state tracking"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "UV_CACHE_DIR" -Message "public troubleshooting docs should include uv cache troubleshooting guidance"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "Git ownership warning" -Message "public troubleshooting docs should frame restricted-environment Git ownership warnings as validation friction"
   Assert-TextMatch -Text $readme -Pattern "doctor-distribution\.ps1" -Message "README should document the distribution doctor"
@@ -529,8 +538,11 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $verificationSurface -Pattern "run-home-control-light-proof\.ps1" -Message "public verification docs should document the physical light proof helper"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "run-home-control-light-proof\.ps1" -Message "troubleshooting should point light physical proof to the bounded helper"
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\run-home-control-light-proof.ps1")
+  Assert-TextMatch -Text $verificationSurface -Pattern "inspect-home-control-switchbot-surfaces\.ps1" -Message "public verification docs should document the SwitchBot read-only surface helper"
+  Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\inspect-home-control-switchbot-surfaces.ps1")
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\measure-camera-brightness.py")
   $lightProofHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-home-control-light-proof.ps1")
+  $switchBotInspectHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\inspect-home-control-switchbot-surfaces.ps1")
   $cameraBrightnessHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\measure-camera-brightness.py")
   Assert-TextMatch -Text $lightProofHelper -Pattern "ConfirmLiveLightTicket" -Message "physical light proof helper should require explicit live ticket confirmation"
   Assert-TextMatch -Text $lightProofHelper -Pattern "raw_media_saved" -Message "physical light proof helper should report raw media is not saved"
@@ -540,6 +552,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $lightProofHelper -Pattern "cause_kind" -Message "physical light proof helper should classify bridge startup failures"
   Assert-TextMatch -Text $lightProofHelper -Pattern "ConvertTo-RedactedText" -Message "physical light proof helper should redact diagnostic log tails"
   Assert-TextMatch -Text $lightProofHelper -Pattern "inverted" -Message "physical light proof helper should classify opposite brightness movement without claiming expected on proof"
+  Assert-TextMatch -Text $switchBotInspectHelper -Pattern 'ha_service_call = "no"' -Message "SwitchBot read-only helper should not perform HA service calls"
+  Assert-TextMatch -Text $switchBotInspectHelper -Pattern "live_test_readiness" -Message "SwitchBot read-only helper should report live-test readiness"
+  Assert-TextMatch -Text $switchBotInspectHelper -Pattern "safety_requirement" -Message "SwitchBot read-only helper should report safety requirement blockers"
   Assert-TextMatch -Text $cameraBrightnessHelper -Pattern "raw_media_saved" -Message "camera brightness helper should report raw media is not saved"
   Assert-TextMatch -Text $cameraBrightnessHelper -Pattern "cv2\.VideoCapture" -Message "camera brightness helper should use OpenCV without writing frames"
   Assert-TextMatch -Text $verificationSurface -Pattern "default_safety=no-live/no-device" -Message "public verification docs should state the full verification helper default safety"

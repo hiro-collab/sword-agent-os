@@ -179,6 +179,33 @@ that the requested `on` state was reached. If brightness does not move enough,
 keep it as `not-reproduced` and check camera ownership, ambient daylight,
 camera auto-exposure, target light mapping, and observation timing.
 
+## Optional / SwitchBot Surface Read-Only Inspection
+
+Use this helper when a review needs to know whether Home Assistant exposes
+readable SwitchBot-style `cover` / `vacuum` surfaces before opening a live route
+or changing Home Control action metadata. It performs read-only Home Assistant
+GET requests only; it does not call services, execute scripts, preview actions,
+or mutate appliances.
+
+```powershell
+pwsh -NoProfile -File .\scripts\inspect-home-control-switchbot-surfaces.ps1
+pwsh -NoProfile -File .\scripts\inspect-home-control-switchbot-surfaces.ps1 -Json
+```
+
+Default output hides raw entity ids and current state values. Use it to classify
+whether a SwitchBot curtain-style door can be mapped to
+`verification.position.current_position`, and whether a SwitchBot vacuum can be
+mapped to HA-visible start/pause/return states. The helper also reports the
+configured `live_test_readiness`, restore/stop classes, safety blockers, and
+proof ceiling for each target row. Do not treat these read-only surface checks
+as physical obstruction, floor/path safety, or physical device success proof.
+
+`scripts\check-rr003-env-state-review-preflight.ps1` also reads the
+Environment State `action_readiness` summary. Use that summary to confirm which
+Home Control rows are `test_now` versus blocked by current configuration,
+restore/stop, safety, or observation gaps. This is a diagnostic/readiness layer;
+it does not execute Home Assistant services or prove physical appliance motion.
+
 ## Optional / Runtime-Browser
 
 Launch Manager, Start Stack, Projection Visual, AITuber Kit browser display,

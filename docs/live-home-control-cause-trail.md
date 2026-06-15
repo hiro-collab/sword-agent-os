@@ -26,7 +26,7 @@ HOME_ASSISTANT_TOKEN: present|missing|placeholder|too-short (value hidden)
 config: yaml_loaded=True action_count=<n> config_error_kind=<name|none>
 health: status=<ok|degraded|config_error> ok=<bool> actions_count=<n>
 actions: status=ok count=<n> expected_action=<present|missing|not-requested>
-tracking: action_id=<id> control_type=<type> state_authority=<authority> verification_mode=<mode> state_tracking=<tracked|external_required|ack_only|manual_required|unsupported|untracked> expected_state=<state|none> expected_states=<states|none> expected_position=<threshold|none> settle_seconds=<s> timeout_seconds=<s> status=<same>
+tracking: action_id=<id> control_type=<type> state_authority=<authority> verification_mode=<mode> state_tracking=<tracked|external_required|ack_only|manual_required|unsupported|untracked> expected_state=<state|none> expected_states=<states|none> expected_position=<threshold|none> settle_seconds=<s> timeout_seconds=<s> proof_ceiling=<class> live_test_candidate=<true|false> live_test_readiness=<test_now|do_not_test_current_config|not_live_test_candidate> live_test_blockers=<classes|none> restore_action=<id|none> stop_action=<id|none> terminal_action=<true|false> safety_requirements=<classes|none> status=<same>
 state: action_id=<id> expected_state=<state|none> expected_states=<states|none> actual_state=<state|none> expected_position=<threshold|none> actual_position=<number|none> position_status=<matched|mismatch|unavailable|none> status=<matched|mismatch|position_unavailable|external_required|ack_only|manual_required|unsupported|untracked|unavailable>
 cause_code=<code>
 ```
@@ -45,6 +45,10 @@ one of the configured expected states for that action at the time it was read.
 It still does not prove independent physical or camera confirmation. A
 `-CheckState` mismatch before execute is not a bridge startup failure; it may
 simply mean the target is not already in that action's expected post-state.
+`live_test_readiness` is the execution decision class. `test_now` can proceed
+to the bounded preview/dry-run/execute ladder for that row. A tracked row with
+`do_not_test_current_config` still has HA metadata, but must not be executed
+until the listed restore/stop/safety blockers are resolved.
 For cover/door actions with `current_position`, state alone is not sufficient:
 configure `verification.position` and require the inclusive numeric threshold to
 match along with the accepted state before reporting `HA state matched`.

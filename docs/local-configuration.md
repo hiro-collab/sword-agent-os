@@ -121,6 +121,11 @@ For HA-tracked cover, vacuum, climate, or mode commands, add
 after read-only state review plus a ticketed execute/wait/post-state proof shows
 those states are reliable. These fields describe the proof window; they do not
 make an `unknown` or inferred entity physically verified.
+Also set `proof_ceiling`, `live_test_candidate`, and either
+`restore_action_id`, `stop_action_id`, or `terminal_action` before treating a
+row as live-test ready. `live_test_readiness: test_now` means the row can enter
+the next bounded ticket ladder; `do_not_test_current_config` means the listed
+`live_test_blockers` are setup, restore, stop, or safety gaps.
 
 For vacuum actions, keep `vacuum_start` and `vacuum_return` criteria separate.
 Start-side tracking must state which states prove progress and why. Return-side

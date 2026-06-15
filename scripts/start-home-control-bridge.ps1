@@ -445,6 +445,48 @@ function ConvertTo-NoneText {
   return [string]$Value
 }
 
+function ConvertTo-BooleanText {
+  param($Value)
+
+  if ($null -eq $Value) {
+    return "false"
+  }
+  if ($Value -is [bool]) {
+    return $Value.ToString().ToLowerInvariant()
+  }
+  $text = [string]$Value
+  if ([string]::IsNullOrWhiteSpace($text)) {
+    return "false"
+  }
+  return $text.ToLowerInvariant()
+}
+
+function ConvertTo-StringArray {
+  param($Value)
+
+  if ($null -eq $Value) {
+    return @()
+  }
+  if ($Value -is [string]) {
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+      return @()
+    }
+    return @([string]$Value)
+  }
+
+  return @($Value | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { [string]$_ })
+}
+
+function ConvertTo-ListText {
+  param($Value)
+
+  $items = @(ConvertTo-StringArray -Value $Value)
+  if ($items.Count -eq 0) {
+    return "none"
+  }
+  return ($items -join ",")
+}
+
 function Get-PositionExpectationText {
   param(
     [string]$Attribute,
@@ -526,6 +568,14 @@ function Get-ActionTrackingProbe {
   $timeoutSecondsRaw = Get-ObjectPropertyValue -Object $Action -Name "timeout_seconds"
   $timeoutSeconds = if ($null -eq $timeoutSecondsRaw -or [string]::IsNullOrWhiteSpace([string]$timeoutSecondsRaw)) { "0" } else { [string]$timeoutSecondsRaw }
   $positionDisplay = Get-PositionProofDisplay -Action $Action
+  $proofCeiling = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $Action -Name "proof_ceiling")
+  $liveTestCandidate = ConvertTo-BooleanText -Value (Get-ObjectPropertyValue -Object $Action -Name "live_test_candidate")
+  $liveTestReadiness = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $Action -Name "live_test_readiness")
+  $liveTestBlockers = ConvertTo-ListText -Value (Get-ObjectPropertyValue -Object $Action -Name "live_test_blockers")
+  $restoreActionId = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $Action -Name "restore_action_id")
+  $stopActionId = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $Action -Name "stop_action_id")
+  $terminalAction = ConvertTo-BooleanText -Value (Get-ObjectPropertyValue -Object $Action -Name "terminal_action")
+  $safetyRequirements = ConvertTo-ListText -Value (Get-ObjectPropertyValue -Object $Action -Name "safety_requirements")
 
   return [pscustomobject]@{
     ActionId = $ActionId
@@ -539,6 +589,14 @@ function Get-ActionTrackingProbe {
     ExpectedPosition = $positionDisplay.Expected
     SettleSeconds = $settleSeconds
     TimeoutSeconds = $timeoutSeconds
+    ProofCeiling = $proofCeiling
+    LiveTestCandidate = $liveTestCandidate
+    LiveTestReadiness = $liveTestReadiness
+    LiveTestBlockers = $liveTestBlockers
+    RestoreActionId = $restoreActionId
+    StopActionId = $stopActionId
+    TerminalAction = $terminalAction
+    SafetyRequirements = $safetyRequirements
     CanProduceHaStateProof = ($trackingStatus -eq "tracked")
   }
 }
@@ -570,6 +628,13 @@ function Invoke-TrackingSelfTest {
     expected_states = @("off", "closed")
     settle_seconds = 2
     timeout_seconds = 30
+    proof_ceiling = "ha_visible_state_checkstate_layer"
+    live_test_candidate = $true
+    live_test_readiness = "test_now"
+    live_test_blockers = @()
+    restore_action_id = "restore_action"
+    terminal_action = $false
+    safety_requirements = @()
   }
   $externalRequired = [pscustomobject]@{
     action_id = "external_required"
@@ -592,7 +657,7 @@ function Invoke-TrackingSelfTest {
   Write-Host ("tracking_self_test: legacy_tracked={0}" -f $legacyProbe.TrackingStatus)
 
   $newProbe = Get-ActionTrackingProbe -Action $newTracked -ActionId "new_tracked"
-  Assert-TrackingSelfTest -Condition ($newProbe.CanProduceHaStateProof -and $newProbe.ControlType -eq "stateful_target" -and $newProbe.StateAuthority -eq "ha_entity" -and $newProbe.VerificationMode -eq "ha_state" -and $newProbe.ExpectedState -eq "off" -and $newProbe.ExpectedStates -eq "off,closed" -and $newProbe.PositionAttribute -eq "current_position" -and $newProbe.ExpectedPosition -eq "95<=current_position<=100" -and $newProbe.SettleSeconds -eq "2" -and $newProbe.TimeoutSeconds -eq "30") -Message "new tracked metadata should remain HA state proof capable"
+  Assert-TrackingSelfTest -Condition ($newProbe.CanProduceHaStateProof -and $newProbe.ControlType -eq "stateful_target" -and $newProbe.StateAuthority -eq "ha_entity" -and $newProbe.VerificationMode -eq "ha_state" -and $newProbe.ExpectedState -eq "off" -and $newProbe.ExpectedStates -eq "off,closed" -and $newProbe.PositionAttribute -eq "current_position" -and $newProbe.ExpectedPosition -eq "95<=current_position<=100" -and $newProbe.SettleSeconds -eq "2" -and $newProbe.TimeoutSeconds -eq "30" -and $newProbe.ProofCeiling -eq "ha_visible_state_checkstate_layer" -and $newProbe.LiveTestReadiness -eq "test_now" -and $newProbe.RestoreActionId -eq "restore_action") -Message "new tracked metadata should remain HA state proof capable"
   Write-Host ("tracking_self_test: new_tracked={0}" -f $newProbe.TrackingStatus)
 
   $externalProbe = Get-ActionTrackingProbe -Action $externalRequired -ActionId "external_required"
@@ -838,24 +903,24 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
       if ([string]::IsNullOrWhiteSpace($trackingCauseSuffix)) {
         $trackingCauseSuffix = "untracked"
       }
-      Write-Host ("tracking: action_id={0} control_type={1} state_authority={2} verification_mode={3} state_tracking={4} expected_state=none expected_states={5} expected_position={6} settle_seconds={7} timeout_seconds={8} status={4}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.TrackingStatus, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds)
+      Write-Host ("tracking: action_id={0} control_type={1} state_authority={2} verification_mode={3} state_tracking={4} expected_state=none expected_states={5} expected_position={6} settle_seconds={7} timeout_seconds={8} proof_ceiling={9} live_test_candidate={10} live_test_readiness={11} live_test_blockers={12} restore_action={13} stop_action={14} terminal_action={15} safety_requirements={16} status={4}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.TrackingStatus, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds, $trackingProbe.ProofCeiling, $trackingProbe.LiveTestCandidate, $trackingProbe.LiveTestReadiness, $trackingProbe.LiveTestBlockers, $trackingProbe.RestoreActionId, $trackingProbe.StopActionId, $trackingProbe.TerminalAction, $trackingProbe.SafetyRequirements)
       Write-Cause -Code ("live_home_control.bridge.state_tracking_{0}" -f $trackingCauseSuffix)
       Write-RootCauseTrace `
         -BlockedAt "state-tracking" `
         -ObservedStatus "warning" `
         -CauseKind "config-mismatch" `
-        -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking={4}; expected_states={5}; expected_position={6}; settle_seconds={7}; timeout_seconds={8}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.TrackingStatus, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds) `
+        -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking={4}; expected_states={5}; expected_position={6}; settle_seconds={7}; timeout_seconds={8}; proof_ceiling={9}; live_test_readiness={10}; live_test_blockers={11}; restore_action={12}; stop_action={13}; terminal_action={14}; safety_requirements={15}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.TrackingStatus, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds, $trackingProbe.ProofCeiling, $trackingProbe.LiveTestReadiness, $trackingProbe.LiveTestBlockers, $trackingProbe.RestoreActionId, $trackingProbe.StopActionId, $trackingProbe.TerminalAction, $trackingProbe.SafetyRequirements) `
         -NextProbe "use preview/dry-run only; require external/manual proof before claiming physical state"
       throw "Action cannot produce a Home Assistant state proof."
     }
 
-    Write-Host ("tracking: action_id={0} control_type={1} state_authority={2} verification_mode={3} state_tracking=tracked expected_state={4} expected_states={5} expected_position={6} settle_seconds={7} timeout_seconds={8} status=tracked" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds)
+    Write-Host ("tracking: action_id={0} control_type={1} state_authority={2} verification_mode={3} state_tracking=tracked expected_state={4} expected_states={5} expected_position={6} settle_seconds={7} timeout_seconds={8} proof_ceiling={9} live_test_candidate={10} live_test_readiness={11} live_test_blockers={12} restore_action={13} stop_action={14} terminal_action={15} safety_requirements={16} status=tracked" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds, $trackingProbe.ProofCeiling, $trackingProbe.LiveTestCandidate, $trackingProbe.LiveTestReadiness, $trackingProbe.LiveTestBlockers, $trackingProbe.RestoreActionId, $trackingProbe.StopActionId, $trackingProbe.TerminalAction, $trackingProbe.SafetyRequirements)
     Write-Cause -Code "none"
     Write-RootCauseTrace `
       -BlockedAt "none" `
       -ObservedStatus "ok" `
       -CauseKind "none" `
-      -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking=tracked; expected_state={4}; expected_states={5}; expected_position={6}; settle_seconds={7}; timeout_seconds={8}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds) `
+      -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking=tracked; expected_state={4}; expected_states={5}; expected_position={6}; settle_seconds={7}; timeout_seconds={8}; proof_ceiling={9}; live_test_readiness={10}; live_test_blockers={11}; restore_action={12}; stop_action={13}; terminal_action={14}; safety_requirements={15}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds, $trackingProbe.ProofCeiling, $trackingProbe.LiveTestReadiness, $trackingProbe.LiveTestBlockers, $trackingProbe.RestoreActionId, $trackingProbe.StopActionId, $trackingProbe.TerminalAction, $trackingProbe.SafetyRequirements) `
       -NextProbe "proceed only to ticketed preview/dry-run; use -CheckState only after execute/wait or restore/wait" `
       -SafeStop "yes"
     return

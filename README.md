@@ -672,6 +672,18 @@ Action metadata は次のように分けます。
 | `expected_effect` | HA domain/service/entity/expected state | Only used when `verification.mode` is `ha_state`. |
 | `verification.accepted_states` | e.g. `["closed"]`, `["docked"]` | Optional HA states that also count as post-state proof. The primary `expected_effect.expected_state` is still included. |
 | `verification.settle_seconds` / `timeout_seconds` | e.g. `8` / `60` | The wait window to use in the ticketed execute/wait/check procedure. These are metadata; do not treat them as proof by themselves. |
+| `proof_ceiling` | `ha_visible_cover_position_checkstate_layer`, `command_ack_only` | The strongest proof layer this action can honestly report from the configured surfaces. |
+| `live_test_candidate` | `true` / `false` | Whether this action is allowed into a current live-test decision table at all. |
+| `live_test_readiness` | `test_now`, `do_not_test_current_config`, `not_live_test_candidate` | The bridge's redacted decision class for whether this row can be included in the next bounded live batch. |
+| `live_test_blockers` | e.g. `missing_restore_or_stop`, `safety_requirement:path_floor_safety` | Exact reasons a readable row must not be executed under the current configuration. |
+| `restore_action_id` / `stop_action_id` / `terminal_action` | action ids or `true` | The configured restore/stop path. Terminal actions such as `vacuum_return` can be live-ready without a separate restore action. |
+| `safety_requirements` | e.g. `obstruction_clearance`, `original_position_restore` | User/physical-world or setup conditions that must be resolved before live movement. |
+
+`-CheckTracking` prints these live-test fields together with `state_tracking`.
+Use `test_now` only as permission to proceed to the ticketed preview/dry-run/live
+ladder for that one row. If readiness is `do_not_test_current_config`, treat the
+listed blockers as setup or safety gaps; do not execute the row just because HA
+state is readable.
 
 Report Home Control proof with separate labels:
 
