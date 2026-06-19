@@ -109,42 +109,20 @@ a live-specific config separately, reapply that config after the last `-Force`,
 then use the bridge helper `-CheckOnly` and `-CheckTracking` before execution.
 Use `-CheckState` only after a ticketed execute/wait or restore/wait step.
 
-For each live Home Control action, set `control_type`, `state_authority`, and `verification.mode`.
-Use `verification.mode: ha_state` plus `expected_effect` only when Home Assistant
-can actually read the target state. For remote-control or toggle-only devices
-whose state stays unknown, use `control_type: stateless_toggle` and
-`state_authority: open_loop` plus `verification.mode: external_observation`
-instead of claiming HA state proof. For command-only actions, use
-`state_authority: submitted_only` and `verification.mode: command_ack_only`.
-For HA-tracked cover, vacuum, climate, or mode commands, add
-`verification.accepted_states`, `settle_seconds`, and `timeout_seconds` only
-after read-only state review plus a ticketed execute/wait/post-state proof shows
-those states are reliable. These fields describe the proof window; they do not
-make an `unknown` or inferred entity physically verified.
-Also set `proof_ceiling`, `live_test_candidate`, and either
-`restore_action_id`, `stop_action_id`, or `terminal_action` before treating a
-row as live-test ready. `live_test_readiness: test_now` means the row can enter
-the next bounded ticket ladder; `do_not_test_current_config` means the listed
-`live_test_blockers` are setup, restore, stop, or safety gaps.
+Home Control action row authoring is separate from local env setup. Use
+`docs/home-control-action-authoring.md` for `control_type`, `state_authority`,
+`verification.mode`, `proof_ceiling`, `live_test_readiness`,
+`restore_action_id`, vacuum start/return criteria, and HA-readable cover,
+door, climate, or vacuum state rows.
 
-For vacuum actions, keep `vacuum_start` and `vacuum_return` criteria separate.
-Start-side tracking must state which states prove progress and why. Return-side
-tracking should normally require `docked` after the wait window. Keep
-`accepted_states` narrow; do not use it to hide uncertainty.
-When Home Assistant exposes more than one vacuum entity for the same appliance,
-track only the entity actually targeted by the bridge script. A second local or
-cloud integration entity is useful context, not action proof.
+Ticketed live execution is also separate. Use
+`docs/live-home-control-proof.md` for preview, dry-run, execute, wait,
+post-state, restore, external observation, and physical proof boundaries.
 
-On the Home Assistant side, explicitly setting `mode: single` on bridge-referenced
-scripts is a low-impact readability improvement because it matches the Home
-Assistant default. It does not prove appliance state; it only documents invocation
-behavior.
-
-Environment State `appliances` do not appear just because tokens exist. The
-Home Control config must point at the real Home Assistant URL, scripts, and
-entity IDs, and the bridge must record a successful action event. If
-`script.demo_light_on` or `light.demo_room` is still present, treat it as demo
-configuration.
+Environment State `appliances` or `state_queries` do not appear just because
+tokens exist. The Home Control config must point at the real Home Assistant URL,
+scripts, and readable state source. If demo script or demo light identifiers
+are still present, treat it as demo configuration.
 
 ## Generated Files
 

@@ -14,32 +14,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-
-function Resolve-RepoPath {
-  param([Parameter(Mandatory = $true)][string]$Path)
-  if ([System.IO.Path]::IsPathRooted($Path)) {
-    return $Path
-  }
-  return Join-Path $RepoRoot ($Path -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-}
-
-function Read-JsonFile {
-  param([Parameter(Mandatory = $true)][string]$Path)
-  return Get-Content -Raw -LiteralPath (Resolve-RepoPath $Path) | ConvertFrom-Json
-}
-
-function Get-OptionalProperty {
-  param(
-    [Parameter(Mandatory = $true)]$Object,
-    [Parameter(Mandatory = $true)][string]$Name,
-    [object]$Default = $null
-  )
-  $property = $Object.PSObject.Properties[$Name]
-  if ($null -eq $property -or $null -eq $property.Value) {
-    return $Default
-  }
-  return $property.Value
-}
+. (Join-Path $PSScriptRoot "lib/common.ps1")
 
 function Invoke-Step {
   param(
@@ -245,7 +220,7 @@ function Invoke-DependencyInstall {
     if (-not (Test-Path -LiteralPath $path -PathType Container)) {
       $message = "dependency path missing for ${id}: $path"
       if ($DryRun) {
-        Write-Warning $message
+        Write-Warning "$message (dry-run expected before checkout/dependency bootstrap; no install was attempted)"
         continue
       }
       throw $message
@@ -271,6 +246,9 @@ if ([string]::IsNullOrWhiteSpace($DistributionManifestPath)) {
 $manifest = Read-JsonFile -Path $DistributionManifestPath
 
 Write-InstallBanner -Manifest $manifest
+if ($DryRun) {
+  Write-InstallText "Dry run: planning only; no clone, env, dependency, or generated local file changes will be performed." Yellow
+}
 
 Write-InstallSection -Index "1/5" -Title "Tool preflight" -Detail "Checking required commands before touching the distribution."
 Test-ToolRequirements -Manifest $manifest -SkipDependencyTools:($NoDeps -or $VerifyOnly)
@@ -311,7 +289,18 @@ Write-ManualAssets -Manifest $manifest
 
 Write-Host ""
 Write-InstallText "+------------------------------------------------------------+" Green
-Write-InstallText "| SWORD AGENT OS IS READY FOR FIRST LAUNCH                  |" Green
+if ($DryRun) {
+  Write-InstallText "| SWORD AGENT OS DRY RUN COMPLETE                           |" Green
+}
+else {
+  Write-InstallText "| SWORD AGENT OS IS READY FOR FIRST LAUNCH                  |" Green
+}
 Write-InstallText "+------------------------------------------------------------+" Green
-Write-InstallText "Next command:" Yellow
-Write-Host "  .\start-home-control-launcher.bat"
+if ($DryRun) {
+  Write-InstallText "Next command for real install:" Yellow
+  Write-Host "  pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile $Profile"
+}
+else {
+  Write-InstallText "Next command:" Yellow
+  Write-Host "  .\start-home-control-launcher.bat"
+}

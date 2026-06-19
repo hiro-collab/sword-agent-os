@@ -462,6 +462,19 @@ function Test-ReadmeFirstRunGuidance {
   Assert-PathPresent -Path $troubleshootingPath
   $troubleshooting = Get-Content -Raw -LiteralPath $troubleshootingPath
   $troubleshootingSurface = "$readme`n$troubleshooting"
+  $frontDoorDocs = @(
+    "docs\operate.md",
+    "docs\proof-layers.md",
+    "docs\manifest-ledger-authority.md",
+    "docs\home-control-action-authoring.md",
+    "docs\live-home-control-proof.md"
+  )
+  $frontDoorSurface = $readme
+  foreach ($docPath in $frontDoorDocs) {
+    $absoluteDocPath = Join-Path $RepoRoot $docPath
+    Assert-PathPresent -Path $absoluteDocPath
+    $frontDoorSurface = "$frontDoorSurface`n$(Get-Content -Raw -LiteralPath $absoluteDocPath)"
+  }
   Assert-TextMatch -Text $readme -Pattern "prepared local|準備済みローカル" -Message "README should describe prepared local inputs without requiring private folder names"
   Assert-TextMatch -Text $readme -Pattern "_secret_inputs.*product convention|製品として特定のフォルダ名を要求しません" -Message "README should not make _secret_inputs look like a required product convention"
   Assert-TextMatch -Text $readme -Pattern "15分 quick-start" -Message "README should include the 15-minute quick-start path"
@@ -562,6 +575,14 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "local-media replay" -Message "README should name local-media replay as a separate proof layer"
   Assert-TextMatch -Text $readme -Pattern "gesture\.sword\.20260603" -Message "README should show the sword-sign positive local media asset id"
   Assert-TextMatch -Text $readme -Pattern "vision\.room_light\.on\.20260603" -Message "README should show the room-light local media asset id"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "sword\.ps1" -Message "front-door docs should document the root sword.ps1 wrapper"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "partial, not release-ready" -Message "front-door docs should keep scoped fresh-install evidence separate from release readiness"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "source/static" -Message "proof-layer docs should name source/static proof"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime/status" -Message "proof-layer docs should name runtime/status proof"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "physical/device proof" -Message "proof-layer docs should name physical/device proof"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "manifest-ledger-authority\.md" -Message "README should link the manifest ledger authority page"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "home-control-action-authoring\.md" -Message "README should link Home Control action authoring docs"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "live-home-control-proof\.md" -Message "README should link live Home Control proof docs"
   Assert-TextMatch -Text $verificationSurface -Pattern "raw_media_shared=false" -Message "public verification docs should show raw media is not shared in local-media results"
   Assert-TextMatch -Text $verificationSurface -Pattern "generated_output_written=false" -Message "public verification docs should show preview helper does not write generated output"
   Assert-TextMatch -Text $verificationSurface -Pattern "SecretInputsRoot" -Message "public verification docs should explain separate secret input roots"
@@ -630,6 +651,39 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_stt_execution=true" -Message "voice-gate wrapper should default to no STT execution"
   Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_virtual_audio_route_change=true" -Message "voice-gate wrapper should avoid changing audio routes"
   Write-Host "README first-run guidance static ok"
+}
+
+function Test-RouteAParentNoLiveUxStatic {
+  Write-TestStep "Route A parent no-live UX static checks"
+
+  $swordPath = Join-Path $RepoRoot "sword.ps1"
+  Assert-PathPresent -Path $swordPath
+  $sword = Get-Content -Raw -LiteralPath $swordPath
+  Assert-TextMatch -Text $sword -Pattern 'ValidateSet\("status", "verify", "doctor", "start", "stop", "hold-live"\)' -Message "sword.ps1 should expose the approved front-door commands"
+  Assert-TextMatch -Text $sword -Pattern "default_safety=no-live/no-device" -Message "sword.ps1 should advertise no-live/no-device default safety"
+  Assert-TextMatch -Text $sword -Pattern "source-static-command-preview" -Message "sword.ps1 start/stop should default to command preview"
+  Assert-TextMatch -Text $sword -Pattern "live_home_assistant_actions_allowed = \$false" -Message "hold-live should not authorize Home Assistant actions"
+  Assert-TextMatch -Text $sword -Pattern "approval_bypass_allowed = \$false" -Message "hold-live should not create an approval bypass"
+
+  $install = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\install-distribution.ps1")
+  Assert-TextMatch -Text $install -Pattern "Dry run: planning only" -Message "install dry-run should say it is planning only"
+  Assert-TextMatch -Text $install -Pattern "SWORD AGENT OS DRY RUN COMPLETE" -Message "install dry-run should not look like real readiness"
+  Assert-TextMatch -Text $install -Pattern "no clone, env, dependency, or generated local file changes" -Message "install dry-run should spell out no-write scope"
+
+  $readiness = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\check-launch-readiness.ps1")
+  Assert-TextMatch -Text $readiness -Pattern "expected_for_no_live=true" -Message "readiness should mark mock adapter as expected no-live evidence"
+  Assert-TextMatch -Text $readiness -Pattern "proof_layer=no-live/mock" -Message "readiness should expose the mock proof layer"
+
+  $mediaPrep = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\prepare-local-media-index.ps1")
+  Assert-TextMatch -Text $mediaPrep -Pattern "consumer_readiness_map" -Message "local media preparation should expose consumer readiness mapping"
+  Assert-TextMatch -Text $mediaPrep -Pattern "intentionally_not_copied" -Message "local media preparation should list data it does not copy"
+  Assert-TextMatch -Text $mediaPrep -Pattern "run-full-install-verification\.ps1" -Message "local media readiness map should point to full verification consumer"
+
+  $compatSmoke = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-compat-smoke.ps1")
+  Assert-TextMatch -Text $compatSmoke -Pattern "start_exit_code_class" -Message "compat smoke should classify start exit code mixed signals"
+  Assert-TextMatch -Text $compatSmoke -Pattern "nonzero_after_route_success_explained" -Message "compat smoke should explain route-success/nonzero-exit mixed signals"
+
+  Write-Host "Route A parent no-live UX static ok"
 }
 
 function Test-HomeControlTrackingHelperFixtures {
@@ -1732,6 +1786,10 @@ function Test-FreshCloneDryRun {
     Assert-TextMatch -Text $installText -Pattern "bootstrap-organs\.ps1" -Message "install dry-run did not report organ bootstrap"
     Assert-TextMatch -Text $installText -Pattern "-DryRun" -Message "install dry-run did not propagate dry-run to bootstrap commands"
     Assert-TextMatch -Text $installText -Pattern "dependency install skipped: -NoDeps" -Message "install dry-run did not skip dependencies with -NoDeps"
+    Assert-TextMatch -Text $installText -Pattern "SWORD AGENT OS DRY RUN COMPLETE" -Message "install dry-run should end with a dry-run completion banner"
+    if ($installText -match "SWORD AGENT OS IS READY FOR FIRST LAUNCH") {
+      throw "install dry-run should not claim first-launch readiness"
+    }
     Assert-PathAbsent -Path (Join-Path $clonePath "local\env\sword-agent-os.env")
 
     Invoke-Checked -Command @(
@@ -1768,6 +1826,7 @@ Test-MaintenanceSafetyStatic
 Test-PublicPathLeakStatic
 Test-TestLayoutPolicy
 Test-ReadmeFirstRunGuidance
+Test-RouteAParentNoLiveUxStatic
 Test-HomeControlTrackingHelperFixtures
 Test-ManifestAndVersion
 Test-UpdateFixtureHoldBehavior

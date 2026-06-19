@@ -113,6 +113,8 @@ function Write-PreparationResult {
     [string[]]$AssetIds = @()
   )
 
+  $indexStatus = if ($Status -eq "dry-run") { "planned" } else { "ready" }
+  $assetStatus = if ($AssetIds.Count -gt 0) { $indexStatus } else { "missing-seed-assets" }
   $result = [PSCustomObject]@{
     status = $Status
     proof_layer = "local-preparation"
@@ -127,6 +129,23 @@ function Write-PreparationResult {
     raw_paths_printed = $false
     raw_transcript_shared = $false
     live_action_executed = $false
+    consumer_readiness_map = @(
+      [PSCustomObject]@{
+        id = "local.media_index"
+        status = $indexStatus
+        output = "local/media/media-index.json"
+        consumers = @("scripts/run-local-media-replay.ps1", "scripts/test-local-media-voice-gate.ps1", "scripts/run-full-install-verification.ps1")
+        proof_ceiling = "local-media-index-only"
+      },
+      [PSCustomObject]@{
+        id = "local.media_assets"
+        status = $assetStatus
+        output = "local/media/assets/"
+        consumers = @("gesture replay", "room-light replay", "voice-gate replay")
+        proof_ceiling = "local-media-preparation-only"
+      }
+    )
+    intentionally_not_copied = @("secrets", "tokens", "raw transcripts", "live Home Assistant config", "provider payloads")
   }
 
   if ($Json) {
@@ -142,6 +161,9 @@ function Write-PreparationResult {
   Write-Host ("media_index={0}" -f $result.media_index)
   Write-Host ("asset_count={0}" -f $result.asset_count)
   Write-Host ("asset_ids={0}" -f (($result.asset_ids) -join ","))
+  Write-Host "consumer_map=local.media_index->run-local-media-replay.ps1,test-local-media-voice-gate.ps1,run-full-install-verification.ps1"
+  Write-Host "consumer_map=local.media_assets->gesture replay,room-light replay,voice-gate replay"
+  Write-Host "intentionally_not_copied=secrets,tokens,raw transcripts,live Home Assistant config,provider payloads"
   Write-Host "raw_media_shared=false"
   Write-Host "raw_paths_printed=false"
   Write-Host "raw_transcript_shared=false"

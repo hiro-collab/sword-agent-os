@@ -36,6 +36,54 @@ Sword Agent OS は、AI エージェントを「思考」「反射」「環境�
 `runtime/` が OS の基盤、`organs/` と `control-plane/` が具体機能、
 `scripts/` が導入・起動・検証の入口です。
 
+## 現在の確認状態
+
+この README の quick-start と no-live helper は、fresh clone から
+install / env render / readiness / mock または local-media 準備までを進める
+ための入口です。これは `partial, not release-ready` な導入証拠であり、
+実カメラ、実マイク、provider 応答品質、live Home Assistant 操作、
+外部観察、物理家電 proof、最終 review-ready / release-ready をまとめて
+green にするものではありません。
+
+まずは proof layer を分けて記録してください。
+
+| 証拠層 | 例 | 次に必要なもの |
+| --- | --- | --- |
+| install/readiness pass | clone、env render、manifest、readiness/no-live | runtime/browser proof |
+| runtime/browser | Launch Manager、Projection Visual、AITuber 到達 | input/output loop proof |
+| local-media replay | fixture の gesture / voice / room-light preview | live camera / mic / physical proof |
+| Home Assistant preview / dry-run | command shape と bridge acceptance | execute、HA state、restore |
+| physical/device proof | 外部観察または物理変化 | ticketed live route と redacted evidence |
+
+## Front Door Commands
+
+新しい利用者向けの入口は `sword.ps1` です。既定では no-live / no-device で、
+Start Stack、provider、Home Assistant action、browser/camera/audio を勝手に
+実行しません。
+
+```powershell
+.\sword.ps1 status -NoLive
+.\sword.ps1 verify -NoLive
+.\sword.ps1 doctor -NoLive
+.\sword.ps1 start
+.\sword.ps1 hold-live
+```
+
+`.\sword.ps1 start` は既定では Start Stack の command preview です。
+実際に launcher-owned runtime children を起動する場合は、別途 runtime 実行
+scope のもとで `-Run` を明示します。
+
+運用時の読み分け:
+
+| 文書 | 用途 |
+| --- | --- |
+| `docs/operate.md` | 入口コマンド、start/stop/status/verify の no-live 既定 |
+| `docs/proof-layers.md` | source/static、runtime、HA state、external、physical の区別 |
+| `docs/manifest-ledger-authority.md` | 標準 distribution、release、organ pin の正本 |
+| `docs/local-configuration.md` | secret/env/local input の設定 |
+| `docs/home-control-action-authoring.md` | Home Control action row の書き方 |
+| `docs/live-home-control-proof.md` | preview / dry-run / execute / restore / physical proof の ticket ladder |
+
 ## 標準ディストリビューションの流れ
 
 Sword Agent OS は、用途に合わせて organ / module を組み替えられる OS です。
@@ -71,6 +119,8 @@ install、readiness、smoke、Launch Manager、Projection Visual / AITuber 到�
 git clone <sword-agent-os-repo-url>
 cd sword-agent-os
 
+.\sword.ps1 status -NoLive
+.\sword.ps1 verify -NoLive
 pwsh -NoProfile -File .\scripts\show-version.ps1 -Profile standard
 pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -DryRun
 pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
@@ -387,22 +437,14 @@ GitHub にまとめて push する対象ではありません。
 
 ## ローカル設定
 
-インストール後に API key、token、家電設定、ローカル URL を入れる時に読む節です。
-標準 installer は、中央の local env を使って各 organ の `.env` を生成します。
-通常利用で直接編集するのは、原則としてこの 1 ファイルです。詳しい env 変数表、
-secret 境界、生成先一覧は `docs/local-configuration.md` にまとめています。
+インストール後に編集する正本は、原則として中央の local env です。詳しい env
+変数表、secret 境界、生成先一覧は `docs/local-configuration.md` にあります。
 
 ```text
 local\env\sword-agent-os.env
 ```
 
-各 organ の `.env` は、この中央 env から生成される出力先です。まずは中央 env を
-正本として扱うと、どこに値を書いたか迷いにくくなります。
-
-### 初回 `.env` 作成手順
-
-installer を通常実行した場合は、`local\env\sword-agent-os.env` が作られます。
-手動で作る場合は、`sword-agent-os` の root で公開テンプレートをコピーします。
+手動で作る場合だけ、公開テンプレートをコピーします。
 
 ```powershell
 cd <sword-agent-os のパス>
@@ -415,24 +457,17 @@ if (-not (Test-Path local\env\sword-agent-os.env)) {
 }
 ```
 
-中央 env を開いて、自分の環境の値を書きます。Home Assistant を使わない場合は
-家電操作用 token や URL を後回しにできます。最小構成で起動だけ確認する場合は、
-LLM と live 家電の値も後回しにできます。
+中央 env を開いて、自分の環境の値を書きます。Home Assistant、LLM provider、
+VOICEVOX、カメラ、独自 VRM は後から足せます。最小 no-live 確認では
+`THOUGHT_CORE_LLM_ENABLED=false` と mock/no-live 設定で進められます。
 
 ```powershell
 notepad local\env\sword-agent-os.env
 ```
 
 `local\env\sword-agent-os.env` は Git 管理外です。API key、token、家電設定、
-ローカル URL、使用する model 名など、公開してはいけない値はここに入れます。
-`NEXT_PUBLIC_*` はブラウザ側から見えるため、secret を入れないでください。
-
-`HOME_CONTROL_API_TOKEN` は Home Assistant の token ではありません。ローカル
-bridge 用のランダム値です。必要なら次のように作って、中央 env に貼ります。
-
-```powershell
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
+ローカル URL、使用 model 名を shared report や Git に出さないでください。
+`NEXT_PUBLIC_*` はブラウザから見えるため secret を入れません。
 
 中央 env を各 organ の `.env` へ反映します。
 
@@ -441,28 +476,32 @@ Set-Location $RepoRoot
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard
 ```
 
-すでに organ 側の `.env` がある環境で、中央 env の変更を反映したい場合だけ
-`-Force` を付けます。既存の organ `.env` はデフォルトでは上書きしません。
+既存 organ `.env` へ再反映する場合だけ `-Force` を付けます。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 ```
 
-中央 env を編集しても、既存の organ `.env` は自動では変わりません。
-Home Assistant token、`HOME_CONTROL_API_TOKEN`、`ENVIRONMENT_API_TOKEN` を
-後から入れた場合は、`-Force` で再生成した後に起動確認してください。
-`-Force` は `organs\action\home-assistant-server\config\home-control.yaml`
-も再生成します。live 用 config を別ファイルや手元の控えから反映している場合は、最後の
-`-Force` の後で live config を再反映し、bridge helper の `-CheckOnly` と
-`-CheckTracking` で起動と追跡メタデータを確認してから実行へ進んでください。
-`-CheckState` は実行後または restore 後の state confirmation に使います。
-すでに Launch Manager / stack が起動中の場合、`render-env-files.ps1 -Force` の
-変更は実行中 process へ自動反映されません。設定を再生成した後は対象 stack を停止し、
-fresh clone の `workspaceRoot` から Start Stack し直してから確認してください。
+`-Force` は `organs\action\home-assistant-server\config\home-control.yaml` も
+再生成します。live 用 config を手元で差し替えている場合は、最後の `-Force`
+の後で再反映し、`docs/home-control-action-authoring.md` と
+`docs/live-home-control-proof.md` に沿って確認してください。
+
+すでに Launch Manager / stack が起動中の場合、`render-env-files.ps1 -Force`
+の変更は実行中 process へ自動反映されません。設定を再生成した後は対象 stack
+を停止し、fresh clone の `workspaceRoot` から Start Stack し直して確認します。
 
 ## 起動方法
 
-一番簡単な入口は Launch Manager です。
+まず front-door wrapper で現在の no-live 状態を確認できます。
+
+```powershell
+.\sword.ps1 status -NoLive
+.\sword.ps1 verify -NoLive
+.\sword.ps1 doctor -NoLive
+```
+
+runtime を使う一番簡単な入口は Launch Manager です。
 
 ```powershell
 .\start-home-control-launcher.bat
@@ -476,13 +515,16 @@ fresh clone の `workspaceRoot` から Start Stack し直してから確認し�
 http://127.0.0.1:8799
 ```
 
-標準の Thought Core profile を選び、port や camera 設定を確認して、`Start Stack` を押します。停止は画面上のボタンか、次のコマンドで行います。
+標準の Thought Core profile を選び、port や camera 設定を確認して、`Start Stack`
+を押します。停止は画面上のボタンか、次のコマンドで行います。
 
 ```powershell
 .\stop-home-control-launcher.bat
 ```
 
-並行検証や port 衝突の調査では、isolated port mode を使えます。
+`.\sword.ps1 start` / `.\sword.ps1 stop` は既定では command preview です。
+実際に runtime children を起動・停止する場合は、明示的な runtime scope のもとで
+`-Run` を使います。並行検証や port 衝突の調査では isolated port mode を使えます。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\start-launcher.ps1 -PortMode isolated_override -OpenBrowser
@@ -523,7 +565,7 @@ Projection Visual の表示例です。
 ### no-live 確認
 
 Home Assistant の実家電操作を使わず、まず画面、入力、Thought Core への接続を
-確認する流れです。
+確認します。
 
 1. Launch Manager を起動し、少なくとも Launch Manager、AITuber Kit、
    Projection Visual、Thought Core が ready になるのを待ちます。
@@ -542,41 +584,35 @@ Home Assistant の実家電操作を使わず、まず画面、入力、Thought 
 部屋は明るい？
 ```
 
-この段階では、家電が実際に動かなくても問題ありません。Home Assistant 未設定の
-場合は、state が未接続、mock、または unavailable として見えることがあります。
+この段階では、家電が実際に動かなくても問題ありません。Home Assistant 未設定の場合は、
+state が未接続、mock、または unavailable として見えることがあります。
 `THOUGHT_CORE_TOOLS_ADAPTER=mock` の場合、家電操作の返答はテストモード上の
 想定です。実際の Home Assistant へは送信されません。
 
-daylight がある部屋で「電灯がついているか」を確認する場合は、明るさそのものと
-electric-light ON/OFF を分けて見ます。手元に `local/media/movie/sample20260604`
-の sunshine sample がある検証環境では、次の helper で raw frame を出さずに
-集計だけを確認できます。
+local-media replay は live camera / mic / physical proof とは別 layer です。
+private seed から `local/media/media-index.json` を作り、raw media を共有せずに
+fixture を確認します。
+
+```powershell
+pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1 -DryRun
+pwsh -NoProfile -File .\scripts\run-local-media-replay.ps1
+```
+
+代表 asset id は `gesture.sword.20260603` と `vision.room_light.on.20260603` です。
+gesture-to-voice-input、real microphone、real camera は別 proof layer として記録します。
+
+部屋の明るさや Environment State の詳細確認は、README ではなく
+`docs/verification-commands.md` を見ます。代表 helper は summary-only で、raw frame、
+screenshot、raw media、Home Assistant entity、token を出しません。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\evaluate-room-light-sunshine.ps1 -Json
-```
-
-この helper は direct-file evaluation です。raw video、raw frame、crop、screenshot、
-生成 model は出力・commit しません。共有用には sample id、window count、label count、
-probability summary、pass / partial / fail / blocked だけを使います。
-
-RR003 review 前に、実行中の Environment State が周期更新しているか、Home
-Assistant / Camera Hub / Vision Snapshot Processor の freshness が見えているか、
-HUD が Home Control の実行 mode を正直に表示しているかを確認する場合は、次の
-preflight helper を使います。helper は `/environment/current` を短時間サンプリングし、
-bounded manual change window の後に room-light evidence が materially changed したかを
-summary だけで報告します。token 値、Home Assistant entity、raw frame、screenshot、
-raw media は出力しません。
-
-```powershell
 pwsh -NoProfile -File .\scripts\check-rr003-env-state-review-preflight.ps1
-pwsh -NoProfile -File .\scripts\check-rr003-env-state-review-preflight.ps1 -SkipManualChange -Json
 ```
 
-`room_light_claim=available-but-not-reliable-for-electric-on-off` は、Environment
-State の経路は見えているが、現在条件では電灯 ON/OFF proof としては弱いという意味です。
-`Action Mode UNKNOWN` は status/HUD wiring や再起動反映の gap として扱い、
-`Bridge OK` だけで live Home Control mode とは主張しません。
+`room_light_claim=available-but-not-reliable-for-electric-on-off` は、Environment State
+の経路は見えているが、電灯 ON/OFF proof としては弱いという意味です。`Bridge OK`
+だけで live Home Control mode とは主張しません。
 
 ### 音声出力を含める場合の VOICEVOX 確認
 
@@ -601,21 +637,19 @@ source と pass / skipped / blocked を記録します。
 ### Home Assistant 設定済みの場合の live 確認
 
 Home Assistant bridge が ready で、対象家電、戻し方、停止条件が分かっている場合だけ
-低リスクな操作を試します。いきなり複数家電や長時間 fuzzing を実行しないでください。
+低リスクな操作を試します。README では live pilot の最小 ladder だけを示します。
+詳しい action metadata は `docs/home-control-action-authoring.md`、ticketed live proof は
+`docs/live-home-control-proof.md`、cause trail は
+`docs/live-home-control-cause-trail.md` を見てください。
 
-live 確認は、no-live が通った後に、1 回分の小さな ticket として分けます。
-次の ladder を上から順に実行し、OpenAPI や Home Assistant の raw URL / entity を
-手探りで調べるのは、この ladder が失敗した時だけにします。
-
-1. no-live prerequisite を通します。これは実家電 proof ではありません。
+live 確認は `RequestLiveHomeAssistant` と `ConfirmHomeAssistantTicket` が揃った
+1 回分の小さな ticket として分けます。no-live prerequisite は実家電 proof ではありません。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes
 ```
 
-2. 対象 action を 1 つだけ決めます。戻し操作が必要なら、それも ticket に明記します。
-   回数、間隔、禁止 action、停止条件も先に決めます。
-3. 中央 env や local config を直したら、最後に再生成します。
+中央 env や local config を直したら、最後に再生成します。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
@@ -625,208 +659,69 @@ pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 template から再生成します。live 用の config を使う場合は、この後に live config を
 再反映してください。ここを飛ばすと demo action や古い mapping のままになります。
 
-4. 別ターミナルで Home Control bridge を起動します。この helper は foreground の
-   long-running process で、停止するまでその terminal を使い続けます。
-   `organs/action/home-assistant-server/.env` を読み込み、secret 値は表示しません。
-   起動時に port、helper PID、log path ラベル、停止方法を表示します。
-   test では別 terminal か background terminal で起動し、停止するときはその test 用に
-   起動した bridge process だけを止めます。
+別ターミナルで Home Control bridge を起動します。この helper は foreground の
+long-running process です。secret 値は表示しません。停止するときは、その test 用に
+起動した bridge process だけを止めます。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1
 ```
 
-5. もう 1 つのターミナルで、live-ready かを先に確認します。
+live-ready かを先に確認し、preview / dry-run / execute へ進む前に tracking と state
+proof ceiling を分けます。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <allowed-action-id>
+pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckTracking -ActionId <allowed-action-id>
+```
+
+preview、dry-run、execute の ladder 後にだけ post-state を確認します。
+
+```powershell
+pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckState -ActionId <allowed-action-id>
 ```
 
 `/health` が `config_error` の場合、または authenticated `/actions` が期待 action を
 返さない場合は、preview / execute に進まず停止します。診断では token、entity URL、
-secret 値を貼らず、key presence、placeholder/length class、config path、action count、
-status、`config_error_kind`、`cause_code` だけを共有してください。原因の追跡用コードは
-[Live Home Control Cause Trail](docs/live-home-control-cause-trail.md) にまとめています。
+secret 値を貼らず、key presence、placeholder/length class、action count、status、
+`config_error_kind`、`cause_code` だけを共有します。
 
-`/health` が non-error で、`/actions` に ticket の action があることを確認したら、
-次にその action がどの種類の操作か、Home Assistant state confirmation まで追跡できるかを
-確認します。これは実行前の「追跡メタデータ確認」であり、現在の家電状態が期待状態かどうかは
-判定しません。
+`-CheckTracking` には `live_test_readiness`、`proof_ceiling`、`restore_action_id` などの
+redacted metadata が出ます。`-CheckState` は実行後または restore 後、つまり post-action /
+post-restore の state confirmation です。preflight ではありません。
 
-```powershell
-pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckTracking -ActionId <allowed-action-id>
+HTTP を直接使う場合でも、README では形だけを示します。token、raw URL、entity id は
+共有しません。
+
+```text
+/actions/<allowed-action-id>/preview
+execute body example: {"dry_run":true}
 ```
 
-`-CheckTracking` が `tracked` なら、その action には後確認用の `expected_effect` があり、
-`-CheckState` で Home Assistant state proof を取れます。`external_required`、`ack_only`、
-`manual_required`、`unsupported` の場合は、preview / dry-run 自体は ticket 次第で進められても、
-その action では helper による Home Assistant state proof を主張できません。
+execute response の `status=submitted` は command accepted layer です。Home Assistant
+state match、external observed、physical/device proof、restore observed とは分けて記録します。
 
-Action metadata は次のように分けます。
-
-| Field | Typical values | Meaning |
-| --- | --- | --- |
-| `control_type` | `stateful_target`, `stateless_toggle`, `stateless_command`, `position_command`, `mode_command`, `job_command` | The kind of appliance/control behavior. |
-| `state_authority` | `ha_entity`, `ha_inferred`, `open_loop`, `external_sensor`, `submitted_only` | Where the state claim comes from. Inferred/open-loop state is not physical proof. |
-| `verification.mode` | `ha_state`, `external_observation`, `command_ack_only`, `manual_confirmation` | What proof layer can confirm the action. |
-| `expected_effect` | HA domain/service/entity/expected state | Only used when `verification.mode` is `ha_state`. |
-| `verification.accepted_states` | e.g. `["closed"]`, `["docked"]` | Optional HA states that also count as post-state proof. The primary `expected_effect.expected_state` is still included. |
-| `verification.settle_seconds` / `timeout_seconds` | e.g. `8` / `60` | The wait window to use in the ticketed execute/wait/check procedure. These are metadata; do not treat them as proof by themselves. |
-| `proof_ceiling` | `ha_visible_cover_position_checkstate_layer`, `command_ack_only` | The strongest proof layer this action can honestly report from the configured surfaces. |
-| `live_test_candidate` | `true` / `false` | Whether this action is allowed into a current live-test decision table at all. |
-| `live_test_readiness` | `test_now`, `do_not_test_current_config`, `not_live_test_candidate` | The bridge's redacted decision class for whether this row can be included in the next bounded live batch. |
-| `live_test_blockers` | e.g. `missing_restore_or_stop`, `safety_requirement:path_floor_safety` | Exact reasons a readable row must not be executed under the current configuration. |
-| `restore_action_id` / `stop_action_id` / `terminal_action` | action ids or `true` | The configured restore/stop path. Terminal actions such as `vacuum_return` can be live-ready without a separate restore action. |
-| `safety_requirements` | e.g. `obstruction_clearance`, `original_position_restore` | User/physical-world or setup conditions that must be resolved before live movement. |
-
-`-CheckTracking` prints these live-test fields together with `state_tracking`.
-Use `test_now` only as permission to proceed to the ticketed preview/dry-run/live
-ladder for that one row. If readiness is `do_not_test_current_config`, treat the
-listed blockers as setup or safety gaps; do not execute the row just because HA
-state is readable.
-
-Report Home Control proof with separate labels:
-
-| Proof label | Meaning |
-| --- | --- |
-| `command accepted` | Bridge/Home Assistant accepted the command. This is send/submission proof, not appliance-state proof. |
-| `HA state matched` | Home Assistant current state matched `expected_state` or `accepted_states` after the ticketed wait. |
-| `external observed` | Camera, sensor, manual observation, or another independent source confirmed the physical result. |
-| `restored / reversible` | The pilot also proved the planned restore path, such as start/change then return/docked. |
-
-SwitchBot remote-style devices may be `stateless_toggle`: a button press changes the
-physical state, but Home Assistant cannot know the current state. Do not model such a
-device as `light_on` / `light_off` with HA state proof unless the target state is
-actually readable. Use external observation, manual confirmation, or a separate sensor
-before claiming physical state.
-
-For the current live SwitchBot-style setup, actions backed by `switch` entities whose
-current state is `unknown` should stay out of `ha_state` proof. Keep them as
-`open_loop` or `submitted_only` until Home Assistant shows a reliable current state.
-`cover` and `vacuum_return` may become HA state-proof candidates, but only after a
-separate read-only state review and a ticketed execute/wait/post-state proof. When
-promoting them, use `verification.mode: ha_state`, keep `state_authority: ha_entity`,
-set `expected_effect`, and add `accepted_states` plus settle/timeout windows before
-claiming `tracked`.
-
-For vacuum proof, check the specific `expected_effect.entity_id` targeted by the
-script. Do not use all-domain `vacuum` counts as the action proof when Home
-Assistant exposes multiple vacuum entities or multiple state authorities.
-
-For SwitchBot remote-style light checks, use the redacted physical-light helper
-instead of ad hoc scripts when the review needs command submission plus camera
-brightness observation. The helper starts a temporary bridge unless
-`-UseExistingBridge` is supplied, performs preview / dry-run for each action,
-and executes only when `-ConfirmLiveLightTicket` is present.
+physical brightness observation が必要なライト確認は、ad hoc script ではなく redacted helper
+を使います。helper は preview / dry-run を分け、live execute は
+`-ConfirmLiveLightTicket` がある時だけ行います。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\run-home-control-light-proof.ps1 -DryRun
 pwsh -NoProfile -File .\scripts\run-home-control-light-proof.ps1 -ConfirmLiveLightTicket -OffActionId light_off -OnActionId light_on -Json
 ```
 
-The output separates `command_submission`, `physical_brightness_observation`,
-and `restore_observed`. It reports aggregate brightness numbers only and keeps
-`raw_media_saved=false`, `raw_media_shared=false`, `raw_secret_shared=false`,
-and `entity_id_shared=false`. If the camera is owned by the standard stack,
-stop that stack first or run a documented split procedure; camera readiness
-alone is not appliance proof. If `physical_brightness_observation=inverted`,
-the physical light changed in the opposite direction; fix the local action
-mapping or rerun with the off/on action IDs swapped before claiming the
-requested `on` proof.
-In the current live setup, read-only registry review showed separate local and
-cloud-side vacuum entities; bridge scripts target the cloud-side vacuum path.
-
-For vacuum actions, define start and return proof separately. `vacuum_start`
-must state which post-start states count as progress, and why; avoid accepting
-any state that merely hides uncertainty. `vacuum_return` should normally require
-`docked` after a wait window. A strong pilot is `start -> wait -> non-docked or
-cleaning/returning proof -> return -> wait -> docked proof`.
-If restore only succeeds after an extra return command, report it as
-`restored / reversible with retry`. `tracked` means the post-state check is
-configured; it does not by itself prove that one return command is always
-reliable within the chosen timeout.
-
-For air conditioner work, a same-device `climate` candidate may exist even when
-the current bridge script calls an `unknown` switch. Do not add `expected_effect`
-to that switch. Design a separate climate-service action and prove it before
-promoting aircon actions to `ha_state`.
-
-ここまで通ってから、preview、dry-run、execute の順に進めます。
-HTTP を直接使う場合の最小形は次です。
-`<ticket-id>` は実行ごとに変えます。execute 回数は ticket に書いた回数だけです。
-
-```powershell
-$Headers = @{ Authorization = "Bearer <HOME_CONTROL_API_TOKEN>" }
-
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://127.0.0.1:8787/actions/<allowed-action-id>/preview" `
-  -Headers $Headers `
-  -ContentType "application/json" `
-  -Body '{"source":"first-run-live-pilot","request_id":"<ticket-id>-preview"}'
-
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://127.0.0.1:8787/actions/<allowed-action-id>/execute" `
-  -Headers $Headers `
-  -ContentType "application/json" `
-  -Body '{"source":"first-run-live-pilot","request_id":"<ticket-id>-dry-run","dry_run":true}'
-
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://127.0.0.1:8787/actions/<allowed-action-id>/execute" `
-  -Headers $Headers `
-  -ContentType "application/json" `
-  -Body '{"source":"first-run-live-pilot","request_id":"<ticket-id>-execute","dry_run":false}'
-```
-
-確認必須 action の `confirmation_token` は一度だけ使えます。dry-run で token を
-使った場合、その token は消費済みです。本実行の直前に preview を取り直し、
-新しい token を execute だけに使ってください。
-
-execute response は `status=submitted` かつ `executed=true` で返ることがあります。
-これは操作要求が bridge から送信された層の結果であり、最終的に対象家電が期待状態に
-なった proof とは分けて扱います。preview、dry-run、execute、wait、Home Assistant
-state confirmation、独立した物理/カメラ確認を同じ green にまとめないでください。
-
-6. ticket で決めた反映待ちの間隔を待ち、Home Assistant state を helper で確認します。
-   `-CheckTracking` output may include `settle_seconds` / `timeout_seconds`;
-   use those as the wait window only for actions that are `tracked`.
-   `-CheckState` は実行後または restore 後の確認です。実行前に全 action を通すための
-   preflight ではありません。たとえば stateful な `light_on` は「今すでに on か」を見るので、
-   実行前に off なら mismatch になります。stateless toggle のライトでは、そもそも
-   HA state proof を取れないため `external_required` などで止めます。helper は action id、
-   expected state、actual state、status だけを表示し、raw Home Assistant URL / entity /
-   token は表示しません。
-
-```powershell
-Start-Sleep -Seconds 30
-pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckState -ActionId <allowed-action-id>
-```
-
-7. restore も ticket に書いた場合だけ、同じ順で preview、dry-run、1 回だけ execute、
-   wait、state check を行います。
-   If restore needs another execute, record the retry count separately; do not
-   collapse that into a single-action green proof.
-
-```powershell
-pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <restore-action-id>
-pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckTracking -ActionId <restore-action-id>
-```
-
-proof は層ごとに分けます。no-live/mock、live bridge、preview、execute、
-Home Assistant state confirmation、独立した物理/カメラ確認は同じ green ではありません。
-初回レポートでは、install/readiness pass、no-live/mock pass、real camera
-service/topic readiness、sword-sign positive gesture detection、gesture-to-voice-input
-gate transition、real microphone speech recognition、ticketed live appliance action、
-independent physical/camera confirmation を分けて書きます。
+proof は層ごとに分けます。初回レポートでは install/readiness pass、no-live/mock pass、
+real camera service/topic readiness、sword-sign positive gesture detection、
+gesture-to-voice-input gate transition、real microphone speech recognition、
+ticketed live appliance action、independent physical/camera confirmation を分けて書きます。
 
 ```text
 電気をつけて
 電気を消して
 ```
 
-Thought Core は、環境を観測し、Action Boundary で操作を preview / execute し、必要なら反映待ちをしてから再観測し、結果または不確実な点を返します。
+Thought Core は、環境を観測し、Action Boundary で操作を preview / execute し、
+必要なら反映待ちをしてから再観測し、結果または不確実な点を返します。
 
 ## 検証コマンド
 
@@ -874,8 +769,9 @@ pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1
 
 ## OS の構造
 
-各 organ がどの役割を持ち、どうつながるかを把握したい時に読む節です。
-標準 profile は、システムを身体のように分けて扱います。
+各 organ の役割と接続の詳細は `docs/module-usage-index.md`、`runtime/README.md`、
+`manifests/README.md`、`organs/README.md`、`contracts/README.md` にあります。
+README では標準 profile の大まかな流れだけを残します。
 
 ```text
 speech / gesture input
@@ -887,35 +783,16 @@ speech / gesture input
   -> event journal and status projection
 ```
 
-主な考え方です。
-
-- `reflex` は、低遅延の観測やジェスチャーを扱います。
-- `thought` は、turn 単位の推論、tool 選択、feedback、recheck を扱います。
-- `environment` は、部屋、カメラ、家電の状態を集約し、根拠を混ぜずに出します。
-- `action` は、Home Assistant などの driver 経由で許可済み操作を実行します。
-- `expression` は、アバター、発話、ログ、HUD を表示します。
-- `display` は、TouchDesigner などの投影・演出面に接続します。
-- `runtime` と `manifests` は、起動、health、organ 接続の正本です。
-
-各 module は差し替え可能であることを前提にしています。別の Thought Core や別の organ set を入れることで、用途を変えられます。
+`runtime` と `manifests` が起動、health、organ 接続の正本です。具体機能は
+`control-plane/` と `organs/` の nested checkout にあります。manifest/pin/source
+authority は `docs/manifest-ledger-authority.md` を見てください。
 
 ## 開発者向け入口
 
-コードや manifest を変更する開発者はここから読みます。
-
-まず変更先を次の順で決めます。
-
-1. 標準構成に何を入れるかを変えるなら `manifests/`。
-2. organ 間のデータ形や境界を変えるなら `contracts/`。
-3. OS substrate、状態、イベント、action boundary、diagnostics 基盤を変えるなら
-   `runtime/`。
-4. 具体的な能力、driver、UI、外部 service の実装を変えるなら
-   `control-plane/` または `organs/` の nested checkout。
-5. 導入、起動、検証、保守の入口を変えるなら `scripts/` と `docs/`。
-
-迷った場合は [Module usage index](docs/module-usage-index.md) で責任レイヤーを
-決めてから source を開いてください。runtime proof、source/static proof、
-live device proof、physical observation proof は同じものとして扱いません。
+コードや manifest を変更する場合は、まず
+[Module usage index](docs/module-usage-index.md) で責任レイヤーを決めます。
+runtime proof、source/static proof、live device proof、physical observation proof は
+同じものとして扱いません。
 
 - [Remote workstation setup](docs/remote-workstation-setup.md)
 - [Thread startup guide](docs/thread-startup-guide.md)
@@ -926,7 +803,8 @@ live device proof、physical observation proof は同じものとして扱いま
 - [Organ overview](organs/README.md)
 - [Contract overview](contracts/README.md)
 
-UI / HUD を変えたらブラウザで実画面を確認してください。action や state の挙動を変える場合は、source/static test、no-live test、live appliance claim を分けて扱います。
+UI / HUD、action、state の挙動を変える場合は、source/static test、no-live test、
+runtime/browser、live appliance claim を分けて扱います。
 
 ## 安全とローカルデータ
 

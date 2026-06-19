@@ -867,6 +867,18 @@ if ($null -ne $organReadiness -and $null -ne $organReadiness.counts) {
   $organReadinessBlocked = [int]$organReadiness.counts.blocked -gt 0
 }
 $startExitCode = if ($null -ne $startProcess -and $startProcess.HasExited) { $startProcess.ExitCode } else { $null }
+$startExitCodeClass = "not_exited_before_stop"
+$startExitCodeDetail = "Start process was still running until managed stop; this is the normal service-process shape."
+if ($null -ne $startExitCode) {
+  if ([int]$startExitCode -eq 0) {
+    $startExitCodeClass = "clean_exit"
+    $startExitCodeDetail = "Start process exited cleanly before the stop step."
+  }
+  else {
+    $startExitCodeClass = "nonzero_start_exit"
+    $startExitCodeDetail = "Start process exited non-zero; final smoke status still depends on endpoint probes, integration probes, stop cleanup, and remaining ports."
+  }
+}
 $status = if (
   [string]::IsNullOrWhiteSpace($smokeError) -and
   [string]::IsNullOrWhiteSpace($stopError) -and
@@ -877,6 +889,10 @@ $status = if (
   ((-not $RunWatcherProbe) -or ($watcherProbe.status -eq "ok" -and [string]::IsNullOrWhiteSpace($watcherRestoreError))) -and
   $remainingPorts.Count -eq 0
 ) { "ok" } else { "failed" }
+if ($status -eq "ok" -and $null -ne $startExitCode -and [int]$startExitCode -ne 0) {
+  $startExitCodeClass = "nonzero_after_route_success_explained"
+  $startExitCodeDetail = "The launcher start process exited non-zero, but endpoint probes, integration probes, stop cleanup, and selected-port cleanup completed successfully; keep this as a mixed-signal diagnostic instead of hiding it."
+}
 
 $result = [PSCustomObject]@{
   status = $status
@@ -913,6 +929,8 @@ $result = [PSCustomObject]@{
   processes = [PSCustomObject]@{
     start_pid = if ($null -ne $startProcess) { $startProcess.Id } else { $null }
     start_exit_code = $startExitCode
+    start_exit_code_class = $startExitCodeClass
+    start_exit_code_detail = $startExitCodeDetail
     stop_exit_code = $stopExitCode
   }
   logs = [PSCustomObject]@{

@@ -388,13 +388,13 @@ $envReadPaths = @($centralEnvPath, $controlPlaneEnvPath, $thoughtCoreEnvPath, $h
 $toolsAdapter = (Normalize-DotEnvEnumValue -Value (Read-DotEnvFirstValue -Paths $envReadPaths -Name "THOUGHT_CORE_TOOLS_ADAPTER")).ToLowerInvariant()
 $homeAssistantToken = Read-DotEnvFirstValue -Paths @($centralEnvPath, $homeAssistantEnvPath) -Name "HOME_ASSISTANT_TOKEN"
 if ([string]::IsNullOrWhiteSpace($toolsAdapter)) {
-  $checks += New-Check -Id "local.thought_core_tools_adapter" -Status "missing" -Severity "warning" -Path $centralEnvPath -Detail "THOUGHT_CORE_TOOLS_ADAPTER is not set; Thought Core may fall back to mock/no-live behavior"
+  $checks += New-Check -Id "local.thought_core_tools_adapter" -Status "missing" -Severity "warning" -Path $centralEnvPath -Detail "THOUGHT_CORE_TOOLS_ADAPTER is not set; Thought Core may fall back to mock/no-live behavior. proof_layer=no-live/setup-warning; live Home Assistant action proof is not implied."
 }
 elseif ($toolsAdapter -in @("mock", "local_mock", "local-mock")) {
-  $detail = "THOUGHT_CORE_TOOLS_ADAPTER=mock: home actions are no-live simulations and are not sent to real Home Assistant"
+  $detail = "THOUGHT_CORE_TOOLS_ADAPTER=mock: expected_for_no_live=true; proof_layer=no-live/mock; home actions are simulations and are not sent to real Home Assistant"
   $severity = "info"
   if (-not [string]::IsNullOrWhiteSpace($homeAssistantToken)) {
-    $detail = "$detail, even though HOME_ASSISTANT_TOKEN is present"
+    $detail = "$detail, even though HOME_ASSISTANT_TOKEN is present. This is setup-dependent partial only if live Home Assistant action proof is intended."
     $severity = "warning"
   }
   $checks += New-Check -Id "local.thought_core_tools_adapter" -Status "mock" -Severity $severity -Path $centralEnvPath -Detail $detail
