@@ -640,6 +640,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "add-home-device:full-schema-checklist" -Message "Home device guide should include a full-schema checklist"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "add-home-device:proof-ladder" -Message "Home device guide should keep proof layers separate"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "no-live-display" -Message "capability pack docs should plan a no-live starter profile"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "examples/starter-profiles/voice-avatar/README\.md" -Message "front-door docs should link the voice/avatar starter profile"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "home-control-preview" -Message "capability pack docs should plan a Home Control preview starter profile"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "examples/starter-profiles/home-control-preview/README\.md" -Message "front-door docs should link the Home Control preview starter profile"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "architecture:capability-pack-layer" -Message "architecture docs should anchor the capability-pack layer"
@@ -677,6 +678,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/home-assistant-setup\.md" -Message "standard distribution map should point external HA setup to the setup guide"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/capability-packs\.md" -Message "standard distribution map should point feature selection to capability packs"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/add-home-device\.md" -Message "standard distribution map should point home-device additions to the beginner guide"
+  Assert-TextMatch -Text $standardDistributionMap -Pattern "examples/starter-profiles/voice-avatar/README\.md" -Message "standard distribution map should point voice/avatar no-live setup to the voice/avatar starter"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "examples/starter-profiles/home-control-preview/README\.md" -Message "standard distribution map should point HA no-live setup to the Home Control preview starter"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "HOME_CONTROL_CONFIG[\s\S]{0,200}private full-schema|private full-schema[\s\S]{0,200}HOME_CONTROL_CONFIG" -Message "standard distribution map should require proof-ready selected config before live HA"
   $starterTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\_template.md")
@@ -687,6 +689,15 @@ function Test-ReadmeFirstRunGuidance {
   $noLiveStarter = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\no-live-display\README.md")
   Assert-TextMatch -Text $noLiveStarter -Pattern "starter-profile:no-live-display" -Message "no-live starter profile should have a stable anchor"
   Assert-TextMatch -Text $noLiveStarter -Pattern "\.\\sword\.ps1 status[\s\S]{0,120}\.\\sword\.ps1 verify[\s\S]{0,120}\.\\sword\.ps1 start" -Message "no-live starter profile should use the safe front-door route"
+  $voiceAvatarStarter = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\voice-avatar\README.md")
+  Assert-TextMatch -Text $voiceAvatarStarter -Pattern "starter-profile:voice-avatar" -Message "voice/avatar starter profile should have a stable anchor"
+  Assert-TextMatch -Text $voiceAvatarStarter -Pattern "starter-profile:voice-avatar-goal[\s\S]+starter-profile:voice-avatar-route[\s\S]+starter-profile:voice-avatar-result-fields[\s\S]+starter-profile:voice-avatar-stop-conditions[\s\S]+starter-profile:voice-avatar-does-not-prove" -Message "voice/avatar starter should follow the template section anchors"
+  Assert-TextMatch -Text $voiceAvatarStarter -Pattern "source/docs/no-live readiness" -Message "voice/avatar starter should name its source/docs/no-live proof ceiling"
+  Assert-TextMatch -Text $voiceAvatarStarter -Pattern "provider/TTS readiness[\s\S]{0,120}audio playback[\s\S]{0,160}avatar\s+rendering|audio playback[\s\S]{0,160}avatar\s+rendering[\s\S]{0,160}provider/TTS readiness" -Message "voice/avatar starter should separate provider/TTS, audio playback, and avatar rendering"
+  Assert-TextMatch -Text $voiceAvatarStarter -Pattern "check-voicevox-readiness\.ps1[\s\S]{0,220}does\s+not play audio[\s\S]{0,140}install or update VOICEVOX" -Message "voice/avatar starter should keep VOICEVOX readiness separate from playback/install"
+  Assert-TextMatch -Text $voiceAvatarStarter -Pattern "test-local-media-voice-gate\.ps1[\s\S]{0,180}Mode preview[\s\S]{0,220}source/static command preview" -Message "voice/avatar starter should keep voice-gate preview at source/static layer"
+  Assert-TextMatch -Text $voiceAvatarStarter -Pattern "raw prompts[\s\S]{0,160}provider payloads[\s\S]{0,160}audio/media[\s\S]{0,160}screenshots[\s\S]{0,160}transcripts" -Message "voice/avatar starter should preserve raw/private/media boundaries"
+  Assert-TextMatch -Text $voiceAvatarStarter -Pattern "real microphone or camera input[\s\S]{0,160}browser runtime reachability[\s\S]{0,160}rendered avatar visibility[\s\S]{0,160}avatar motion dispatch" -Message "voice/avatar starter should avoid overclaiming runtime/input/avatar proof"
   $homeControlPreviewStarter = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\home-control-preview\README.md")
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "starter-profile:home-control-preview" -Message "Home Control preview starter should have a stable anchor"
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "read-only readiness route[\s\S]{0,180}not Home Assistant preview[\s\S]{0,40}proof" -Message "Home Control preview starter should distinguish readiness from HA preview proof"

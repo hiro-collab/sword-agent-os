@@ -17,6 +17,7 @@ local machine paths in tracked files.
 | AI なしで起動確認したい | `THOUGHT_CORE_LLM_ENABLED=false` | `docs/operate.md` |
 | アバター / VRM を変えたい | `NEXT_PUBLIC_SELECTED_VRM_PATH` とローカル asset | `docs/local-configuration.md` |
 | 声 / TTS を変えたい | VOICEVOX / TTS の env 値 | `docs/local-configuration.md` |
+| 声 / アバターの安全な小ルートを試したい | no-live voice/avatar starter profile | `examples/starter-profiles/voice-avatar/README.md` |
 | Home Assistant を外部環境につなぎたい | `HOME_ASSISTANT_TOKEN`, `HOME_CONTROL_API_TOKEN`, `HOME_CONTROL_CONFIG`, full-schema action row | `docs/home-assistant-setup.md` |
 | 操作できる家電動作を増やしたい | local input から生成される `home-control.yaml` の action row | `docs/add-home-device.md`、`docs/home-control-action-authoring.md` |
 | 実際の家電が動いた証拠を取りたい | 範囲を決めた live ticket と route result | `docs/live-home-control-proof.md` |

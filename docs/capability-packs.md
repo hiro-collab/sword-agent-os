@@ -43,6 +43,7 @@ Use this table instead of starting from internal folders.
 | I want to verify the install without live actions | `.\sword.ps1 verify` | `docs/standard-distribution-map.md` |
 | I want to change AI/model behavior | Thought / Chat Pack | `docs/customize.md`, `docs/local-configuration.md` |
 | I want to change voice or avatar behavior | Voice Pack or Avatar / Projection Pack | `docs/customize.md` |
+| I want to try voice/avatar safely | `voice-avatar` starter profile | `examples/starter-profiles/voice-avatar/README.md` |
 | I want to connect Home Assistant | Home Control Pack | `docs/home-assistant-setup.md` |
 | I want to add a home device action | Home Control Pack | `docs/add-home-device.md`, `docs/home-control-action-authoring.md` |
 | I want live proof | Home Control Pack plus Proof And Verification plane | `docs/live-home-control-proof.md`, `docs/proof-layers.md` |
@@ -66,7 +67,7 @@ read-only/helper readiness from Home Assistant preview endpoint proof.
 | Starter profile | Purpose | Status |
 | --- | --- | --- |
 | `no-live-display` | Inspect and launch display/runtime surfaces without live providers or devices | first example exists under `examples/starter-profiles/no-live-display/` |
-| `voice-avatar` | Confirm voice/avatar flow with explicit local/provider boundaries | planned |
+| `voice-avatar` | Confirm voice/avatar flow with explicit local/provider boundaries | first example exists under `examples/starter-profiles/voice-avatar/` |
 | `home-control-preview` | Connect Home Assistant and exercise catalog/tracking/read-only readiness gates only; not the HA preview endpoint | first example exists under `examples/starter-profiles/home-control-preview/` |
 | `home-control-live` | Ticketed live Home Assistant route with restore/stop/proof fields | planned, never default |
 | `projection-visual` | Projection Visual / TouchDesigner-focused visual route | planned |

@@ -35,6 +35,7 @@ debug tree や coordination history ではなく、標準構成の地図です�
 | 構成 plane と用語は何か | `docs/architecture.md` |
 | 家電 action を 1 つ増やすには | `docs/add-home-device.md` |
 | Home Assistant を no-live で確認するには | `examples/starter-profiles/home-control-preview/README.md` |
+| 声 / アバターを no-live で確認するには | `examples/starter-profiles/voice-avatar/README.md` |
 | 実装はどこに入るか | `Organ Checkout Map` |
 | 何が正本か | `Manifest And Pin Authority` |
 | 何を証明していないか | `Proof Layers` |
