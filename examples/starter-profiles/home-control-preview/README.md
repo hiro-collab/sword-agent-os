@@ -64,6 +64,13 @@ The last command is a current-state readability/classification check for this
 starter profile. It must not be reported as proof that a command changed the
 device.
 
+`HOLD_LIVE` stays active during this profile. Read-only helper modes require an
+already-running selected-workspace bridge, or an exact route-owned read-only
+bridge-health scope that can be started and stopped without bridge action
+execute. If neither is available under `HOLD_LIVE`, stop and report bridge
+unavailable. Do not clear the hold, run preview/dry-run/live, or switch to a
+different bridge just to make the helper commands pass.
+
 ## Result Fields
 
 <!-- starter-profile:home-control-preview-result-fields -->

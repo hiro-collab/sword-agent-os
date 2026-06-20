@@ -684,6 +684,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "\.\\sword\.ps1 status[\s\S]{0,160}\.\\sword\.ps1 verify[\s\S]{0,160}\.\\sword\.ps1 hold-live" -Message "Home Control preview starter should start with safe front-door checks"
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "CheckOnly[\s\S]{0,240}CheckTracking[\s\S]{0,240}CheckState" -Message "Home Control preview starter should keep read-only helper modes visible"
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "not be reported as proof that a command changed[\s\S]{0,40}device" -Message "Home Control preview starter should prevent read-only CheckState proof upgrades"
+  Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "already-running selected-workspace bridge[\s\S]{0,220}exact route-owned read-only[\s\S]{0,220}bridge[\s\S]{0,80}unavailable" -Message "Home Control preview starter should explain HOLD_LIVE read-only bridge availability"
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "preview/dry-run/live[\s\S]{0,120}Not part of this starter profile" -Message "Home Control preview starter should keep preview/dry-run/live out of scope"
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "raw HA entity IDs[\s\S]{0,160}tokens[\s\S]{0,160}screenshots" -Message "Home Control preview starter should preserve raw/private boundaries"
   $adrDocs = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "governance\architecture-decisions\README.md")
