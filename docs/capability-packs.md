@@ -60,7 +60,7 @@ not proof claims.
 | --- | --- | --- |
 | `no-live-display` | Inspect and launch display/runtime surfaces without live providers or devices | first example exists under `examples/starter-profiles/no-live-display/` |
 | `voice-avatar` | Confirm voice/avatar flow with explicit local/provider boundaries | planned |
-| `home-control-preview` | Connect Home Assistant and exercise catalog/preview/read-only gates only | planned |
+| `home-control-preview` | Connect Home Assistant and exercise catalog/tracking/read-only gates only | first example exists under `examples/starter-profiles/home-control-preview/` |
 | `home-control-live` | Ticketed live Home Assistant route with restore/stop/proof fields | planned, never default |
 | `projection-visual` | Projection Visual / TouchDesigner-focused visual route | planned |
 | `developer` | Manifest/contract/organ development and maintenance smoke route | planned |

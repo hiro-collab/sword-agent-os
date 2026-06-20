@@ -638,6 +638,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "add-home-device:proof-ladder" -Message "Home device guide should keep proof layers separate"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "no-live-display" -Message "capability pack docs should plan a no-live starter profile"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "home-control-preview" -Message "capability pack docs should plan a Home Control preview starter profile"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "examples/starter-profiles/home-control-preview/README\.md" -Message "front-door docs should link the Home Control preview starter profile"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "architecture:capability-pack-layer" -Message "architecture docs should anchor the capability-pack layer"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "starter profiles answer" -Message "architecture docs should distinguish starter profiles from planes and proof layers"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime/control/README\.md|runtime\\control\\README\.md" -Message "front-door docs should link runtime control vocabulary"
@@ -673,10 +674,18 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/home-assistant-setup\.md" -Message "standard distribution map should point external HA setup to the setup guide"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/capability-packs\.md" -Message "standard distribution map should point feature selection to capability packs"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/add-home-device\.md" -Message "standard distribution map should point home-device additions to the beginner guide"
+  Assert-TextMatch -Text $standardDistributionMap -Pattern "examples/starter-profiles/home-control-preview/README\.md" -Message "standard distribution map should point HA no-live setup to the Home Control preview starter"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "HOME_CONTROL_CONFIG[\s\S]{0,200}private full-schema|private full-schema[\s\S]{0,200}HOME_CONTROL_CONFIG" -Message "standard distribution map should require proof-ready selected config before live HA"
   $noLiveStarter = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\no-live-display\README.md")
   Assert-TextMatch -Text $noLiveStarter -Pattern "starter-profile:no-live-display" -Message "no-live starter profile should have a stable anchor"
   Assert-TextMatch -Text $noLiveStarter -Pattern "\.\\sword\.ps1 status[\s\S]{0,120}\.\\sword\.ps1 verify[\s\S]{0,120}\.\\sword\.ps1 start" -Message "no-live starter profile should use the safe front-door route"
+  $homeControlPreviewStarter = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\home-control-preview\README.md")
+  Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "starter-profile:home-control-preview" -Message "Home Control preview starter should have a stable anchor"
+  Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "\.\\sword\.ps1 status[\s\S]{0,160}\.\\sword\.ps1 verify[\s\S]{0,160}\.\\sword\.ps1 hold-live" -Message "Home Control preview starter should start with safe front-door checks"
+  Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "CheckOnly[\s\S]{0,240}CheckTracking[\s\S]{0,240}CheckState" -Message "Home Control preview starter should keep read-only helper modes visible"
+  Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "not be reported as proof that a command changed[\s\S]{0,40}device" -Message "Home Control preview starter should prevent read-only CheckState proof upgrades"
+  Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "preview/dry-run/live[\s\S]{0,120}Not part of this starter profile" -Message "Home Control preview starter should keep preview/dry-run/live out of scope"
+  Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "raw HA entity IDs[\s\S]{0,160}tokens[\s\S]{0,160}screenshots" -Message "Home Control preview starter should preserve raw/private boundaries"
   $adrDocs = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "governance\architecture-decisions\README.md")
   Assert-TextMatch -Text $adrDocs -Pattern "architecture-decisions:overview" -Message "architecture decision docs should anchor durable decision records"
   Assert-TextMatch -Text $adrDocs -Pattern "architecture-decisions:template" -Message "architecture decision docs should include a minimal record template"

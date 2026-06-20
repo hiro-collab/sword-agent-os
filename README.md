@@ -97,6 +97,7 @@ scope のもとで `-Run` を明示します。
 | `docs/home-assistant-setup.md` | Home Assistant を外部環境につなぐ時の config context / full-schema checklist |
 | `docs/add-home-device.md` | 家電 action を 1 つ追加する時の初心者向け順路 |
 | `docs/proof-layers.md` | source/static、runtime、HA state、external、physical の区別 |
+| `examples/starter-profiles/home-control-preview/README.md` | Home Assistant 接続と read-only state surface を live 前に確認する starter profile |
 | `docs/manifest-ledger-authority.md` | 標準 distribution、release、organ pin の正本 |
 | `docs/local-configuration.md` | secret/env/local input の設定 |
 | `docs/home-control-action-authoring.md` | Home Control action row の書き方 |
