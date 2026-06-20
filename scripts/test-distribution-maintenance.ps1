@@ -489,11 +489,13 @@ function Test-ReadmeFirstRunGuidance {
   $troubleshootingSurface = "$readme`n$troubleshooting"
   $frontDoorDocs = @(
     "docs\operate.md",
+    "docs\customize.md",
     "docs\proof-layers.md",
     "docs\manifest-ledger-authority.md",
     "docs\local-configuration.md",
     "docs\home-control-action-authoring.md",
-    "docs\live-home-control-proof.md"
+    "docs\live-home-control-proof.md",
+    "runtime\control\README.md"
   )
   $frontDoorSurface = $readme
   foreach ($docPath in $frontDoorDocs) {
@@ -602,6 +604,13 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $readme -Pattern "gesture\.sword\.20260603" -Message "README should show the sword-sign positive local media asset id"
   Assert-TextMatch -Text $readme -Pattern "vision\.room_light\.on\.20260603" -Message "README should show the room-light local media asset id"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "sword\.ps1" -Message "front-door docs should document the root sword.ps1 wrapper"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "まず安全に見る" -Message "operator docs should be organized by user intent"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Customize Sword Agent OS" -Message "front-door docs should include a customization map"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "やりたいこと" -Message "customization docs should let users start from their goal"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime/control/README\.md|runtime\\control\\README\.md" -Message "front-door docs should link runtime control vocabulary"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "HOLD_LIVE[\s\S]{0,240}STOP[\s\S]{0,240}PAUSE[\s\S]{0,240}REQUIRE_APPROVAL" -Message "runtime control docs should define the core control vocabulary"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "\.cache\\agent-os\\control\\hold-live\.json" -Message "runtime control docs should name the local hold-live marker"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "full-schema private/live config|reviewed clone-local equivalent" -Message "customization docs should explain full-schema Home Assistant config requirements"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "partial, not release-ready" -Message "front-door docs should keep scoped fresh-install evidence separate from release readiness"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "source/static" -Message "proof-layer docs should name source/static proof"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime/status" -Message "proof-layer docs should name runtime/status proof"

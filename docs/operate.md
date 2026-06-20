@@ -1,32 +1,89 @@
 # Operate Sword Agent OS
 
-This page is the short operator front door for the standard distribution. It
-keeps no-live setup checks separate from runtime, browser, Home Assistant, and
-physical-device proof.
+This page is the short operator front door for the standard distribution. It is
+organized by what you want to do, not by internal subsystem.
 
-## Front Door
+The front door defaults to no-live / no-device. It does not start Start Stack,
+call a provider, operate Home Assistant, use a browser profile, open
+camera/audio, or claim physical proof unless a later route explicitly says so.
 
-From the repository root:
+## まず安全に見る
 
 ```powershell
 .\sword.ps1 status -NoLive
+```
+
+Use this when you only want the current version, selected profile, manifest
+summary, and runtime route preview. This is a source/status layer check.
+
+## 壊れていないか確認する
+
+```powershell
 .\sword.ps1 verify -NoLive
+```
+
+Use this before a fresh install, review, or handoff. It validates manifests,
+strict distribution pins, and no-live launch readiness. It does not prove
+runtime/browser behavior, Home Assistant state, or physical devices.
+
+## 原因を分類する
+
+```powershell
 .\sword.ps1 doctor -NoLive
 ```
 
-These commands are safe local checks. They do not start Start Stack, call a
-provider, operate Home Assistant, use a browser profile, open camera/audio, or
-claim physical proof.
+Use this when install/readiness output is unclear. Treat the result as
+distribution diagnosis, not as release readiness or live-device proof.
 
-`.\sword.ps1 start` and `.\sword.ps1 stop` are command previews by default.
-They show the selected Launch Manager route without starting or stopping
-runtime children. Use `-Run` only under an explicit runtime execution lease.
+## 起動する前に見る
 
-`.\sword.ps1 hold-live` writes a local hold marker under `.cache/agent-os/`.
-It is a safe-local control marker only; it is not an approval bypass and it
-does not execute Home Assistant, providers, browser, camera, or device routes.
+```powershell
+.\sword.ps1 start
+```
 
-## Common Commands
+Without `-Run`, this is a Start Stack command preview. It shows the selected
+Launch Manager route and ports without starting launcher-owned children.
+
+## 実際に起動する
+
+```powershell
+.\sword.ps1 start -Run
+```
+
+Use `-Run` only when runtime execution is in scope. Record this as
+runtime/status proof until browser, input/output, Home Assistant, or physical
+observation checks are separately performed.
+
+## 止める前に見る
+
+```powershell
+.\sword.ps1 stop
+```
+
+Without `-Run`, this is a stop preview. It shows what would be stopped without
+touching runtime children.
+
+## 実際に止める
+
+```powershell
+.\sword.ps1 stop -Run
+```
+
+Use this only for launcher-owned runtime children in the selected profile. Use
+`-Force` only when the current route explicitly allows forceful cleanup.
+
+## live 家電操作を止めておく
+
+```powershell
+.\sword.ps1 hold-live
+```
+
+This writes the local hold marker `.cache\agent-os\control\hold-live.json`.
+It is a safe-local control marker only. It does not execute Home Assistant,
+providers, browser, camera, or device routes, and it is not an approval bypass.
+See `runtime/control/README.md` for the control vocabulary.
+
+## もっと細かく確認する
 
 | Goal | Command | Proof layer |
 | --- | --- | --- |

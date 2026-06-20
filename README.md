@@ -78,11 +78,13 @@ scope のもとで `-Run` を明示します。
 | 文書 | 用途 |
 | --- | --- |
 | `docs/operate.md` | 入口コマンド、start/stop/status/verify の no-live 既定 |
+| `docs/customize.md` | LLM、声、アバター、Home Assistant action など、変更したい目的から触る場所を探す |
 | `docs/proof-layers.md` | source/static、runtime、HA state、external、physical の区別 |
 | `docs/manifest-ledger-authority.md` | 標準 distribution、release、organ pin の正本 |
 | `docs/local-configuration.md` | secret/env/local input の設定 |
 | `docs/home-control-action-authoring.md` | Home Control action row の書き方 |
 | `docs/live-home-control-proof.md` | preview / dry-run / execute / restore / physical proof の ticket ladder |
+| `runtime/control/README.md` | HOLD_LIVE / STOP / PAUSE / REQUIRE_APPROVAL の runtime control 語彙 |
 
 ## 標準ディストリビューションの流れ
 
@@ -110,10 +112,10 @@ Home Assistant 経由の操作 preview / 実行、音声応答、アバターの
 
 ## 15分 quick-start
 
-標準構成をまず起動して、画面と基本入力を確認したい人向けの最短ルートです。
-目安は、clone が成功し、必要な local input が手元にある状態から 15 分程度で
-install、readiness、smoke、Launch Manager、Projection Visual / AITuber 到達までを
-確認することです。Home Assistant の実家電操作や TouchDesigner 投影は後から追加できます。
+標準構成をまず確認したい人向けの最短ルートです。目安は、clone が成功し、
+必要な local input が手元にある状態から install、readiness、smoke、
+Launch Manager、Projection Visual / AITuber 到達までを確認することです。
+Home Assistant の実家電操作や TouchDesigner 投影は後から追加します。
 
 ```powershell
 git clone <sword-agent-os-repo-url>
@@ -121,7 +123,6 @@ cd sword-agent-os
 
 .\sword.ps1 status -NoLive
 .\sword.ps1 verify -NoLive
-pwsh -NoProfile -File .\scripts\show-version.ps1 -Profile standard
 pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -DryRun
 pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
 
@@ -134,6 +135,9 @@ pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -Mediapip
 
 .\start-home-control-launcher.bat
 ```
+
+願い別の操作は `docs/operate.md`、LLM / 声 / アバター / Home Assistant action
+などの変更先は `docs/customize.md` を見ます。
 
 最小構成で LLM を使わずに表示や起動だけ確認する場合は、
 `local\env\sword-agent-os.env` で `THOUGHT_CORE_LLM_ENABLED=false` にします。
@@ -159,7 +163,8 @@ Home Assistant 実操作は、対象、回数、戻し方、停止条件を決�
 | 読む人 | まず読む節 | ゴール |
 | --- | --- | --- |
 | 初めて全体像を知りたい人 | `まず押さえること`、`標準ディストリビューションの流れ`、`フォルダ構成` | 何がメインで、どの順に読めばよいかを掴む |
-| 標準構成を起動したい人 | `15分 quick-start`、`ローカル設定`、`起動方法` | 画面を開き、基本入力と表示を確認する |
+| 標準構成を起動したい人 | `15分 quick-start`、`docs/operate.md`、`ローカル設定` | 画面を開き、基本入力と表示を確認する |
+| 設定や見た目を変えたい人 | `docs/customize.md`、`docs/local-configuration.md` | 目的から触る場所を探し、local/private 境界を守る |
 | Home Assistant / 実家電を試す人 | `ローカル設定`、`最初の動作確認`、`安全とローカルデータ` | 家電状態確認と低リスク操作を安全に確認する |
 | organ / module を開発する人 | `OS の構造`、`開発者向け入口`、`検証コマンド` | organ の差し替え、契約、テストを把握する |
 | Codex 複数スレッドで開発管理する人 | `開発用 / Codex 用 workspace セットアップ`、`安全とローカルデータ` | coordination / worktree / local artifact の境界を守る |
