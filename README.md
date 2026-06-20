@@ -675,6 +675,23 @@ pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -Expect
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckTracking -ActionId <allowed-action-id>
 ```
 
+Home Assistant を別環境でつなぐ時は、次の front-door checklist を先に満たします。
+
+| checkpoint | 何を見るか | 止める条件 |
+| --- | --- | --- |
+| config context | `local\env\sword-agent-os.env` から render された `home-control.yaml` が、その検証 workspace / worktree で選ばれている | demo/default/template のまま、または別 workspace の bridge を見ている |
+| full-schema action row | action row に `ha_script`、`verification.mode`、`expected_effect`、`proof_ceiling`、必要な restore/stop/terminal metadata がある | 短い action-only override で state proof まで主張しようとしている |
+| not-demo target class | Home Assistant 側に script と expected-effect target が存在し、bridge schema で readable class として扱える | script だけあるが expected-effect target がない、または guessed target が必要 |
+| CheckTracking | `-CheckTracking -ActionId <allowed-action-id>` が `tracked` / `test_now` / blocker none などの実行候補 metadata を返す | `ack_only`、`external_required`、`state_unavailable`、safety/restore blocker が残る |
+| CheckState | ticketed execute/wait または restore/wait の後に `-CheckState -ActionId <allowed-action-id>` を読む | pre-command の現在値だけを live effect proof として扱う |
+| confirmation flow | 確認必須 action は preview token と dry-run token 消費を分ける | dry-run で消費した one-time token を live に再利用しようとしている |
+| observation layer | command submitted / HA-visible CheckState / external observation / physical proof を別欄にする | HA-visible matched を dock/path/floor/physical proof に昇格している |
+
+Git worktree や fresh clone は検証に使えます。ただし worktree ごとに選択 config を明示し、
+private/live の full-schema config または reviewed clone-local equivalent を渡してください。
+short/minimal override は command-ack や preview shape の確認には使えても、HA-visible
+CheckState proof の正本にはしません。
+
 preview、dry-run、execute の ladder 後にだけ post-state を確認します。
 
 ```powershell

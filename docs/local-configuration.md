@@ -109,6 +109,37 @@ a live-specific config separately, reapply that config after the last `-Force`,
 then use the bridge helper `-CheckOnly` and `-CheckTracking` before execution.
 Use `-CheckState` only after a ticketed execute/wait or restore/wait step.
 
+## Home Assistant Config Context
+
+For Home Assistant verification, the selected config context is part of the
+proof. A fresh clone, Git worktree, or RR003-style verification checkout can be
+used, but it must load the same class of config that the route intends to test.
+
+Use this order:
+
+1. Render the central env into organ env files.
+2. Confirm which `HOME_CONTROL_CONFIG` path the Home Control bridge will use.
+3. Confirm the selected `home-control.yaml` is not the public demo/default
+   template when live appliance proof is being claimed.
+4. Confirm each live candidate row is full-schema: it has `ha_script`,
+   `verification.mode`, `expected_effect`, proof ceiling metadata, and any
+   restore/stop/terminal metadata required by the action family.
+5. Run `start-home-control-bridge.ps1 -CheckOnly` and `-CheckTracking` from the
+   same workspace that will run the route.
+6. Treat `-CheckState` as a read of current Home Assistant state. It proves a
+   live action result only after the ticketed execute/wait or restore/wait step.
+
+Do not use a short/minimal action-only override as a tracked-state proof
+context. It can be useful for command shape, preview, or command-ack checks, but
+without `expected_effect` and verification metadata the current bridge schema
+cannot know which Home Assistant state surface should prove the result.
+
+If a worktree or fresh clone cannot see private local files directly, do not
+copy raw private values into Git. Provide a private ignored full-schema override
+or a reviewed clone-local equivalent. Shared reports should name only the class
+of context, such as `reviewed_clone_local_full_schema_equivalent`, not raw
+entity ids, script ids, URLs, tokens, or local paths.
+
 Home Control action row authoring is separate from local env setup. Use
 `docs/home-control-action-authoring.md` for `control_type`, `state_authority`,
 `verification.mode`, `proof_ceiling`, `live_test_readiness`,

@@ -350,6 +350,22 @@ function Get-TestLayoutSourceFiles {
     $excludedDirectoryNames.Add($name) | Out-Null
   }
 
+  function Test-GitIgnoredRelativePath {
+    param([Parameter(Mandatory = $true)][string]$RelativePath)
+    if ([string]::IsNullOrWhiteSpace($RelativePath)) {
+      return $false
+    }
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+      $ErrorActionPreference = "Continue"
+      & git -C $RepoRoot check-ignore -q -- $RelativePath *> $null
+      return ($LASTEXITCODE -eq 0)
+    }
+    finally {
+      $ErrorActionPreference = $previousErrorActionPreference
+    }
+  }
+
   $excludedRelativeRoots = @(
     "control-plane\sword-voice-agent",
     "organs\speech-input\ai-talk-core",
@@ -372,6 +388,9 @@ function Get-TestLayoutSourceFiles {
         [System.IO.Path]::DirectorySeparatorChar,
         [System.IO.Path]::AltDirectorySeparatorChar
       )
+      if (Test-GitIgnoredRelativePath -RelativePath $relativeChild) {
+        continue
+      }
       $isNestedCheckout = $false
       foreach ($excludedRoot in $excludedRelativeRoots) {
         if ($relativeChild.Equals($excludedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -387,7 +406,13 @@ function Get-TestLayoutSourceFiles {
       }
     }
     foreach ($file in $directory.GetFiles()) {
-      $file
+      $relativeFile = $file.FullName.Substring($RepoRoot.Length).TrimStart(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+      )
+      if (-not (Test-GitIgnoredRelativePath -RelativePath $relativeFile)) {
+        $file
+      }
     }
   }
 }
@@ -466,6 +491,7 @@ function Test-ReadmeFirstRunGuidance {
     "docs\operate.md",
     "docs\proof-layers.md",
     "docs\manifest-ledger-authority.md",
+    "docs\local-configuration.md",
     "docs\home-control-action-authoring.md",
     "docs\live-home-control-proof.md"
   )
@@ -583,6 +609,13 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "manifest-ledger-authority\.md" -Message "README should link the manifest ledger authority page"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "home-control-action-authoring\.md" -Message "README should link Home Control action authoring docs"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "live-home-control-proof\.md" -Message "README should link live Home Control proof docs"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Home Assistant Config Context" -Message "front-door docs should name the Home Assistant config context checkpoint"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "full-schema|full schema" -Message "front-door docs should require full-schema config for HA-visible CheckState proof"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "short/minimal action-only override" -Message "front-door docs should separate minimal overrides from tracked-state proof"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "demo/default/template" -Message "front-door docs should require rejecting demo/default/template context for live proof"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "reviewed clone-local equivalent|reviewed_clone_local_full_schema_equivalent" -Message "front-door docs should support reviewed clone-local full-schema equivalents for worktree verification"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "dry-run.*token.*consumed|token.*dry-run.*consumed" -Message "front-door docs should explain dry-run confirmation token consumption"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "HA-visible CheckState.*physical proof|physical proof.*HA-visible CheckState" -Message "front-door docs should prevent promoting HA-visible CheckState to physical proof"
   Assert-TextMatch -Text $verificationSurface -Pattern "raw_media_shared=false" -Message "public verification docs should show raw media is not shared in local-media results"
   Assert-TextMatch -Text $verificationSurface -Pattern "generated_output_written=false" -Message "public verification docs should show preview helper does not write generated output"
   Assert-TextMatch -Text $verificationSurface -Pattern "SecretInputsRoot" -Message "public verification docs should explain separate secret input roots"
@@ -662,8 +695,8 @@ function Test-RouteAParentNoLiveUxStatic {
   Assert-TextMatch -Text $sword -Pattern 'ValidateSet\("status", "verify", "doctor", "start", "stop", "hold-live"\)' -Message "sword.ps1 should expose the approved front-door commands"
   Assert-TextMatch -Text $sword -Pattern "default_safety=no-live/no-device" -Message "sword.ps1 should advertise no-live/no-device default safety"
   Assert-TextMatch -Text $sword -Pattern "source-static-command-preview" -Message "sword.ps1 start/stop should default to command preview"
-  Assert-TextMatch -Text $sword -Pattern "live_home_assistant_actions_allowed = \$false" -Message "hold-live should not authorize Home Assistant actions"
-  Assert-TextMatch -Text $sword -Pattern "approval_bypass_allowed = \$false" -Message "hold-live should not create an approval bypass"
+  Assert-TextMatch -Text $sword -Pattern 'live_home_assistant_actions_allowed = \$false' -Message "hold-live should not authorize Home Assistant actions"
+  Assert-TextMatch -Text $sword -Pattern 'approval_bypass_allowed = \$false' -Message "hold-live should not create an approval bypass"
 
   $install = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\install-distribution.ps1")
   Assert-TextMatch -Text $install -Pattern "Dry run: planning only" -Message "install dry-run should say it is planning only"
