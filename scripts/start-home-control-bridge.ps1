@@ -58,6 +58,26 @@ function ConvertTo-UvEnvFilePath {
   return ($Path -replace "\\", "/")
 }
 
+function Test-HoldLiveMarker {
+  $markerPath = Join-Path $RepoRoot ".cache\agent-os\control\hold-live.json"
+  return (Test-Path -LiteralPath $markerPath -PathType Leaf)
+}
+
+function Assert-HoldLiveAllowsBridgeStart {
+  if (Test-HoldLiveMarker) {
+    Write-Cause -Code "runtime_control.hold_live_active"
+    Write-RootCauseTrace `
+      -ProofLayer "runtime-control" `
+      -Entrypoint "start-home-control-bridge" `
+      -BlockedAt "hold-live" `
+      -ObservedStatus "blocked" `
+      -CauseKind "operator-hold" `
+      -Evidence "hold_live_marker=present; value_hidden=true" `
+      -NextProbe "clear or replace the marker only after opening an exact live route"
+    throw "HOLD_LIVE marker is active; stop before starting the Home Control bridge."
+  }
+}
+
 function Resolve-UvCacheDir {
   param([string]$Value)
 
@@ -1035,6 +1055,10 @@ $uvArguments = @(
 )
 $uvDisplayArguments = @($uvArguments)
 $uvDisplayArguments[2] = ConvertTo-DisplayLocalPath -Path $envFilePath
+
+if (-not $DryRun) {
+  Assert-HoldLiveAllowsBridgeStart
+}
 
 Write-Host "Starting Home Control bridge with generated organ .env loaded."
 Write-Host ("bridge_start: status=starting host={0} port={1} helper_pid={2}" -f $HostName, $Port, $PID)

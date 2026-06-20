@@ -75,7 +75,13 @@ as a live-route blocker and ask for a fresh operator decision rather than
 silently ignoring the marker. A future front-door command may formalize
 hold-status or clear-hold behavior after the live-route readers are implemented.
 
-Future readers should include Action Boundary, Home Control bridge, Launch
-Manager, and any Codex worker loop that can open mutation routes. Until those
-readers are implemented and tested, documentation must describe `HOLD_LIVE` as
-a local marker plus route gate, not as complete service-level enforcement.
+Current reader coverage:
+
+- `scripts/start-home-control-bridge.ps1` blocks bridge start when the marker is
+  present, while still allowing dry-run/read-only helper modes.
+
+Future readers should include Action Boundary, other Home Control bridge
+entrypoints, Launch Manager, and any Codex worker loop that can open mutation
+routes. Until those readers are implemented and tested, documentation must
+describe `HOLD_LIVE` as partial route-entry enforcement, not as complete
+service-level enforcement.

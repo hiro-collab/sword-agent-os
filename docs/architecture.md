@@ -28,6 +28,27 @@ recently failed. It should be organized around six stable planes:
 If a new document or script crosses more than two planes, it is a design smell.
 Either split it or make the cross-plane handoff explicit.
 
+## Capability Packs Are The External Shape
+
+<!-- architecture:capability-pack-layer -->
+
+The six planes above are ownership boundaries. They are not the best first view
+for users. Users usually think in capability packs: chat/thought, voice, avatar,
+home control, environment, gesture, diagnostics, or agent-worker assistance.
+
+Use `docs/capability-packs.md` as the external product map. It translates the
+internal planes into selectable functional slices. This follows the useful part
+of AITuber OnAir's public shape: clear entry paths and modular packages before
+deep implementation detail. Sword should borrow that packaging idea while
+preserving stricter Home Assistant and physical-world proof boundaries.
+
+Do not replace architecture planes with capability packs:
+
+- planes answer "who owns this concern?";
+- packs answer "what feature is the user trying to use?";
+- starter profiles answer "what is the smallest route to try this safely?";
+- proof layers answer "what evidence does this actually prove?".
+
 ## External Patterns Used
 
 - Diataxis: keep tutorials, how-to guides, reference, and explanation separate.
@@ -122,15 +143,19 @@ Treat these as active review smells:
 
 ## Next Patch Policy
 
-The next broad cleanup patch should still be one coherent patch, not many tiny
-serial diagnostics. Good patch shapes:
+The next broad cleanup patches should still be coherent, not many tiny serial
+diagnostics. Revised priority after comparing AITuber OnAir:
 
-- Add a reader/enforcement check for `HOLD_LIVE` at one live-route entry layer.
-- Add a beginner-facing `docs/add-home-device.md` that points back to the
-  full-schema authoring reference without duplicating it.
-- Add a small ADR/decision-log convention for durable architecture decisions.
-- Classify one legacy/fallback area as active / compatibility / delete-candidate
-  with a test or migration note.
+| Priority | Patch shape | Why |
+| --- | --- | --- |
+| P0 | Create and maintain `docs/capability-packs.md` | Gives users/developers a feature-based map, not only internal repo planes |
+| P0 | Add "choose your path" wording around starter profiles without adding new commands yet | Makes the front door closer to hosted/starter/example/package style entry points while keeping safety |
+| P1 | Maintain `docs/add-home-device.md` for the Home Control Pack | Turns full-schema action authoring into a beginner-facing how-to without duplicating the reference |
+| P1 | Keep a reader/enforcement check for `HOLD_LIVE` at one live-route entry layer | Moves runtime control from marker-only toward actual route protection |
+| P1 | Maintain the first no-live starter-profile example | Gives fresh developers a small entry point before the full standard distribution |
+| P2 | Maintain one agent skill, `repair-no-live-readiness` | Reduces repeated prompts without creating a broad Codex worker too early |
+| P2 | Use the ADR/decision-log convention under `governance/architecture-decisions/` | Keeps durable architecture decisions out of transient coordination messages |
+| P2 | Classify one legacy/fallback area as active / compatibility / delete-candidate | Reduces hidden legacy without a risky rewrite |
 
 Bad patch shapes:
 

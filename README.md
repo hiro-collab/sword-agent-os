@@ -27,13 +27,16 @@ Sword Agent OS は、AI エージェントを「思考」「反射」「環境�
 1. この README の `15分 quick-start` で起動までの最短ルートを見る。
 2. Home Assistant / 実家電をつなぐ場合は `docs/home-assistant-setup.md` で
    config context と full-schema action row を先に確認する。
-3. 構成や用語で迷ったら `docs/architecture.md` で Front Door、
+3. どの機能単位を使う・差し替えるかで迷ったら
+   `docs/capability-packs.md` で Core Body、Voice、Avatar / Projection、
+   Home Control などの capability pack を確認する。
+4. 構成や用語で迷ったら `docs/architecture.md` で Front Door、
    Configuration、Runtime Control、Proof、Module/Organ、Coordination の
    責任分界を確認する。
-4. `docs/standard-distribution-map.md` で標準構成、local-only 資材、
+5. `docs/standard-distribution-map.md` で標準構成、local-only 資材、
    proof layer、live 操作境界を見る。
-5. `docs/module-usage-index.md` で「変更をどこに入れるか」を決める。
-6. 実装を触る前に、`manifests/`、`contracts/`、`runtime/`、
+6. `docs/module-usage-index.md` で「変更をどこに入れるか」を決める。
+7. 実装を触る前に、`manifests/`、`contracts/`、`runtime/`、
    `organs/` のどれの責任かを分ける。
 
 迷ったら、まず `manifests/distributions/standard.json` が標準構成、
@@ -89,8 +92,10 @@ scope のもとで `-Run` を明示します。
 | --- | --- |
 | `docs/operate.md` | 入口コマンド、start/stop/status/verify の no-live 既定 |
 | `docs/customize.md` | LLM、声、アバター、Home Assistant action など、変更したい目的から触る場所を探す |
+| `docs/capability-packs.md` | chat/thought、voice、avatar、home-control など、利用者から見える機能単位の地図 |
 | `docs/architecture.md` | Front Door / Configuration / Runtime Control / Proof / Module / Coordination の責任分界と用語の正本 |
 | `docs/home-assistant-setup.md` | Home Assistant を外部環境につなぐ時の config context / full-schema checklist |
+| `docs/add-home-device.md` | 家電 action を 1 つ追加する時の初心者向け順路 |
 | `docs/proof-layers.md` | source/static、runtime、HA state、external、physical の区別 |
 | `docs/manifest-ledger-authority.md` | 標準 distribution、release、organ pin の正本 |
 | `docs/local-configuration.md` | secret/env/local input の設定 |
@@ -176,10 +181,10 @@ Home Assistant 実操作は、対象、回数、戻し方、停止条件を決�
 
 | 読む人 | まず読む節 | ゴール |
 | --- | --- | --- |
-| 初めて全体像を知りたい人 | `まず押さえること`、`docs/architecture.md`、`標準ディストリビューションの流れ` | 何がメインで、どの順に読めばよいかを掴む |
+| 初めて全体像を知りたい人 | `まず押さえること`、`docs/capability-packs.md`、`docs/architecture.md`、`標準ディストリビューションの流れ` | 何がメインで、どの順に読めばよいかを掴む |
 | 標準構成を起動したい人 | `15分 quick-start`、`docs/operate.md`、`ローカル設定` | 画面を開き、基本入力と表示を確認する |
 | 設定や見た目を変えたい人 | `docs/customize.md`、`docs/local-configuration.md` | 目的から触る場所を探し、local/private 境界を守る |
-| Home Assistant / 実家電を試す人 | `docs/home-assistant-setup.md`、`ローカル設定`、`最初の動作確認`、`安全とローカルデータ` | 外部 HA 環境、full-schema config、状態 proof、低リスク操作を安全に確認する |
+| Home Assistant / 実家電を試す人 | `docs/home-assistant-setup.md`、`docs/add-home-device.md`、`ローカル設定`、`最初の動作確認`、`安全とローカルデータ` | 外部 HA 環境、full-schema config、状態 proof、低リスク操作を安全に確認する |
 | organ / module を開発する人 | `OS の構造`、`開発者向け入口`、`検証コマンド` | organ の差し替え、契約、テストを把握する |
 | Codex 複数スレッドで開発管理する人 | `開発用 / Codex 用 workspace セットアップ`、`安全とローカルデータ` | coordination / worktree / local artifact の境界を守る |
 

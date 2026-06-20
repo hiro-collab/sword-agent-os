@@ -18,11 +18,12 @@ local machine paths in tracked files.
 | アバター / VRM を変えたい | `NEXT_PUBLIC_SELECTED_VRM_PATH` とローカル asset | `docs/local-configuration.md` |
 | 声 / TTS を変えたい | VOICEVOX / TTS の env 値 | `docs/local-configuration.md` |
 | Home Assistant を外部環境につなぎたい | `HOME_ASSISTANT_TOKEN`, `HOME_CONTROL_API_TOKEN`, `HOME_CONTROL_CONFIG`, full-schema action row | `docs/home-assistant-setup.md` |
-| 操作できる家電動作を増やしたい | local input から生成される `home-control.yaml` の action row | `docs/home-control-action-authoring.md` |
+| 操作できる家電動作を増やしたい | local input から生成される `home-control.yaml` の action row | `docs/add-home-device.md`、`docs/home-control-action-authoring.md` |
 | 実際の家電が動いた証拠を取りたい | 範囲を決めた live ticket と route result | `docs/live-home-control-proof.md` |
 | 家電操作を止めておきたい | `.\sword.ps1 hold-live` local marker | `runtime/control/README.md` |
 | 起動状態を見たい | `.\sword.ps1 status` | `docs/operate.md` |
 | 壊れていないか確認したい | `.\sword.ps1 verify` | `docs/operate.md` |
+| 機能単位で全体を把握したい | Core Body / Thought / Voice / Avatar / Home Control などの capability pack | `docs/capability-packs.md` |
 | 構成や用語の責任分界を知りたい | Front Door / Configuration / Proof / Runtime Control / Module / Coordination | `docs/architecture.md` |
 | どこまで動いたと言えるか確認したい | report の proof layer label | `docs/proof-layers.md` |
 | organ / module を差し替えたい | manifest、contract、organ folder | `docs/module-usage-index.md` |

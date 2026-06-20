@@ -6,6 +6,7 @@ README より少し詳しく整理した地図です。
 README は最初の入口です。この文書は、README を読んだ後に
 「標準構成とは何か」「何が GitHub に含まれ、何がローカル準備なのか」
 「どこまで動けば何を証明したことになるのか」を確認するために使います。
+利用者から見える機能単位は `docs/capability-packs.md` を入口にします。
 Front Door / Configuration / Runtime Control / Proof / Module / Coordination
 の責任分界や用語の定義は `docs/architecture.md` を正本にします。
 
@@ -30,7 +31,9 @@ debug tree や coordination history ではなく、標準構成の地図です�
 | 何を入れれば標準構成になるか | `What The Standard Distribution Is` |
 | 最初にどこまで動けばよいか | `First Success` |
 | 代表 loop は何か | `Representative Standard Loop` |
+| 機能単位で何を選ぶか | `docs/capability-packs.md` |
 | 構成 plane と用語は何か | `docs/architecture.md` |
+| 家電 action を 1 つ増やすには | `docs/add-home-device.md` |
 | 実装はどこに入るか | `Organ Checkout Map` |
 | 何が正本か | `Manifest And Pin Authority` |
 | 何を証明していないか | `Proof Layers` |

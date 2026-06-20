@@ -490,7 +490,9 @@ function Test-ReadmeFirstRunGuidance {
   $frontDoorDocs = @(
     "docs\operate.md",
     "docs\customize.md",
+    "docs\capability-packs.md",
     "docs\architecture.md",
+    "docs\add-home-device.md",
     "docs\proof-layers.md",
     "docs\manifest-ledger-authority.md",
     "docs\local-configuration.md",
@@ -546,6 +548,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $bridgeHelper -Pattern "bridge_start: status=starting" -Message "Home Control bridge helper should print startup status"
   Assert-TextMatch -Text $bridgeHelper -Pattern "UV_CACHE_DIR" -Message "Home Control bridge helper should use a local uv cache without changing persistent environment"
   Assert-TextMatch -Text $bridgeHelper -Pattern "UvCacheDir" -Message "Home Control bridge helper should expose a scoped uv cache override"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "Test-HoldLiveMarker" -Message "Home Control bridge helper should read the HOLD_LIVE marker"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "runtime_control\.hold_live_active" -Message "Home Control bridge helper should classify active HOLD_LIVE as a runtime-control blocker"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "Assert-HoldLiveAllowsBridgeStart" -Message "Home Control bridge helper should gate bridge start on HOLD_LIVE"
   Assert-TextMatch -Text $bridgeHelper -Pattern 'displayEnvPath = ConvertTo-DisplayLocalPath -Path \$EnvPath' -Message "Home Control bridge helper should redact env paths in live-ready errors"
   Assert-TextMatch -Text $bridgeHelper -Pattern 'ConvertTo-DisplayLocalPath -Path \$envFilePath' -Message "Home Control bridge helper should not print raw local env paths"
   Assert-TextMatch -Text $bridgeHelper -Pattern 'ConvertTo-DisplayLocalPath -Path \$configFilePath' -Message "Home Control bridge helper should not print raw local config paths"
@@ -621,11 +626,26 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "front-door:intent-home-action" -Message "customization docs should anchor the Home Assistant action intent"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "front-door:intent-live-proof" -Message "customization docs should anchor the live proof intent"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "front-door:intent-proof-layer" -Message "customization docs should anchor the proof-layer intent"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "capability-packs:overview" -Message "front-door docs should include the capability pack overview"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "capability-packs:choose-your-path" -Message "capability pack docs should anchor the choose-your-path table"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "capability-packs:starter-profile-plan" -Message "capability pack docs should anchor starter profile planning"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Core Body Pack" -Message "capability pack docs should name the core body pack"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Home Control Pack" -Message "capability pack docs should name the Home Control pack"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Agent Worker Pack" -Message "capability pack docs should keep future agent worker work separate"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "add-home-device:overview" -Message "Home device guide should anchor its overview"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "add-home-device:safe-order" -Message "Home device guide should define a safe order"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "add-home-device:full-schema-checklist" -Message "Home device guide should include a full-schema checklist"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "add-home-device:proof-ladder" -Message "Home device guide should keep proof layers separate"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "no-live-display" -Message "capability pack docs should plan a no-live starter profile"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "home-control-preview" -Message "capability pack docs should plan a Home Control preview starter profile"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "architecture:capability-pack-layer" -Message "architecture docs should anchor the capability-pack layer"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "starter profiles answer" -Message "architecture docs should distinguish starter profiles from planes and proof layers"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime/control/README\.md|runtime\\control\\README\.md" -Message "front-door docs should link runtime control vocabulary"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "HOLD_LIVE[\s\S]{0,240}STOP[\s\S]{0,240}PAUSE[\s\S]{0,240}REQUIRE_APPROVAL" -Message "runtime control docs should define the core control vocabulary"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "\.cache\\agent-os\\control\\hold-live\.json" -Message "runtime control docs should name the local hold-live marker"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime-control:hold-live-enforcement-boundary" -Message "runtime control docs should anchor hold-live enforcement boundary"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime-control:hold-live-clear-policy" -Message "runtime control docs should anchor hold-live clearing policy"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "start-home-control-bridge\.ps1[\s\S]{0,180}blocks bridge start|blocks bridge start[\s\S]{0,180}start-home-control-bridge\.ps1" -Message "runtime control docs should name the first hold-live reader"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Action Boundary[\s\S]{0,160}Home Control bridge[\s\S]{0,160}Launch\s+Manager|Launch\s+Manager[\s\S]{0,160}Home Control bridge[\s\S]{0,160}Action Boundary" -Message "runtime control docs should name intended hold-live reader surfaces"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "full-schema private/live config|reviewed clone-local equivalent" -Message "customization docs should explain full-schema Home Assistant config requirements"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "partial, not release-ready" -Message "front-door docs should keep scoped fresh-install evidence separate from release readiness"
@@ -651,7 +671,18 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $standardDistributionMap -Pattern "standard-map:verify-overlap" -Message "standard distribution map should anchor why verify overlaps detailed scripts"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "manifest validation[\s\S]{0,160}strict pin check[\s\S]{0,160}launch" -Message "standard distribution map should explain what sword.ps1 verify already covers"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/home-assistant-setup\.md" -Message "standard distribution map should point external HA setup to the setup guide"
+  Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/capability-packs\.md" -Message "standard distribution map should point feature selection to capability packs"
+  Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/add-home-device\.md" -Message "standard distribution map should point home-device additions to the beginner guide"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "HOME_CONTROL_CONFIG[\s\S]{0,200}private full-schema|private full-schema[\s\S]{0,200}HOME_CONTROL_CONFIG" -Message "standard distribution map should require proof-ready selected config before live HA"
+  $noLiveStarter = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\no-live-display\README.md")
+  Assert-TextMatch -Text $noLiveStarter -Pattern "starter-profile:no-live-display" -Message "no-live starter profile should have a stable anchor"
+  Assert-TextMatch -Text $noLiveStarter -Pattern "\.\\sword\.ps1 status[\s\S]{0,120}\.\\sword\.ps1 verify[\s\S]{0,120}\.\\sword\.ps1 start" -Message "no-live starter profile should use the safe front-door route"
+  $adrDocs = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "governance\architecture-decisions\README.md")
+  Assert-TextMatch -Text $adrDocs -Pattern "architecture-decisions:overview" -Message "architecture decision docs should anchor durable decision records"
+  Assert-TextMatch -Text $adrDocs -Pattern "architecture-decisions:template" -Message "architecture decision docs should include a minimal record template"
+  $noLiveSkill = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "skills\repair-no-live-readiness\SKILL.md")
+  Assert-TextMatch -Text $noLiveSkill -Pattern "Repair No-Live Readiness" -Message "no-live readiness repair skill should exist"
+  Assert-TextMatch -Text $noLiveSkill -Pattern "Do not submit Home Assistant preview, dry-run, or execute" -Message "no-live readiness repair skill should preserve live boundaries"
   $centralEnvTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "templates\env\sword-agent-os.env.example")
   $homeControlEnvTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "organs\action\home-assistant-server\.env.example")
   $homeControlExampleConfigTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "organs\action\home-assistant-server\config\home-control.example.yaml")
