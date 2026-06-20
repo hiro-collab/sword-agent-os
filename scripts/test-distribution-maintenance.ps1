@@ -681,6 +681,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $noLiveStarter -Pattern "\.\\sword\.ps1 status[\s\S]{0,120}\.\\sword\.ps1 verify[\s\S]{0,120}\.\\sword\.ps1 start" -Message "no-live starter profile should use the safe front-door route"
   $homeControlPreviewStarter = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\home-control-preview\README.md")
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "starter-profile:home-control-preview" -Message "Home Control preview starter should have a stable anchor"
+  Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "read-only readiness route[\s\S]{0,180}not Home Assistant preview[\s\S]{0,40}proof" -Message "Home Control preview starter should distinguish readiness from HA preview proof"
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "\.\\sword\.ps1 status[\s\S]{0,160}\.\\sword\.ps1 verify[\s\S]{0,160}\.\\sword\.ps1 hold-live" -Message "Home Control preview starter should start with safe front-door checks"
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "CheckOnly[\s\S]{0,240}CheckTracking[\s\S]{0,240}CheckState" -Message "Home Control preview starter should keep read-only helper modes visible"
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "not be reported as proof that a command changed[\s\S]{0,40}device" -Message "Home Control preview starter should prevent read-only CheckState proof upgrades"

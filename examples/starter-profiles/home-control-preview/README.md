@@ -10,6 +10,9 @@ before any Home Assistant action is previewed, dry-run, or executed.
 It is an example profile, not a new front-door command and not live
 authorization.
 
+This profile is a read-only readiness route. It is not Home Assistant preview
+proof and does not exercise a Home Assistant preview endpoint.
+
 ## Goal
 
 <!-- starter-profile:home-control-preview-goal -->
