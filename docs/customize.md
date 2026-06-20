@@ -23,6 +23,7 @@ local machine paths in tracked files.
 | 家電操作を止めておきたい | `.\sword.ps1 hold-live` local marker | `runtime/control/README.md` |
 | 起動状態を見たい | `.\sword.ps1 status` | `docs/operate.md` |
 | 壊れていないか確認したい | `.\sword.ps1 verify` | `docs/operate.md` |
+| 構成や用語の責任分界を知りたい | Front Door / Configuration / Proof / Runtime Control / Module / Coordination | `docs/architecture.md` |
 | どこまで動いたと言えるか確認したい | report の proof layer label | `docs/proof-layers.md` |
 | organ / module を差し替えたい | manifest、contract、organ folder | `docs/module-usage-index.md` |
 

@@ -27,10 +27,13 @@ Sword Agent OS は、AI エージェントを「思考」「反射」「環境�
 1. この README の `15分 quick-start` で起動までの最短ルートを見る。
 2. Home Assistant / 実家電をつなぐ場合は `docs/home-assistant-setup.md` で
    config context と full-schema action row を先に確認する。
-3. `docs/standard-distribution-map.md` で標準構成、local-only 資材、
+3. 構成や用語で迷ったら `docs/architecture.md` で Front Door、
+   Configuration、Runtime Control、Proof、Module/Organ、Coordination の
+   責任分界を確認する。
+4. `docs/standard-distribution-map.md` で標準構成、local-only 資材、
    proof layer、live 操作境界を見る。
-4. `docs/module-usage-index.md` で「変更をどこに入れるか」を決める。
-5. 実装を触る前に、`manifests/`、`contracts/`、`runtime/`、
+5. `docs/module-usage-index.md` で「変更をどこに入れるか」を決める。
+6. 実装を触る前に、`manifests/`、`contracts/`、`runtime/`、
    `organs/` のどれの責任かを分ける。
 
 迷ったら、まず `manifests/distributions/standard.json` が標準構成、
@@ -86,6 +89,7 @@ scope のもとで `-Run` を明示します。
 | --- | --- |
 | `docs/operate.md` | 入口コマンド、start/stop/status/verify の no-live 既定 |
 | `docs/customize.md` | LLM、声、アバター、Home Assistant action など、変更したい目的から触る場所を探す |
+| `docs/architecture.md` | Front Door / Configuration / Runtime Control / Proof / Module / Coordination の責任分界と用語の正本 |
 | `docs/home-assistant-setup.md` | Home Assistant を外部環境につなぐ時の config context / full-schema checklist |
 | `docs/proof-layers.md` | source/static、runtime、HA state、external、physical の区別 |
 | `docs/manifest-ledger-authority.md` | 標準 distribution、release、organ pin の正本 |
@@ -172,7 +176,7 @@ Home Assistant 実操作は、対象、回数、戻し方、停止条件を決�
 
 | 読む人 | まず読む節 | ゴール |
 | --- | --- | --- |
-| 初めて全体像を知りたい人 | `まず押さえること`、`標準ディストリビューションの流れ`、`フォルダ構成` | 何がメインで、どの順に読めばよいかを掴む |
+| 初めて全体像を知りたい人 | `まず押さえること`、`docs/architecture.md`、`標準ディストリビューションの流れ` | 何がメインで、どの順に読めばよいかを掴む |
 | 標準構成を起動したい人 | `15分 quick-start`、`docs/operate.md`、`ローカル設定` | 画面を開き、基本入力と表示を確認する |
 | 設定や見た目を変えたい人 | `docs/customize.md`、`docs/local-configuration.md` | 目的から触る場所を探し、local/private 境界を守る |
 | Home Assistant / 実家電を試す人 | `docs/home-assistant-setup.md`、`ローカル設定`、`最初の動作確認`、`安全とローカルデータ` | 外部 HA 環境、full-schema config、状態 proof、低リスク操作を安全に確認する |

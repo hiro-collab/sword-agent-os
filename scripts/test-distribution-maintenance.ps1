@@ -490,6 +490,7 @@ function Test-ReadmeFirstRunGuidance {
   $frontDoorDocs = @(
     "docs\operate.md",
     "docs\customize.md",
+    "docs\architecture.md",
     "docs\proof-layers.md",
     "docs\manifest-ledger-authority.md",
     "docs\local-configuration.md",
@@ -612,6 +613,10 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "operate:no-live-default" -Message "operator docs should anchor status/verify/doctor no-live defaults"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Customize Sword Agent OS" -Message "front-door docs should include a customization map"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "やりたいこと" -Message "customization docs should let users start from their goal"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "architecture:structure-spine" -Message "front-door docs should include the architecture structure spine"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Front Door[\s\S]{0,180}Configuration[\s\S]{0,180}Runtime Control[\s\S]{0,180}Proof" -Message "architecture docs should separate the major structure planes"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "architecture:definition-table" -Message "architecture docs should anchor the definition table"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "architecture:review-thread-use" -Message "architecture docs should tell review threads how to use the structure spine"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "front-door:intent-customize-llm" -Message "customization docs should anchor the LLM customization intent"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "front-door:intent-home-action" -Message "customization docs should anchor the Home Assistant action intent"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "front-door:intent-live-proof" -Message "customization docs should anchor the live proof intent"
