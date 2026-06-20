@@ -56,6 +56,13 @@ Use this table instead of starting from internal folders.
 Sword should expose starter profiles gradually. These are product/user journeys,
 not proof claims.
 
+Use `examples/starter-profiles/_template.md` for new starter profiles and for
+material rewrites of existing profiles. The required sections are Goal, Safe
+Route, Result Fields, Stop Conditions, and Does Not Prove. A profile must state
+that it is not live authorization, not a proof claim, and not automatically a
+new front-door command. If a profile uses `preview`, it must distinguish
+read-only/helper readiness from Home Assistant preview endpoint proof.
+
 | Starter profile | Purpose | Status |
 | --- | --- | --- |
 | `no-live-display` | Inspect and launch display/runtime surfaces without live providers or devices | first example exists under `examples/starter-profiles/no-live-display/` |

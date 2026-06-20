@@ -629,6 +629,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "capability-packs:overview" -Message "front-door docs should include the capability pack overview"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "capability-packs:choose-your-path" -Message "capability pack docs should anchor the choose-your-path table"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "capability-packs:starter-profile-plan" -Message "capability pack docs should anchor starter profile planning"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "examples/starter-profiles/_template\.md" -Message "capability/architecture docs should point starter profiles to the template"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "required sections are Goal,\s+Safe\s+Route,\s+Result Fields,\s+Stop Conditions,\s+and Does Not Prove" -Message "front-door docs should preserve the starter profile required section set"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "read-only/helper readiness[\s\S]{0,140}Home Assistant preview endpoint proof|Home Assistant preview endpoint proof[\s\S]{0,140}read-only/helper readiness" -Message "front-door docs should separate readiness preview wording from HA preview endpoint proof"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Core Body Pack" -Message "capability pack docs should name the core body pack"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Home Control Pack" -Message "capability pack docs should name the Home Control pack"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Agent Worker Pack" -Message "capability pack docs should keep future agent worker work separate"
@@ -676,6 +679,11 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/add-home-device\.md" -Message "standard distribution map should point home-device additions to the beginner guide"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "examples/starter-profiles/home-control-preview/README\.md" -Message "standard distribution map should point HA no-live setup to the Home Control preview starter"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "HOME_CONTROL_CONFIG[\s\S]{0,200}private full-schema|private full-schema[\s\S]{0,200}HOME_CONTROL_CONFIG" -Message "standard distribution map should require proof-ready selected config before live HA"
+  $starterTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\_template.md")
+  Assert-TextMatch -Text $starterTemplate -Pattern "starter-profile:template" -Message "starter profile template should have a stable anchor"
+  Assert-TextMatch -Text $starterTemplate -Pattern "starter-profile:template-goal[\s\S]+starter-profile:template-safe-route[\s\S]+starter-profile:template-result-fields[\s\S]+starter-profile:template-stop-conditions[\s\S]+starter-profile:template-does-not-prove" -Message "starter profile template should preserve the required section anchors and order"
+  Assert-TextMatch -Text $starterTemplate -Pattern "not a proof claim[\s\S]{0,120}not live authorization[\s\S]{0,160}not automatically a new.*front-door" -Message "starter profile template should prevent proof/live/front-door upgrades"
+  Assert-TextMatch -Text $starterTemplate -Pattern "read-only readiness[\s\S]{0,180}not Home Assistant preview endpoint proof" -Message "starter profile template should guard preview terminology"
   $noLiveStarter = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\no-live-display\README.md")
   Assert-TextMatch -Text $noLiveStarter -Pattern "starter-profile:no-live-display" -Message "no-live starter profile should have a stable anchor"
   Assert-TextMatch -Text $noLiveStarter -Pattern "\.\\sword\.ps1 status[\s\S]{0,120}\.\\sword\.ps1 verify[\s\S]{0,120}\.\\sword\.ps1 start" -Message "no-live starter profile should use the safe front-door route"

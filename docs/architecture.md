@@ -49,6 +49,13 @@ Do not replace architecture planes with capability packs:
 - starter profiles answer "what is the smallest route to try this safely?";
 - proof layers answer "what evidence does this actually prove?".
 
+Starter profiles use `examples/starter-profiles/_template.md` as their standard
+shape. A valid starter profile keeps Goal, Safe Route, Result Fields, Stop
+Conditions, and Does Not Prove separate. It also says explicitly that the
+profile is a journey/guide, not proof, not live authorization, and not
+automatically a new front-door command. This prevents examples from becoming a
+second undocumented product surface.
+
 ## External Patterns Used
 
 - Diataxis: keep tutorials, how-to guides, reference, and explanation separate.
@@ -130,6 +137,9 @@ Treat these as active review smells:
 - README grows detailed reference tables that already belong in `docs/`.
 - `sword.ps1` gains commands before the current six commands have clear reader
   behavior and help/discovery.
+- A starter profile omits the template sections or uses `preview` without
+  saying whether it means read-only readiness, command preview, or a Home
+  Assistant preview endpoint.
 - Home Assistant connection success is described as proof-ready config success.
 - A short/minimal action-only override is allowed to masquerade as full-schema
   proof context.
