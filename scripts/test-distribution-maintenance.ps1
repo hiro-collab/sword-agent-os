@@ -630,6 +630,18 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "reviewed clone-local equivalent|reviewed_clone_local_full_schema_equivalent" -Message "front-door docs should support reviewed clone-local full-schema equivalents for worktree verification"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "dry-run.*token.*consumed|token.*dry-run.*consumed" -Message "front-door docs should explain dry-run confirmation token consumption"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "HA-visible CheckState.*physical proof|physical proof.*HA-visible CheckState" -Message "front-door docs should prevent promoting HA-visible CheckState to physical proof"
+  $centralEnvTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "templates\env\sword-agent-os.env.example")
+  $homeControlEnvTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "organs\action\home-assistant-server\.env.example")
+  $homeControlExampleConfigTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "organs\action\home-assistant-server\config\home-control.example.yaml")
+  $homeAssistantTemplateSurface = "$centralEnvTemplate`n$homeControlEnvTemplate`n$homeControlExampleConfigTemplate"
+  Assert-TextMatch -Text $homeAssistantTemplateSurface -Pattern "docs/home-assistant-setup\.md" -Message "Home Assistant env/config examples should point first-time operators to the setup guide"
+  Assert-TextMatch -Text $homeAssistantTemplateSurface -Pattern "demo/default/template" -Message "Home Assistant env/config examples should mark public config as demo/default/template"
+  Assert-TextMatch -Text $homeAssistantTemplateSurface -Pattern "ignored private full-schema config|private full-schema config" -Message "Home Assistant env/config examples should require private full-schema config for live proof"
+  Assert-TextMatch -Text $homeAssistantTemplateSurface -Pattern "reviewed clone-local equivalent" -Message "Home Assistant env/config examples should support reviewed clone-local equivalents"
+  Assert-TextMatch -Text $homeAssistantTemplateSurface -Pattern "short/minimal action-only override" -Message "Home Assistant env/config examples should warn that minimal action-only overrides are not proof-ready"
+  Assert-TextMatch -Text $homeAssistantTemplateSurface -Pattern "expected-effect target|expected_effect" -Message "Home Assistant env/config examples should require expected-effect target metadata"
+  Assert-TextMatch -Text $homeAssistantTemplateSurface -Pattern "CheckTracking.*CheckState|CheckState.*CheckTracking" -Message "Home Assistant env/config examples should keep CheckTracking and CheckState visible"
+  Assert-TextMatch -Text $homeAssistantTemplateSurface -Pattern "read-only parity gate" -Message "Home Assistant env/config examples should require read-only parity before live routes"
   Assert-TextMatch -Text $verificationSurface -Pattern "raw_media_shared=false" -Message "public verification docs should show raw media is not shared in local-media results"
   Assert-TextMatch -Text $verificationSurface -Pattern "generated_output_written=false" -Message "public verification docs should show preview helper does not write generated output"
   Assert-TextMatch -Text $verificationSurface -Pattern "SecretInputsRoot" -Message "public verification docs should explain separate secret input roots"
