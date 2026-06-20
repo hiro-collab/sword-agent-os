@@ -52,6 +52,7 @@ can also wait if you only want a minimal no-live startup check.
 | LLM model / URL | `THOUGHT_CORE_LLM_MODEL`, `THOUGHT_CORE_LLM_BASE_URL` | OpenAI-compatible LLM endpoint. |
 | Home Assistant token | `HOME_ASSISTANT_TOKEN` | Appliance state checks and actions. |
 | local bridge token | `HOME_CONTROL_API_TOKEN` | Local protection for the Home Assistant bridge. |
+| Home Control config path | `HOME_CONTROL_CONFIG` | Selected full-schema private/live `home-control.yaml` or reviewed clone-local equivalent. |
 | appliance adapter | `THOUGHT_CORE_TOOLS_ADAPTER` | `mock` is no-live simulation. Use `home_control` only for live appliance action. |
 | Environment API token | `ENVIRONMENT_API_TOKEN` | Local protection for the Environment State API. It can be empty in the standard no-live setup. |
 | VOICEVOX URL | `VOICEVOX_SERVER_URL` | Speech synthesis endpoint. |
@@ -110,6 +111,9 @@ then use the bridge helper `-CheckOnly` and `-CheckTracking` before execution.
 Use `-CheckState` only after a ticketed execute/wait or restore/wait step.
 
 ## Home Assistant Config Context
+
+For a first-time external Home Assistant setup, read `docs/home-assistant-setup.md`
+first. This section is the detailed local config rule behind that front door.
 
 For Home Assistant verification, the selected config context is part of the
 proof. A fresh clone, Git worktree, or RR003-style verification checkout can be

@@ -493,6 +493,7 @@ function Test-ReadmeFirstRunGuidance {
     "docs\proof-layers.md",
     "docs\manifest-ledger-authority.md",
     "docs\local-configuration.md",
+    "docs\home-assistant-setup.md",
     "docs\home-control-action-authoring.md",
     "docs\live-home-control-proof.md",
     "runtime\control\README.md"
@@ -557,6 +558,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $causeTrail -Pattern "state_tracking=tracked" -Message "cause trail should separate tracking metadata from post-state proof"
   Assert-TextMatch -Text $causeTrail -Pattern "live_test_readiness" -Message "cause trail should explain live-test readiness as separate from state tracking"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "UV_CACHE_DIR" -Message "public troubleshooting docs should include uv cache troubleshooting guidance"
+  Assert-TextMatch -Text $troubleshootingSurface -Pattern "uv python find" -Message "public troubleshooting docs should explain uv-based Python interpreter discovery"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "Git ownership warning" -Message "public troubleshooting docs should frame restricted-environment Git ownership warnings as validation friction"
   Assert-TextMatch -Text $readme -Pattern "doctor-distribution\.ps1" -Message "README should document the distribution doctor"
   Assert-TextMatch -Text $readme -Pattern "check-distribution-pins\.ps1" -Message "README should document the distribution pin checker"
@@ -617,8 +619,11 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "physical/device proof" -Message "proof-layer docs should name physical/device proof"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "manifest-ledger-authority\.md" -Message "README should link the manifest ledger authority page"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "home-control-action-authoring\.md" -Message "README should link Home Control action authoring docs"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "home-assistant-setup\.md" -Message "front-door docs should link Home Assistant setup docs"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Connection[\s\S]{0,120}Proof-ready config|Proof-ready config[\s\S]{0,120}Connection" -Message "Home Assistant setup docs should separate connection from proof-ready config"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "live-home-control-proof\.md" -Message "README should link live Home Control proof docs"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Home Assistant Config Context" -Message "front-door docs should name the Home Assistant config context checkpoint"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "HOME_CONTROL_CONFIG" -Message "front-door docs should name selected Home Control config path"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "full-schema|full schema" -Message "front-door docs should require full-schema config for HA-visible CheckState proof"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "short/minimal action-only override" -Message "front-door docs should separate minimal overrides from tracked-state proof"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "demo/default/template" -Message "front-door docs should require rejecting demo/default/template context for live proof"

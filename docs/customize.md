@@ -11,6 +11,7 @@ local machine paths in tracked files.
 | LLM を使わずに起動確認する | `THOUGHT_CORE_LLM_ENABLED=false` | `docs/operate.md` |
 | アバター / VRM を変える | `NEXT_PUBLIC_SELECTED_VRM_PATH` and local assets | `docs/local-configuration.md` |
 | 声 / TTS を変える | VOICEVOX / TTS env values | `docs/local-configuration.md` |
+| Home Assistant を外部環境につなぐ | `HOME_ASSISTANT_TOKEN`, `HOME_CONTROL_API_TOKEN`, `HOME_CONTROL_CONFIG`, full-schema action rows | `docs/home-assistant-setup.md` |
 | Home Assistant action を追加する | generated `home-control.yaml` action row from local inputs | `docs/home-control-action-authoring.md` |
 | live proof を取りたい | bounded live ticket and route result | `docs/live-home-control-proof.md` |
 | 家電操作を止めておきたい | `.\sword.ps1 hold-live` local marker | `runtime/control/README.md` |
@@ -21,10 +22,11 @@ local machine paths in tracked files.
 
 ## Home Assistant Config Rule
 
-For Home Assistant state proof, use a full-schema private/live config or a
-reviewed clone-local equivalent. A short action-only override can be useful for
-command shape or command-ack checks, but it is not enough for HA-visible
-CheckState proof.
+For first-time setup in an external Home Assistant environment, start with
+`docs/home-assistant-setup.md`. For Home Assistant state proof, use a
+full-schema private/live config or a reviewed clone-local equivalent. A short
+action-only override can be useful for command shape or command-ack checks, but
+it is not enough for HA-visible CheckState proof.
 
 The action row needs the command binding and the verification metadata together:
 script/action binding, expected-effect target, verification mode, accepted

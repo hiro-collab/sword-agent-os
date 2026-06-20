@@ -83,6 +83,17 @@ It is a safe-local control marker only. It does not execute Home Assistant,
 providers, browser, camera, or device routes, and it is not an approval bypass.
 See `runtime/control/README.md` for the control vocabulary.
 
+## Home Assistant を外部環境につなぐ
+
+```powershell
+notepad .\docs\home-assistant-setup.md
+```
+
+Use the setup page before moving from mock/no-live checks to a real Home
+Assistant instance. A reachable Home Assistant bridge is only connection proof.
+HA-visible action proof also needs the selected clone/worktree to load a
+private/live full-schema config or reviewed clone-local equivalent.
+
 ## もっと細かく確認する
 
 | Goal | Command | Proof layer |

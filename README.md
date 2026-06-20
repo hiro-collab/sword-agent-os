@@ -25,10 +25,12 @@ Sword Agent OS は、AI エージェントを「思考」「反射」「環境�
 初めて読む場合は、次の順で見れば十分です。
 
 1. この README の `15分 quick-start` で起動までの最短ルートを見る。
-2. `docs/standard-distribution-map.md` で標準構成、local-only 資材、
+2. Home Assistant / 実家電をつなぐ場合は `docs/home-assistant-setup.md` で
+   config context と full-schema action row を先に確認する。
+3. `docs/standard-distribution-map.md` で標準構成、local-only 資材、
    proof layer、live 操作境界を見る。
-3. `docs/module-usage-index.md` で「変更をどこに入れるか」を決める。
-4. 実装を触る前に、`manifests/`、`contracts/`、`runtime/`、
+4. `docs/module-usage-index.md` で「変更をどこに入れるか」を決める。
+5. 実装を触る前に、`manifests/`、`contracts/`、`runtime/`、
    `organs/` のどれの責任かを分ける。
 
 迷ったら、まず `manifests/distributions/standard.json` が標準構成、
@@ -79,6 +81,7 @@ scope のもとで `-Run` を明示します。
 | --- | --- |
 | `docs/operate.md` | 入口コマンド、start/stop/status/verify の no-live 既定 |
 | `docs/customize.md` | LLM、声、アバター、Home Assistant action など、変更したい目的から触る場所を探す |
+| `docs/home-assistant-setup.md` | Home Assistant を外部環境につなぐ時の config context / full-schema checklist |
 | `docs/proof-layers.md` | source/static、runtime、HA state、external、physical の区別 |
 | `docs/manifest-ledger-authority.md` | 標準 distribution、release、organ pin の正本 |
 | `docs/local-configuration.md` | secret/env/local input の設定 |
@@ -137,7 +140,9 @@ pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -Mediapip
 ```
 
 願い別の操作は `docs/operate.md`、LLM / 声 / アバター / Home Assistant action
-などの変更先は `docs/customize.md` を見ます。
+などの変更先は `docs/customize.md` を見ます。Home Assistant を外部環境へ
+つなぐ場合は、token だけでなく full-schema config context が必要です。
+先に `docs/home-assistant-setup.md` を読みます。
 
 最小構成で LLM を使わずに表示や起動だけ確認する場合は、
 `local\env\sword-agent-os.env` で `THOUGHT_CORE_LLM_ENABLED=false` にします。
@@ -165,7 +170,7 @@ Home Assistant 実操作は、対象、回数、戻し方、停止条件を決�
 | 初めて全体像を知りたい人 | `まず押さえること`、`標準ディストリビューションの流れ`、`フォルダ構成` | 何がメインで、どの順に読めばよいかを掴む |
 | 標準構成を起動したい人 | `15分 quick-start`、`docs/operate.md`、`ローカル設定` | 画面を開き、基本入力と表示を確認する |
 | 設定や見た目を変えたい人 | `docs/customize.md`、`docs/local-configuration.md` | 目的から触る場所を探し、local/private 境界を守る |
-| Home Assistant / 実家電を試す人 | `ローカル設定`、`最初の動作確認`、`安全とローカルデータ` | 家電状態確認と低リスク操作を安全に確認する |
+| Home Assistant / 実家電を試す人 | `docs/home-assistant-setup.md`、`ローカル設定`、`最初の動作確認`、`安全とローカルデータ` | 外部 HA 環境、full-schema config、状態 proof、低リスク操作を安全に確認する |
 | organ / module を開発する人 | `OS の構造`、`開発者向け入口`、`検証コマンド` | organ の差し替え、契約、テストを把握する |
 | Codex 複数スレッドで開発管理する人 | `開発用 / Codex 用 workspace セットアップ`、`安全とローカルデータ` | coordination / worktree / local artifact の境界を守る |
 
@@ -175,7 +180,7 @@ Home Assistant 実操作は、対象、回数、戻し方、停止条件を決�
 | --- | --- | --- | --- |
 | A. 最小構成 / no-live | clone 後に install / readiness / mock/static 動作を確認する。画面・入力確認は次の runtime/browser lane として分ける | Git、PowerShell 7、Python/uv、Node/npm、Chrome | `THOUGHT_CORE_LLM_ENABLED=false` で LLM なし確認可。Home Assistant token は後回し可 |
 | B. LLM あり標準構成 | Thought Core の自然文応答を確認する | LLM provider の API key | `THOUGHT_CORE_LLM_API_KEY`、必要に応じて `THOUGHT_CORE_LLM_MODEL` / `THOUGHT_CORE_LLM_BASE_URL` |
-| C. Home Assistant live家電 | 家電状態確認と低リスク操作を確認する | Home Assistant、対象家電、戻し方 | `HOME_ASSISTANT_TOKEN`、`HOME_CONTROL_API_TOKEN`、device mapping。実操作は対象/回数/停止条件を決める |
+| C. Home Assistant live家電 | 家電状態確認と低リスク操作を確認する | Home Assistant、対象家電、戻し方、full-schema config | `HOME_ASSISTANT_TOKEN`、`HOME_CONTROL_API_TOKEN`、`HOME_CONTROL_CONFIG`。実操作は対象/回数/停止条件を決める。外部環境では `docs/home-assistant-setup.md` を先に見る |
 | D. 開発 / Codex workspace | organ 変更、複数 thread、coordination を使う | private coordination repo は任意 | 通常利用と混ぜず、`coordination/`、`local/`、`worktrees/`、`_codex/` を GitHub 公開対象にしない |
 
 ## 何ができるか
@@ -239,6 +244,18 @@ Codex 作業用の workspace-local 領域であり、通常利用では作成不
 | Home Assistant | 家電状態確認と操作 | 家電操作に必要 |
 | TouchDesigner | 投影演出、外部表示 | 任意 |
 | アバター/モデル素材 | ローカル表示 | 任意、ライセンスに従う |
+
+Python interpreter は `PATH` から推測せず、`uv` で確認します。
+
+```powershell
+uv python find
+uv python list --only-installed
+```
+
+Python organ の中で実際に使われる interpreter を見る時は、その organ directory で
+`uv run python --version` を実行します。必要な場合だけ command-scoped に
+`UV_PYTHON=<version>` を指定し、persistent `PATH` や machine-wide env を
+install 手順の一部として変更しません。
 
 `.env`、API key、device token、provider key、撮影データ、ローカルログ、個人用スクリーンショットは Git に入れないでください。
 
@@ -643,7 +660,9 @@ source と pass / skipped / blocked を記録します。
 
 Home Assistant bridge が ready で、対象家電、戻し方、停止条件が分かっている場合だけ
 低リスクな操作を試します。README では live pilot の最小 ladder だけを示します。
-詳しい action metadata は `docs/home-control-action-authoring.md`、ticketed live proof は
+外部 Home Assistant 環境を初めてつなぐ場合の正面手順は
+`docs/home-assistant-setup.md` です。詳しい action metadata は
+`docs/home-control-action-authoring.md`、ticketed live proof は
 `docs/live-home-control-proof.md`、cause trail は
 `docs/live-home-control-cause-trail.md` を見てください。
 
