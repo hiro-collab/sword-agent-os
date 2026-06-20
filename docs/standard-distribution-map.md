@@ -64,6 +64,7 @@ Sword Agent OS の concrete profile です。
 
 Current source anchors:
 
+- `sword.ps1`
 - `manifests/distributions/standard.json`
 - `manifests/releases/standard.json`
 - `manifests/organs/legacy-github.json`
@@ -91,6 +92,18 @@ fresh clone
 ```
 
 代表的なコマンド:
+
+最初は root の front door で、状態確認と no-live 検証を揃えます。
+`status` / `verify` は既定で no-live / no-device です。`-NoLive` は明示用に
+付けても構いませんが、live 操作の許可ではありません。
+
+```powershell
+.\sword.ps1 status
+.\sword.ps1 verify
+```
+
+その後、標準ディストリビューションの install / env render / detailed smoke を
+必要に応じて直接 script で確認します。`sword.ps1` が入口、各 script が詳細工具です。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\show-version.ps1 -Profile standard
@@ -352,10 +365,16 @@ Do not publish raw audio or raw transcripts unless explicitly cleared.
 ## Home Assistant Dry-Run And Live Pilot Lane
 
 Home Assistant live work must be bounded.
+First-time external Home Assistant setup starts at `docs/home-assistant-setup.md`.
+Do not treat this map, README examples, or a rendered demo/default/template
+config as the live proof authority.
 
 Before live execute, require:
 
 - Home Assistant host is powered on and reachable;
+- selected `HOME_CONTROL_CONFIG` is an ignored private full-schema config or a
+  reviewed clone-local equivalent, not a public demo/default/template or
+  short/minimal action-only override;
 - allowed action id;
 - restore action id when restoration is part of the pilot;
 - expected states;

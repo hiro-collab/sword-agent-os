@@ -609,9 +609,14 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "まず安全に見る" -Message "operator docs should be organized by user intent"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Customize Sword Agent OS" -Message "front-door docs should include a customization map"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "やりたいこと" -Message "customization docs should let users start from their goal"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "使う AI サービスやモデルを変えたい" -Message "customization docs should use user-facing Japanese for LLM changes"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "操作できる家電動作を増やしたい" -Message "customization docs should describe Home Assistant actions as user goals"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "実際の家電が動いた証拠を取りたい" -Message "customization docs should describe live proof as a user goal"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime/control/README\.md|runtime\\control\\README\.md" -Message "front-door docs should link runtime control vocabulary"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "HOLD_LIVE[\s\S]{0,240}STOP[\s\S]{0,240}PAUSE[\s\S]{0,240}REQUIRE_APPROVAL" -Message "runtime control docs should define the core control vocabulary"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "\.cache\\agent-os\\control\\hold-live\.json" -Message "runtime control docs should name the local hold-live marker"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "not yet a universal runtime interlock|universal runtime interlock" -Message "runtime control docs should state hold-live enforcement boundary"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Action Boundary[\s\S]{0,160}Home Control bridge[\s\S]{0,160}Launch\s+Manager|Launch\s+Manager[\s\S]{0,160}Home Control bridge[\s\S]{0,160}Action Boundary" -Message "runtime control docs should name intended hold-live reader surfaces"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "full-schema private/live config|reviewed clone-local equivalent" -Message "customization docs should explain full-schema Home Assistant config requirements"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "partial, not release-ready" -Message "front-door docs should keep scoped fresh-install evidence separate from release readiness"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "source/static" -Message "proof-layer docs should name source/static proof"
@@ -630,6 +635,11 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "reviewed clone-local equivalent|reviewed_clone_local_full_schema_equivalent" -Message "front-door docs should support reviewed clone-local full-schema equivalents for worktree verification"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "dry-run.*token.*consumed|token.*dry-run.*consumed" -Message "front-door docs should explain dry-run confirmation token consumption"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "HA-visible CheckState.*physical proof|physical proof.*HA-visible CheckState" -Message "front-door docs should prevent promoting HA-visible CheckState to physical proof"
+  $standardDistributionMap = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\standard-distribution-map.md")
+  Assert-TextMatch -Text $standardDistributionMap -Pattern "\.\\sword\.ps1 status[\s\S]{0,120}\.\\sword\.ps1 verify" -Message "standard distribution map should start first success with sword.ps1 front-door checks"
+  Assert-TextMatch -Text $standardDistributionMap -Pattern "sword\.ps1.*入口.*script.*詳細工具|script.*詳細工具.*sword\.ps1.*入口" -Message "standard distribution map should explain front-door vs detailed script roles"
+  Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/home-assistant-setup\.md" -Message "standard distribution map should point external HA setup to the setup guide"
+  Assert-TextMatch -Text $standardDistributionMap -Pattern "HOME_CONTROL_CONFIG[\s\S]{0,200}private full-schema|private full-schema[\s\S]{0,200}HOME_CONTROL_CONFIG" -Message "standard distribution map should require proof-ready selected config before live HA"
   $centralEnvTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "templates\env\sword-agent-os.env.example")
   $homeControlEnvTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "organs\action\home-assistant-server\.env.example")
   $homeControlExampleConfigTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "organs\action\home-assistant-server\config\home-control.example.yaml")

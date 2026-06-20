@@ -7,18 +7,18 @@ local machine paths in tracked files.
 
 | やりたいこと | 触る場所 | 最初に見る文書 |
 | --- | --- | --- |
-| LLM provider or model を変える | `local\env\sword-agent-os.env` | `docs/local-configuration.md` |
-| LLM を使わずに起動確認する | `THOUGHT_CORE_LLM_ENABLED=false` | `docs/operate.md` |
-| アバター / VRM を変える | `NEXT_PUBLIC_SELECTED_VRM_PATH` and local assets | `docs/local-configuration.md` |
-| 声 / TTS を変える | VOICEVOX / TTS env values | `docs/local-configuration.md` |
-| Home Assistant を外部環境につなぐ | `HOME_ASSISTANT_TOKEN`, `HOME_CONTROL_API_TOKEN`, `HOME_CONTROL_CONFIG`, full-schema action rows | `docs/home-assistant-setup.md` |
-| Home Assistant action を追加する | generated `home-control.yaml` action row from local inputs | `docs/home-control-action-authoring.md` |
-| live proof を取りたい | bounded live ticket and route result | `docs/live-home-control-proof.md` |
+| 使う AI サービスやモデルを変えたい | `local\env\sword-agent-os.env` の LLM 設定 | `docs/local-configuration.md` |
+| AI なしで起動確認したい | `THOUGHT_CORE_LLM_ENABLED=false` | `docs/operate.md` |
+| アバター / VRM を変えたい | `NEXT_PUBLIC_SELECTED_VRM_PATH` とローカル asset | `docs/local-configuration.md` |
+| 声 / TTS を変えたい | VOICEVOX / TTS の env 値 | `docs/local-configuration.md` |
+| Home Assistant を外部環境につなぎたい | `HOME_ASSISTANT_TOKEN`, `HOME_CONTROL_API_TOKEN`, `HOME_CONTROL_CONFIG`, full-schema action row | `docs/home-assistant-setup.md` |
+| 操作できる家電動作を増やしたい | local input から生成される `home-control.yaml` の action row | `docs/home-control-action-authoring.md` |
+| 実際の家電が動いた証拠を取りたい | 範囲を決めた live ticket と route result | `docs/live-home-control-proof.md` |
 | 家電操作を止めておきたい | `.\sword.ps1 hold-live` local marker | `runtime/control/README.md` |
-| 起動状態を見たい | `.\sword.ps1 status -NoLive` | `docs/operate.md` |
-| 壊れていないか確認したい | `.\sword.ps1 verify -NoLive` | `docs/operate.md` |
-| 証拠層を確認したい | proof layer labels in reports | `docs/proof-layers.md` |
-| organ / module を差し替える | manifests, contracts, and organ folders | `docs/module-usage-index.md` |
+| 起動状態を見たい | `.\sword.ps1 status` | `docs/operate.md` |
+| 壊れていないか確認したい | `.\sword.ps1 verify` | `docs/operate.md` |
+| どこまで動いたと言えるか確認したい | report の proof layer label | `docs/proof-layers.md` |
+| organ / module を差し替えたい | manifest、contract、organ folder | `docs/module-usage-index.md` |
 
 ## Home Assistant Config Rule
 
@@ -41,10 +41,14 @@ and safety blockers. Keep `CheckTracking` and `CheckState` separate:
 
 1. Make the local/private change in the selected config context.
 2. Re-render generated env/config files when the source document requires it.
-3. Run `.\sword.ps1 verify -NoLive` or the named no-live helper.
+3. Run `.\sword.ps1 verify` or the named no-live helper.
 4. For Home Assistant, confirm the selected config is not demo/default/template.
 5. Use preview / dry-run / execute only when an exact live route has been
    reviewed and the proof layer is explicit.
+
+`status`, `verify`, and `doctor` are no-live by default. You may still add
+`-NoLive` in reports when you want the safety intent to be obvious, but it is
+not a separate stronger mode for those commands.
 
 Do not promote command submission, preview, dry-run, or HA-visible state match
 into external observation or physical/device proof.
