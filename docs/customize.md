@@ -5,6 +5,12 @@ Keep secrets and local-only values in `local/` or generated runtime files; do
 not put raw tokens, Home Assistant ids, private URLs, screenshots, logs, or
 local machine paths in tracked files.
 
+<!-- front-door:intent-customize-llm -->
+<!-- front-door:intent-home-action -->
+<!-- front-door:intent-live-proof -->
+<!-- front-door:intent-proof-layer -->
+<!-- front-door:no-live-default -->
+
 | やりたいこと | 触る場所 | 最初に見る文書 |
 | --- | --- | --- |
 | 使う AI サービスやモデルを変えたい | `local\env\sword-agent-os.env` の LLM 設定 | `docs/local-configuration.md` |

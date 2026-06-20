@@ -93,6 +93,8 @@ fresh clone
 
 代表的なコマンド:
 
+<!-- standard-map:first-success-front-door -->
+
 最初は root の front door で、状態確認と no-live 検証を揃えます。
 `status` / `verify` は既定で no-live / no-device です。`-NoLive` は明示用に
 付けても構いませんが、live 操作の許可ではありません。
@@ -102,8 +104,14 @@ fresh clone
 .\sword.ps1 verify
 ```
 
+<!-- standard-map:verify-overlap -->
+
 その後、標準ディストリビューションの install / env render / detailed smoke を
 必要に応じて直接 script で確認します。`sword.ps1` が入口、各 script が詳細工具です。
+`.\sword.ps1 verify` は manifest validation、strict pin check、no-live launch
+readiness をまとめる最小 front-door check です。下の script 群は、個別結果を
+読みたい時、install/env render まで進める時、または smoke 範囲を広げる時に
+使います。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\show-version.ps1 -Profile standard

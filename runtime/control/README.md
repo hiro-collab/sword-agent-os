@@ -32,6 +32,8 @@ Keep runtime control and proof wording separate. A hold marker can make a live
 route unavailable, but it does not prove source/static health, runtime/browser
 health, HA-visible CheckState, external observation, or physical/device state.
 
+<!-- runtime-control:hold-live-enforcement-boundary -->
+
 ## Enforcement Boundary
 
 `hold-live.json` is currently a front-door and route-planning marker. It records
@@ -56,6 +58,22 @@ Known non-enforcement:
 - The marker is not proof that the Home Control bridge, Thought Core, Launch
   Manager, or every organ has stopped.
 - The marker is not an approval token and does not bypass a later live ticket.
+
+<!-- runtime-control:hold-live-clear-policy -->
+
+## Clearing A Hold
+
+There is intentionally no one-click release command yet. In the current
+implementation, clearing a hold is a local operator decision: remove or replace
+`.cache\agent-os\control\hold-live.json` only after confirming no live route is
+in progress and the next live route has its own exact scope, ticket, and proof
+ceiling. Clearing the marker is not permission to run Home Assistant actions,
+provider calls, browser/camera operations, or approval bypasses by itself.
+
+If a route cannot determine whether an old hold is still intentional, treat that
+as a live-route blocker and ask for a fresh operator decision rather than
+silently ignoring the marker. A future front-door command may formalize
+hold-status or clear-hold behavior after the live-route readers are implemented.
 
 Future readers should include Action Boundary, Home Control bridge, Launch
 Manager, and any Codex worker loop that can open mutation routes. Until those

@@ -6,11 +6,15 @@ organized by what you want to do, not by internal subsystem.
 The front door defaults to no-live / no-device. It does not start Start Stack,
 call a provider, operate Home Assistant, use a browser profile, open
 camera/audio, or claim physical proof unless a later route explicitly says so.
+`status`, `verify`, and `doctor` are no-live by default; `-NoLive` is only an
+optional intent label for reports, not a stronger mode.
+
+<!-- operate:no-live-default -->
 
 ## まず安全に見る
 
 ```powershell
-.\sword.ps1 status -NoLive
+.\sword.ps1 status
 ```
 
 Use this when you only want the current version, selected profile, manifest
@@ -19,7 +23,7 @@ summary, and runtime route preview. This is a source/status layer check.
 ## 壊れていないか確認する
 
 ```powershell
-.\sword.ps1 verify -NoLive
+.\sword.ps1 verify
 ```
 
 Use this before a fresh install, review, or handoff. It validates manifests,
@@ -29,7 +33,7 @@ runtime/browser behavior, Home Assistant state, or physical devices.
 ## 原因を分類する
 
 ```powershell
-.\sword.ps1 doctor -NoLive
+.\sword.ps1 doctor
 ```
 
 Use this when install/readiness output is unclear. Treat the result as

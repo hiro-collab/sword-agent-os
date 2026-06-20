@@ -59,17 +59,22 @@ green にするものではありません。
 
 ## Front Door Commands
 
+<!-- readme:front-door-no-live-default -->
+
 新しい利用者向けの入口は `sword.ps1` です。既定では no-live / no-device で、
 Start Stack、provider、Home Assistant action、browser/camera/audio を勝手に
 実行しません。
 
 ```powershell
-.\sword.ps1 status -NoLive
-.\sword.ps1 verify -NoLive
-.\sword.ps1 doctor -NoLive
+.\sword.ps1 status
+.\sword.ps1 verify
+.\sword.ps1 doctor
 .\sword.ps1 start
 .\sword.ps1 hold-live
 ```
+
+`status` / `verify` / `doctor` は既定で no-live / no-device です。`-NoLive` は
+報告で安全意図を明示したい時に付けられますが、別の強い実行モードではありません。
 
 `.\sword.ps1 start` は既定では Start Stack の command preview です。
 実際に launcher-owned runtime children を起動する場合は、別途 runtime 実行
@@ -124,8 +129,8 @@ Home Assistant の実家電操作や TouchDesigner 投影は後から追加し�
 git clone <sword-agent-os-repo-url>
 cd sword-agent-os
 
-.\sword.ps1 status -NoLive
-.\sword.ps1 verify -NoLive
+.\sword.ps1 status
+.\sword.ps1 verify
 pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -DryRun
 pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
 
@@ -518,9 +523,9 @@ pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 まず front-door wrapper で現在の no-live 状態を確認できます。
 
 ```powershell
-.\sword.ps1 status -NoLive
-.\sword.ps1 verify -NoLive
-.\sword.ps1 doctor -NoLive
+.\sword.ps1 status
+.\sword.ps1 verify
+.\sword.ps1 doctor
 ```
 
 runtime を使う一番簡単な入口は Launch Manager です。
