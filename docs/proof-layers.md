@@ -13,6 +13,7 @@ layer can support a higher one, but it does not replace it.
 | local-media replay | Bounded fixture replay through a named helper | Live camera, live microphone, physical environment |
 | runtime/status | Launcher-owned processes, endpoints, status fields | User-visible browser behavior unless checked |
 | browser/display | Projection Visual, AITuber, or UI reachability | Physical device movement |
+| browser-visible avatar motion | Self Mirror reports event-correlated visible motion in expected avatar ROIs for a named scenario | Voice intent, provider response, semantic dance/expression quality, physical projector output |
 | Home Assistant preview | Command shape and local safety checks | Device action or HA state change |
 | Home Assistant dry-run | Bridge accepts a dry-run execute request | Device action or HA state change |
 | Home Assistant execute | Command submitted to the bridge | HA state match, external observation, or physical proof |

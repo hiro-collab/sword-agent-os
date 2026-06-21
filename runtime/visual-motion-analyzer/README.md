@@ -5,6 +5,12 @@ duration-aware avatar motion. It measures how much named screen regions move
 over time, then compares those measurements with the pretrigger, active,
 release, and settle windows of a Motion Stimulus / Driver Result pair.
 
+For normal operator use, start from
+`examples/starter-profiles/projection-visual/README.md`. This README remains
+the implementation reference. System readers such as Thought Core, diagnostics,
+and review agents should discover supported routes through
+`runtime/visual-motion-analyzer/self-mirror-consumer-routes.json`.
+
 Self Mirror is the visual QA lane for checking whether the agent's body is
 actually visible on screen. It is meant to support VRM motion, Projection
 Visual, HUD, expression, pointing, dance, and gesture proof without collapsing

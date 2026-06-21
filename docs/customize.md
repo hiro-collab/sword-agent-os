@@ -18,6 +18,7 @@ local machine paths in tracked files.
 | アバター / VRM を変えたい | `NEXT_PUBLIC_SELECTED_VRM_PATH` とローカル asset | `docs/local-configuration.md` |
 | 声 / TTS を変えたい | VOICEVOX / TTS の env 値 | `docs/local-configuration.md` |
 | 声 / アバターの安全な小ルートを試したい | no-live voice/avatar starter profile | `examples/starter-profiles/voice-avatar/README.md` |
+| アバターが実際に動く、笑う、うなずく、踊るか見たい | Projection Visual と Self Mirror visible-motion route | `examples/starter-profiles/projection-visual/README.md` |
 | Home Assistant を外部環境につなぎたい | `HOME_ASSISTANT_TOKEN`, `HOME_CONTROL_API_TOKEN`, `HOME_CONTROL_CONFIG`, full-schema action row | `docs/home-assistant-setup.md` |
 | 操作できる家電動作を増やしたい | local input から生成される `home-control.yaml` の action row | `docs/add-home-device.md`、`docs/home-control-action-authoring.md` |
 | 実際の家電が動いた証拠を取りたい | 範囲を決めた live ticket と route result | `docs/live-home-control-proof.md` |
@@ -61,3 +62,18 @@ not a separate stronger mode for those commands.
 
 Do not promote command submission, preview, dry-run, or HA-visible state match
 into external observation or physical/device proof.
+
+## Avatar / Self Mirror Rule
+
+Use `examples/starter-profiles/projection-visual/README.md` when you want to
+check whether the avatar is visibly moving in the browser. Self Mirror can
+measure scenario-scoped visible motion such as `context_nod`,
+`expression_visible_change`, and `dance_visible_motion`.
+
+For system readers, the stable discovery file is
+`runtime/visual-motion-analyzer/self-mirror-consumer-routes.json`. Thought Core
+or diagnostics may use that file to understand which Self Mirror route/result
+is relevant, but Self Mirror is still observation/evaluation only. It does not
+prove voice intent, provider response quality, semantic dance quality,
+TouchDesigner/projector output, Home Assistant action, external observation, or
+physical/device proof by itself.

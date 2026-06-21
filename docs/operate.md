@@ -109,6 +109,7 @@ private/live full-schema config or reviewed clone-local equivalent.
 | Readiness without port checks | `pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1 -SkipPortChecks` | readiness/no-live |
 | Local media index dry-run | `pwsh -NoProfile -File .\scripts\prepare-local-media-index.ps1 -DryRun` | local media preparation |
 | Runtime launcher UI | `.\start-home-control-launcher.bat` | runtime/browser only after user action |
+| Browser-visible avatar motion | `examples/starter-profiles/projection-visual/README.md` | browser-visible avatar motion |
 
 ## What The Front Door Does Not Prove
 

@@ -1,0 +1,172 @@
+{
+  "schema_version": "self_mirror_consumer_routes.v0",
+  "id": "self-mirror-consumer-routes",
+  "purpose": "Stable discovery surface for operators, Thought Core, diagnostics, and review agents that need to understand how Self Mirror visible-motion checks are run and what they prove.",
+  "human_entrypoint": "examples/starter-profiles/projection-visual/README.md",
+  "implementation_readme": "runtime/visual-motion-analyzer/README.md",
+  "scenario_catalog": "runtime/visual-motion-analyzer/self-mirror-scenarios.json",
+  "runner": "scripts/run-self-mirror-proof.ps1",
+  "result_authority_file": "self_mirror_metric_summary.json",
+  "result_package_files": [
+    "self_mirror_metric_summary.json",
+    "visual_motion_summary.json",
+    "visual_motion_roi_timeseries.csv",
+    "visual_motion_chart.html",
+    "result.md",
+    "manifest.json"
+  ],
+  "intended_readers": [
+    "human_operator",
+    "thought_core",
+    "diagnostics",
+    "status_store",
+    "event_journal",
+    "review_agent"
+  ],
+  "global_boundaries": {
+    "observation_only": true,
+    "direct_correction_dispatch": false,
+    "home_assistant_action": false,
+    "provider_call": false,
+    "microphone_or_camera_input": false,
+    "physical_display_proof": false,
+    "raw_frames_shared": false,
+    "raw_screenshot_shared": false,
+    "raw_transcript_shared": false,
+    "provider_payload_shared": false,
+    "private_path_shared": false
+  },
+  "routes": [
+    {
+      "route_id": "self_mirror.synthetic.dance_visible_motion",
+      "mode": "Synthetic",
+      "scenario_key": "dance_visible_motion",
+      "trigger": "dance",
+      "command_template": "pwsh -NoProfile -File .\\scripts\\run-self-mirror-proof.ps1 -Mode Synthetic -Scenario dance_visible_motion",
+      "proof_layer": "source_static_self_mirror_method",
+      "preconditions": [
+        "repository checkout is present",
+        "PowerShell and local script syntax are available"
+      ],
+      "accept_result": [
+        "runner exits 0",
+        "self_mirror_metric_summary.json is produced",
+        "raw_frames_shared=false",
+        "raw_paths_shared=false"
+      ],
+      "does_not_prove": [
+        "browser_runtime",
+        "real_vrm",
+        "avatar_visible_motion",
+        "semantic_dance_quality",
+        "physical_display"
+      ]
+    },
+    {
+      "route_id": "self_mirror.browser.context_nod",
+      "mode": "Browser",
+      "scenario_key": "context_nod",
+      "trigger": "context-nod",
+      "command_template": "pwsh -NoProfile -File .\\scripts\\run-self-mirror-proof.ps1 -Mode Browser -Scenario context_nod -Trigger context-nod -Url <selected_projection_visual_self_mirror_url>",
+      "proof_layer": "browser_visible_avatar_motion_self_mirror",
+      "preconditions": [
+        "selected workspace runtime is intentionally started",
+        "Projection Visual / AITuber route is reachable",
+        "visualTest=self-mirror-baseline route is selected",
+        "Self Mirror raw frame cleanup remains enabled"
+      ],
+      "accept_result": [
+        "self_mirror_metric_summary.json reports expected avatar ROI motion",
+        "motion_diagnostics.diagnostic_result is event-correlated-motion or equivalent pass classification",
+        "guard UI is not used as pass authority",
+        "raw_frames_shared=false",
+        "raw_paths_shared=false"
+      ],
+      "does_not_prove": [
+        "natural_language_intent_quality",
+        "general_gesture_proof",
+        "semantic_expression_correctness",
+        "physical_display"
+      ]
+    },
+    {
+      "route_id": "self_mirror.browser.dance_visible_motion",
+      "mode": "Browser",
+      "scenario_key": "dance_visible_motion",
+      "trigger": "dance",
+      "command_template": "pwsh -NoProfile -File .\\scripts\\run-self-mirror-proof.ps1 -Mode Browser -Scenario dance_visible_motion -Trigger dance -Url <selected_projection_visual_self_mirror_url>",
+      "proof_layer": "browser_visible_avatar_motion_self_mirror",
+      "preconditions": [
+        "selected workspace runtime is intentionally started",
+        "Projection Visual / AITuber route is reachable",
+        "dance motion request, runtime result, or controlled Self Mirror trigger is in scope",
+        "visualTest=self-mirror-baseline route is selected",
+        "Self Mirror raw frame cleanup remains enabled"
+      ],
+      "accept_result": [
+        "avatar_full ROI moved in the active window",
+        "avatar_torso ROI moved in the active window",
+        "avatar_left_arm ROI moved in the active window",
+        "avatar_right_arm ROI moved in the active window",
+        "guard UI is not used as pass authority",
+        "raw_frames_shared=false",
+        "raw_paths_shared=false"
+      ],
+      "does_not_prove": [
+        "voice_intent_parsing",
+        "provider_response_quality",
+        "semantic_dance_quality",
+        "rhythm_or_choreography",
+        "TouchDesigner_output",
+        "physical_projector_output",
+        "physical_device_proof"
+      ]
+    },
+    {
+      "route_id": "self_mirror.browser.expression_visible_change",
+      "mode": "Browser",
+      "scenario_key": "expression_visible_change",
+      "trigger": "expression-visible",
+      "command_template": "pwsh -NoProfile -File .\\scripts\\run-self-mirror-proof.ps1 -Mode Browser -Scenario expression_visible_change -Trigger expression-visible -Url <selected_projection_visual_self_mirror_url>",
+      "proof_layer": "browser_visible_avatar_motion_self_mirror",
+      "preconditions": [
+        "selected workspace runtime is intentionally started",
+        "Projection Visual / AITuber route is reachable",
+        "visualTest=self-mirror-baseline route is selected",
+        "Self Mirror raw frame cleanup remains enabled"
+      ],
+      "accept_result": [
+        "avatar_face_head ROI changed in the active window",
+        "guard UI is not used as pass authority",
+        "raw_frames_shared=false",
+        "raw_paths_shared=false"
+      ],
+      "does_not_prove": [
+        "semantic_smile_correctness",
+        "emotion_correctness",
+        "voice_intent_parsing",
+        "provider_response_quality",
+        "physical_display"
+      ]
+    }
+  ],
+  "stop_conditions": [
+    "selected workspace runtime is not the active route",
+    "Projection Visual / AITuber route is unreachable",
+    "capture surface is stale, wrong workspace, or wrong viewport",
+    "summary requires raw frames, screenshots, transcripts, provider payloads, private URLs, private paths, tokens, or Home Assistant identifiers",
+    "visual-pretrigger-motion",
+    "visual-missing-motion",
+    "guard-or-ui-only-motion",
+    "idle-only-motion",
+    "runtime-started-no-visible-motion",
+    "did-not-settle",
+    "capture-not-ready",
+    "roi-out-of-frame"
+  ],
+  "consumer_guidance": {
+    "thought_core": "Treat this file as a discovery and interpretation map only. It can decide whether a Self Mirror result is useful feedback, but it must not dispatch correction, close an issue, claim release readiness, or run another route by itself.",
+    "diagnostics": "Read self_mirror_metric_summary.json as the authority packet and store redacted status/evidence refs only.",
+    "human_operator": "Use the projection-visual starter profile first; do not share raw frames or screenshots by default."
+  }
+}

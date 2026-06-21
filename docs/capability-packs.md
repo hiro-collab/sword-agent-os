@@ -24,7 +24,7 @@ and maintenance unit only.
 | Core Body Pack | Run the basic body loop: status, thought, guarded action, feedback | `README.md`, `docs/operate.md`, `docs/architecture.md` | `sword.ps1`, `runtime/`, `contracts/`, `control-plane/` |
 | Thought / Chat Pack | Configure LLM-backed or mock thought/chat behavior | `docs/customize.md`, `docs/local-configuration.md` | Thought Core settings, provider/model env values |
 | Voice Pack | Speech input, TTS, VOICEVOX, audio readiness | `docs/local-configuration.md`, `docs/operate.md` | `organs/speech-input/`, `organs/expression/tts-service` |
-| Avatar / Projection Pack | AITuber Kit, Projection Visual, TouchDesigner display surfaces | `README.md`, `docs/operate.md`, `docs/aituberkit-sword-adapter-inventory.md` | `organs/expression/aituber-kit`, `organs/display/` |
+| Avatar / Projection Pack | AITuber Kit, Projection Visual, Self Mirror visible-motion checks, TouchDesigner display surfaces | `README.md`, `docs/operate.md`, `examples/starter-profiles/projection-visual/README.md`, `docs/aituberkit-sword-adapter-inventory.md` | `organs/expression/aituber-kit`, `organs/display/`, `runtime/visual-motion-analyzer/` |
 | Home Control Pack | Home Assistant bridge, action rows, preview/dry-run/live proof routes | `docs/home-assistant-setup.md`, `docs/add-home-device.md`, `docs/home-control-action-authoring.md`, `docs/live-home-control-proof.md` | `organs/action/home-assistant-server`, local Home Control config |
 | Environment Pack | Environment state, vision snapshot, room-light evidence | `docs/proof-layers.md`, `docs/verification-commands.md` | `organs/environment/` |
 | Gesture / Reflex Pack | Sword sign, gesture preview, future approval gesture boundary | `README.md`, `docs/proof-layers.md` | `organs/reflex/mediapipe-sword-sign` |
@@ -44,6 +44,7 @@ Use this table instead of starting from internal folders.
 | I want to change AI/model behavior | Thought / Chat Pack | `docs/customize.md`, `docs/local-configuration.md` |
 | I want to change voice or avatar behavior | Voice Pack or Avatar / Projection Pack | `docs/customize.md` |
 | I want to try voice/avatar safely | `voice-avatar` starter profile | `examples/starter-profiles/voice-avatar/README.md` |
+| I want to see whether the avatar actually moves, smiles, nods, or dances | `projection-visual` starter profile | `examples/starter-profiles/projection-visual/README.md` |
 | I want to connect Home Assistant | Home Control Pack | `docs/home-assistant-setup.md` |
 | I want to add a home device action | Home Control Pack | `docs/add-home-device.md`, `docs/home-control-action-authoring.md` |
 | I want live proof | Home Control Pack plus Proof And Verification plane | `docs/live-home-control-proof.md`, `docs/proof-layers.md` |
@@ -70,12 +71,18 @@ read-only/helper readiness from Home Assistant preview endpoint proof.
 | `voice-avatar` | Confirm voice/avatar flow with explicit local/provider boundaries | first example exists under `examples/starter-profiles/voice-avatar/` |
 | `home-control-preview` | Connect Home Assistant and exercise catalog/tracking/read-only readiness gates only; not the HA preview endpoint | first example exists under `examples/starter-profiles/home-control-preview/` |
 | `home-control-live` | Ticketed live Home Assistant route with restore/stop/proof fields | planned, never default |
-| `projection-visual` | Projection Visual / TouchDesigner-focused visual route | planned |
+| `projection-visual` | Projection Visual / Self Mirror visible-motion route for nod, expression, and dance; not physical projector proof | first example exists under `examples/starter-profiles/projection-visual/` |
 | `developer` | Manifest/contract/organ development and maintenance smoke route | planned |
 
 Do not add all of these to `sword.ps1` at once. First make them documentation
 and validation concepts; add front-door commands only when their safety and
 reader/enforcement behavior is stable.
+
+Self Mirror routes must also stay discoverable to system readers. The
+machine-readable map for Thought Core, diagnostics, and review agents is
+`runtime/visual-motion-analyzer/self-mirror-consumer-routes.json`. It points to
+the supported scenarios, result authority file, proof ceiling, stop conditions,
+and non-claims. It is a reader surface, not an execution authority.
 
 ## AITuber OnAir Comparison Takeaways
 

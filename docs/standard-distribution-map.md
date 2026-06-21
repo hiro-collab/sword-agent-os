@@ -36,6 +36,7 @@ debug tree や coordination history ではなく、標準構成の地図です�
 | 家電 action を 1 つ増やすには | `docs/add-home-device.md` |
 | Home Assistant を no-live で確認するには | `examples/starter-profiles/home-control-preview/README.md` |
 | 声 / アバターを no-live で確認するには | `examples/starter-profiles/voice-avatar/README.md` |
+| アバターの表示、表情、ダンス可視 motion を確認するには | `examples/starter-profiles/projection-visual/README.md` |
 | 実装はどこに入るか | `Organ Checkout Map` |
 | 何が正本か | `Manifest And Pin Authority` |
 | 何を証明していないか | `Proof Layers` |
@@ -314,6 +315,13 @@ After no-live readiness, start the launcher:
 
 Then use Launch Manager to wait for expected services and open Projection Visual
 or AITuber UI.
+
+For browser-visible avatar motion, use the Projection Visual starter profile:
+`examples/starter-profiles/projection-visual/README.md`. It connects the normal
+runtime/browser route to Self Mirror scenarios such as `context_nod`,
+`expression_visible_change`, and `dance_visible_motion`. The system-readable
+route map for Thought Core and diagnostics is
+`runtime/visual-motion-analyzer/self-mirror-consumer-routes.json`.
 
 Runtime/browser proof should report:
 
