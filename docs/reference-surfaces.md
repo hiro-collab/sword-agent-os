@@ -1,0 +1,104 @@
+# Reference Surfaces
+
+<!-- reference-surfaces:overview -->
+
+A reference surface is a small, contracted reader-facing object that product
+code, Thought Core, diagnostics, or review tools can use to understand what a
+feature can read, run, or interpret. It is not a chat note, README-only table,
+private coordination packet, raw log, or hidden generated file.
+
+Use this page when a developer wants to add a new value that source code or
+system readers can reference later.
+
+## What Counts
+
+| Need | Preferred shape | Example |
+| --- | --- | --- |
+| Result authority packet | `contracts/<name>/<name>.v0.schema.json` plus generated/read output | `self_mirror_metric_summary.v0` |
+| Route or discovery map | owner-local JSON with `$schema`, `schema_version`, and `contract_ref` | `runtime/visual-motion-analyzer/self-mirror-consumer-routes.json` |
+| Current-state projection | `runtime/status-store/` projection with event/evidence refs | body/current environment status |
+| Historical/event handoff | `event_ingest.v0` or event-journal summary | normalized observation event |
+| Static selection | `manifests/` or template/config source with redacted examples | standard distribution organ pin |
+
+If another component will read it, give it a contract or point it to an
+existing contract. If only humans read it, keep it in docs or a starter profile.
+
+## Add A New Reference Surface
+
+<!-- reference-surfaces:add-new-reference -->
+
+Use this checklist before adding source code that reads a new value:
+
+1. Name the owner plane in `docs/architecture.md`: front door, configuration,
+   runtime control, proof/verification, module/organ, or coordination.
+2. Name the consumers: Thought Core, Action Boundary, diagnostics, status
+   store, event journal, review agents, human operators, or a specific organ.
+3. Create or reuse a contract under `contracts/<name>/<name>.v0.schema.json`.
+   The contract must define `schema_version`, reader intent, required fields,
+   redaction flags, non-claims, and whether it is command authority.
+4. Put the actual reader surface under the owning implementation area, not in
+   coordination. For JSON maps, include `$schema`, `schema_version`, and
+   `contract_ref`.
+5. Link a human entrypoint when operators need one, such as a starter profile or
+   how-to doc. The human doc explains the journey; the contract defines what
+   code can rely on.
+6. Add the smallest maintenance assertion that prevents drift: path present,
+   contract listed, `contract_ref` present, critical boundary booleans, and key
+   non-claims.
+7. Validate the exact path set with `git diff --check` and
+   `scripts/test-distribution-maintenance.ps1 -SkipFreshClone`.
+
+Do not make a new reference value by copying raw local paths, raw logs, private
+Home Assistant ids, raw screenshots, transcripts, provider payloads, or
+generated local config into tracked files.
+
+## Thought Core Consumption
+
+<!-- reference-surfaces:thought-core-consumption -->
+
+Thought Core may consume contracted reference surfaces as compact context. It
+must not treat them as execution authority unless the contract explicitly routes
+through `action_request.v0`, Action Boundary, and the selected driver.
+
+Rules for Thought Core and similar system readers:
+
+- read contracted packets, route maps, or status projections;
+- prefer `contract_ref` and `schema_version` over path-name guessing;
+- use result authority packets for proof claims, not supporting charts or logs;
+- keep retry, correction, issue closure, and release/readiness authority outside
+  observation-only surfaces;
+- stop if the only way to explain a value is to expose raw media, raw prompts,
+  private paths, secrets, provider payloads, or raw Home Assistant identifiers.
+
+## Self Mirror Example
+
+<!-- reference-surfaces:self-mirror-example -->
+
+Self Mirror now uses two related reference surfaces:
+
+- `contracts/self_mirror_consumer_routes/self_mirror_consumer_routes.v0.schema.json`
+  defines the route/discovery map that Thought Core, diagnostics, review agents,
+  and operators may read.
+- `runtime/visual-motion-analyzer/self-mirror-consumer-routes.json` is the
+  owner-local route map. It carries `$schema`, `schema_version`, and
+  `contract_ref`, points to the starter profile, names supported scenarios,
+  names `self_mirror_metric_summary.json` as the result authority, and keeps
+  observation-only boundaries explicit.
+- `contracts/self_mirror_metric_summary/self_mirror_metric_summary.v0.schema.json`
+  defines the result authority packet. This is the packet to use for proof
+  wording after a Self Mirror run.
+
+The route map helps a reader choose and interpret Self Mirror checks. It does
+not dispatch correction, run another route, close an issue, claim release
+readiness, or prove physical projector output.
+
+## Smells
+
+- A runtime reader parses prose from README instead of a contracted file.
+- A value exists only in private coordination messages.
+- A JSON map has `schema_version` but no contract under `contracts/`.
+- A discovery map becomes command authority.
+- A result packet and a how-to guide duplicate the same data without a single
+  contract authority.
+- A proof layer is inferred from a helper command name instead of an authority
+  packet.

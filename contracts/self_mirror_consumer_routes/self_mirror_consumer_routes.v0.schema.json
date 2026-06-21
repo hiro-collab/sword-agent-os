@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/self_mirror_consumer_routes.v0.schema.json",
+  "title": "Self Mirror Consumer Routes v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "contract_ref",
+    "id",
+    "purpose",
+    "human_entrypoint",
+    "implementation_readme",
+    "scenario_catalog",
+    "runner",
+    "result_authority_file",
+    "result_package_files",
+    "intended_readers",
+    "global_boundaries",
+    "routes",
+    "stop_conditions",
+    "consumer_guidance"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "self_mirror_consumer_routes.v0"
+    },
+    "contract_ref": {
+      "const": "contracts/self_mirror_consumer_routes/self_mirror_consumer_routes.v0.schema.json"
+    },
+    "id": {
+      "const": "self-mirror-consumer-routes"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "human_entrypoint": {
+      "type": "string",
+      "pattern": "^examples/starter-profiles/projection-visual/README\\.md$"
+    },
+    "implementation_readme": {
+      "type": "string",
+      "pattern": "^runtime/visual-motion-analyzer/README\\.md$"
+    },
+    "scenario_catalog": {
+      "type": "string",
+      "pattern": "^runtime/visual-motion-analyzer/self-mirror-scenarios\\.json$"
+    },
+    "runner": {
+      "type": "string",
+      "pattern": "^scripts/run-self-mirror-proof\\.ps1$"
+    },
+    "result_authority_file": {
+      "const": "self_mirror_metric_summary.json"
+    },
+    "result_package_files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "contains": {
+        "const": "self_mirror_metric_summary.json"
+      }
+    },
+    "intended_readers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "human_operator",
+          "thought_core",
+          "diagnostics",
+          "status_store",
+          "event_journal",
+          "review_agent"
+        ]
+      },
+      "contains": {
+        "const": "thought_core"
+      }
+    },
+    "global_boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_only",
+        "direct_correction_dispatch",
+        "home_assistant_action",
+        "provider_call",
+        "microphone_or_camera_input",
+        "physical_display_proof",
+        "raw_frames_shared",
+        "raw_screenshot_shared",
+        "raw_transcript_shared",
+        "provider_payload_shared",
+        "private_path_shared"
+      ],
+      "properties": {
+        "observation_only": {
+          "const": true
+        },
+        "direct_correction_dispatch": {
+          "const": false
+        },
+        "home_assistant_action": {
+          "const": false
+        },
+        "provider_call": {
+          "const": false
+        },
+        "microphone_or_camera_input": {
+          "const": false
+        },
+        "physical_display_proof": {
+          "const": false
+        },
+        "raw_frames_shared": {
+          "const": false
+        },
+        "raw_screenshot_shared": {
+          "const": false
+        },
+        "raw_transcript_shared": {
+          "const": false
+        },
+        "provider_payload_shared": {
+          "const": false
+        },
+        "private_path_shared": {
+          "const": false
+        }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "route_id",
+          "mode",
+          "scenario_key",
+          "trigger",
+          "command_template",
+          "proof_layer",
+          "preconditions",
+          "accept_result",
+          "does_not_prove"
+        ],
+        "properties": {
+          "route_id": {
+            "type": "string",
+            "pattern": "^self_mirror\\.(synthetic|browser)\\.[a-z0-9_]+$"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "Synthetic",
+              "Browser"
+            ]
+          },
+          "scenario_key": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          },
+          "trigger": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]+$"
+          },
+          "command_template": {
+            "type": "string",
+            "minLength": 1
+          },
+          "proof_layer": {
+            "type": "string",
+            "enum": [
+              "source_static_self_mirror_method",
+              "browser_visible_avatar_motion_self_mirror"
+            ]
+          },
+          "preconditions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "accept_result": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "does_not_prove": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9_./-]+$"
+            }
+          }
+        }
+      }
+    },
+    "stop_conditions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "consumer_guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "thought_core",
+        "diagnostics",
+        "human_operator"
+      ],
+      "properties": {
+        "thought_core": {
+          "type": "string",
+          "minLength": 1
+        },
+        "diagnostics": {
+          "type": "string",
+          "minLength": 1
+        },
+        "human_operator": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -82,7 +82,12 @@ Self Mirror routes must also stay discoverable to system readers. The
 machine-readable map for Thought Core, diagnostics, and review agents is
 `runtime/visual-motion-analyzer/self-mirror-consumer-routes.json`. It points to
 the supported scenarios, result authority file, proof ceiling, stop conditions,
-and non-claims. It is a reader surface, not an execution authority.
+and non-claims. It uses
+`contracts/self_mirror_consumer_routes/self_mirror_consumer_routes.v0.schema.json`
+and carries `contract_ref`. It is a reader surface, not an execution authority.
+
+For new machine-readable reader surfaces, use `docs/reference-surfaces.md`
+before adding source code that depends on the value.
 
 ## AITuber OnAir Comparison Takeaways
 

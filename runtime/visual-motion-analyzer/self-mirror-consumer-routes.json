@@ -1,5 +1,7 @@
 {
+  "$schema": "https://sword-agent-os.local/contracts/self_mirror_consumer_routes.v0.schema.json",
   "schema_version": "self_mirror_consumer_routes.v0",
+  "contract_ref": "contracts/self_mirror_consumer_routes/self_mirror_consumer_routes.v0.schema.json",
   "id": "self-mirror-consumer-routes",
   "purpose": "Stable discovery surface for operators, Thought Core, diagnostics, and review agents that need to understand how Self Mirror visible-motion checks are run and what they prove.",
   "human_entrypoint": "examples/starter-profiles/projection-visual/README.md",

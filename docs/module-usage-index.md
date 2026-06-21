@@ -44,6 +44,7 @@ adding a new module or route.
 | Deterministic action guard | `runtime/action-boundary/` | Thought Core semantic reasoning |
 | Display-safe body frames | `runtime/body-display-projection/` | raw logs, raw prompts, raw camera frames |
 | Avatar/body motion indicators | `runtime/motion-runtime/` | direct appliance execution or raw driver routes |
+| Machine-readable reader/discovery surfaces | `contracts/` plus an owner-local JSON/output with `contract_ref` | README-only tables or coordination messages |
 
 ## Runtime vs Diagnostics
 
@@ -161,6 +162,7 @@ This path must stay separate from the action path:
 | Work | Preferred location |
 | --- | --- |
 | New cross-organ data format | `contracts/<name>/<name>.v0.schema.json` |
+| New value that Thought Core, diagnostics, or source code should read | `docs/reference-surfaces.md`, then `contracts/<name>/<name>.v0.schema.json` plus owner-local reader surface with `contract_ref` |
 | New organ role or body role | `manifests/body-plans/` |
 | New executable action or driver adapter | `manifests/driver-manifests/` |
 | Legacy name compatibility | `manifests/compat-aliases/` |
@@ -172,6 +174,25 @@ This path must stay separate from the action path:
 | Organ capability tests | `runtime/organ-test-packs/` and `manifests/tests/organ-test-packs/` |
 | Launch/control-plane UI | `control-plane/` |
 | Organ implementation code | nested repos under `organs/`, sourced by `manifests/organs/` |
+
+## Adding A Reader Surface
+
+Use `docs/reference-surfaces.md` when a developer wants to make a new value
+readable by Thought Core, diagnostics, review agents, or another source module.
+The short rule is: contract first, owner-local surface second, code reader
+third.
+
+1. Decide whether the value is a result packet, route/discovery map,
+   current-state projection, event handoff, or static selection.
+2. Add or reuse a schema in `contracts/`.
+3. Put the concrete JSON/output under the owner that produces it, with
+   `$schema`, `schema_version`, and `contract_ref`.
+4. Add a human entrypoint only when an operator needs one.
+5. Add maintenance assertions for path, contract listing, boundary booleans,
+   non-claims, and the expected consumer names.
+
+Do not teach Thought Core to scrape README prose, raw logs, generated local
+config, screenshots, transcripts, or coordination messages.
 
 ## Safety Defaults
 

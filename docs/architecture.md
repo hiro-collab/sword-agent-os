@@ -22,7 +22,7 @@ recently failed. It should be organized around six stable planes:
 | Configuration | Local inputs, selected profiles, provider/model choices, Home Assistant config selection | `docs/local-configuration.md`, `docs/home-assistant-setup.md`, templates under `templates/` and organ `.env.example` files | Live permission, proof claims, raw secrets in tracked files |
 | Runtime Control | Stop/hold/pause/approval vocabulary and marker semantics | `runtime/control/README.md`, `sword.ps1 hold-live` | Complete service-level enforcement until readers exist and are tested |
 | Proof And Verification | What each check proves and does not prove | `docs/proof-layers.md`, `docs/live-home-control-proof.md`, verification reports | Physical proof from HA state alone, release/readiness approval |
-| Module / Organ Architecture | Where code belongs and how nested organs are selected/pinned | `docs/module-usage-index.md`, `manifests/`, `contracts/`, `runtime/` | User-facing quick-start or private coordination history |
+| Module / Organ Architecture | Where code belongs, how nested organs are selected/pinned, and how system-readable reference surfaces are contracted | `docs/module-usage-index.md`, `docs/reference-surfaces.md`, `manifests/`, `contracts/`, `runtime/` | User-facing quick-start or private coordination history |
 | Coordination / Governance | Review routing, role messages, temporary decisions, handoffs | workspace-level `coordination/shared`, `governance/` for durable product decisions | Product source behavior unless adopted through exact product diff |
 
 If a new document or script crosses more than two planes, it is a design smell.
@@ -88,6 +88,7 @@ proof-layer requirements that typical web-app patterns do not cover.
 | CheckState | State matcher for current/post-action/post-restore HA-visible state. It is not physical proof by itself | `docs/proof-layers.md`, `docs/live-home-control-proof.md` |
 | proof layer | A named evidence ceiling such as source/static, no-live readiness, preview, dry-run, command submission, HA-visible CheckState, external observation, or physical/device proof | `docs/proof-layers.md` |
 | route | A bounded task packet with target, allowed actions, counts, stop conditions, evidence fields, and non-claims | `docs/live-home-control-proof.md` |
+| reference surface | A contracted machine-readable value, packet, or map that Thought Core, diagnostics, review tools, or source code can read without private chat history | `docs/reference-surfaces.md`, `contracts/` |
 | ticket | Explicit live-route authority for one bounded target/action scope. It is not inferred from config, docs, or readiness | `docs/live-home-control-proof.md` |
 | HOLD_LIVE | A local marker and route gate that keeps live work out of scope until a later exact route opens it | `runtime/control/README.md` |
 | release-ready | A final product/readiness classification after required evidence and reviews, not a synonym for install/pass/local smoke | future release/readiness docs plus review packets |
@@ -145,6 +146,8 @@ Treat these as active review smells:
   proof context.
 - Generated ignored files become the only place a fresh developer can discover
   required config shape.
+- A system reader depends on a new value that has no contract, no `contract_ref`,
+  or no owner-local reference surface.
 - Coordination messages become the only record of product behavior.
 - Tests assert long prose sentences instead of stable anchors or structured
   responsibility markers.

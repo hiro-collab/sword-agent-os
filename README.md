@@ -36,7 +36,9 @@ Sword Agent OS は、AI エージェントを「思考」「反射」「環境�
 5. `docs/standard-distribution-map.md` で標準構成、local-only 資材、
    proof layer、live 操作境界を見る。
 6. `docs/module-usage-index.md` で「変更をどこに入れるか」を決める。
-7. 実装を触る前に、`manifests/`、`contracts/`、`runtime/`、
+7. 新しい値を Thought Core や診断が読むなら
+   `docs/reference-surfaces.md` で contract / `contract_ref` / 読み手を決める。
+8. 実装を触る前に、`manifests/`、`contracts/`、`runtime/`、
    `organs/` のどれの責任かを分ける。
 
 迷ったら、まず `manifests/distributions/standard.json` が標準構成、
@@ -94,6 +96,7 @@ scope のもとで `-Run` を明示します。
 | `docs/customize.md` | LLM、声、アバター、Home Assistant action など、変更したい目的から触る場所を探す |
 | `docs/capability-packs.md` | chat/thought、voice、avatar、home-control など、利用者から見える機能単位の地図 |
 | `docs/architecture.md` | Front Door / Configuration / Runtime Control / Proof / Module / Coordination の責任分界と用語の正本 |
+| `docs/reference-surfaces.md` | Thought Core、診断、review agent が読む機械可読な参照面の追加手順 |
 | `docs/home-assistant-setup.md` | Home Assistant を外部環境につなぐ時の config context / full-schema checklist |
 | `docs/add-home-device.md` | 家電 action を 1 つ追加する時の初心者向け順路 |
 | `docs/proof-layers.md` | source/static、runtime、HA state、external、physical の区別 |

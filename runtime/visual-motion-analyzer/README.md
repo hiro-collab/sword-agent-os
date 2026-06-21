@@ -9,7 +9,11 @@ For normal operator use, start from
 `examples/starter-profiles/projection-visual/README.md`. This README remains
 the implementation reference. System readers such as Thought Core, diagnostics,
 and review agents should discover supported routes through
-`runtime/visual-motion-analyzer/self-mirror-consumer-routes.json`.
+`runtime/visual-motion-analyzer/self-mirror-consumer-routes.json`. That route
+map uses
+`contracts/self_mirror_consumer_routes/self_mirror_consumer_routes.v0.schema.json`
+and carries `contract_ref`, so source readers do not need to scrape README prose
+or private coordination messages.
 
 Self Mirror is the visual QA lane for checking whether the agent's body is
 actually visible on screen. It is meant to support VRM motion, Projection

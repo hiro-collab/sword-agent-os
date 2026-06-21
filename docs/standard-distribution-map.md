@@ -37,6 +37,7 @@ debug tree や coordination history ではなく、標準構成の地図です�
 | Home Assistant を no-live で確認するには | `examples/starter-profiles/home-control-preview/README.md` |
 | 声 / アバターを no-live で確認するには | `examples/starter-profiles/voice-avatar/README.md` |
 | アバターの表示、表情、ダンス可視 motion を確認するには | `examples/starter-profiles/projection-visual/README.md` |
+| Thought Core や診断が読む参照値を増やすには | `docs/reference-surfaces.md` |
 | 実装はどこに入るか | `Organ Checkout Map` |
 | 何が正本か | `Manifest And Pin Authority` |
 | 何を証明していないか | `Proof Layers` |

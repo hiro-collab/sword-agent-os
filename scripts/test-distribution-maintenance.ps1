@@ -492,6 +492,7 @@ function Test-ReadmeFirstRunGuidance {
     "docs\customize.md",
     "docs\capability-packs.md",
     "docs\architecture.md",
+    "docs\reference-surfaces.md",
     "docs\add-home-device.md",
     "docs\proof-layers.md",
     "docs\manifest-ledger-authority.md",
@@ -632,6 +633,11 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "examples/starter-profiles/_template\.md" -Message "capability/architecture docs should point starter profiles to the template"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "required sections are Goal,\s+Safe\s+Route,\s+Result Fields,\s+Stop Conditions,\s+and Does Not Prove" -Message "front-door docs should preserve the starter profile required section set"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "read-only/helper readiness[\s\S]{0,140}Home Assistant preview endpoint proof|Home Assistant preview endpoint proof[\s\S]{0,140}read-only/helper readiness" -Message "front-door docs should separate readiness preview wording from HA preview endpoint proof"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "reference-surfaces:overview" -Message "front-door docs should include reference surface guidance"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "reference-surfaces:add-new-reference" -Message "reference surface docs should anchor the add-new-reference procedure"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "contract_ref" -Message "reference surface docs should require contract_ref for reader surfaces"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Thought Core[\s\S]{0,180}contracted reference surfaces" -Message "reference surface docs should explain Thought Core consumption"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "新しい参照値|reference surface" -Message "front-door docs should expose reference surfaces as a developer route"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Core Body Pack" -Message "capability pack docs should name the core body pack"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Home Control Pack" -Message "capability pack docs should name the Home Control pack"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Agent Worker Pack" -Message "capability pack docs should keep future agent worker work separate"
@@ -679,6 +685,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $standardDistributionMap -Pattern "manifest validation[\s\S]{0,160}strict pin check[\s\S]{0,160}launch" -Message "standard distribution map should explain what sword.ps1 verify already covers"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/home-assistant-setup\.md" -Message "standard distribution map should point external HA setup to the setup guide"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/capability-packs\.md" -Message "standard distribution map should point feature selection to capability packs"
+  Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/reference-surfaces\.md" -Message "standard distribution map should point system-readable values to reference surfaces"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/add-home-device\.md" -Message "standard distribution map should point home-device additions to the beginner guide"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "examples/starter-profiles/voice-avatar/README\.md" -Message "standard distribution map should point voice/avatar no-live setup to the voice/avatar starter"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "examples/starter-profiles/projection-visual/README\.md" -Message "standard distribution map should point avatar visible-motion setup to the Projection Visual starter"
@@ -711,12 +718,22 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $projectionVisualStarter -Pattern "semantic dance quality[\s\S]{0,180}physical projector proof|physical projector proof[\s\S]{0,180}semantic dance quality" -Message "Projection Visual starter should avoid overclaiming semantic dance or physical projector proof"
   Assert-TextMatch -Text $projectionVisualStarter -Pattern "raw screenshots[\s\S]{0,160}raw browser frames[\s\S]{0,160}provider payloads[\s\S]{0,160}transcripts" -Message "Projection Visual starter should preserve raw/private/media boundaries"
   $selfMirrorConsumerRoutes = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "runtime\visual-motion-analyzer\self-mirror-consumer-routes.json")
+  $selfMirrorConsumerRoutesSchemaPath = Join-Path $RepoRoot "contracts\self_mirror_consumer_routes\self_mirror_consumer_routes.v0.schema.json"
+  Assert-PathPresent -Path $selfMirrorConsumerRoutesSchemaPath
+  $selfMirrorConsumerRoutesSchema = Get-Content -Raw -LiteralPath $selfMirrorConsumerRoutesSchemaPath
+  $contractsReadme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "contracts\README.md")
   Assert-TextMatch -Text $selfMirrorConsumerRoutes -Pattern '"schema_version"\s*:\s*"self_mirror_consumer_routes\.v0"' -Message "Self Mirror consumer route map should have a schema version"
+  Assert-TextMatch -Text $selfMirrorConsumerRoutes -Pattern '"contract_ref"\s*:\s*"contracts/self_mirror_consumer_routes/self_mirror_consumer_routes\.v0\.schema\.json"' -Message "Self Mirror consumer route map should point to its contract"
   Assert-TextMatch -Text $selfMirrorConsumerRoutes -Pattern '"thought_core"' -Message "Self Mirror consumer route map should be discoverable by Thought Core"
   Assert-TextMatch -Text $selfMirrorConsumerRoutes -Pattern '"self_mirror\.browser\.dance_visible_motion"' -Message "Self Mirror consumer route map should include browser dance visible motion"
   Assert-TextMatch -Text $selfMirrorConsumerRoutes -Pattern '"result_authority_file"\s*:\s*"self_mirror_metric_summary\.json"' -Message "Self Mirror consumer route map should name the authority result file"
   Assert-TextMatch -Text $selfMirrorConsumerRoutes -Pattern '"observation_only"\s*:\s*true' -Message "Self Mirror consumer route map should keep observation-only boundary"
   Assert-TextMatch -Text $selfMirrorConsumerRoutes -Pattern '"physical_display_proof"\s*:\s*false' -Message "Self Mirror consumer route map should avoid physical display proof upgrade"
+  Assert-TextMatch -Text $selfMirrorConsumerRoutesSchema -Pattern '"schema_version"\s*:\s*\{[\s\S]{0,80}"const"\s*:\s*"self_mirror_consumer_routes\.v0"' -Message "Self Mirror consumer route schema should define schema version"
+  Assert-TextMatch -Text $selfMirrorConsumerRoutesSchema -Pattern '"contract_ref"\s*:\s*\{[\s\S]{0,140}"const"\s*:\s*"contracts/self_mirror_consumer_routes/self_mirror_consumer_routes\.v0\.schema\.json"' -Message "Self Mirror consumer route schema should lock contract_ref"
+  Assert-TextMatch -Text $selfMirrorConsumerRoutesSchema -Pattern '"intended_readers"[\s\S]{0,800}"const"\s*:\s*"thought_core"' -Message "Self Mirror consumer route schema should require Thought Core discoverability"
+  Assert-TextMatch -Text $contractsReadme -Pattern "self_mirror_consumer_routes/self_mirror_consumer_routes\.v0\.schema\.json" -Message "Contracts README should list Self Mirror consumer routes"
+  Assert-TextMatch -Text $contractsReadme -Pattern "docs/reference-surfaces\.md" -Message "Contracts README should point developers to reference-surface procedure"
   $homeControlPreviewStarter = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\home-control-preview\README.md")
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "starter-profile:home-control-preview" -Message "Home Control preview starter should have a stable anchor"
   Assert-TextMatch -Text $homeControlPreviewStarter -Pattern "read-only readiness route[\s\S]{0,180}not Home Assistant preview[\s\S]{0,40}proof" -Message "Home Control preview starter should distinguish readiness from HA preview proof"

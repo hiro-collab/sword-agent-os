@@ -75,11 +75,40 @@ against these shapes at the boundary.
   storage row and defaults to `safe_to_act=false`.
   - Example:
     `motion_memory_candidate/examples/rr003-repeated-mismatch-candidate.example.json`
+- `visual_motion_analysis/visual_motion_analysis.v0.schema.json`: visual motion
+  analyzer input/result boundary for redacted ROI/time-window analysis.
+  - Examples:
+    `visual_motion_analysis/examples/rr003-smile-visual-motion.example.json`,
+    `visual_motion_analysis/examples/rr003-idle-reset-visual-motion.example.json`
+- `self_mirror_metric_summary/self_mirror_metric_summary.v0.schema.json`:
+  reader-safe Self Mirror result authority packet for Thought Core,
+  diagnostics, review agents, and status summaries. It keeps retry hints,
+  latest state, observation queue, diagnostics, raw-media flags, and non-claims
+  separate from command authority.
+  - Example:
+    `self_mirror_metric_summary/examples/context_nod.summary.example.json`
+- `self_mirror_consumer_routes/self_mirror_consumer_routes.v0.schema.json`:
+  machine-readable discovery map for Self Mirror consumer routes. It points
+  readers to supported scenarios, result authority, proof ceilings, stop
+  conditions, and non-claims. It is not execution authority.
+- `self_mirror_reference_case/self_mirror_reference_case.v0.schema.json`:
+  redacted calibration/reference case shape for Self Mirror automatic judgment.
+  - Example:
+    `self_mirror_reference_case/examples/dance_visible_motion.reference.example.json`
+- `self_mirror_auto_judgment_profile/self_mirror_auto_judgment_profile.v0.schema.json`:
+  scenario-specific automatic judgment threshold/reference profile for Self
+  Mirror summaries.
+  - Example:
+    `self_mirror_auto_judgment_profile/examples/dance_visible_motion.profile.example.json`
 
 ## Rules
 
 - New runtime code should depend on canonical contract names, not legacy service
   labels.
+- New values that Thought Core, diagnostics, review agents, or source code read
+  should follow `docs/reference-surfaces.md`: schema in `contracts/`, concrete
+  owner-local surface with `schema_version` and `contract_ref`, then code
+  reader.
 - Legacy names belong in compatibility aliases, not in primary ids.
 - Contracts should avoid local paths, secrets, raw logs, raw prompts, raw media,
   or unredacted user content.

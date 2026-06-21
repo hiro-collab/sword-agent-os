@@ -29,6 +29,7 @@ local machine paths in tracked files.
 | 構成や用語の責任分界を知りたい | Front Door / Configuration / Proof / Runtime Control / Module / Coordination | `docs/architecture.md` |
 | どこまで動いたと言えるか確認したい | report の proof layer label | `docs/proof-layers.md` |
 | organ / module を差し替えたい | manifest、contract、organ folder | `docs/module-usage-index.md` |
+| Thought Core や診断が読む新しい参照値を増やしたい | contract と owner-local reference surface | `docs/reference-surfaces.md` |
 
 ## Home Assistant Config Rule
 
