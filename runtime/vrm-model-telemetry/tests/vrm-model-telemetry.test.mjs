@@ -16,6 +16,15 @@ const schema = JSON.parse(
     "utf8",
   ),
 );
+const boneBaselineExample = JSON.parse(
+  fs.readFileSync(
+    new URL(
+      "../../../contracts/vrm_model_telemetry/examples/rr003-bone-baseline.telemetry.example.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+);
 
 test("builds a full-relaxed expression telemetry packet from runtime diagnostics", () => {
   const payload = buildVrmModelTelemetrySummary({
@@ -141,4 +150,21 @@ test("the committed schema still locks the expected telemetry constants", () => 
     schema.$defs.safety.properties.roi_or_threshold_authority.const,
     false,
   );
+});
+
+test("the committed bone/basis fixture stays summary-only and bounded", () => {
+  assert.deepEqual(validateVrmModelTelemetrySummary(boneBaselineExample), []);
+  assert.equal(
+    boneBaselineExample.sample_window.clock_kind,
+    "relative_monotonic_elapsed",
+  );
+  assert.equal(
+    boneBaselineExample.sample_window.t0_event,
+    "first_accepted_sample_after_runtime_vrm_scene_ready_and_sampler_armed",
+  );
+  assert.equal(boneBaselineExample.capture.detail_export_enabled, false);
+  assert.equal(boneBaselineExample.caps.max_shared_sample_count, 240);
+  assert.equal(boneBaselineExample.redaction.raw_bvh_shared, false);
+  assert.equal(boneBaselineExample.redaction.raw_transform_trace_shared, false);
+  assert.equal(boneBaselineExample.safety.self_mirror_authority, false);
 });

@@ -201,6 +201,19 @@ System readers should use
 `runtime/vrm-model-telemetry/vrm-model-telemetry-consumer-routes.json` instead
 of scraping README prose or private runtime internals.
 
+Bone/basis diagnostics belong in the same public VRM Model Telemetry module,
+but should remain an optional internal sampler path. A future recorder must be
+off by default, bounded, summary-first, and explicit about diagnostic mode
+before detailed time-series artifacts are retained. The first canonical tracks
+are `head`, `neck`, `spine`, and `body_root`; eyes, gaze, and mouth should stay
+expression/lookAt summaries unless a selected VRM proves stable track support.
+
+Timebase fields must be contract-visible when bone/basis telemetry is compared
+with Self Mirror: relative monotonic clock kind, t0 definition, trigger offset,
+baseline window, Self Mirror-style window map, stop reason, target/effective
+cadence, and dropped/late sample counts. A telemetry-only sample window is not
+enough to infer visible proof.
+
 Do not use this surface to claim browser-visible Self Mirror pass, semantic
 expression correctness, physical/projector proof, ROI or threshold authority,
 command authority, release readiness, or final RR003 pass. For visible motion,

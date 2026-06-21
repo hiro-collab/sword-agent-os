@@ -117,6 +117,22 @@ changed over time. It cannot say that the browser visibly changed, that the
 expression was semantically correct, that the physical display/projector showed
 the effect, or that ROI/thresholds should be changed.
 
+Bone/basis telemetry stays inside this same VRM Model Telemetry surface. A
+future recorder should be opt-in and should publish a summary packet with
+relative monotonic timing, `t0_event`, trigger offset, baseline/window map,
+stop reason, cadence/cap fields, normalized/shared pose class, allow-listed
+tracks, and redaction/non-claim flags. Detailed per-frame transforms,
+quaternions, raw poses, BVH/full-skeleton dumps, rest poses, raw node names,
+and model asset names are not public reference surfaces.
+
+When `vrm_model_telemetry_summary.json` says model-state changed but
+`self_mirror_metric_summary.json` says the browser-visible authority ROI stayed
+static, keep the result split:
+
+```text
+model-state diagnostic only / Self Mirror no-pass hold
+```
+
 ## Smells
 
 - A runtime reader parses prose from README instead of a contracted file.

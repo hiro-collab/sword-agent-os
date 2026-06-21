@@ -72,6 +72,8 @@ against these shapes at the boundary.
   RR003 proof.
   - Example:
     `vrm_model_telemetry/examples/rr003-expression-full-relaxed.telemetry.example.json`
+  - Bone/basis example:
+    `vrm_model_telemetry/examples/rr003-bone-baseline.telemetry.example.json`
 - `vrm_model_telemetry_consumer_routes/vrm_model_telemetry_consumer_routes.v0.schema.json`:
   machine-readable discovery map for the VRM Model Telemetry module. It points
   readers to the module boundary, organ scaffold, result contract, result
@@ -148,6 +150,12 @@ against these shapes at the boundary.
   Mirror pass, expression-visible pass, semantic expression correctness,
   physical/projector proof, ROI/threshold authority, command authority, or
   release/readiness/final RR003 approval.
+- VRM bone/basis telemetry must stay opt-in, off by default, bounded,
+  summary-first, and based on relative monotonic elapsed timing. Shared output
+  should use normalized/shared pose or bucket classes, not raw BVH, full
+  skeleton dumps, raw per-frame transforms/quaternions, raw poses, rest poses,
+  raw node names, model asset names, private paths, or unbounded append
+  captures.
 - RR003 `action_indicator` motion exists to show what the avatar/agent is
   operating or attending to, such as pointing toward a display-safe appliance
   target during action execution or feedback checking. It may reference safe

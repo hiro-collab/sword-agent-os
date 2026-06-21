@@ -38,6 +38,15 @@
     "sample_window": {
       "$ref": "#/$defs/sample_window"
     },
+    "capture": {
+      "$ref": "#/$defs/capture"
+    },
+    "caps": {
+      "$ref": "#/$defs/caps"
+    },
+    "detailed_artifacts": {
+      "$ref": "#/$defs/detailed_artifacts"
+    },
     "series": {
       "type": "array",
       "minItems": 1,
@@ -150,6 +159,101 @@
             "event_edges",
             "bucketed"
           ]
+        },
+        "clock_source": {
+          "type": "string",
+          "enum": [
+            "browser_performance_now",
+            "raf_timestamp_elapsed",
+            "runtime_monotonic_elapsed"
+          ]
+        },
+        "clock_kind": {
+          "const": "relative_monotonic_elapsed"
+        },
+        "timebase_epoch": {
+          "type": "string",
+          "enum": [
+            "sampler_first_accepted_sample_after_readiness"
+          ]
+        },
+        "t0_event": {
+          "type": "string",
+          "enum": [
+            "first_accepted_sample_after_runtime_vrm_scene_ready_and_sampler_armed"
+          ]
+        },
+        "elapsed_ms_unit": {
+          "const": "ms"
+        },
+        "trigger_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "trigger_dispatched_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "baseline_kind": {
+          "type": "string",
+          "enum": [
+            "pretrigger_window_mean",
+            "first_sample",
+            "neutral_idle_reference",
+            "none"
+          ]
+        },
+        "baseline_window": {
+          "$ref": "#/$defs/window"
+        },
+        "window_map": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/labeled_window"
+          }
+        },
+        "sampler_mode": {
+          "type": "string",
+          "enum": [
+            "summary_only",
+            "diagnostic_summary",
+            "diagnostic_detailed_local"
+          ]
+        },
+        "target_fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "effective_fps_bucket": {
+          "type": "string",
+          "enum": [
+            "not_applicable",
+            "le_10",
+            "gt_10_le_15",
+            "gt_15_le_30",
+            "unknown"
+          ]
+        },
+        "stop_reason": {
+          "$ref": "#/$defs/stop_reason"
+        },
+        "early_stop": {
+          "type": "boolean"
+        },
+        "late_sample_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 240
+        },
+        "dropped_sample_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 240
         }
       }
     },
@@ -186,6 +290,113 @@
           "type": "string",
           "maxLength": 80,
           "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "basis_point_id": {
+          "type": "string",
+          "enum": [
+            "head",
+            "neck",
+            "spine",
+            "body_root",
+            "mouth",
+            "eyes",
+            "gaze",
+            "face"
+          ]
+        },
+        "root_track_id": {
+          "$ref": "#/$defs/track"
+        },
+        "coordinate_space": {
+          "type": "string",
+          "enum": [
+            "normalized_humanoid",
+            "raw_humanoid_local_only",
+            "driver_summary_bucket",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "pose_source_kind": {
+          "type": "string",
+          "enum": [
+            "normalized_pose",
+            "raw_pose_local_only",
+            "expression_manager",
+            "driver_summary",
+            "motion_mixer",
+            "source_static_fixture",
+            "unknown"
+          ]
+        },
+        "pose_space_class": {
+          "type": "string",
+          "enum": [
+            "normalized_shared",
+            "raw_local_only",
+            "summary_bucket",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "bone_access_mode": {
+          "type": "string",
+          "enum": [
+            "normalized_bone_node",
+            "normalized_pose",
+            "raw_bone_node_local_only",
+            "raw_pose_local_only",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "sample_phase": {
+          "type": "string",
+          "enum": [
+            "after_model_update",
+            "after_mixer_update",
+            "after_humanoid_update",
+            "driver_summary",
+            "source_static_fixture",
+            "unknown"
+          ]
+        },
+        "sample_after_update_class": {
+          "type": "string",
+          "enum": [
+            "post_update_required",
+            "post_update_observed",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "read_phase": {
+          "type": "string",
+          "enum": [
+            "post_apply_post_update",
+            "driver_summary",
+            "source_static_fixture",
+            "unknown"
+          ]
+        },
+        "animation_update_source": {
+          "type": "string",
+          "enum": [
+            "request_animation_frame",
+            "mixer_update",
+            "driver_result",
+            "source_static_fixture",
+            "unknown"
+          ]
+        },
+        "humanoid_update_applied": {
+          "type": "boolean"
+        },
+        "auto_update_human_bones_observed_or_configured": {
+          "type": "boolean"
+        },
+        "expression_source_kind": {
+          "$ref": "#/$defs/expression_source_kind"
         },
         "source": {
           "type": "string",
@@ -266,6 +477,43 @@
         },
         "dropped_channel_names": {
           "$ref": "#/$defs/safe_name_list"
+        },
+        "track_allowlist": {
+          "$ref": "#/$defs/track_list"
+        },
+        "unsupported_track_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 80
+        },
+        "missing_track_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 80
+        },
+        "unsupported_track_ids": {
+          "$ref": "#/$defs/track_list"
+        },
+        "missing_track_ids": {
+          "$ref": "#/$defs/track_list"
+        },
+        "unsupported_reason_codes": {
+          "$ref": "#/$defs/safe_name_list"
+        },
+        "expression_source_kind": {
+          "$ref": "#/$defs/expression_source_kind"
+        },
+        "model_capability_class": {
+          "type": "string",
+          "enum": [
+            "known_supported",
+            "partial_surface_dependent",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "alias_or_renamed_expression_map_used": {
+          "type": "boolean"
         },
         "track_summaries": {
           "type": "array",
@@ -355,6 +603,206 @@
         "pattern": "^[A-Za-z0-9_.:-]+$"
       }
     },
+    "track_list": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/track"
+      }
+    },
+    "expression_source_kind": {
+      "type": "string",
+      "enum": [
+        "vrm_expression_manager",
+        "vrm_expression_spec_value",
+        "alias_map",
+        "not_applicable",
+        "unknown"
+      ]
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_ms",
+        "end_ms"
+      ],
+      "properties": {
+        "start_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "end_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      }
+    },
+    "labeled_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "start_ms",
+        "end_ms"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": [
+            "pretrigger",
+            "active",
+            "release",
+            "late_watch",
+            "settle"
+          ]
+        },
+        "start_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "end_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      }
+    },
+    "stop_reason": {
+      "type": "string",
+      "enum": [
+        "duration_elapsed",
+        "sample_cap_reached",
+        "route_manual_abort",
+        "page_unload",
+        "runtime_stopped",
+        "runtime_join_missing",
+        "vrm_not_ready_timeout",
+        "scene_not_visible",
+        "capture_not_ready",
+        "trigger_not_dispatched",
+        "visibility_lost",
+        "config_rejected",
+        "unsupported_track",
+        "sampler_error",
+        "cleanup_redaction_failure"
+      ]
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_enabled",
+        "capture_mode",
+        "detail_export_enabled",
+        "export_behavior",
+        "shareability_class"
+      ],
+      "properties": {
+        "capture_enabled": {
+          "type": "boolean"
+        },
+        "capture_mode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "summary_only",
+            "diagnostic_summary",
+            "diagnostic_detailed_local"
+          ]
+        },
+        "detail_export_enabled": {
+          "type": "boolean"
+        },
+        "export_behavior": {
+          "type": "string",
+          "enum": [
+            "no_detailed_export",
+            "summary_only",
+            "local_only_diagnostic_artifact"
+          ]
+        },
+        "shareability_class": {
+          "type": "string",
+          "enum": [
+            "runtime_model_state_telemetry_summary",
+            "local_only_detailed_diagnostic"
+          ]
+        }
+      }
+    },
+    "caps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_duration_ms",
+        "max_fps",
+        "max_track_count",
+        "max_shared_sample_count"
+      ],
+      "properties": {
+        "max_duration_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "max_fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "max_track_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "max_shared_sample_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 240
+        },
+        "max_output_size_class": {
+          "type": "string",
+          "enum": [
+            "bounded_summary",
+            "local_only_diagnostic"
+          ]
+        }
+      }
+    },
+    "detailed_artifacts": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_name",
+          "shareability_class"
+        ],
+        "properties": {
+          "artifact_name": {
+            "type": "string",
+            "enum": [
+              "vrm_model_telemetry_timeseries.jsonl",
+              "vrm_model_telemetry_timeseries.csv",
+              "vrm_model_telemetry_chart.html"
+            ]
+          },
+          "shareability_class": {
+            "type": "string",
+            "enum": [
+              "filename_only",
+              "local_only"
+            ]
+          }
+        }
+      }
+    },
     "redaction": {
       "type": "object",
       "additionalProperties": false,
@@ -383,6 +831,21 @@
           "const": false
         },
         "raw_browser_storage_shared": {
+          "const": false
+        },
+        "raw_pose_shared": {
+          "const": false
+        },
+        "raw_transform_trace_shared": {
+          "const": false
+        },
+        "raw_bvh_shared": {
+          "const": false
+        },
+        "full_skeleton_shared": {
+          "const": false
+        },
+        "raw_node_name_shared": {
           "const": false
         }
       }

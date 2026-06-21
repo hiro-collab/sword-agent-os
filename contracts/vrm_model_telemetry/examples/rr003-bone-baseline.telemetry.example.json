@@ -1,0 +1,311 @@
+{
+  "schema_version": "vrm_model_telemetry.v0",
+  "telemetry_id": "vrm_tel_rr003_bone_baseline_001",
+  "captured_at": "2026-06-21T08:00:00Z",
+  "proof_ceiling": "runtime_model_state_telemetry_summary_only",
+  "correlation": {
+    "target_model_type": "vrm",
+    "motion_event_id": "mot_evt_rr003_bone_baseline_001",
+    "stimulus_instance_id": "mot_inst_rr003_bone_baseline_001",
+    "runtime_result_id": "mot_res_rr003_bone_baseline_001",
+    "driver_result_id": "mot_drv_rr003_bone_baseline_001",
+    "expression_profile_ref": "motion.runtime.vrm_expression_weights.v0",
+    "expression_profile_id": "expression_visible_default"
+  },
+  "sample_window": {
+    "start_ms": 0,
+    "end_ms": 6000,
+    "sample_count": 18,
+    "decimation": "bucketed",
+    "clock_source": "raf_timestamp_elapsed",
+    "clock_kind": "relative_monotonic_elapsed",
+    "timebase_epoch": "sampler_first_accepted_sample_after_readiness",
+    "t0_event": "first_accepted_sample_after_runtime_vrm_scene_ready_and_sampler_armed",
+    "elapsed_ms_unit": "ms",
+    "trigger_at_ms": 500,
+    "trigger_dispatched_at_ms": 500,
+    "baseline_kind": "pretrigger_window_mean",
+    "baseline_window": {
+      "start_ms": 0,
+      "end_ms": 500
+    },
+    "window_map": [
+      {
+        "label": "pretrigger",
+        "start_ms": 0,
+        "end_ms": 500
+      },
+      {
+        "label": "active",
+        "start_ms": 500,
+        "end_ms": 3000
+      },
+      {
+        "label": "release",
+        "start_ms": 3000,
+        "end_ms": 4500
+      },
+      {
+        "label": "settle",
+        "start_ms": 4500,
+        "end_ms": 6000
+      }
+    ],
+    "sampler_mode": "diagnostic_summary",
+    "target_fps": 15,
+    "effective_fps_bucket": "gt_10_le_15",
+    "stop_reason": "duration_elapsed",
+    "early_stop": false,
+    "late_sample_count": 0,
+    "dropped_sample_count": 0
+  },
+  "capture": {
+    "capture_enabled": true,
+    "capture_mode": "diagnostic_summary",
+    "detail_export_enabled": false,
+    "export_behavior": "summary_only",
+    "shareability_class": "runtime_model_state_telemetry_summary"
+  },
+  "caps": {
+    "max_duration_ms": 6000,
+    "max_fps": 15,
+    "max_track_count": 4,
+    "max_shared_sample_count": 240,
+    "max_output_size_class": "bounded_summary"
+  },
+  "detailed_artifacts": [
+    {
+      "artifact_name": "vrm_model_telemetry_timeseries.jsonl",
+      "shareability_class": "filename_only"
+    }
+  ],
+  "series": [
+    {
+      "series_id": "vrm_series_rr003_head_rotation_delta_001",
+      "track": "head",
+      "metric_kind": "bone_rotation_delta_bucket",
+      "basis_point_id": "head",
+      "root_track_id": "body_root",
+      "coordinate_space": "normalized_humanoid",
+      "pose_source_kind": "normalized_pose",
+      "pose_space_class": "normalized_shared",
+      "bone_access_mode": "normalized_bone_node",
+      "sample_phase": "after_humanoid_update",
+      "sample_after_update_class": "post_update_required",
+      "read_phase": "post_apply_post_update",
+      "animation_update_source": "request_animation_frame",
+      "humanoid_update_applied": true,
+      "auto_update_human_bones_observed_or_configured": true,
+      "source": "vrm_runtime_adapter",
+      "samples": [
+        {
+          "t_ms": 0,
+          "value_bucket": "none",
+          "changed": false
+        },
+        {
+          "t_ms": 500,
+          "value_bucket": "none",
+          "changed": false
+        },
+        {
+          "t_ms": 1500,
+          "value_bucket": "low",
+          "changed": true
+        },
+        {
+          "t_ms": 3000,
+          "value_bucket": "medium",
+          "changed": true
+        },
+        {
+          "t_ms": 4500,
+          "value_bucket": "low",
+          "changed": true
+        },
+        {
+          "t_ms": 6000,
+          "value_bucket": "none",
+          "changed": false
+        }
+      ]
+    },
+    {
+      "series_id": "vrm_series_rr003_neck_rotation_delta_001",
+      "track": "neck",
+      "metric_kind": "bone_rotation_delta_bucket",
+      "basis_point_id": "neck",
+      "root_track_id": "body_root",
+      "coordinate_space": "normalized_humanoid",
+      "pose_source_kind": "normalized_pose",
+      "pose_space_class": "normalized_shared",
+      "bone_access_mode": "normalized_bone_node",
+      "sample_phase": "after_humanoid_update",
+      "sample_after_update_class": "post_update_required",
+      "read_phase": "post_apply_post_update",
+      "animation_update_source": "request_animation_frame",
+      "humanoid_update_applied": true,
+      "auto_update_human_bones_observed_or_configured": true,
+      "source": "vrm_runtime_adapter",
+      "samples": [
+        {
+          "t_ms": 0,
+          "value_bucket": "none",
+          "changed": false
+        },
+        {
+          "t_ms": 500,
+          "value_bucket": "none",
+          "changed": false
+        },
+        {
+          "t_ms": 1500,
+          "value_bucket": "low",
+          "changed": true
+        },
+        {
+          "t_ms": 3000,
+          "value_bucket": "low",
+          "changed": true
+        },
+        {
+          "t_ms": 4500,
+          "value_bucket": "none",
+          "changed": false
+        },
+        {
+          "t_ms": 6000,
+          "value_bucket": "none",
+          "changed": false
+        }
+      ]
+    },
+    {
+      "series_id": "vrm_series_rr003_spine_rotation_delta_001",
+      "track": "spine",
+      "metric_kind": "bone_rotation_delta_bucket",
+      "basis_point_id": "spine",
+      "root_track_id": "body_root",
+      "coordinate_space": "normalized_humanoid",
+      "pose_source_kind": "normalized_pose",
+      "pose_space_class": "normalized_shared",
+      "bone_access_mode": "normalized_bone_node",
+      "sample_phase": "after_humanoid_update",
+      "sample_after_update_class": "post_update_required",
+      "read_phase": "post_apply_post_update",
+      "animation_update_source": "request_animation_frame",
+      "humanoid_update_applied": true,
+      "auto_update_human_bones_observed_or_configured": true,
+      "source": "vrm_runtime_adapter",
+      "samples": [
+        {
+          "t_ms": 0,
+          "value_bucket": "none",
+          "changed": false
+        },
+        {
+          "t_ms": 500,
+          "value_bucket": "none",
+          "changed": false
+        },
+        {
+          "t_ms": 1500,
+          "value_bucket": "none",
+          "changed": false
+        },
+        {
+          "t_ms": 3000,
+          "value_bucket": "low",
+          "changed": true
+        },
+        {
+          "t_ms": 4500,
+          "value_bucket": "low",
+          "changed": true
+        },
+        {
+          "t_ms": 6000,
+          "value_bucket": "none",
+          "changed": false
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "requested_channel_count": 0,
+    "applied_channel_count": 0,
+    "dropped_channel_count": 0,
+    "track_allowlist": ["head", "neck", "spine", "body_root"],
+    "unsupported_track_count": 0,
+    "missing_track_count": 0,
+    "unsupported_track_ids": [],
+    "missing_track_ids": [],
+    "unsupported_reason_codes": [],
+    "expression_source_kind": "not_applicable",
+    "model_capability_class": "known_supported",
+    "alias_or_renamed_expression_map_used": false,
+    "track_summaries": [
+      {
+        "track": "head",
+        "metric_kind": "bone_rotation_delta_bucket",
+        "changed": true,
+        "min_bucket": "none",
+        "max_bucket": "medium",
+        "mean_bucket": "low",
+        "confidence": 0.85
+      },
+      {
+        "track": "neck",
+        "metric_kind": "bone_rotation_delta_bucket",
+        "changed": true,
+        "min_bucket": "none",
+        "max_bucket": "low",
+        "mean_bucket": "low",
+        "confidence": 0.8
+      },
+      {
+        "track": "spine",
+        "metric_kind": "bone_rotation_delta_bucket",
+        "changed": true,
+        "min_bucket": "none",
+        "max_bucket": "low",
+        "mean_bucket": "low",
+        "confidence": 0.75
+      }
+    ]
+  },
+  "redaction": {
+    "redaction_status": "summary_only",
+    "shareability_class": "runtime_model_state_telemetry_summary",
+    "raw_media_shared": false,
+    "raw_path_shared": false,
+    "raw_asset_name_shared": false,
+    "raw_browser_storage_shared": false,
+    "raw_pose_shared": false,
+    "raw_transform_trace_shared": false,
+    "raw_bvh_shared": false,
+    "full_skeleton_shared": false,
+    "raw_node_name_shared": false
+  },
+  "safety": {
+    "command_authority": false,
+    "roi_or_threshold_authority": false,
+    "self_mirror_authority": false,
+    "semantic_expression_authority": false,
+    "physical_proof_authority": false,
+    "provider_payload_shared": false,
+    "home_assistant_route": false,
+    "private_device_value_shared": false
+  },
+  "non_claims": [
+    "not_self_mirror_pass",
+    "not_expression_visible_pass",
+    "not_semantic_expression_correctness",
+    "not_browser_visible_proof",
+    "not_physical_or_projector_proof",
+    "not_release_or_final_rr003",
+    "not_roi_or_threshold_authority",
+    "not_command_authority",
+    "not_raw_media_publication"
+  ]
+}

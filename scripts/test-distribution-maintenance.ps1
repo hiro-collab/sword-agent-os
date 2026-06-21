@@ -855,18 +855,21 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $motionProfileSurface -Pattern "does not prove visible motion|do not prove runtime[\s\S]{0,180}Self Mirror" -Message "motion profile docs should prevent proof upgrades from contract refs"
   $vrmTelemetrySchemaPath = Join-Path $RepoRoot "contracts\vrm_model_telemetry\vrm_model_telemetry.v0.schema.json"
   $vrmTelemetryExamplePath = Join-Path $RepoRoot "contracts\vrm_model_telemetry\examples\rr003-expression-full-relaxed.telemetry.example.json"
+  $vrmTelemetryBoneExamplePath = Join-Path $RepoRoot "contracts\vrm_model_telemetry\examples\rr003-bone-baseline.telemetry.example.json"
   $vrmTelemetryRoutesSchemaPath = Join-Path $RepoRoot "contracts\vrm_model_telemetry_consumer_routes\vrm_model_telemetry_consumer_routes.v0.schema.json"
   $vrmTelemetryRoutesPath = Join-Path $RepoRoot "runtime\vrm-model-telemetry\vrm-model-telemetry-consumer-routes.json"
   $vrmTelemetryRuntimeReadmePath = Join-Path $RepoRoot "runtime\vrm-model-telemetry\README.md"
   $vrmTelemetryOrganReadmePath = Join-Path $RepoRoot "organs\expression\vrm-model-telemetry\README.md"
   Assert-PathPresent -Path $vrmTelemetrySchemaPath
   Assert-PathPresent -Path $vrmTelemetryExamplePath
+  Assert-PathPresent -Path $vrmTelemetryBoneExamplePath
   Assert-PathPresent -Path $vrmTelemetryRoutesSchemaPath
   Assert-PathPresent -Path $vrmTelemetryRoutesPath
   Assert-PathPresent -Path $vrmTelemetryRuntimeReadmePath
   Assert-PathPresent -Path $vrmTelemetryOrganReadmePath
   $vrmTelemetrySchema = Get-Content -Raw -LiteralPath $vrmTelemetrySchemaPath
   $vrmTelemetryExample = Get-Content -Raw -LiteralPath $vrmTelemetryExamplePath
+  $vrmTelemetryBoneExample = Get-Content -Raw -LiteralPath $vrmTelemetryBoneExamplePath
   $vrmTelemetryRoutesSchema = Get-Content -Raw -LiteralPath $vrmTelemetryRoutesSchemaPath
   $vrmTelemetryRoutes = Get-Content -Raw -LiteralPath $vrmTelemetryRoutesPath
   $vrmTelemetryRuntimeReadme = Get-Content -Raw -LiteralPath $vrmTelemetryRuntimeReadmePath
@@ -874,18 +877,46 @@ function Test-ReadmeFirstRunGuidance {
   $contractsReadme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "contracts\README.md")
   $proofLayers = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\proof-layers.md")
   $referenceSurfaces = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\reference-surfaces.md")
-  $vrmTelemetrySurface = "$vrmTelemetrySchema`n$vrmTelemetryExample`n$vrmTelemetryRoutesSchema`n$vrmTelemetryRoutes`n$vrmTelemetryRuntimeReadme`n$vrmTelemetryOrganReadme`n$contractsReadme`n$proofLayers`n$referenceSurfaces`n$motionRuntimeReadme`n$moduleUsageIndex"
+  $vrmTelemetrySurface = "$vrmTelemetrySchema`n$vrmTelemetryExample`n$vrmTelemetryBoneExample`n$vrmTelemetryRoutesSchema`n$vrmTelemetryRoutes`n$vrmTelemetryRuntimeReadme`n$vrmTelemetryOrganReadme`n$contractsReadme`n$proofLayers`n$referenceSurfaces`n$motionRuntimeReadme`n$moduleUsageIndex"
   Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"proof_ceiling"[\s\S]{0,120}"runtime_model_state_telemetry_summary_only"' -Message "VRM telemetry schema should lock the model-state proof ceiling"
   Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"command_authority"[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry schema should not create command authority"
   Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"self_mirror_authority"[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry schema should not become Self Mirror authority"
   Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"semantic_expression_authority"[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry schema should not become semantic expression authority"
   Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"raw_media_shared"[\s\S]{0,80}"const"\s*:\s*false[\s\S]{0,180}"raw_path_shared"[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry schema should preserve raw media/path redaction"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"clock_kind"[\s\S]{0,80}"relative_monotonic_elapsed"' -Message "VRM telemetry schema should expose relative monotonic timebase fields"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"t0_event"[\s\S]{0,180}"first_accepted_sample_after_runtime_vrm_scene_ready_and_sampler_armed"' -Message "VRM telemetry schema should define the sampler t0 event"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"window_map"' -Message "VRM telemetry schema should support Self Mirror-comparable window maps"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"pretrigger"[\s\S]{0,120}"active"' -Message "VRM telemetry schema should support pretrigger/active window labels"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"stop_reason"[\s\S]{0,260}"duration_elapsed"[\s\S]{0,260}"sample_cap_reached"' -Message "VRM telemetry schema should constrain stop reasons"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"basis_point_id"[\s\S]{0,180}"head"[\s\S]{0,180}"body_root"' -Message "VRM telemetry schema should support canonical bone/basis ids"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"pose_source_kind"[\s\S]{0,160}"normalized_pose"[\s\S]{0,180}"raw_pose_local_only"' -Message "VRM telemetry schema should distinguish normalized shared pose from raw local-only pose"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"sample_after_update_class"[\s\S]{0,140}"post_update_required"' -Message "VRM telemetry schema should encode sample-after-update semantics"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"capture_enabled"' -Message "VRM telemetry schema should make capture explicit"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"detail_export_enabled"' -Message "VRM telemetry schema should make detail export explicit"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"local_only_diagnostic_artifact"' -Message "VRM telemetry schema should classify local-only diagnostic artifacts"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"raw_bvh_shared"[\s\S]{0,80}"const"\s*:\s*false[\s\S]{0,220}"full_skeleton_shared"[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry schema should reject raw BVH/full skeleton sharing"
   Assert-TextMatch -Text $vrmTelemetryExample -Pattern '"expression_profile_ref"\s*:\s*"motion\.runtime\.vrm_expression_weights\.full_relaxed\.v0"' -Message "VRM telemetry example should include the full-relaxed profile ref"
   Assert-TextMatch -Text $vrmTelemetryExample -Pattern '"metric_kind"\s*:\s*"expression_weight"' -Message "VRM telemetry example should include graph-ready expression weights"
   Assert-TextMatch -Text $vrmTelemetryExample -Pattern '"not_self_mirror_pass"[\s\S]{0,220}"not_expression_visible_pass"[\s\S]{0,220}"not_semantic_expression_correctness"' -Message "VRM telemetry example should preserve proof non-claims"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"clock_kind"\s*:\s*"relative_monotonic_elapsed"' -Message "bone/basis fixture should use relative monotonic elapsed timing"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"t0_event"\s*:\s*"first_accepted_sample_after_runtime_vrm_scene_ready_and_sampler_armed"' -Message "bone/basis fixture should define t0"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"baseline_kind"\s*:\s*"pretrigger_window_mean"' -Message "bone/basis fixture should use bounded pretrigger baseline"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"label"\s*:\s*"pretrigger"[\s\S]{0,260}"label"\s*:\s*"active"' -Message "bone/basis fixture should include comparable window labels"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"capture_enabled"\s*:\s*true[\s\S]{0,180}"detail_export_enabled"\s*:\s*false' -Message "bone/basis fixture should be explicit capture but summary-only"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"target_fps"\s*:\s*15' -Message "bone/basis fixture should carry target cadence"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"max_shared_sample_count"\s*:\s*240' -Message "bone/basis fixture should carry shared sample cap"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"basis_point_id"\s*:\s*"head"[\s\S]{0,260}"coordinate_space"\s*:\s*"normalized_humanoid"' -Message "bone/basis fixture should use normalized canonical basis tracks"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"sample_after_update_class"\s*:\s*"post_update_required"' -Message "bone/basis fixture should encode post-update sampling"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"track_allowlist"\s*:\s*\[[\s\S]{0,180}"head"[\s\S]{0,180}"body_root"' -Message "bone/basis fixture should keep a bounded track allowlist"
+  Assert-TextMatch -Text $vrmTelemetryBoneExample -Pattern '"raw_bvh_shared"\s*:\s*false[\s\S]{0,220}"full_skeleton_shared"\s*:\s*false' -Message "bone/basis fixture should preserve raw export boundaries"
   Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "runtime/model telemetry|VRM Model Telemetry" -Message "VRM telemetry should be documented as a separate proof/reference layer"
   Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "runtime/vrm-model-telemetry/vrm-model-telemetry-consumer-routes\.json" -Message "VRM telemetry should expose a system-readable module route map"
   Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "organs/expression/vrm-model-telemetry" -Message "VRM telemetry should have a separate expression organ scaffold"
+  Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "off by default|default off" -Message "VRM bone/basis telemetry should be documented as off by default"
+  Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "summary-first|summary-only" -Message "VRM bone/basis telemetry should be summary-first"
+  Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "diagnostic mode|diagnostic-mode-only" -Message "VRM bone/basis telemetry detailed output should require diagnostic mode"
+  Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "relative monotonic" -Message "VRM bone/basis telemetry should document relative monotonic timing"
+  Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "raw BVH|full skeleton|raw per-frame" -Message "VRM bone/basis telemetry docs should forbid raw export/public traces"
   Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"schema_version"\s*:\s*"vrm_model_telemetry_consumer_routes\.v0"' -Message "VRM telemetry route map should have a schema version"
   Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"contract_ref"\s*:\s*"contracts/vrm_model_telemetry_consumer_routes/vrm_model_telemetry_consumer_routes\.v0\.schema\.json"' -Message "VRM telemetry route map should point to its contract"
   Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"result_contract_ref"\s*:\s*"contracts/vrm_model_telemetry/vrm_model_telemetry\.v0\.schema\.json"' -Message "VRM telemetry route map should point to the result contract"
@@ -894,10 +925,14 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"runtime_execution_authority"\s*:\s*false' -Message "VRM telemetry route map should not authorize runtime execution"
   Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"expression_visible_pass_authority"\s*:\s*false' -Message "VRM telemetry route map should not become expression-visible pass authority"
   Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"roi_or_threshold_authority"\s*:\s*false' -Message "VRM telemetry route map should not mutate ROI or thresholds"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"telemetry_focus"\s*:\s*"bone_basis_tracks"' -Message "VRM telemetry route map should expose bone/basis telemetry focus"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern 'bone_basis_readback' -Message "VRM telemetry route map should reserve future bone/basis runtime route without implementing it"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"raw_bvh_shared"\s*:\s*false[\s\S]{0,180}"raw_transform_trace_shared"\s*:\s*false[\s\S]{0,180}"full_skeleton_shared"\s*:\s*false' -Message "VRM telemetry route map should preserve raw export boundaries"
   Assert-TextMatch -Text $vrmTelemetryRoutesSchema -Pattern '"schema_version"\s*:\s*\{[\s\S]{0,80}"const"\s*:\s*"vrm_model_telemetry_consumer_routes\.v0"' -Message "VRM telemetry route schema should define schema version"
   Assert-TextMatch -Text $vrmTelemetryRoutesSchema -Pattern '"result_contract_ref"\s*:\s*\{[\s\S]{0,140}"const"\s*:\s*"contracts/vrm_model_telemetry/vrm_model_telemetry\.v0\.schema\.json"' -Message "VRM telemetry route schema should lock result contract"
   Assert-TextMatch -Text $vrmTelemetryRoutesSchema -Pattern '"runtime_execution_authority"\s*:\s*\{[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry route schema should reject runtime execution authority"
   Assert-TextMatch -Text $vrmTelemetryRoutesSchema -Pattern '"self_mirror_authority"\s*:\s*\{[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry route schema should reject Self Mirror authority"
+  Assert-TextMatch -Text $vrmTelemetryRoutesSchema -Pattern '"bone_basis_tracks"' -Message "VRM telemetry route schema should allow bone/basis focus"
   Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "does not prove|cannot say[\s\S]{0,220}Self Mirror|not_self_mirror_pass" -Message "VRM telemetry docs should not upgrade model state into visual proof"
   Write-Host "README first-run guidance static ok"
 }

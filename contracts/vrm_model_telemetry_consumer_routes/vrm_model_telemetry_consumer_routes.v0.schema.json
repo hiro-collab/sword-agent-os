@@ -104,7 +104,10 @@
         "raw_media_shared",
         "raw_path_shared",
         "browser_storage_shared",
-        "provider_payload_shared"
+        "provider_payload_shared",
+        "raw_bvh_shared",
+        "raw_transform_trace_shared",
+        "full_skeleton_shared"
       ],
       "properties": {
         "model_state_readback_only": {
@@ -154,6 +157,15 @@
         },
         "provider_payload_shared": {
           "const": false
+        },
+        "raw_bvh_shared": {
+          "const": false
+        },
+        "raw_transform_trace_shared": {
+          "const": false
+        },
+        "full_skeleton_shared": {
+          "const": false
         }
       }
     },
@@ -191,7 +203,8 @@
               "profile_handoff",
               "expression_weights",
               "morph_delta_buckets",
-              "rig_track_buckets"
+              "rig_track_buckets",
+              "bone_basis_tracks"
             ]
           },
           "command_template": {
