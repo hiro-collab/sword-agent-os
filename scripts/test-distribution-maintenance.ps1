@@ -835,6 +835,24 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_media_playback=true" -Message "voice-gate wrapper should default to no media playback"
   Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_stt_execution=true" -Message "voice-gate wrapper should default to no STT execution"
   Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_virtual_audio_route_change=true" -Message "voice-gate wrapper should avoid changing audio routes"
+  $motionStimulusSchemaPath = Join-Path $RepoRoot "contracts\motion_stimulus\motion_stimulus.v0.schema.json"
+  $motionFullRelaxedExamplePath = Join-Path $RepoRoot "contracts\motion_stimulus\examples\rr003-expression-full-relaxed-stimulus.example.json"
+  Assert-PathPresent -Path $motionStimulusSchemaPath
+  Assert-PathPresent -Path $motionFullRelaxedExamplePath
+  $motionStimulusSchema = Get-Content -Raw -LiteralPath $motionStimulusSchemaPath
+  $motionFullRelaxedExample = Get-Content -Raw -LiteralPath $motionFullRelaxedExamplePath
+  $motionRuntimeReadme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "runtime\motion-runtime\README.md")
+  $moduleUsageIndex = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\module-usage-index.md")
+  $motionProfileSurface = "$motionStimulusSchema`n$motionFullRelaxedExample`n$motionRuntimeReadme`n$moduleUsageIndex"
+  Assert-TextMatch -Text $motionStimulusSchema -Pattern '"motion\.runtime\.vrm_expression_weights\.v0"[\s\S]{0,140}"motion\.runtime\.vrm_expression_weights\.full_relaxed\.v0"' -Message "motion stimulus schema should expose default and full-relaxed expression profile refs"
+  Assert-TextMatch -Text $motionStimulusSchema -Pattern "full_relaxed profile is a bounded diagnostic option" -Message "motion stimulus schema should prevent treating full-relaxed as default proof"
+  Assert-TextMatch -Text $motionFullRelaxedExample -Pattern '"expression_profile_ref"\s*:\s*"motion\.runtime\.vrm_expression_weights\.full_relaxed\.v0"' -Message "motion stimulus examples should include a full-relaxed contract fixture"
+  Assert-TextMatch -Text $motionFullRelaxedExample -Pattern '"proof_layer"\s*:\s*"source_static"' -Message "full-relaxed motion stimulus example should stay source/static"
+  Assert-TextMatch -Text $motionFullRelaxedExample -Pattern '"raw_media_shared"\s*:\s*false[\s\S]{0,240}"provider_payload_shared"\s*:\s*false[\s\S]{0,120}"home_assistant_route"\s*:\s*false' -Message "full-relaxed motion stimulus example should preserve raw/private/provider/HA boundaries"
+  Assert-TextMatch -Text $motionRuntimeReadme -Pattern "Expression Profile Refs" -Message "motion runtime docs should document expression profile refs"
+  Assert-TextMatch -Text $motionProfileSurface -Pattern "private page[\s\S]{0,80}module[\s\S]{0,80}store[\s\S]{0,80}browser internals|private page/module/store" -Message "motion profile docs should forbid private runtime internals as the selection path"
+  Assert-TextMatch -Text $motionProfileSurface -Pattern "does not change the default|standard default expression profile" -Message "motion profile docs should preserve default expression-visible behavior"
+  Assert-TextMatch -Text $motionProfileSurface -Pattern "does not prove visible motion|do not prove runtime[\s\S]{0,180}Self Mirror" -Message "motion profile docs should prevent proof upgrades from contract refs"
   Write-Host "README first-run guidance static ok"
 }
 

@@ -25,6 +25,34 @@ These contracts intentionally separate:
 - applied motion: what the current driver adapter actually applied, degraded,
   rejected, stopped, or failed safe.
 
+## Expression Profile Refs
+
+Expression stimuli may name a contract-visible profile in
+`requirements.expression_profile_ref`. This is the safe way for Thought Core,
+Reflex, or a future composite-stimulus planner to request a known expression
+weight profile. Consumers must use that contract field instead of private page,
+module, store, or browser internals.
+
+The default profile remains:
+
+- `motion.runtime.vrm_expression_weights.v0`
+
+The bounded diagnostic profile currently visible at the contract layer is:
+
+- `motion.runtime.vrm_expression_weights.full_relaxed.v0`
+
+The full-relaxed profile is a stronger face-expression diagnostic option for
+reviewed expression-visible probing. It does not change the default
+`expression_visible` behavior, does not authorize runtime/browser execution,
+does not mutate ROI or thresholds, and does not prove visible motion or
+semantic expression correctness by itself.
+
+When composing multiple stimuli, keep the expression profile on the
+face/expression track and keep other body tracks separate through `track_mask`,
+`priority_by_track`, and the Motion Mixer boundary. A composite request may ask
+for a named expression profile, but only a later driver result and reviewed Self
+Mirror packet can say whether visible face/head motion was observed.
+
 ## Action Target Indicators
 
 One RR003 purpose is not only dance or emotion, but visible body-side

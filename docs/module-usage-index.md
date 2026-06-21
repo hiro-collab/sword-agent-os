@@ -157,6 +157,30 @@ This path must stay separate from the action path:
 4. It must not embed raw Home Assistant entity ids, service routes, private
    URLs, or device secrets.
 
+## Expression Profile Requests
+
+When Thought Core, Reflex, diagnostics, or source code needs a specific avatar
+expression profile, use `motion_stimulus.v0` and set
+`requirements.expression_profile_ref`. Do not scrape README prose and do not
+reach into private page, module, store, browser, or driver internals to choose
+expression weights.
+
+Current contract-visible profile refs are:
+
+- `motion.runtime.vrm_expression_weights.v0`: the standard default expression
+  profile.
+- `motion.runtime.vrm_expression_weights.full_relaxed.v0`: a bounded
+  diagnostic profile for stronger expression-visible probing.
+
+These refs are source/contract values. They are suitable for routing,
+composition, review, and summary diagnostics, but they do not prove runtime
+application, browser reachability, Self Mirror visible motion, semantic
+expression correctness, physical/projector proof, release readiness, or final
+RR003 pass. If a composite stimulus combines expression with gaze, posture, or
+body motion, keep `track_mask`, `priority_by_track`, and later mixer/driver
+results responsible for composition rather than treating a profile ref as
+command authority.
+
 ## Where To Add Work
 
 | Work | Preferred location |
