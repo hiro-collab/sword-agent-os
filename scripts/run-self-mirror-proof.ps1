@@ -10,6 +10,8 @@ param(
   [string]$Url = "http://127.0.0.1:18880/projection-visual/?mode=passive&visualTest=self-mirror-baseline",
   [ValidateSet("auto", "none", "context-nod", "dance", "expression-visible")]
   [string]$Trigger = "auto",
+  [ValidateSet("default", "full-relaxed")]
+  [string]$ExpressionProfile = "default",
 
   [int]$ViewportWidth = 1920,
   [int]$ViewportHeight = 1080,
@@ -91,9 +93,21 @@ function New-DefaultOutputDir {
 function Write-OutputPackageLocation {
   param([Parameter(Mandatory = $true)][string]$ResolvedOutputDir)
   $outputLabel = Split-Path -Leaf $ResolvedOutputDir
+  $artifacts = @(
+    "self_mirror_metric_summary.json",
+    "visual_motion_summary.json",
+    "visual_motion_roi_timeseries.csv",
+    "visual_motion_chart.html",
+    "result.md",
+    "manifest.json"
+  )
+  $vrmTelemetrySummaryPath = Join-Path $ResolvedOutputDir "vrm_model_telemetry_summary.json"
+  if (Test-Path -LiteralPath $vrmTelemetrySummaryPath -PathType Leaf) {
+    $artifacts += "vrm_model_telemetry_summary.json"
+  }
   Write-Host "output_dir=local-redacted"
   Write-Host "output_label=$outputLabel"
-  Write-Host "artifacts=self_mirror_metric_summary.json,visual_motion_summary.json,visual_motion_roi_timeseries.csv,visual_motion_chart.html,result.md,manifest.json"
+  Write-Host "artifacts=$($artifacts -join ',')"
 }
 
 function New-SelfMirrorWindows {
@@ -394,6 +408,7 @@ $captureArgs = @(
   "--settle-ms", [string]$SettleMs,
   "--ready-timeout-ms", [string]$ReadyTimeoutMs,
   "--trigger", $triggerValue,
+  "--expression-profile", $ExpressionProfile,
   "--trigger-at-ms", [string]$TriggerAtMs,
   "--analysis-run-id", $AnalysisRunId,
   "--scenario-id", $ScenarioId,

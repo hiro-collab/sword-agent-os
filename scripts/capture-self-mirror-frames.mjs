@@ -4,17 +4,37 @@ import { createRequire } from "node:module";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import {
+  buildVrmModelTelemetrySummary,
+  validateVrmModelTelemetrySummary,
+} from "../runtime/vrm-model-telemetry/vrm-model-telemetry.mjs";
 
 const scriptPath = new URL(import.meta.url).pathname;
-const scriptDir = path.dirname(process.platform === "win32" && scriptPath.startsWith("/") ? scriptPath.slice(1) : scriptPath);
+const scriptDir = path.dirname(
+  process.platform === "win32" && scriptPath.startsWith("/")
+    ? scriptPath.slice(1)
+    : scriptPath,
+);
 const repoRoot = path.resolve(scriptDir, "..");
-const aituberPackageJson = path.join(repoRoot, "organs", "expression", "aituber-kit", "package.json");
+const aituberPackageJson = path.join(
+  repoRoot,
+  "organs",
+  "expression",
+  "aituber-kit",
+  "package.json",
+);
 const requireFromAituber = createRequire(aituberPackageJson);
 
 function parseArgs(argv) {
   const args = {
     url: "http://127.0.0.1:18880/projection-visual/?mode=passive&visualTest=self-mirror-baseline",
-    out: path.join(repoRoot, ".cache", "agent-os", "self-mirror", timestampSlug()),
+    out: path.join(
+      repoRoot,
+      ".cache",
+      "agent-os",
+      "self-mirror",
+      timestampSlug(),
+    ),
     width: 1920,
     height: 1080,
     sampleRateFps: 8,
@@ -26,6 +46,7 @@ function parseArgs(argv) {
     browserExecutable: "",
     trigger: "none",
     triggerAtMs: 700,
+    expressionProfile: "default",
     dancePayloadShape: "auto",
     analysisRunId: "vismot_run_rr003_self_mirror_browser_001",
     scenarioId: "rr003.visible_motion.self_mirror.browser.v0",
@@ -51,22 +72,30 @@ function parseArgs(argv) {
     else if (arg === "--out") args.out = readValue();
     else if (arg === "--width") args.width = Number(readValue());
     else if (arg === "--height") args.height = Number(readValue());
-    else if (arg === "--sample-rate-fps") args.sampleRateFps = Number(readValue());
+    else if (arg === "--sample-rate-fps")
+      args.sampleRateFps = Number(readValue());
     else if (arg === "--duration-ms") args.durationMs = Number(readValue());
     else if (arg === "--settle-ms") args.settleMs = Number(readValue());
-    else if (arg === "--ready-timeout-ms") args.readyTimeoutMs = Number(readValue());
-    else if (arg === "--skip-self-mirror-ready") args.waitForSelfMirrorReady = false;
+    else if (arg === "--ready-timeout-ms")
+      args.readyTimeoutMs = Number(readValue());
+    else if (arg === "--skip-self-mirror-ready")
+      args.waitForSelfMirrorReady = false;
     else if (arg === "--headed") args.headed = true;
-    else if (arg === "--browser-executable") args.browserExecutable = readValue();
+    else if (arg === "--browser-executable")
+      args.browserExecutable = readValue();
     else if (arg === "--trigger") args.trigger = readValue();
     else if (arg === "--trigger-at-ms") args.triggerAtMs = Number(readValue());
-    else if (arg === "--dance-payload-shape") args.dancePayloadShape = readValue();
+    else if (arg === "--expression-profile")
+      args.expressionProfile = normalizeExpressionProfile(readValue());
+    else if (arg === "--dance-payload-shape")
+      args.dancePayloadShape = readValue();
     else if (arg === "--analysis-run-id") args.analysisRunId = readValue();
     else if (arg === "--scenario-id") args.scenarioId = readValue();
     else if (arg === "--proof-layer") args.proofLayer = readValue();
     else if (arg === "--motion-event-id") args.motionEventId = readValue();
     else if (arg === "--stimulus-id") args.stimulusId = readValue();
-    else if (arg === "--stimulus-instance-id") args.stimulusInstanceId = readValue();
+    else if (arg === "--stimulus-instance-id")
+      args.stimulusInstanceId = readValue();
     else if (arg === "--runtime-result-id") args.runtimeResultId = readValue();
     else if (arg === "--driver-result-id") args.driverResultId = readValue();
     else if (arg === "--source-ref-id") args.sourceRefId = readValue();
@@ -93,6 +122,10 @@ Options:
   --browser-executable <path> Optional Chrome/Edge executable fallback.
   --trigger none|context-nod|dance|expression-visible
   --trigger-at-ms <number>    Default: 700
+  --expression-profile default|full-relaxed
+                              Expression-visible safe profile. Default keeps
+                              relaxed/Fun at the product default; full-relaxed
+                              requests Joy@1.0 + Fun@1.0 through an allow-list.
   --dance-payload-shape auto|fixture|thought-core-dance-sequence
                               Default: auto. auto uses Thought-Core shape for
                               dance_visible_motion scenario ids.
@@ -114,9 +147,18 @@ function timestampSlug(now = new Date()) {
 
 function defaultWindows(args) {
   const durationMs = Math.max(1, Math.round(args.durationMs));
-  const triggerAtMs = Math.max(1, Math.min(Math.round(args.triggerAtMs), durationMs - 1));
-  const activeEndMs = Math.max(triggerAtMs + 1, Math.min(durationMs, triggerAtMs + 2100));
-  const releaseEndMs = Math.max(activeEndMs + 1, Math.min(durationMs, activeEndMs + 1400));
+  const triggerAtMs = Math.max(
+    1,
+    Math.min(Math.round(args.triggerAtMs), durationMs - 1),
+  );
+  const activeEndMs = Math.max(
+    triggerAtMs + 1,
+    Math.min(durationMs, triggerAtMs + 2100),
+  );
+  const releaseEndMs = Math.max(
+    activeEndMs + 1,
+    Math.min(durationMs, activeEndMs + 1400),
+  );
   const settleEndMs = Math.max(releaseEndMs + 1, durationMs);
   return [
     { window_id: "pretrigger", start_ms: 0, end_ms: triggerAtMs },
@@ -124,6 +166,33 @@ function defaultWindows(args) {
     { window_id: "release", start_ms: activeEndMs, end_ms: releaseEndMs },
     { window_id: "settle", start_ms: releaseEndMs, end_ms: settleEndMs },
   ];
+}
+
+function normalizeExpressionProfile(value) {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "default" || normalized === "standard") return "default";
+  if (
+    normalized === "full-relaxed" ||
+    normalized === "full_relaxed" ||
+    normalized === "expression-visible-full-relaxed"
+  ) {
+    return "full-relaxed";
+  }
+  throw new Error(`Unsupported --expression-profile: ${value}`);
+}
+
+function expressionProfileRef(args) {
+  return args.expressionProfile === "full-relaxed"
+    ? "motion.runtime.vrm_expression_weights.full_relaxed.v0"
+    : "motion.runtime.vrm_expression_weights.v0";
+}
+
+function expressionProfileId(args) {
+  return args.expressionProfile === "full-relaxed"
+    ? "expression_visible_full_relaxed"
+    : "expression_visible_default";
 }
 
 function baseDefaultRois() {
@@ -154,7 +223,7 @@ function baseDefaultRois() {
       kind: "guard_ui",
       counts_as_avatar_motion: false,
       expected_for_pass: false,
-      rect_norm: { x: 0.0, y: 0.78, w: 0.20, h: 0.10 },
+      rect_norm: { x: 0.0, y: 0.78, w: 0.2, h: 0.1 },
     },
     {
       roi_id: "input_bar",
@@ -200,21 +269,21 @@ function defaultRois(scenarioId = "") {
         kind: "avatar",
         counts_as_avatar_motion: true,
         expected_for_pass: true,
-        rect_norm: { x: 0.51, y: 0.30, w: 0.20, h: 0.38 },
+        rect_norm: { x: 0.51, y: 0.3, w: 0.2, h: 0.38 },
       },
       {
         roi_id: "avatar_left_arm",
         kind: "avatar",
         counts_as_avatar_motion: true,
         expected_for_pass: true,
-        rect_norm: { x: 0.36, y: 0.23, w: 0.17, h: 0.50 },
+        rect_norm: { x: 0.36, y: 0.23, w: 0.17, h: 0.5 },
       },
       {
         roi_id: "avatar_right_arm",
         kind: "avatar",
         counts_as_avatar_motion: true,
         expected_for_pass: true,
-        rect_norm: { x: 0.60, y: 0.23, w: 0.17, h: 0.50 },
+        rect_norm: { x: 0.6, y: 0.23, w: 0.17, h: 0.5 },
       },
       ...base.guards,
     ];
@@ -243,12 +312,17 @@ function defaultThresholds() {
 
 function resolveDancePayloadShape(args) {
   if (args.trigger !== "dance") return "not-dance";
-  if (args.dancePayloadShape === "thought-core-dance-sequence") return args.dancePayloadShape;
+  if (args.dancePayloadShape === "thought-core-dance-sequence")
+    return args.dancePayloadShape;
   if (args.dancePayloadShape === "fixture") return args.dancePayloadShape;
   if (args.dancePayloadShape !== "auto") {
-    throw new Error(`Unsupported --dance-payload-shape: ${args.dancePayloadShape}`);
+    throw new Error(
+      `Unsupported --dance-payload-shape: ${args.dancePayloadShape}`,
+    );
   }
-  return String(args.scenarioId).includes("dance_visible_motion") ? "thought-core-dance-sequence" : "fixture";
+  return String(args.scenarioId).includes("dance_visible_motion")
+    ? "thought-core-dance-sequence"
+    : "fixture";
 }
 
 function motionStimulusShape(args) {
@@ -262,7 +336,8 @@ function motionStimulusShape(args) {
       request_mode: "apply",
       track_mask: { scope: "face_head", channels: ["expression_weight"] },
       requirements: {
-        expression_profile_ref: "motion.runtime.vrm_expression_weights.v0",
+        expression_profile_ref: expressionProfileRef(args),
+        expression_profile_id: expressionProfileId(args),
         expected_visible_change: "face_expression",
         expected_roi: "avatar_face_head",
       },
@@ -318,7 +393,11 @@ function buildMotionStimulus(args) {
     lifecycle_state: "requested",
     safe_visible_state: "motion_requested",
     target_model_type: "vrm",
-    track_mask: shape.track_mask ?? { head: true, torso: true, arms: args.trigger === "dance" },
+    track_mask: shape.track_mask ?? {
+      head: true,
+      torso: true,
+      arms: args.trigger === "dance",
+    },
     requirements: shape.requirements ?? { visible_motion: true },
     trace: {
       motion_event_id: args.motionEventId,
@@ -342,12 +421,18 @@ function sleep(ms) {
 
 async function dispatchTrigger(page, args) {
   if (args.trigger === "none") return { trigger: "none", dispatched: false };
-  if (args.trigger !== "context-nod" && args.trigger !== "dance" && args.trigger !== "expression-visible") {
+  if (
+    args.trigger !== "context-nod" &&
+    args.trigger !== "dance" &&
+    args.trigger !== "expression-visible"
+  ) {
     throw new Error(`Unsupported trigger: ${args.trigger}`);
   }
   const detail = buildMotionStimulus(args);
   await page.evaluate((payload) => {
-    window.dispatchEvent(new CustomEvent("projection-visual-motion-stimulus", { detail: payload }));
+    window.dispatchEvent(
+      new CustomEvent("projection-visual-motion-stimulus", { detail: payload }),
+    );
   }, detail);
   return {
     trigger: args.trigger,
@@ -359,6 +444,18 @@ async function dispatchTrigger(page, args) {
     request_mode: detail.request_mode,
     payload_ref: detail.payload_ref,
     source_origin: detail.source_origin,
+    expression_profile:
+      args.trigger === "expression-visible"
+        ? args.expressionProfile
+        : undefined,
+    expression_profile_ref:
+      args.trigger === "expression-visible"
+        ? expressionProfileRef(args)
+        : undefined,
+    expression_profile_id:
+      args.trigger === "expression-visible"
+        ? expressionProfileId(args)
+        : undefined,
   };
 }
 
@@ -367,16 +464,28 @@ async function readTriggerResult(page) {
     .evaluate(() => {
       const result = window.__projectionVisualMotionStimulusResult;
       if (!result || typeof result !== "object") return null;
-      const trace = result.trace && typeof result.trace === "object" ? result.trace : {};
-      const lifecycleTrace = Array.isArray(result.lifecycle_trace) ? result.lifecycle_trace : [];
+      const trace =
+        result.trace && typeof result.trace === "object" ? result.trace : {};
+      const lifecycleTrace = Array.isArray(result.lifecycle_trace)
+        ? result.lifecycle_trace
+        : [];
       return {
         accepted: Boolean(result.accepted),
         status: String(result.status ?? "unknown"),
         reason_code: String(result.reason_code ?? "unknown"),
         safe_visible_state: String(result.safe_visible_state ?? "unknown"),
-        motion_event_id: typeof result.motion_event_id === "string" ? result.motion_event_id : undefined,
-        stimulus_id: typeof result.stimulus_id === "string" ? result.stimulus_id : undefined,
-        stimulus_instance_id: typeof result.stimulus_instance_id === "string" ? result.stimulus_instance_id : undefined,
+        motion_event_id:
+          typeof result.motion_event_id === "string"
+            ? result.motion_event_id
+            : undefined,
+        stimulus_id:
+          typeof result.stimulus_id === "string"
+            ? result.stimulus_id
+            : undefined,
+        stimulus_instance_id:
+          typeof result.stimulus_instance_id === "string"
+            ? result.stimulus_instance_id
+            : undefined,
         runtime_result_id:
           typeof result.runtime_result_id === "string"
             ? result.runtime_result_id
@@ -401,8 +510,13 @@ async function readTriggerResult(page) {
           .map((entry) => ({
             state: typeof entry.state === "string" ? entry.state : undefined,
             status: typeof entry.status === "string" ? entry.status : undefined,
-            reason_code: typeof entry.reason_code === "string" ? entry.reason_code : undefined,
-            at_ms: Number.isFinite(entry.at_ms) ? Math.max(0, Math.round(entry.at_ms)) : undefined,
+            reason_code:
+              typeof entry.reason_code === "string"
+                ? entry.reason_code
+                : undefined,
+            at_ms: Number.isFinite(entry.at_ms)
+              ? Math.max(0, Math.round(entry.at_ms))
+              : undefined,
           })),
       };
     })
@@ -414,7 +528,8 @@ function safeDiagnosticString(value) {
   const text = value.trim();
   if (!text || text.length > 160) return null;
   const lowered = text.toLowerCase();
-  if (text.includes("\\") || text.includes("/") || lowered.includes("bearer ")) return null;
+  if (text.includes("\\") || text.includes("/") || lowered.includes("bearer "))
+    return null;
   if (/(token|secret|api[_-]?key|password|credential)/i.test(text)) return null;
   return text;
 }
@@ -422,6 +537,11 @@ function safeDiagnosticString(value) {
 function safeDiagnosticNumber(value) {
   if (!Number.isFinite(value)) return null;
   return Math.max(0, Math.round(value));
+}
+
+function safeDiagnosticUnitNumber(value) {
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(1, Number(value.toFixed(6))));
 }
 
 function safeCaptureRelativeMsNumber(value, maxMs = 600000) {
@@ -456,6 +576,13 @@ function copySafeNumberFields(target, source, fields) {
   }
 }
 
+function copySafeUnitNumberFields(target, source, fields) {
+  for (const field of fields) {
+    const safe = safeDiagnosticUnitNumber(source[field]);
+    if (safe !== null) target[field] = safe;
+  }
+}
+
 function copySafeBooleanFields(target, source, fields) {
   for (const field of fields) {
     const safe = safeDiagnosticBoolean(source[field]);
@@ -464,7 +591,9 @@ function copySafeBooleanFields(target, source, fields) {
 }
 
 function safeDiagnosticObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : null;
 }
 
 function setSafeStringField(target, field, value) {
@@ -501,11 +630,17 @@ function flattenProjectionVisualDiagnosticsV0(raw) {
     ]);
     setSafeStringField(flat, "runtime_status", runtimeRefs.status);
     setSafeStringField(flat, "runtime_reason_code", runtimeRefs.reason_code);
-    setSafeStringField(flat, "runtime_safe_visible_state", runtimeRefs.safe_visible_state);
+    setSafeStringField(
+      flat,
+      "runtime_safe_visible_state",
+      runtimeRefs.safe_visible_state,
+    );
     setSafeBooleanField(flat, "accepted", runtimeRefs.accepted);
   }
 
-  const eventTimeline = safeDiagnosticObject(flat.event_timeline) ? { ...flat.event_timeline } : {};
+  const eventTimeline = safeDiagnosticObject(flat.event_timeline)
+    ? { ...flat.event_timeline }
+    : {};
   const runtimeAnchors = safeDiagnosticObject(raw.runtime_anchors);
   if (runtimeAnchors) {
     const anchors = [
@@ -525,11 +660,31 @@ function flattenProjectionVisualDiagnosticsV0(raw) {
   const driverFrameAnchor = safeDiagnosticObject(raw.driver_frame_anchor);
   if (driverFrameAnchor) {
     setSafeNumberField(flat, "driver_frame_seq", driverFrameAnchor.frame_seq);
-    setSafeNumberField(flat, "driver_frame_timestamp_mono_ms", driverFrameAnchor.frame_timestamp_mono_ms);
-    setSafeStringField(flat, "driver_result_id", driverFrameAnchor.driver_result_id ?? flat.driver_result_id);
-    setSafeStringField(flat, "driver_observed_at", driverFrameAnchor.observed_at);
-    setSafeStringField(flat, "last_driver_reason_code", driverFrameAnchor.reason_code);
-    setSafeStringField(flat, "last_safe_visible_state", driverFrameAnchor.safe_visible_state);
+    setSafeNumberField(
+      flat,
+      "driver_frame_timestamp_mono_ms",
+      driverFrameAnchor.frame_timestamp_mono_ms,
+    );
+    setSafeStringField(
+      flat,
+      "driver_result_id",
+      driverFrameAnchor.driver_result_id ?? flat.driver_result_id,
+    );
+    setSafeStringField(
+      flat,
+      "driver_observed_at",
+      driverFrameAnchor.observed_at,
+    );
+    setSafeStringField(
+      flat,
+      "last_driver_reason_code",
+      driverFrameAnchor.reason_code,
+    );
+    setSafeStringField(
+      flat,
+      "last_safe_visible_state",
+      driverFrameAnchor.safe_visible_state,
+    );
   }
 
   const expressionSummary = safeDiagnosticObject(raw.expression_value_summary);
@@ -539,31 +694,78 @@ function flattenProjectionVisualDiagnosticsV0(raw) {
       "last_driver_result",
       "last_driver_reason_code",
       "last_safe_visible_state",
+      "expression_profile_ref",
+      "expression_profile_id",
     ]);
     copySafeNumberFields(flat, expressionSummary, [
       "frame_applied_count",
+      "requested_channel_count",
+      "applied_channel_count",
+      "dropped_channel_count",
       "last_weight_count",
+      "target_weight_count",
       "last_frame_seq",
     ]);
-    copySafeBooleanFields(flat, expressionSummary, ["expression_weight_applied"]);
-    setSafeStringField(flat, "driver_result_id", expressionSummary.last_driver_result_id ?? flat.driver_result_id);
-    setSafeStringField(flat, "driver_observed_at", expressionSummary.last_observed_at);
-    setSafeStringField(flat, "expression_value_state", expressionSummary.last_safe_visible_state);
+    copySafeUnitNumberFields(flat, expressionSummary, [
+      "last_weight_min",
+      "last_weight_max",
+      "target_weight_min",
+      "target_weight_max",
+    ]);
+    copySafeBooleanFields(flat, expressionSummary, [
+      "expression_weight_applied",
+    ]);
+    setSafeStringField(
+      flat,
+      "driver_result_id",
+      expressionSummary.last_driver_result_id ?? flat.driver_result_id,
+    );
+    setSafeStringField(
+      flat,
+      "driver_observed_at",
+      expressionSummary.last_observed_at,
+    );
+    setSafeStringField(
+      flat,
+      "expression_value_state",
+      expressionSummary.last_safe_visible_state,
+    );
     const channels = safeDiagnosticStringList(expressionSummary.channel_names);
     if (channels.length) flat.expression_weight_channels = channels;
+    const appliedChannels = safeDiagnosticStringList(
+      expressionSummary.applied_channel_names,
+    );
+    if (appliedChannels.length)
+      flat.expression_applied_channels = appliedChannels;
+    const droppedChannels = safeDiagnosticStringList(
+      expressionSummary.dropped_channel_names,
+    );
+    if (droppedChannels.length)
+      flat.expression_dropped_channels = droppedChannels;
   }
 
-  const mixedSurfaceSeparation = safeDiagnosticObject(raw.mixed_surface_separation);
+  const mixedSurfaceSeparation = safeDiagnosticObject(
+    raw.mixed_surface_separation,
+  );
   if (mixedSurfaceSeparation) {
     const surfaceClasses = [
       mixedSurfaceSeparation.avatar_canvas_surface_class,
-      ...safeDiagnosticStringList(mixedSurfaceSeparation.dom_overlay_surface_classes),
+      ...safeDiagnosticStringList(
+        mixedSurfaceSeparation.dom_overlay_surface_classes,
+      ),
     ];
     const safeSurfaceClasses = safeDiagnosticStringList(surfaceClasses);
     if (safeSurfaceClasses.length) flat.surface_classes = safeSurfaceClasses;
-    setSafeStringField(flat, "avatar_canvas_surface_class", mixedSurfaceSeparation.avatar_canvas_surface_class);
-    const domOverlaySurfaceClasses = safeDiagnosticStringList(mixedSurfaceSeparation.dom_overlay_surface_classes);
-    if (domOverlaySurfaceClasses.length) flat.dom_overlay_surface_classes = domOverlaySurfaceClasses;
+    setSafeStringField(
+      flat,
+      "avatar_canvas_surface_class",
+      mixedSurfaceSeparation.avatar_canvas_surface_class,
+    );
+    const domOverlaySurfaceClasses = safeDiagnosticStringList(
+      mixedSurfaceSeparation.dom_overlay_surface_classes,
+    );
+    if (domOverlaySurfaceClasses.length)
+      flat.dom_overlay_surface_classes = domOverlaySurfaceClasses;
     setSafeBooleanField(
       flat,
       "dom_overlay_is_not_avatar_canvas_proof",
@@ -624,6 +826,8 @@ function sanitizeProjectionVisualDiagnostics(raw) {
     "last_driver_result_id",
     "avatar_canvas_surface_class",
     "surface_separation_status",
+    "expression_profile_ref",
+    "expression_profile_id",
   ]);
   copySafeNumberFields(safe, flattened, [
     "frame_seq",
@@ -638,10 +842,20 @@ function sanitizeProjectionVisualDiagnostics(raw) {
     "visual_commit_at_ms",
     "first_changed_frame_seq",
     "frame_applied_count",
+    "requested_channel_count",
+    "applied_channel_count",
+    "dropped_channel_count",
     "last_weight_count",
+    "target_weight_count",
     "last_frame_seq",
     "driver_frame_seq",
     "driver_frame_timestamp_mono_ms",
+  ]);
+  copySafeUnitNumberFields(safe, flattened, [
+    "last_weight_min",
+    "last_weight_max",
+    "target_weight_min",
+    "target_weight_max",
   ]);
   copySafeBooleanFields(safe, flattened, [
     "accepted",
@@ -653,13 +867,32 @@ function sanitizeProjectionVisualDiagnostics(raw) {
     "dom_overlay_is_not_avatar_canvas_proof",
     "avatar_canvas_is_not_dom_overlay_proof",
   ]);
-  const channels = safeDiagnosticStringList(flattened.expression_weight_channels ?? flattened.changed_expression_channels);
+  const channels = safeDiagnosticStringList(
+    flattened.expression_weight_channels ??
+      flattened.changed_expression_channels,
+  );
   if (channels.length) safe.expression_weight_channels = channels;
+  const appliedChannels = safeDiagnosticStringList(
+    flattened.expression_applied_channels,
+  );
+  if (appliedChannels.length)
+    safe.expression_applied_channels = appliedChannels;
+  const droppedChannels = safeDiagnosticStringList(
+    flattened.expression_dropped_channels,
+  );
+  if (droppedChannels.length)
+    safe.expression_dropped_channels = droppedChannels;
   const surfaceClasses = safeDiagnosticStringList(flattened.surface_classes);
   if (surfaceClasses.length) safe.surface_classes = surfaceClasses;
-  const domOverlaySurfaceClasses = safeDiagnosticStringList(flattened.dom_overlay_surface_classes);
-  if (domOverlaySurfaceClasses.length) safe.dom_overlay_surface_classes = domOverlaySurfaceClasses;
-  if (flattened.event_timeline && typeof flattened.event_timeline === "object") {
+  const domOverlaySurfaceClasses = safeDiagnosticStringList(
+    flattened.dom_overlay_surface_classes,
+  );
+  if (domOverlaySurfaceClasses.length)
+    safe.dom_overlay_surface_classes = domOverlaySurfaceClasses;
+  if (
+    flattened.event_timeline &&
+    typeof flattened.event_timeline === "object"
+  ) {
     const timeline = {};
     for (const field of [
       "motion_requested_at_ms",
@@ -688,7 +921,11 @@ async function readProjectionVisualDiagnostics(page) {
       ];
       const merged = {};
       for (const candidate of candidates) {
-        if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+        if (
+          candidate &&
+          typeof candidate === "object" &&
+          !Array.isArray(candidate)
+        ) {
           Object.assign(merged, candidate);
         }
       }
@@ -699,25 +936,53 @@ async function readProjectionVisualDiagnostics(page) {
 }
 
 function lifecycleTraceAnchorMs(motionStimulusResult, state, durationMs) {
-  const trace = Array.isArray(motionStimulusResult?.lifecycle_trace) ? motionStimulusResult.lifecycle_trace : [];
-  const entry = trace.find((item) => item && item.state === state && Number.isFinite(item.at_ms));
-  return entry ? safeCaptureRelativeMsNumber(entry.at_ms, Math.max(600000, Math.round(durationMs))) : null;
+  const trace = Array.isArray(motionStimulusResult?.lifecycle_trace)
+    ? motionStimulusResult.lifecycle_trace
+    : [];
+  const entry = trace.find(
+    (item) => item && item.state === state && Number.isFinite(item.at_ms),
+  );
+  return entry
+    ? safeCaptureRelativeMsNumber(
+        entry.at_ms,
+        Math.max(600000, Math.round(durationMs)),
+      )
+    : null;
 }
 
-function buildEventTimeline({ triggerResult, motionStimulusResult, projectionVisualDiagnostics, durationMs }) {
+function buildEventTimeline({
+  triggerResult,
+  motionStimulusResult,
+  projectionVisualDiagnostics,
+  durationMs,
+}) {
   const timeline = {
     capture_started_at_ms: 0,
     bridge_dispatched_at_ms:
-      Number.isFinite(triggerResult.dispatched_at_ms) && triggerResult.dispatched
+      Number.isFinite(triggerResult.dispatched_at_ms) &&
+      triggerResult.dispatched
         ? Math.max(0, Math.round(triggerResult.dispatched_at_ms))
         : null,
-    runtime_accepted_at_ms: lifecycleTraceAnchorMs(motionStimulusResult, "runtime_accepted", durationMs),
-    runtime_started_at_ms: lifecycleTraceAnchorMs(motionStimulusResult, "runtime_started", durationMs),
-    runtime_result_at_ms: lifecycleTraceAnchorMs(motionStimulusResult, "result", durationMs),
+    runtime_accepted_at_ms: lifecycleTraceAnchorMs(
+      motionStimulusResult,
+      "runtime_accepted",
+      durationMs,
+    ),
+    runtime_started_at_ms: lifecycleTraceAnchorMs(
+      motionStimulusResult,
+      "runtime_started",
+      durationMs,
+    ),
+    runtime_result_at_ms: lifecycleTraceAnchorMs(
+      motionStimulusResult,
+      "result",
+      durationMs,
+    ),
     capture_ended_at_ms: Math.max(0, Math.round(durationMs)),
   };
   const diagnosticTimeline =
-    projectionVisualDiagnostics && typeof projectionVisualDiagnostics.event_timeline === "object"
+    projectionVisualDiagnostics &&
+    typeof projectionVisualDiagnostics.event_timeline === "object"
       ? projectionVisualDiagnostics.event_timeline
       : {};
   for (const field of [
@@ -729,8 +994,14 @@ function buildEventTimeline({ triggerResult, motionStimulusResult, projectionVis
     "frame_applied_at_ms",
     "visual_commit_at_ms",
   ]) {
-    const directValue = safeCaptureRelativeMsNumber(projectionVisualDiagnostics?.[field], durationMs);
-    const timelineValue = safeCaptureRelativeMsNumber(diagnosticTimeline[field], durationMs);
+    const directValue = safeCaptureRelativeMsNumber(
+      projectionVisualDiagnostics?.[field],
+      durationMs,
+    );
+    const timelineValue = safeCaptureRelativeMsNumber(
+      diagnosticTimeline[field],
+      durationMs,
+    );
     if (directValue !== null) timeline[field] = directValue;
     else if (timelineValue !== null) timeline[field] = timelineValue;
   }
@@ -739,8 +1010,12 @@ function buildEventTimeline({ triggerResult, motionStimulusResult, projectionVis
 
 function expectedVisualTestMode(urlText) {
   try {
-    const value = new URL(urlText).searchParams.get("visualTest")?.trim().toLowerCase();
-    if (value === "idle-neutral" || value === "self-mirror-baseline") return value;
+    const value = new URL(urlText).searchParams
+      .get("visualTest")
+      ?.trim()
+      .toLowerCase();
+    if (value === "idle-neutral" || value === "self-mirror-baseline")
+      return value;
   } catch {
     return null;
   }
@@ -750,8 +1025,10 @@ function expectedVisualTestMode(urlText) {
 function safeCaptureTargetUrl(urlText) {
   try {
     const url = new URL(urlText);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return "redacted_non_http_url";
-    if (!["127.0.0.1", "localhost", "::1"].includes(url.hostname)) return "redacted_non_local_url";
+    if (url.protocol !== "http:" && url.protocol !== "https:")
+      return "redacted_non_http_url";
+    if (!["127.0.0.1", "localhost", "::1"].includes(url.hostname))
+      return "redacted_non_local_url";
     return `${url.protocol}//${url.host}${url.pathname}${url.search}`;
   } catch {
     return "redacted_invalid_url";
@@ -777,11 +1054,16 @@ async function readSelfMirrorReadyState(page, expectedMode) {
     const viewerDebug = window.__projectionVisualVrmViewerDebug;
     const runtimeDebug = window.__projectionVisualMotionRuntimeDebugSnapshot;
     const canvas = document.querySelector("canvas");
-    const visualTestMode = viewerDebug && typeof viewerDebug === "object" ? viewerDebug.visualTestMode : null;
-    const runtime = runtimeDebug && typeof runtimeDebug === "object" ? runtimeDebug : {};
+    const visualTestMode =
+      viewerDebug && typeof viewerDebug === "object"
+        ? viewerDebug.visualTestMode
+        : null;
+    const runtime =
+      runtimeDebug && typeof runtimeDebug === "object" ? runtimeDebug : {};
     return {
       hasCanvas: Boolean(canvas),
-      visualTestMode: typeof visualTestMode === "string" ? visualTestMode : null,
+      visualTestMode:
+        typeof visualTestMode === "string" ? visualTestMode : null,
       expectedVisualTestMode: mode,
       visualTestModeMatches: !mode || visualTestMode === mode,
       vrmReady: runtime.vrmReady === true,
@@ -802,15 +1084,18 @@ async function waitForSelfMirrorReady(page, args) {
       const viewerDebug = window.__projectionVisualVrmViewerDebug;
       const runtimeDebug = window.__projectionVisualMotionRuntimeDebugSnapshot;
       const canvas = document.querySelector("canvas");
-      if (!canvas || !runtimeDebug || typeof runtimeDebug !== "object") return false;
+      if (!canvas || !runtimeDebug || typeof runtimeDebug !== "object")
+        return false;
       if (mode) {
         if (!viewerDebug || typeof viewerDebug !== "object") return false;
         if (viewerDebug.visualTestMode !== mode) return false;
       }
-      return runtimeDebug.vrmReady === true && runtimeDebug.sceneVisible === true;
+      return (
+        runtimeDebug.vrmReady === true && runtimeDebug.sceneVisible === true
+      );
     },
     expectedMode,
-    { timeout: args.readyTimeoutMs }
+    { timeout: args.readyTimeoutMs },
   );
 
   const readyState = await readSelfMirrorReadyState(page, expectedMode);
@@ -826,7 +1111,7 @@ async function waitForSelfMirrorReady(page, args) {
       );
     },
     firstFrameSeq,
-    { timeout: Math.min(args.readyTimeoutMs, 5000) }
+    { timeout: Math.min(args.readyTimeoutMs, 5000) },
   );
 
   return await readSelfMirrorReadyState(page, expectedMode);
@@ -845,14 +1130,21 @@ async function pathExists(filePath) {
 function browserExecutableCandidates() {
   if (process.platform !== "win32") return [];
   const programFiles = process.env.ProgramFiles || "C:\\Program Files";
-  const programFilesX86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
+  const programFilesX86 =
+    process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
   const localAppData = process.env.LOCALAPPDATA || "";
   return [
     path.join(programFiles, "Google", "Chrome", "Application", "chrome.exe"),
     path.join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe"),
     path.join(localAppData, "Google", "Chrome", "Application", "chrome.exe"),
     path.join(programFiles, "Microsoft", "Edge", "Application", "msedge.exe"),
-    path.join(programFilesX86, "Microsoft", "Edge", "Application", "msedge.exe"),
+    path.join(
+      programFilesX86,
+      "Microsoft",
+      "Edge",
+      "Application",
+      "msedge.exe",
+    ),
   ].filter(Boolean);
 }
 
@@ -882,7 +1174,9 @@ async function launchChromium(chromium, args) {
   } catch (error) {
     const fallbackExecutable = await findBrowserExecutable("");
     if (!fallbackExecutable) throw error;
-    process.stdout.write(`browser_executable_fallback=${path.basename(fallbackExecutable)}\n`);
+    process.stdout.write(
+      `browser_executable_fallback=${path.basename(fallbackExecutable)}\n`,
+    );
     return await chromium.launch({
       ...launchOptions,
       executablePath: fallbackExecutable,
@@ -891,7 +1185,10 @@ async function launchChromium(chromium, args) {
 }
 
 async function captureFrames(page, frameDir, args) {
-  const frameCount = Math.max(2, Math.ceil((args.durationMs / 1000) * args.sampleRateFps));
+  const frameCount = Math.max(
+    2,
+    Math.ceil((args.durationMs / 1000) * args.sampleRateFps),
+  );
   const intervalMs = 1000 / args.sampleRateFps;
   const framePaths = [];
   const startedAtMs = Date.now();
@@ -900,11 +1197,21 @@ async function captureFrames(page, frameDir, args) {
   for (let index = 0; index < frameCount; index += 1) {
     const targetElapsedMs = Math.round(index * intervalMs);
     const elapsedMs = Date.now() - startedAtMs;
-    if (!triggerResult.dispatched && args.trigger !== "none" && elapsedMs >= args.triggerAtMs) {
-      triggerResult = await dispatchTrigger(page, { ...args, dispatchedAtMs: elapsedMs });
+    if (
+      !triggerResult.dispatched &&
+      args.trigger !== "none" &&
+      elapsedMs >= args.triggerAtMs
+    ) {
+      triggerResult = await dispatchTrigger(page, {
+        ...args,
+        dispatchedAtMs: elapsedMs,
+      });
     }
 
-    const framePath = path.join(frameDir, `frame_${String(index).padStart(4, "0")}.png`);
+    const framePath = path.join(
+      frameDir,
+      `frame_${String(index).padStart(4, "0")}.png`,
+    );
     await page.screenshot({ path: framePath, fullPage: false });
     framePaths.push(framePath);
 
@@ -916,7 +1223,10 @@ async function captureFrames(page, frameDir, args) {
   }
 
   if (!triggerResult.dispatched && args.trigger !== "none") {
-    triggerResult = await dispatchTrigger(page, { ...args, dispatchedAtMs: Date.now() - startedAtMs });
+    triggerResult = await dispatchTrigger(page, {
+      ...args,
+      dispatchedAtMs: Date.now() - startedAtMs,
+    });
   }
 
   return { framePaths, triggerResult };
@@ -928,7 +1238,11 @@ async function main() {
     process.stdout.write(usage());
     return;
   }
-  if (!Number.isFinite(args.sampleRateFps) || args.sampleRateFps < 1 || args.sampleRateFps > 30) {
+  if (
+    !Number.isFinite(args.sampleRateFps) ||
+    args.sampleRateFps < 1 ||
+    args.sampleRateFps > 30
+  ) {
     throw new Error("--sample-rate-fps must be between 1 and 30");
   }
   if (!Number.isFinite(args.durationMs) || args.durationMs < 500) {
@@ -941,7 +1255,9 @@ async function main() {
     throw new Error("--trigger-at-ms must be at least 1");
   }
   if (args.trigger !== "none" && args.triggerAtMs >= args.durationMs) {
-    throw new Error("--trigger-at-ms must be less than --duration-ms when a trigger is enabled");
+    throw new Error(
+      "--trigger-at-ms must be less than --duration-ms when a trigger is enabled",
+    );
   }
 
   const { chromium } = requireFromAituber("playwright");
@@ -956,11 +1272,20 @@ async function main() {
   let selfMirrorReady = null;
   let framePaths = [];
   try {
-    const page = await browser.newPage({ viewport: { width: args.width, height: args.height } });
-    await page.goto(args.url, { waitUntil: "domcontentloaded", timeout: 20000 });
-    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    const page = await browser.newPage({
+      viewport: { width: args.width, height: args.height },
+    });
+    await page.goto(args.url, {
+      waitUntil: "domcontentloaded",
+      timeout: 20000,
+    });
+    await page
+      .waitForLoadState("networkidle", { timeout: 5000 })
+      .catch(() => {});
     selfMirrorReady = await waitForSelfMirrorReady(page, args);
-    process.stdout.write(`self_mirror_ready=${JSON.stringify(selfMirrorReady)}\n`);
+    process.stdout.write(
+      `self_mirror_ready=${JSON.stringify(selfMirrorReady)}\n`,
+    );
     await page.waitForTimeout(args.settleMs);
     const capture = await captureFrames(page, frameDir, args);
     framePaths = capture.framePaths;
@@ -973,11 +1298,13 @@ async function main() {
   }
 
   const observedRuntimeResultId =
-    motionStimulusResult && typeof motionStimulusResult.runtime_result_id === "string"
+    motionStimulusResult &&
+    typeof motionStimulusResult.runtime_result_id === "string"
       ? motionStimulusResult.runtime_result_id
       : null;
   const observedDriverResultId =
-    motionStimulusResult && typeof motionStimulusResult.driver_result_id === "string"
+    motionStimulusResult &&
+    typeof motionStimulusResult.driver_result_id === "string"
       ? motionStimulusResult.driver_result_id
       : null;
   const plannedRuntimeResultId = args.runtimeResultId || args.driverResultId;
@@ -997,7 +1324,8 @@ async function main() {
     planned_runtime_result_id: plannedRuntimeResultId,
     driver_result_id: joinedDriverResultId,
     runtime_result_id: observedRuntimeResultId,
-    multi_stimulus_group_id: motionStimulusResult?.multi_stimulus_group_id ?? null,
+    multi_stimulus_group_id:
+      motionStimulusResult?.multi_stimulus_group_id ?? null,
     result_status: motionStimulusResult?.status ?? null,
     result_reason_code: motionStimulusResult?.reason_code ?? null,
     result_safe_visible_state: motionStimulusResult?.safe_visible_state ?? null,
@@ -1028,7 +1356,46 @@ async function main() {
     rois: defaultRois(args.scenarioId),
     thresholds: defaultThresholds(),
   };
-  await fs.writeFile(path.join(outDir, "self_mirror_browser_config.json"), JSON.stringify(config, null, 2) + "\n", "utf8");
+  await fs.writeFile(
+    path.join(outDir, "self_mirror_browser_config.json"),
+    JSON.stringify(config, null, 2) + "\n",
+    "utf8",
+  );
+
+  const vrmModelTelemetrySummary = buildVrmModelTelemetrySummary({
+    analysisRunId: args.analysisRunId,
+    durationMs: args.durationMs,
+    triggerResult,
+    runtimeJoin,
+    projectionVisualDiagnostics,
+    eventTimeline,
+  });
+  let vrmModelTelemetryStatus = null;
+  if (vrmModelTelemetrySummary) {
+    const validationErrors = validateVrmModelTelemetrySummary(
+      vrmModelTelemetrySummary,
+    );
+    if (validationErrors.length) {
+      throw new Error(
+        `VRM model telemetry schema validation failed: ${validationErrors.join("; ")}`,
+      );
+    }
+    await fs.writeFile(
+      path.join(outDir, "vrm_model_telemetry_summary.json"),
+      JSON.stringify(vrmModelTelemetrySummary, null, 2) + "\n",
+      "utf8",
+    );
+    vrmModelTelemetryStatus = {
+      schema_version: vrmModelTelemetrySummary.schema_version,
+      telemetry_id: vrmModelTelemetrySummary.telemetry_id,
+      proof_ceiling: vrmModelTelemetrySummary.proof_ceiling,
+      result_file: "vrm_model_telemetry_summary.json",
+      validation_status: "valid",
+      raw_media_shared: false,
+      raw_path_shared: false,
+      browser_storage_shared: false,
+    };
+  }
 
   const manifest = {
     schema_version: "self_mirror_capture_manifest.v0",
@@ -1043,6 +1410,7 @@ async function main() {
     trigger: triggerResult,
     motion_stimulus_result: motionStimulusResult,
     projection_visual_diagnostics: projectionVisualDiagnostics,
+    vrm_model_telemetry: vrmModelTelemetryStatus,
     event_timeline: eventTimeline,
     runtime_join: runtimeJoin,
     raw_inputs_policy: {
@@ -1057,7 +1425,11 @@ async function main() {
     raw_paths_shared: false,
     retention: "temporary_by_default",
   };
-  await fs.writeFile(path.join(outDir, "self_mirror_capture_manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
+  await fs.writeFile(
+    path.join(outDir, "self_mirror_capture_manifest.json"),
+    JSON.stringify(manifest, null, 2) + "\n",
+    "utf8",
+  );
 
   process.stdout.write("Self Mirror browser frame capture: ok\n");
   process.stdout.write(`frame_count=${framePaths.length}\n`);
@@ -1065,9 +1437,19 @@ async function main() {
   process.stdout.write("manifest_file=self_mirror_capture_manifest.json\n");
   process.stdout.write("raw_frames_shared=false\n");
   process.stdout.write("raw_paths_shared=false\n");
+  if (vrmModelTelemetryStatus) {
+    process.stdout.write("vrm_model_telemetry_summary=written\n");
+    process.stdout.write("vrm_model_telemetry_schema_validation=passed\n");
+  } else {
+    process.stdout.write("vrm_model_telemetry_summary=not_applicable\n");
+  }
   process.stdout.write("raw_inputs_retained_local_only=true\n");
-  process.stdout.write("cleanup_owner=run-self-mirror-proof.ps1_or_direct_caller\n");
-  process.stdout.write("do_not_share_or_commit=raw-browser-frames,self_mirror_browser_config.json\n");
+  process.stdout.write(
+    "cleanup_owner=run-self-mirror-proof.ps1_or_direct_caller\n",
+  );
+  process.stdout.write(
+    "do_not_share_or_commit=raw-browser-frames,self_mirror_browser_config.json\n",
+  );
 }
 
 main().catch((error) => {
