@@ -63,6 +63,11 @@ can also wait if you only want a minimal no-live startup check.
 
 `NEXT_PUBLIC_*` values are visible to browser code. Do not put secrets in them.
 
+Prepared local inputs are optional operator-supplied private bundles. The
+`_secret_inputs` name may be used by a verification checkout, but it is not a
+product convention or a required path. When sharing results, report only
+redacted classes, counts, and asset ids.
+
 | Name | Protects / Connects | Secret | Browser-visible | Can Be Empty For Mock / No-Live | Required For Live Appliances |
 | --- | --- | --- | --- | --- | --- |
 | `HOME_ASSISTANT_TOKEN` | Home Assistant state read and action execution | yes | no | yes | yes |
@@ -103,6 +108,9 @@ pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 
 After adding Home Assistant token, `HOME_CONTROL_API_TOKEN`, or
 `ENVIRONMENT_API_TOKEN`, rerun with `-Force` before startup.
+
+After a forced render, restart or rerun the selected stack/bridge check. Already
+running services do not prove they picked up the new env/config.
 
 `-Force` also regenerates
 `organs\action\home-assistant-server\config\home-control.yaml`. If you maintain

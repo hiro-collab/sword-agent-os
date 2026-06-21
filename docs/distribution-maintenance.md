@@ -3,7 +3,7 @@
 この文書は、Sword Agent OS の標準ディストリビューションについて、version、source pin、
 diagnostics、update、installer/update maintenance smoke を確認するための運用メモです。
 
-初回の最短導入は `README.md` を読んでください。標準構成の全体像と proof layer は
+初回の入口は `README.md`、最初の成功条件と標準構成の全体像は
 `docs/standard-distribution-map.md` を参照してください。
 
 ## Version Model

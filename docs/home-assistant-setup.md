@@ -163,6 +163,10 @@ raw logs, screenshots, or local absolute paths.
 
 Start the bridge only for the selected workspace/config and check in this order:
 
+The helper keeps the selected bridge in the foreground unless a route explicitly
+owns the process lease; stop it after the check so later work does not read a
+stale workspace.
+
 ```powershell
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -ExpectedActionId <allowed-action-id>
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckTracking -ActionId <allowed-action-id>

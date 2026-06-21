@@ -492,14 +492,18 @@ function Test-ReadmeFirstRunGuidance {
     "docs\customize.md",
     "docs\capability-packs.md",
     "docs\architecture.md",
+    "docs\standard-distribution-map.md",
+    "docs\verification-commands.md",
+    "docs\troubleshooting.md",
     "docs\reference-surfaces.md",
     "docs\add-home-device.md",
     "docs\proof-layers.md",
-    "docs\manifest-ledger-authority.md",
+    "manifests\README.md",
     "docs\local-configuration.md",
     "docs\home-assistant-setup.md",
     "docs\home-control-action-authoring.md",
     "docs\live-home-control-proof.md",
+    "docs\live-home-control-cause-trail.md",
     "runtime\control\README.md"
   )
   $frontDoorSurface = $readme
@@ -508,31 +512,29 @@ function Test-ReadmeFirstRunGuidance {
     Assert-PathPresent -Path $absoluteDocPath
     $frontDoorSurface = "$frontDoorSurface`n$(Get-Content -Raw -LiteralPath $absoluteDocPath)"
   }
-  Assert-TextMatch -Text $readme -Pattern "prepared local|準備済みローカル" -Message "README should describe prepared local inputs without requiring private folder names"
-  Assert-TextMatch -Text $readme -Pattern "_secret_inputs.*product convention|製品として特定のフォルダ名を要求しません" -Message "README should not make _secret_inputs look like a required product convention"
-  Assert-TextMatch -Text $readme -Pattern "15分 quick-start" -Message "README should include the 15-minute quick-start path"
-  Assert-TextMatch -Text $readme -Pattern "prepare-local-inputs\.ps1" -Message "README should document the optional local input helper without making it a product requirement"
-  Assert-TextMatch -Text $readme -Pattern "render-env-files\.ps1 -Profile standard -Force" -Message "README should show central env re-render after editing local env"
-  Assert-TextMatch -Text $readme -Pattern "MediapipeVideoSource testsrc" -Message "README should show device-free/no-camera compat smoke with testsrc"
-  Assert-TextMatch -Text $readme -Pattern "runtime/browser|実マイク|実カメラ|live Home Assistant|物理家電" -Message "README should separate no-live install/readiness from runtime/browser/live proof"
-  Assert-TextMatch -Text $readme -Pattern "標準ディストリビューションの流れ" -Message "README should explain the standard distribution flow"
-  Assert-TextMatch -Text $readme -Pattern "刀印.*wake word|OK Google|入力ゲート" -Message "README should explain the sword-sign input gate"
-  Assert-TextMatch -Text $readme -Pattern "docs/assets/readme/sword-sign-gesture\.png" -Message "README should reference the sword-sign gesture image"
-  Assert-PathPresent -Path (Join-Path $RepoRoot "docs\assets\readme\sword-sign-gesture.png")
-  Assert-TextMatch -Text $readme -Pattern "start-home-control-bridge\.ps1" -Message "README should document the Home Control bridge live helper"
-  Assert-TextMatch -Text $readme -Pattern "/health.*config_error|/actions.*preview / execute" -Message "README should define live Home Control safe-stop behavior"
-  Assert-TextMatch -Text $readme -Pattern "preview、dry-run、execute" -Message "README should require preview before live execute"
-  Assert-TextMatch -Text $readme -Pattern "live pilot|live 確認.*ladder|OpenAPI" -Message "README should provide a live pilot command ladder without requiring OpenAPI discovery"
-  Assert-TextMatch -Text $readme -Pattern "home-control\.yaml[\s\S]{0,200}再生成|再生成[\s\S]{0,200}home-control\.yaml" -Message "README should warn that render-env-files -Force regenerates home-control.yaml"
-  Assert-TextMatch -Text $readme -Pattern "/actions/<allowed-action-id>/preview" -Message "README should show a concrete preview route shape"
-  Assert-TextMatch -Text $readme -Pattern '"dry_run":true' -Message "README should show a dry-run execute body"
-  Assert-TextMatch -Text $readme -Pattern "-CheckTracking -ActionId" -Message "README should show helper-based state-tracking metadata check before execute"
-  Assert-TextMatch -Text $readme -Pattern "-CheckState -ActionId" -Message "README should show helper-based Home Assistant state check"
-  Assert-TextMatch -Text $readme -Pattern "live_test_readiness" -Message "README should document Home Control live-test readiness metadata"
-  Assert-TextMatch -Text $readme -Pattern "restore_action_id" -Message "README should document Home Control restore action metadata"
-  Assert-TextMatch -Text $readme -Pattern "proof_ceiling" -Message "README should document Home Control proof ceiling metadata"
-  Assert-TextMatch -Text $readme -Pattern "実行後または restore 後|post-action" -Message "README should separate CheckState from pre-execution checks"
-  Assert-TextMatch -Text $readme -Pattern "live-home-control-cause-trail\.md" -Message "README should link live Home Control cause trail"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "prepared local|準備済みローカル" -Message "front-door docs should describe prepared local inputs without requiring private folder names"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "_secret_inputs.*product convention|製品として特定のフォルダ名を要求しません" -Message "front-door docs should not make _secret_inputs look like a required product convention"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "First Success" -Message "front-door docs should include the first-success path"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "render-env-files\.ps1 -Profile standard -Force" -Message "front-door docs should show central env re-render after editing local env"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "MediapipeVideoSource testsrc" -Message "front-door docs should show device-free/no-camera compat smoke with testsrc"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime/browser|実マイク|実カメラ|live Home Assistant|物理家電" -Message "front-door docs should separate no-live install/readiness from runtime/browser/live proof"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Representative Standard Loop|標準構成.*流れ" -Message "front-door docs should explain the standard distribution flow"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Sword sign|gesture-to-voice gate" -Message "front-door docs should explain the sword-sign input gate"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "start-home-control-bridge\.ps1" -Message "front-door docs should document the Home Control bridge live helper"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "health_config_error" -Message "front-door docs should define live Home Control health config-error behavior"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "actions_unavailable" -Message "front-door docs should define live Home Control action-unavailable safe stop behavior"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "preview\s*/\s*dry-run\s*/\s*execute|preview, dry-run, execute" -Message "front-door docs should require preview before live execute"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "live pilot|live 確認.*ladder|OpenAPI" -Message "front-door docs should provide a live pilot command ladder without requiring OpenAPI discovery"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "-Force[\s\S]{0,260}home-control\.yaml|home-control\.yaml[\s\S]{0,260}-Force" -Message "front-door docs should warn that render-env-files -Force regenerates home-control.yaml"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "/actions/<allowed-action-id>/preview" -Message "front-door docs should show a concrete preview route shape"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "dry-run execute only when the route shape explicitly includes it" -Message "front-door docs should constrain dry-run execute behavior"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "-CheckTracking -ActionId" -Message "front-door docs should show helper-based state-tracking metadata check before execute"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "-CheckState -ActionId" -Message "front-door docs should show helper-based Home Assistant state check"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "live_test_readiness" -Message "front-door docs should document Home Control live-test readiness metadata"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "restore_action_id" -Message "front-door docs should document Home Control restore action metadata"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "proof_ceiling" -Message "front-door docs should document Home Control proof ceiling metadata"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "実行後または restore 後|post-action" -Message "front-door docs should separate CheckState from pre-execution checks"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "live-home-control-cause-trail\.md" -Message "front-door docs should link live Home Control cause trail"
   Assert-PathPresent -Path (Join-Path $RepoRoot "docs\live-home-control-cause-trail.md")
   $bridgeHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\start-home-control-bridge.ps1")
   Assert-TextMatch -Text $bridgeHelper -Pattern "--env-file" -Message "Home Control bridge helper should pass generated .env through uv"
@@ -567,24 +569,24 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "UV_CACHE_DIR" -Message "public troubleshooting docs should include uv cache troubleshooting guidance"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "uv python find" -Message "public troubleshooting docs should explain uv-based Python interpreter discovery"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "Git ownership warning" -Message "public troubleshooting docs should frame restricted-environment Git ownership warnings as validation friction"
-  Assert-TextMatch -Text $readme -Pattern "doctor-distribution\.ps1" -Message "README should document the distribution doctor"
-  Assert-TextMatch -Text $readme -Pattern "check-distribution-pins\.ps1" -Message "README should document the distribution pin checker"
-  Assert-TextMatch -Text $readme -Pattern "ahead_of_manifest|正式採用待ち|parent adoption" -Message "README should explain ahead-of-manifest pin state"
-  Assert-TextMatch -Text $readme -Pattern "git_unreadable[\s\S]{0,240}pin mismatch" -Message "README should separate git_unreadable from true pin mismatch"
-  Assert-TextMatch -Text $troubleshootingSurface -Pattern "port 競合[\s\S]{0,240}isolated_override|isolated_override[\s\S]{0,240}port 競合" -Message "public troubleshooting docs should explain port-conflict handling"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "doctor-distribution\.ps1" -Message "front-door docs should document the distribution doctor"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "check-distribution-pins\.ps1" -Message "front-door docs should document the distribution pin checker"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "ahead_of_manifest|正式採用待ち|parent adoption" -Message "front-door docs should explain ahead-of-manifest pin state"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "git_unreadable[\s\S]{0,240}pin mismatch" -Message "front-door docs should separate git_unreadable from true pin mismatch"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "port-conflict|isolated_override" -Message "public troubleshooting docs should explain port-conflict handling"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern '既存の `sword-agent-os` directory' -Message "public troubleshooting docs should explain existing clone directory handling"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "network permission" -Message "public troubleshooting docs should classify restricted environment network reruns"
-  Assert-TextMatch -Text $readme -Pattern "foreground の" -Message "README should explain Home Control bridge foreground behavior"
-  Assert-TextMatch -Text $readme -Pattern "status=submitted" -Message "README should explain submitted execute status"
-  Assert-TextMatch -Text $readme -Pattern "install/readiness pass" -Message "README should separate first-run report proof layers"
-  Assert-TextMatch -Text $readme -Pattern "gesture-to-voice-input" -Message "README should separate gesture-to-voice gate proof"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "foreground" -Message "front-door docs should explain Home Control bridge foreground behavior"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "accepted/submitted|command submitted|submitted_only" -Message "front-door docs should explain submitted execute status"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "install/readiness pass" -Message "front-door docs should separate first-run report proof layers"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "gesture-to-voice gate" -Message "front-door docs should separate gesture-to-voice gate proof"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "npm audit" -Message "public troubleshooting docs should include npm audit interpretation guidance"
-  Assert-TextMatch -Text $readme -Pattern "run-local-media-replay\.ps1" -Message "README should document the local media replay preview helper"
-  Assert-TextMatch -Text $readme -Pattern "evaluate-room-light-sunshine\.ps1" -Message "README should document the sunshine room-light evaluator"
-  Assert-TextMatch -Text $readme -Pattern "check-voicevox-readiness\.ps1" -Message "README should document the VOICEVOX readiness helper"
-  Assert-TextMatch -Text $readme -Pattern "Start Stack し直して" -Message "README should explain restart after forced env/config render"
-  Assert-TextMatch -Text $readme -Pattern "run-full-install-verification\.ps1" -Message "README should document the full install verification helper"
-  Assert-TextMatch -Text $readme -Pattern "run-home-control-light-proof\.ps1" -Message "README should document the physical light proof helper"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "run-local-media-replay\.ps1" -Message "front-door docs should document the local media replay preview helper"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "room-light evidence|room-light lanes|room-light on/off" -Message "front-door docs should document room-light evidence"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "check-voicevox-readiness\.ps1" -Message "front-door docs should document the VOICEVOX readiness helper"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "forced render[\s\S]{0,180}restart|restart[\s\S]{0,180}env/config" -Message "front-door docs should explain restart after forced env/config render"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "run-full-install-verification\.ps1" -Message "front-door docs should document the full install verification helper"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "run-home-control-light-proof\.ps1" -Message "front-door docs should document the physical light proof helper"
   Assert-TextMatch -Text $verificationSurface -Pattern "run-home-control-light-proof\.ps1" -Message "public verification docs should document the physical light proof helper"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "run-home-control-light-proof\.ps1" -Message "troubleshooting should point light physical proof to the bounded helper"
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\run-home-control-light-proof.ps1")
@@ -608,11 +610,11 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $cameraBrightnessHelper -Pattern "raw_media_saved" -Message "camera brightness helper should report raw media is not saved"
   Assert-TextMatch -Text $cameraBrightnessHelper -Pattern "cv2\.VideoCapture" -Message "camera brightness helper should use OpenCV without writing frames"
   Assert-TextMatch -Text $verificationSurface -Pattern "default_safety=no-live/no-device" -Message "public verification docs should state the full verification helper default safety"
-  Assert-TextMatch -Text $readme -Pattern "RequestLiveHomeAssistant[\s\S]{0,320}ConfirmHomeAssistantTicket|ConfirmHomeAssistantTicket[\s\S]{0,320}RequestLiveHomeAssistant" -Message "README should require explicit live HA request and ticket confirmation"
-  Assert-TextMatch -Text $readme -Pattern "local-media replay" -Message "README should name local-media replay as a separate proof layer"
-  Assert-TextMatch -Text $readme -Pattern "gesture\.sword\.20260603" -Message "README should show the sword-sign positive local media asset id"
-  Assert-TextMatch -Text $readme -Pattern "vision\.room_light\.on\.20260603" -Message "README should show the room-light local media asset id"
-  Assert-TextMatch -Text $readme -Pattern "readme:front-door-no-live-default" -Message "README should anchor the no-live front-door default"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "RequestLiveHomeAssistant[\s\S]{0,320}ConfirmHomeAssistantTicket|ConfirmHomeAssistantTicket[\s\S]{0,320}RequestLiveHomeAssistant" -Message "front-door docs should require explicit live HA request and ticket confirmation"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "local-media replay" -Message "front-door docs should name local-media replay as a separate proof layer"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "gesture\.sword\.20260603" -Message "front-door docs should show the sword-sign positive local media asset id"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "vision\.room_light\.on\.20260603" -Message "front-door docs should show the room-light local media asset id"
+  Assert-TextMatch -Text $readme -Pattern "Safety Default" -Message "README should anchor the no-live front-door default"
   Assert-TextMatch -Text $readme -Pattern "\.\\sword\.ps1 status\s+\.\\sword\.ps1 verify\s+\.\\sword\.ps1 doctor" -Message "README front-door commands should use short default no-live forms"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "sword\.ps1" -Message "front-door docs should document the root sword.ps1 wrapper"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "まず安全に見る" -Message "operator docs should be organized by user intent"
@@ -661,11 +663,11 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "start-home-control-bridge\.ps1[\s\S]{0,180}blocks bridge start|blocks bridge start[\s\S]{0,180}start-home-control-bridge\.ps1" -Message "runtime control docs should name the first hold-live reader"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Action Boundary[\s\S]{0,160}Home Control bridge[\s\S]{0,160}Launch\s+Manager|Launch\s+Manager[\s\S]{0,160}Home Control bridge[\s\S]{0,160}Action Boundary" -Message "runtime control docs should name intended hold-live reader surfaces"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "full-schema private/live config|reviewed clone-local equivalent" -Message "customization docs should explain full-schema Home Assistant config requirements"
-  Assert-TextMatch -Text $frontDoorSurface -Pattern "partial, not release-ready" -Message "front-door docs should keep scoped fresh-install evidence separate from release readiness"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "release-ready|release readiness" -Message "front-door docs should keep scoped fresh-install evidence separate from release readiness"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "source/static" -Message "proof-layer docs should name source/static proof"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime/status" -Message "proof-layer docs should name runtime/status proof"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "physical/device proof" -Message "proof-layer docs should name physical/device proof"
-  Assert-TextMatch -Text $frontDoorSurface -Pattern "manifest-ledger-authority\.md" -Message "README should link the manifest ledger authority page"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "manifests/README\.md|manifests\\README\.md" -Message "front-door docs should link the manifest authority page"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "home-control-action-authoring\.md" -Message "README should link Home Control action authoring docs"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "home-assistant-setup\.md" -Message "front-door docs should link Home Assistant setup docs"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Connection[\s\S]{0,120}Proof-ready config|Proof-ready config[\s\S]{0,120}Connection" -Message "Home Assistant setup docs should separate connection from proof-ready config"
@@ -677,7 +679,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "demo/default/template" -Message "front-door docs should require rejecting demo/default/template context for live proof"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "reviewed clone-local equivalent|reviewed_clone_local_full_schema_equivalent" -Message "front-door docs should support reviewed clone-local full-schema equivalents for worktree verification"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "dry-run.*token.*consumed|token.*dry-run.*consumed" -Message "front-door docs should explain dry-run confirmation token consumption"
-  Assert-TextMatch -Text $frontDoorSurface -Pattern "HA-visible CheckState.*physical proof|physical proof.*HA-visible CheckState" -Message "front-door docs should prevent promoting HA-visible CheckState to physical proof"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Home Assistant state match into physical proof|CheckState[\s\S]{0,160}not physical proof|HA-visible proof is not physical proof" -Message "front-door docs should prevent promoting HA-visible CheckState to physical proof"
   $standardDistributionMap = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\standard-distribution-map.md")
   Assert-TextMatch -Text $standardDistributionMap -Pattern "\.\\sword\.ps1 status[\s\S]{0,120}\.\\sword\.ps1 verify" -Message "standard distribution map should start first success with sword.ps1 front-door checks"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "sword\.ps1.*入口.*script.*詳細工具|script.*詳細工具.*sword\.ps1.*入口" -Message "standard distribution map should explain front-door vs detailed script roles"

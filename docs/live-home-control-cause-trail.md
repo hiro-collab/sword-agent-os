@@ -294,9 +294,7 @@ backup exists, record that as `backup-external` instead of retrying API backup
 creation blindly. A backup proof only protects rollback; it does not prove
 script reload, command execution, HA state, or physical state.
 
-For the 2026-06-09 door/cover pilot, see
-`docs/live-home-control-integration-report-2026-06-09.md` and keep the action
-out of HA state-proof promotion:
+The 2026-06-09 door/cover pilot remains outside HA state-proof promotion:
 
 ```text
 proof_layer: live-execute + live-ha-state
