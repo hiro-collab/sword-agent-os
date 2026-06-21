@@ -1,0 +1,121 @@
+{
+  "schema_version": "vrm_model_telemetry.v0",
+  "telemetry_id": "vrm_tel_rr003_expression_full_relaxed_001",
+  "captured_at": "2026-06-21T07:30:00Z",
+  "proof_ceiling": "runtime_model_state_telemetry_summary_only",
+  "correlation": {
+    "target_model_type": "vrm",
+    "motion_event_id": "mot_evt_rr003_demo_expression_001",
+    "stimulus_instance_id": "mot_inst_rr003_demo_expression_001",
+    "runtime_result_id": "mot_res_rr003_demo_expression_001",
+    "driver_result_id": "mot_drv_rr003_demo_expression_001",
+    "expression_profile_ref": "motion.runtime.vrm_expression_weights.full_relaxed.v0",
+    "expression_profile_id": "expression_visible_full_relaxed"
+  },
+  "sample_window": {
+    "start_ms": 0,
+    "end_ms": 1000,
+    "sample_count": 5,
+    "decimation": "fixed_interval"
+  },
+  "series": [
+    {
+      "series_id": "vrm_series_rr003_expression_happy_001",
+      "track": "face",
+      "metric_kind": "expression_weight",
+      "channel_name": "happy",
+      "source": "vrm_expression_manager",
+      "samples": [
+        { "t_ms": 0, "numeric_value": 0.0, "value_bucket": "none", "changed": false },
+        { "t_ms": 250, "numeric_value": 1.0, "value_bucket": "high", "changed": true },
+        { "t_ms": 500, "numeric_value": 1.0, "value_bucket": "high", "changed": true },
+        { "t_ms": 750, "numeric_value": 1.0, "value_bucket": "high", "changed": true },
+        { "t_ms": 1000, "numeric_value": 0.0, "value_bucket": "none", "changed": false }
+      ]
+    },
+    {
+      "series_id": "vrm_series_rr003_expression_relaxed_001",
+      "track": "face",
+      "metric_kind": "expression_weight",
+      "channel_name": "relaxed",
+      "source": "vrm_expression_manager",
+      "samples": [
+        { "t_ms": 0, "numeric_value": 0.0, "value_bucket": "none", "changed": false },
+        { "t_ms": 250, "numeric_value": 1.0, "value_bucket": "high", "changed": true },
+        { "t_ms": 500, "numeric_value": 1.0, "value_bucket": "high", "changed": true },
+        { "t_ms": 750, "numeric_value": 1.0, "value_bucket": "high", "changed": true },
+        { "t_ms": 1000, "numeric_value": 0.0, "value_bucket": "none", "changed": false }
+      ]
+    },
+    {
+      "series_id": "vrm_series_rr003_head_rotation_delta_001",
+      "track": "head",
+      "metric_kind": "bone_rotation_delta_bucket",
+      "source": "driver_summary",
+      "samples": [
+        { "t_ms": 0, "value_bucket": "none", "changed": false },
+        { "t_ms": 250, "value_bucket": "none", "changed": false },
+        { "t_ms": 500, "value_bucket": "none", "changed": false },
+        { "t_ms": 750, "value_bucket": "none", "changed": false },
+        { "t_ms": 1000, "value_bucket": "none", "changed": false }
+      ]
+    }
+  ],
+  "summary": {
+    "requested_channel_count": 6,
+    "applied_channel_count": 2,
+    "dropped_channel_count": 4,
+    "requested_channel_names": ["Fun", "Joy", "fun", "happy", "joy", "relaxed"],
+    "applied_channel_names": ["happy", "relaxed"],
+    "dropped_channel_names": ["Fun", "Joy", "fun", "joy"],
+    "track_summaries": [
+      {
+        "track": "face",
+        "metric_kind": "expression_weight",
+        "changed": true,
+        "min_bucket": "none",
+        "max_bucket": "high",
+        "mean_bucket": "medium",
+        "confidence": 0.95
+      },
+      {
+        "track": "head",
+        "metric_kind": "bone_rotation_delta_bucket",
+        "changed": false,
+        "min_bucket": "none",
+        "max_bucket": "none",
+        "mean_bucket": "none",
+        "confidence": 0.8
+      }
+    ]
+  },
+  "redaction": {
+    "redaction_status": "summary_only",
+    "shareability_class": "runtime_model_state_telemetry_summary",
+    "raw_media_shared": false,
+    "raw_path_shared": false,
+    "raw_asset_name_shared": false,
+    "raw_browser_storage_shared": false
+  },
+  "safety": {
+    "command_authority": false,
+    "roi_or_threshold_authority": false,
+    "self_mirror_authority": false,
+    "semantic_expression_authority": false,
+    "physical_proof_authority": false,
+    "provider_payload_shared": false,
+    "home_assistant_route": false,
+    "private_device_value_shared": false
+  },
+  "non_claims": [
+    "not_self_mirror_pass",
+    "not_expression_visible_pass",
+    "not_semantic_expression_correctness",
+    "not_browser_visible_proof",
+    "not_physical_or_projector_proof",
+    "not_release_or_final_rr003",
+    "not_roi_or_threshold_authority",
+    "not_command_authority",
+    "not_raw_media_publication"
+  ]
+}

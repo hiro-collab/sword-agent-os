@@ -853,6 +853,52 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $motionProfileSurface -Pattern "private page[\s\S]{0,80}module[\s\S]{0,80}store[\s\S]{0,80}browser internals|private page/module/store" -Message "motion profile docs should forbid private runtime internals as the selection path"
   Assert-TextMatch -Text $motionProfileSurface -Pattern "does not change the default|standard default expression profile" -Message "motion profile docs should preserve default expression-visible behavior"
   Assert-TextMatch -Text $motionProfileSurface -Pattern "does not prove visible motion|do not prove runtime[\s\S]{0,180}Self Mirror" -Message "motion profile docs should prevent proof upgrades from contract refs"
+  $vrmTelemetrySchemaPath = Join-Path $RepoRoot "contracts\vrm_model_telemetry\vrm_model_telemetry.v0.schema.json"
+  $vrmTelemetryExamplePath = Join-Path $RepoRoot "contracts\vrm_model_telemetry\examples\rr003-expression-full-relaxed.telemetry.example.json"
+  $vrmTelemetryRoutesSchemaPath = Join-Path $RepoRoot "contracts\vrm_model_telemetry_consumer_routes\vrm_model_telemetry_consumer_routes.v0.schema.json"
+  $vrmTelemetryRoutesPath = Join-Path $RepoRoot "runtime\vrm-model-telemetry\vrm-model-telemetry-consumer-routes.json"
+  $vrmTelemetryRuntimeReadmePath = Join-Path $RepoRoot "runtime\vrm-model-telemetry\README.md"
+  $vrmTelemetryOrganReadmePath = Join-Path $RepoRoot "organs\expression\vrm-model-telemetry\README.md"
+  Assert-PathPresent -Path $vrmTelemetrySchemaPath
+  Assert-PathPresent -Path $vrmTelemetryExamplePath
+  Assert-PathPresent -Path $vrmTelemetryRoutesSchemaPath
+  Assert-PathPresent -Path $vrmTelemetryRoutesPath
+  Assert-PathPresent -Path $vrmTelemetryRuntimeReadmePath
+  Assert-PathPresent -Path $vrmTelemetryOrganReadmePath
+  $vrmTelemetrySchema = Get-Content -Raw -LiteralPath $vrmTelemetrySchemaPath
+  $vrmTelemetryExample = Get-Content -Raw -LiteralPath $vrmTelemetryExamplePath
+  $vrmTelemetryRoutesSchema = Get-Content -Raw -LiteralPath $vrmTelemetryRoutesSchemaPath
+  $vrmTelemetryRoutes = Get-Content -Raw -LiteralPath $vrmTelemetryRoutesPath
+  $vrmTelemetryRuntimeReadme = Get-Content -Raw -LiteralPath $vrmTelemetryRuntimeReadmePath
+  $vrmTelemetryOrganReadme = Get-Content -Raw -LiteralPath $vrmTelemetryOrganReadmePath
+  $contractsReadme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "contracts\README.md")
+  $proofLayers = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\proof-layers.md")
+  $referenceSurfaces = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\reference-surfaces.md")
+  $vrmTelemetrySurface = "$vrmTelemetrySchema`n$vrmTelemetryExample`n$vrmTelemetryRoutesSchema`n$vrmTelemetryRoutes`n$vrmTelemetryRuntimeReadme`n$vrmTelemetryOrganReadme`n$contractsReadme`n$proofLayers`n$referenceSurfaces`n$motionRuntimeReadme`n$moduleUsageIndex"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"proof_ceiling"[\s\S]{0,120}"runtime_model_state_telemetry_summary_only"' -Message "VRM telemetry schema should lock the model-state proof ceiling"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"command_authority"[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry schema should not create command authority"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"self_mirror_authority"[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry schema should not become Self Mirror authority"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"semantic_expression_authority"[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry schema should not become semantic expression authority"
+  Assert-TextMatch -Text $vrmTelemetrySchema -Pattern '"raw_media_shared"[\s\S]{0,80}"const"\s*:\s*false[\s\S]{0,180}"raw_path_shared"[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry schema should preserve raw media/path redaction"
+  Assert-TextMatch -Text $vrmTelemetryExample -Pattern '"expression_profile_ref"\s*:\s*"motion\.runtime\.vrm_expression_weights\.full_relaxed\.v0"' -Message "VRM telemetry example should include the full-relaxed profile ref"
+  Assert-TextMatch -Text $vrmTelemetryExample -Pattern '"metric_kind"\s*:\s*"expression_weight"' -Message "VRM telemetry example should include graph-ready expression weights"
+  Assert-TextMatch -Text $vrmTelemetryExample -Pattern '"not_self_mirror_pass"[\s\S]{0,220}"not_expression_visible_pass"[\s\S]{0,220}"not_semantic_expression_correctness"' -Message "VRM telemetry example should preserve proof non-claims"
+  Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "runtime/model telemetry|VRM Model Telemetry" -Message "VRM telemetry should be documented as a separate proof/reference layer"
+  Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "runtime/vrm-model-telemetry/vrm-model-telemetry-consumer-routes\.json" -Message "VRM telemetry should expose a system-readable module route map"
+  Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "organs/expression/vrm-model-telemetry" -Message "VRM telemetry should have a separate expression organ scaffold"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"schema_version"\s*:\s*"vrm_model_telemetry_consumer_routes\.v0"' -Message "VRM telemetry route map should have a schema version"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"contract_ref"\s*:\s*"contracts/vrm_model_telemetry_consumer_routes/vrm_model_telemetry_consumer_routes\.v0\.schema\.json"' -Message "VRM telemetry route map should point to its contract"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"result_contract_ref"\s*:\s*"contracts/vrm_model_telemetry/vrm_model_telemetry\.v0\.schema\.json"' -Message "VRM telemetry route map should point to the result contract"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"thought_core"' -Message "VRM telemetry route map should be discoverable by Thought Core"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"model_state_readback_only"\s*:\s*true' -Message "VRM telemetry route map should stay model-state readback only"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"runtime_execution_authority"\s*:\s*false' -Message "VRM telemetry route map should not authorize runtime execution"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"expression_visible_pass_authority"\s*:\s*false' -Message "VRM telemetry route map should not become expression-visible pass authority"
+  Assert-TextMatch -Text $vrmTelemetryRoutes -Pattern '"roi_or_threshold_authority"\s*:\s*false' -Message "VRM telemetry route map should not mutate ROI or thresholds"
+  Assert-TextMatch -Text $vrmTelemetryRoutesSchema -Pattern '"schema_version"\s*:\s*\{[\s\S]{0,80}"const"\s*:\s*"vrm_model_telemetry_consumer_routes\.v0"' -Message "VRM telemetry route schema should define schema version"
+  Assert-TextMatch -Text $vrmTelemetryRoutesSchema -Pattern '"result_contract_ref"\s*:\s*\{[\s\S]{0,140}"const"\s*:\s*"contracts/vrm_model_telemetry/vrm_model_telemetry\.v0\.schema\.json"' -Message "VRM telemetry route schema should lock result contract"
+  Assert-TextMatch -Text $vrmTelemetryRoutesSchema -Pattern '"runtime_execution_authority"\s*:\s*\{[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry route schema should reject runtime execution authority"
+  Assert-TextMatch -Text $vrmTelemetryRoutesSchema -Pattern '"self_mirror_authority"\s*:\s*\{[\s\S]{0,80}"const"\s*:\s*false' -Message "VRM telemetry route schema should reject Self Mirror authority"
+  Assert-TextMatch -Text $vrmTelemetrySurface -Pattern "does not prove|cannot say[\s\S]{0,220}Self Mirror|not_self_mirror_pass" -Message "VRM telemetry docs should not upgrade model state into visual proof"
   Write-Host "README first-run guidance static ok"
 }
 

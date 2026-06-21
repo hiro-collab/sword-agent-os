@@ -12,6 +12,7 @@ layer can support a higher one, but it does not replace it.
 | local-media preparation | Redacted media index and asset readiness | Gesture/STT correctness or raw media evidence |
 | local-media replay | Bounded fixture replay through a named helper | Live camera, live microphone, physical environment |
 | runtime/status | Launcher-owned processes, endpoints, status fields | User-visible browser behavior unless checked |
+| runtime/model telemetry | Summary-only VRM/runtime model-state telemetry shows requested/effective expression weights or safe rig-track buckets changed over time | Browser-visible motion, semantic expression correctness, physical/projector proof, ROI/threshold authority, release/readiness |
 | browser/display | Projection Visual, AITuber, or UI reachability | Physical device movement |
 | browser-visible avatar motion | Self Mirror reports event-correlated visible motion in expected avatar ROIs for a named scenario | Voice intent, provider response, semantic dance/expression quality, physical projector output |
 | Home Assistant preview | Command shape and local safety checks | Device action or HA state change |

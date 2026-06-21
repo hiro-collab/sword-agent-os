@@ -92,6 +92,31 @@ The route map helps a reader choose and interpret Self Mirror checks. It does
 not dispatch correction, run another route, close an issue, claim release
 readiness, or prove physical projector output.
 
+## VRM Model Telemetry Example
+
+<!-- reference-surfaces:vrm-model-telemetry-example -->
+
+VRM model telemetry is a model-state reference surface for subtle expression
+and rig-track diagnostics:
+
+- `contracts/vrm_model_telemetry_consumer_routes/vrm_model_telemetry_consumer_routes.v0.schema.json`
+  defines the discovery map for the VRM Model Telemetry module.
+- `runtime/vrm-model-telemetry/vrm-model-telemetry-consumer-routes.json` is the
+  owner-local route map. It carries `$schema`, `schema_version`, and
+  `contract_ref`, points to the module README, names the expression organ
+  scaffold, and keeps model-state-only boundaries explicit.
+- `contracts/vrm_model_telemetry/vrm_model_telemetry.v0.schema.json` defines
+  the result packet.
+- Example output lives under
+  `contracts/vrm_model_telemetry/examples/rr003-expression-full-relaxed.telemetry.example.json`.
+- The proof ceiling is `runtime_model_state_telemetry_summary_only`.
+
+This surface is useful when Self Mirror image detection is too weak for a small
+facial change. It can say that expression weights or safe rig-track buckets
+changed over time. It cannot say that the browser visibly changed, that the
+expression was semantically correct, that the physical display/projector showed
+the effect, or that ROI/thresholds should be changed.
+
 ## Smells
 
 - A runtime reader parses prose from README instead of a contracted file.

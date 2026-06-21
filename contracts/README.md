@@ -64,6 +64,19 @@ against these shapes at the boundary.
   fallback, stopped, and failed-safe avatar motion outcomes.
   - Example:
     `motion_driver_result/examples/rr003-driver-degraded.example.json`
+- `vrm_model_telemetry/vrm_model_telemetry.v0.schema.json`: summary-only,
+  graph-ready VRM model-state telemetry for expression weights and safe
+  rig/track state over time. It helps diagnose subtle expression changes that
+  may be too small for image-based Self Mirror ROI checks, but it is not
+  browser-visible, semantic, physical/projector, release/readiness, or final
+  RR003 proof.
+  - Example:
+    `vrm_model_telemetry/examples/rr003-expression-full-relaxed.telemetry.example.json`
+- `vrm_model_telemetry_consumer_routes/vrm_model_telemetry_consumer_routes.v0.schema.json`:
+  machine-readable discovery map for the VRM Model Telemetry module. It points
+  readers to the module boundary, organ scaffold, result contract, result
+  authority file, proof ceiling, stop conditions, and non-claims. It is not
+  execution authority or Self Mirror authority.
 - `motion_trace_event/motion_trace_event.v0.schema.json`: redacted motion
   lifecycle / perception feedback event shape for State/Event Ingest, Event
   Journal summaries, Status Store source refs, and later memory candidates.
@@ -130,6 +143,11 @@ against these shapes at the boundary.
   media, prompts, transcripts, provider payloads, local paths, raw filenames,
   private endpoints, secrets, full debug logs, or Home Assistant/appliance
   action routes for avatar motion.
+- VRM model telemetry may show that runtime/model state changed, including
+  expression weights or bucketed rig-track changes. It must not be used as Self
+  Mirror pass, expression-visible pass, semantic expression correctness,
+  physical/projector proof, ROI/threshold authority, command authority, or
+  release/readiness/final RR003 approval.
 - RR003 `action_indicator` motion exists to show what the avatar/agent is
   operating or attending to, such as pointing toward a display-safe appliance
   target during action execution or feedback checking. It may reference safe

@@ -24,7 +24,7 @@ and maintenance unit only.
 | Core Body Pack | Run the basic body loop: status, thought, guarded action, feedback | `README.md`, `docs/operate.md`, `docs/architecture.md` | `sword.ps1`, `runtime/`, `contracts/`, `control-plane/` |
 | Thought / Chat Pack | Configure LLM-backed or mock thought/chat behavior | `docs/customize.md`, `docs/local-configuration.md` | Thought Core settings, provider/model env values |
 | Voice Pack | Speech input, TTS, VOICEVOX, audio readiness | `docs/local-configuration.md`, `docs/operate.md` | `organs/speech-input/`, `organs/expression/tts-service` |
-| Avatar / Projection Pack | AITuber Kit, Projection Visual, Self Mirror visible-motion checks, TouchDesigner display surfaces | `README.md`, `docs/operate.md`, `examples/starter-profiles/projection-visual/README.md`, `docs/aituberkit-sword-adapter-inventory.md` | `organs/expression/aituber-kit`, `organs/display/`, `runtime/visual-motion-analyzer/` |
+| Avatar / Projection Pack | AITuber Kit, Projection Visual, Self Mirror visible-motion checks, VRM Model Telemetry, TouchDesigner display surfaces | `README.md`, `docs/operate.md`, `examples/starter-profiles/projection-visual/README.md`, `docs/aituberkit-sword-adapter-inventory.md` | `organs/expression/aituber-kit`, `organs/expression/vrm-model-telemetry/`, `organs/display/`, `runtime/visual-motion-analyzer/`, `runtime/vrm-model-telemetry/` |
 | Home Control Pack | Home Assistant bridge, action rows, preview/dry-run/live proof routes | `docs/home-assistant-setup.md`, `docs/add-home-device.md`, `docs/home-control-action-authoring.md`, `docs/live-home-control-proof.md` | `organs/action/home-assistant-server`, local Home Control config |
 | Environment Pack | Environment state, vision snapshot, room-light evidence | `docs/proof-layers.md`, `docs/verification-commands.md` | `organs/environment/` |
 | Gesture / Reflex Pack | Sword sign, gesture preview, future approval gesture boundary | `README.md`, `docs/proof-layers.md` | `organs/reflex/mediapipe-sword-sign` |
@@ -85,6 +85,13 @@ the supported scenarios, result authority file, proof ceiling, stop conditions,
 and non-claims. It uses
 `contracts/self_mirror_consumer_routes/self_mirror_consumer_routes.v0.schema.json`
 and carries `contract_ref`. It is a reader surface, not an execution authority.
+
+VRM Model Telemetry is the parallel model-state reader for subtle expression
+and rig-track diagnostics. Its machine-readable map is
+`runtime/vrm-model-telemetry/vrm-model-telemetry-consumer-routes.json`, and its
+future expression organ scaffold lives under
+`organs/expression/vrm-model-telemetry/`. It can explain whether model state
+changed; it does not replace Self Mirror visible-motion proof.
 
 For new machine-readable reader surfaces, use `docs/reference-surfaces.md`
 before adding source code that depends on the value.

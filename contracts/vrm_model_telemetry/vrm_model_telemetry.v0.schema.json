@@ -1,0 +1,431 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/vrm_model_telemetry.v0.schema.json",
+  "title": "Agent OS vrm_model_telemetry.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "telemetry_id",
+    "captured_at",
+    "proof_ceiling",
+    "correlation",
+    "sample_window",
+    "series",
+    "summary",
+    "redaction",
+    "safety",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "vrm_model_telemetry.v0"
+    },
+    "telemetry_id": {
+      "type": "string",
+      "pattern": "^vrm_tel_[A-Za-z0-9_.:-]+$"
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proof_ceiling": {
+      "const": "runtime_model_state_telemetry_summary_only"
+    },
+    "correlation": {
+      "$ref": "#/$defs/correlation"
+    },
+    "sample_window": {
+      "$ref": "#/$defs/sample_window"
+    },
+    "series": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {
+        "$ref": "#/$defs/series"
+      }
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "redaction": {
+      "$ref": "#/$defs/redaction"
+    },
+    "safety": {
+      "$ref": "#/$defs/safety"
+    },
+    "non_claims": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "not_self_mirror_pass",
+          "not_expression_visible_pass",
+          "not_semantic_expression_correctness",
+          "not_browser_visible_proof",
+          "not_physical_or_projector_proof",
+          "not_release_or_final_rr003",
+          "not_roi_or_threshold_authority",
+          "not_command_authority",
+          "not_raw_media_publication"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_model_type",
+        "expression_profile_ref",
+        "expression_profile_id"
+      ],
+      "properties": {
+        "target_model_type": {
+          "const": "vrm"
+        },
+        "motion_event_id": {
+          "type": "string",
+          "pattern": "^mot_evt_[A-Za-z0-9_.:-]+$"
+        },
+        "stimulus_instance_id": {
+          "type": "string",
+          "pattern": "^mot_inst_[A-Za-z0-9_.:-]+$"
+        },
+        "runtime_result_id": {
+          "type": "string",
+          "pattern": "^mot_res_[A-Za-z0-9_.:-]+$"
+        },
+        "driver_result_id": {
+          "type": "string",
+          "pattern": "^(mot_drv|driver-result)[A-Za-z0-9_.:-]*$"
+        },
+        "expression_profile_ref": {
+          "type": "string",
+          "enum": [
+            "motion.runtime.vrm_expression_weights.v0",
+            "motion.runtime.vrm_expression_weights.full_relaxed.v0"
+          ]
+        },
+        "expression_profile_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$"
+        }
+      }
+    },
+    "sample_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_ms",
+        "end_ms",
+        "sample_count",
+        "decimation"
+      ],
+      "properties": {
+        "start_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "end_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 240
+        },
+        "decimation": {
+          "type": "string",
+          "enum": [
+            "none",
+            "fixed_interval",
+            "event_edges",
+            "bucketed"
+          ]
+        }
+      }
+    },
+    "series": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "series_id",
+        "track",
+        "metric_kind",
+        "source",
+        "samples"
+      ],
+      "properties": {
+        "series_id": {
+          "type": "string",
+          "pattern": "^vrm_series_[A-Za-z0-9_.:-]+$"
+        },
+        "track": {
+          "$ref": "#/$defs/track"
+        },
+        "metric_kind": {
+          "type": "string",
+          "enum": [
+            "expression_weight",
+            "expression_delta_bucket",
+            "morph_delta_bucket",
+            "bone_rotation_delta_bucket",
+            "bone_position_delta_bucket",
+            "gaze_delta_bucket"
+          ]
+        },
+        "channel_name": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "vrm_expression_manager",
+            "vrm_runtime_adapter",
+            "motion_mixer",
+            "driver_summary"
+          ]
+        },
+        "samples": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 240,
+          "items": {
+            "$ref": "#/$defs/sample"
+          }
+        }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t_ms",
+        "value_bucket",
+        "changed"
+      ],
+      "properties": {
+        "t_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "numeric_value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "value_bucket": {
+          "$ref": "#/$defs/bucket"
+        },
+        "changed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested_channel_count",
+        "applied_channel_count",
+        "dropped_channel_count",
+        "track_summaries"
+      ],
+      "properties": {
+        "requested_channel_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 80
+        },
+        "applied_channel_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 80
+        },
+        "dropped_channel_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 80
+        },
+        "requested_channel_names": {
+          "$ref": "#/$defs/safe_name_list"
+        },
+        "applied_channel_names": {
+          "$ref": "#/$defs/safe_name_list"
+        },
+        "dropped_channel_names": {
+          "$ref": "#/$defs/safe_name_list"
+        },
+        "track_summaries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "items": {
+            "$ref": "#/$defs/track_summary"
+          }
+        }
+      }
+    },
+    "track_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "track",
+        "metric_kind",
+        "changed",
+        "min_bucket",
+        "max_bucket",
+        "mean_bucket",
+        "confidence"
+      ],
+      "properties": {
+        "track": {
+          "$ref": "#/$defs/track"
+        },
+        "metric_kind": {
+          "type": "string",
+          "enum": [
+            "expression_weight",
+            "expression_delta_bucket",
+            "morph_delta_bucket",
+            "bone_rotation_delta_bucket",
+            "bone_position_delta_bucket",
+            "gaze_delta_bucket"
+          ]
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "min_bucket": {
+          "$ref": "#/$defs/bucket"
+        },
+        "max_bucket": {
+          "$ref": "#/$defs/bucket"
+        },
+        "mean_bucket": {
+          "$ref": "#/$defs/bucket"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "track": {
+      "type": "string",
+      "enum": [
+        "face",
+        "mouth",
+        "eyes",
+        "gaze",
+        "head",
+        "neck",
+        "spine",
+        "body_root"
+      ]
+    },
+    "bucket": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "unknown"
+      ]
+    },
+    "safe_name_list": {
+      "type": "array",
+      "maxItems": 80,
+      "items": {
+        "type": "string",
+        "maxLength": 80,
+        "pattern": "^[A-Za-z0-9_.:-]+$"
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_status",
+        "shareability_class",
+        "raw_media_shared",
+        "raw_path_shared",
+        "raw_asset_name_shared",
+        "raw_browser_storage_shared"
+      ],
+      "properties": {
+        "redaction_status": {
+          "const": "summary_only"
+        },
+        "shareability_class": {
+          "const": "runtime_model_state_telemetry_summary"
+        },
+        "raw_media_shared": {
+          "const": false
+        },
+        "raw_path_shared": {
+          "const": false
+        },
+        "raw_asset_name_shared": {
+          "const": false
+        },
+        "raw_browser_storage_shared": {
+          "const": false
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_authority",
+        "roi_or_threshold_authority",
+        "self_mirror_authority",
+        "semantic_expression_authority",
+        "physical_proof_authority",
+        "provider_payload_shared",
+        "home_assistant_route",
+        "private_device_value_shared"
+      ],
+      "properties": {
+        "command_authority": {
+          "const": false
+        },
+        "roi_or_threshold_authority": {
+          "const": false
+        },
+        "self_mirror_authority": {
+          "const": false
+        },
+        "semantic_expression_authority": {
+          "const": false
+        },
+        "physical_proof_authority": {
+          "const": false
+        },
+        "provider_payload_shared": {
+          "const": false
+        },
+        "home_assistant_route": {
+          "const": false
+        },
+        "private_device_value_shared": {
+          "const": false
+        }
+      }
+    }
+  }
+}

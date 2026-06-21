@@ -1,0 +1,118 @@
+{
+  "$schema": "https://sword-agent-os.local/contracts/vrm_model_telemetry_consumer_routes.v0.schema.json",
+  "schema_version": "vrm_model_telemetry_consumer_routes.v0",
+  "contract_ref": "contracts/vrm_model_telemetry_consumer_routes/vrm_model_telemetry_consumer_routes.v0.schema.json",
+  "id": "vrm-model-telemetry-consumer-routes",
+  "purpose": "Stable discovery surface for operators, Thought Core, diagnostics, Self Mirror review, and repair agents that need to understand VRM model-state telemetry without relying on browser pixels.",
+  "implementation_readme": "runtime/vrm-model-telemetry/README.md",
+  "organ_readme": "organs/expression/vrm-model-telemetry/README.md",
+  "result_contract_ref": "contracts/vrm_model_telemetry/vrm_model_telemetry.v0.schema.json",
+  "result_authority_file": "vrm_model_telemetry_summary.json",
+  "result_package_files": [
+    "vrm_model_telemetry_summary.json",
+    "vrm_model_telemetry_timeseries.csv",
+    "vrm_model_telemetry_chart.html",
+    "result.md",
+    "manifest.json"
+  ],
+  "intended_readers": [
+    "human_operator",
+    "thought_core",
+    "diagnostics",
+    "status_store",
+    "event_journal",
+    "review_agent",
+    "self_mirror_review"
+  ],
+  "global_boundaries": {
+    "model_state_readback_only": true,
+    "command_authority": false,
+    "runtime_execution_authority": false,
+    "self_mirror_authority": false,
+    "expression_visible_pass_authority": false,
+    "semantic_expression_authority": false,
+    "roi_or_threshold_authority": false,
+    "physical_display_proof": false,
+    "home_assistant_action": false,
+    "provider_call": false,
+    "microphone_or_camera_input": false,
+    "raw_model_asset_shared": false,
+    "raw_media_shared": false,
+    "raw_path_shared": false,
+    "browser_storage_shared": false,
+    "provider_payload_shared": false
+  },
+  "routes": [
+    {
+      "route_id": "vrm_model_telemetry.source_static.full_relaxed_contract_fixture",
+      "mode": "SourceStatic",
+      "telemetry_focus": "profile_handoff",
+      "command_template": "node -e \"JSON.parse(require('fs').readFileSync('contracts/vrm_model_telemetry/examples/rr003-expression-full-relaxed.telemetry.example.json','utf8'))\"",
+      "proof_layer": "source_docs_contract_module_scaffold",
+      "preconditions": [
+        "repository checkout is present",
+        "contract and example files are available",
+        "no runtime/browser execution is being claimed"
+      ],
+      "accept_result": [
+        "example parses as JSON",
+        "schema_version is vrm_model_telemetry.v0",
+        "proof_ceiling is runtime_model_state_telemetry_summary_only",
+        "raw_media_shared=false",
+        "raw_path_shared=false"
+      ],
+      "does_not_prove": [
+        "runtime_sampler",
+        "browser_visible_motion",
+        "self_mirror_pass",
+        "expression_visible_pass",
+        "semantic_expression_correctness",
+        "physical_display"
+      ]
+    },
+    {
+      "route_id": "vrm_model_telemetry.runtime.expression_profile_readback",
+      "mode": "RuntimeSummary",
+      "telemetry_focus": "expression_weights",
+      "command_template": "future-reviewed-route: emit vrm_model_telemetry_summary.json from the selected VRM runtime without raw media, private paths, or browser storage",
+      "proof_layer": "runtime_model_state_telemetry_summary_only",
+      "preconditions": [
+        "selected workspace runtime is intentionally started by a separate reviewed route",
+        "the selected VRM runtime exposes summary-only expression/profile readback",
+        "correlation ids connect motion stimulus, runtime result, and driver result",
+        "raw asset names, raw paths, screenshots, video, audio, browser storage, and provider payloads remain unpublished"
+      ],
+      "accept_result": [
+        "vrm_model_telemetry_summary.json validates against vrm_model_telemetry.v0",
+        "requested/effective/applied/dropped expression profile fields are present",
+        "time buckets or decimated series are graph-ready",
+        "redaction.redaction_status=summary_only",
+        "safety.command_authority=false",
+        "safety.self_mirror_authority=false"
+      ],
+      "does_not_prove": [
+        "browser_visible_motion",
+        "self_mirror_pass",
+        "expression_visible_pass",
+        "semantic_expression_correctness",
+        "roi_threshold_authority",
+        "physical_projector_proof",
+        "release_readiness"
+      ]
+    }
+  ],
+  "stop_conditions": [
+    "the only available data requires raw model asset names, raw paths, screenshots, video, audio, browser storage, provider payloads, or Home Assistant identifiers",
+    "telemetry cannot correlate stimulus, runtime result, and driver result at a summary level",
+    "sample count or series payload is unbounded instead of decimated or bucketed",
+    "a consumer tries to treat model telemetry as Self Mirror pass or browser-visible expression proof",
+    "a consumer tries to mutate ROI, thresholds, driver commands, or runtime behavior from telemetry alone",
+    "the selected runtime is stale, wrong workspace, or not intentionally started by a separate reviewed route"
+  ],
+  "consumer_guidance": {
+    "thought_core": "Treat VRM model telemetry as model-state context only. It may explain whether requested expression weights reached the model layer, but it must not dispatch correction, run another route, close an issue, claim release readiness, or claim visible expression proof by itself.",
+    "diagnostics": "Read vrm_model_telemetry_summary.json as the model-state authority packet and store redacted status/evidence refs only.",
+    "human_operator": "Use this module when Self Mirror image detection is too weak for subtle facial changes; do not share raw frames, screenshots, model asset names, or private paths by default.",
+    "self_mirror_review": "Use telemetry as a parallel diagnostic input when interpreting Self Mirror no-pass results, but keep Self Mirror ROI metrics as the browser-visible authority."
+  }
+}

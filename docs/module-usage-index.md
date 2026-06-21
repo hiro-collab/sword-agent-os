@@ -181,6 +181,31 @@ body motion, keep `track_mask`, `priority_by_track`, and later mixer/driver
 results responsible for composition rather than treating a profile ref as
 command authority.
 
+## VRM Model Telemetry
+
+Use `vrm_model_telemetry.v0` when source code, Thought Core, diagnostics, or a
+review tool needs graph-ready model-state evidence for VRM expression or safe
+rig-track changes. This is the right layer for questions such as "did the
+runtime expression weights change over time?" or "did the selected safe track
+bucket change?".
+
+The module is intentionally separate from Self Mirror:
+
+- `runtime/vrm-model-telemetry/` owns the runtime reader/discovery boundary.
+- `organs/expression/vrm-model-telemetry/` owns the future concrete expression
+  organ sampler/adapter scaffold.
+- `runtime/visual-motion-analyzer/` remains the browser-visible Self Mirror
+  lane.
+
+System readers should use
+`runtime/vrm-model-telemetry/vrm-model-telemetry-consumer-routes.json` instead
+of scraping README prose or private runtime internals.
+
+Do not use this surface to claim browser-visible Self Mirror pass, semantic
+expression correctness, physical/projector proof, ROI or threshold authority,
+command authority, release readiness, or final RR003 pass. For visible motion,
+correlate this packet with a separate Self Mirror result authority packet.
+
 ## Where To Add Work
 
 | Work | Preferred location |

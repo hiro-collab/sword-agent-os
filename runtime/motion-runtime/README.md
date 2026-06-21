@@ -53,6 +53,28 @@ face/expression track and keep other body tracks separate through `track_mask`,
 for a named expression profile, but only a later driver result and reviewed Self
 Mirror packet can say whether visible face/head motion was observed.
 
+## VRM Model Telemetry
+
+Subtle expression changes can be difficult to prove from display pixels alone.
+Self Mirror remains the browser-visible observation layer, but Motion Runtime
+also needs a model-state telemetry layer for runtime diagnostics. That layer
+is a separate module, not a hidden part of Self Mirror:
+
+- `runtime/vrm-model-telemetry/README.md`
+- `runtime/vrm-model-telemetry/vrm-model-telemetry-consumer-routes.json`
+- `organs/expression/vrm-model-telemetry/README.md`
+
+Use `contracts/vrm_model_telemetry/vrm_model_telemetry.v0.schema.json` for
+summary-only, graph-ready VRM telemetry. It can carry decimated time-series
+rows such as expression weights, requested/applied/dropped channels, and safe
+bucketed track state for face, head, eyes, mouth, gaze, neck, or body-root
+tracks.
+
+This telemetry proves only that runtime/model state changed under a named
+stimulus/profile. It does not prove that the browser visibly changed, that Self
+Mirror passed, that a human saw a smile, that a projector/physical display
+showed the effect, or that ROI/threshold changes are authorized.
+
 ## Action Target Indicators
 
 One RR003 purpose is not only dance or emotion, but visible body-side
