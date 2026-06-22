@@ -23,11 +23,6 @@
       "required": true,
       "driver_manifest_refs": [
         "camera_hub_driver"
-      ],
-      "legacy_aliases": [
-        "mediapipe-sword-sign",
-        "MediaPipe camera",
-        "Reflex MediaPipe"
       ]
     },
     {
@@ -36,10 +31,6 @@
       "required": false,
       "driver_manifest_refs": [
         "vision_snapshot_driver"
-      ],
-      "legacy_aliases": [
-        "vision-snapshot-processor",
-        "Vision snapshot"
       ]
     },
     {
@@ -49,10 +40,6 @@
       "driver_manifest_refs": [
         "browser_speech_input_driver",
         "hearing_audio_awareness_observer_driver"
-      ],
-      "legacy_aliases": [
-        "browser speech input",
-        "speech input"
       ]
     },
     {
@@ -61,10 +48,6 @@
       "required": true,
       "driver_manifest_refs": [
         "gui_input_driver"
-      ],
-      "legacy_aliases": [
-        "AITuber GUI",
-        "Projection Visual controls"
       ]
     },
     {
@@ -73,10 +56,6 @@
       "required": true,
       "driver_manifest_refs": [
         "reflex_rule_driver"
-      ],
-      "legacy_aliases": [
-        "Reflex Core",
-        "MediaPipe sword sign"
       ]
     },
     {
@@ -85,11 +64,6 @@
       "required": true,
       "driver_manifest_refs": [
         "thought_core_driver"
-      ],
-      "legacy_aliases": [
-        "Thought Core",
-        "thought-core-v0",
-        "sword-voice-agent-control-plane"
       ]
     },
     {
@@ -98,38 +72,25 @@
       "required": true,
       "driver_manifest_refs": [
         "environment_state_driver"
-      ],
-      "legacy_aliases": [
-        "environment-state-server",
-        "Environment state"
       ]
     },
     {
       "organ_id": "memory.event_journal",
       "role": "memory.event_journal",
       "required": true,
-      "driver_manifest_refs": [],
-      "legacy_aliases": [
-        "event-journal"
-      ]
+      "driver_manifest_refs": []
     },
     {
       "organ_id": "memory.status_store",
       "role": "memory.status_store",
       "required": true,
-      "driver_manifest_refs": [],
-      "legacy_aliases": [
-        "status-store"
-      ]
+      "driver_manifest_refs": []
     },
     {
       "organ_id": "body.schema",
       "role": "body.schema",
       "required": true,
-      "driver_manifest_refs": [],
-      "legacy_aliases": [
-        "body schema"
-      ]
+      "driver_manifest_refs": []
     },
     {
       "organ_id": "action.boundary",
@@ -137,9 +98,6 @@
       "required": true,
       "driver_manifest_refs": [
         "action_boundary_driver"
-      ],
-      "legacy_aliases": [
-        "Action Boundary"
       ]
     },
     {
@@ -149,11 +107,6 @@
       "driver_manifest_refs": [
         "home_control_driver",
         "dummy_home_control_driver"
-      ],
-      "legacy_aliases": [
-        "Home Control bridge",
-        "home-assistant-server",
-        "home_assistant_bridge"
       ]
     },
     {
@@ -162,11 +115,6 @@
       "required": true,
       "driver_manifest_refs": [
         "aituber_kit_driver"
-      ],
-      "legacy_aliases": [
-        "AITuber Kit",
-        "Expression UI",
-        "aituber-kit"
       ]
     },
     {
@@ -175,10 +123,6 @@
       "required": false,
       "driver_manifest_refs": [
         "voicevox_speech_driver"
-      ],
-      "legacy_aliases": [
-        "VOICEVOX",
-        "tts-service"
       ]
     },
     {
@@ -187,10 +131,6 @@
       "required": true,
       "driver_manifest_refs": [
         "projection_visual_driver"
-      ],
-      "legacy_aliases": [
-        "Projection Visual",
-        "cube-vault-background"
       ]
     },
     {
@@ -199,11 +139,6 @@
       "required": false,
       "driver_manifest_refs": [
         "display_runtime_driver"
-      ],
-      "legacy_aliases": [
-        "TouchDesigner",
-        "touchdesigner-ai-controller",
-        "Display control GUI"
       ]
     },
     {
@@ -212,10 +147,6 @@
       "required": false,
       "driver_manifest_refs": [
         "body_map_inspector_driver"
-      ],
-      "legacy_aliases": [
-        "system-house-renderer",
-        "house renderer"
       ]
     }
   ]

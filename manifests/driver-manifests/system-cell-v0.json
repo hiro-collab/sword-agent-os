@@ -12,9 +12,6 @@
       "status_keys": [
         "sense.touch.gui.last_input",
         "sense.touch.gui.last_seen"
-      ],
-      "legacy_aliases": [
-        "AITuber GUI"
       ]
     },
     {
@@ -26,9 +23,6 @@
       "status_keys": [
         "sense.hearing.primary.listening",
         "sense.hearing.primary.last_seen"
-      ],
-      "legacy_aliases": [
-        "browser speech input"
       ]
     },
     {
@@ -42,11 +36,6 @@
         "sense.hearing.primary.audio_awareness.pc_output",
         "sense.hearing.primary.audio_awareness.microphone",
         "sense.hearing.primary.audio_awareness.legacy_vad"
-      ],
-      "legacy_aliases": [
-        "audio awareness",
-        "hearing observer",
-        "speech input VAD summary"
       ]
     },
     {
@@ -59,10 +48,6 @@
         "sense.vision.primary.connection",
         "sense.vision.primary.gesture",
         "sense.vision.primary.freshness_ms"
-      ],
-      "legacy_aliases": [
-        "mediapipe-sword-sign",
-        "camera-hub-driver"
       ]
     },
     {
@@ -75,10 +60,6 @@
         "sense.vision.snapshot.connection",
         "sense.vision.snapshot.latest_frame",
         "sense.vision.snapshot.freshness_ms"
-      ],
-      "legacy_aliases": [
-        "vision-snapshot-driver",
-        "vision-snapshot-processor"
       ]
     },
     {
@@ -91,11 +72,6 @@
         "thought.core.turn_state",
         "thought.core.last_decision",
         "thought.core.last_issue_ticket"
-      ],
-      "legacy_aliases": [
-        "Thought Core",
-        "thought-core-api",
-        "thought-core-watcher"
       ]
     },
     {
@@ -108,11 +84,6 @@
         "environment.state.available",
         "environment.state.current",
         "environment.state.feedback"
-      ],
-      "legacy_aliases": [
-        "environment-state-driver",
-        "environment-state-server",
-        "environment_state_server"
       ]
     },
     {
@@ -153,9 +124,6 @@
       "status_keys": [
         "reflex.core.overlay_loaded",
         "reflex.core.last_rule_fired"
-      ],
-      "legacy_aliases": [
-        "Reflex Core"
       ]
     },
     {
@@ -178,9 +146,6 @@
       "status_keys": [
         "action.boundary.emergency_stop",
         "action.boundary.last_decision"
-      ],
-      "legacy_aliases": [
-        "Action Boundary"
       ]
     },
     {
@@ -222,9 +187,6 @@
       ],
       "status_keys": [
         "actuator.home_control.dummy_state"
-      ],
-      "legacy_aliases": [
-        "dummy.home_control"
       ]
     },
     {
@@ -273,10 +235,6 @@
       "status_keys": [
         "actuator.home_control.available",
         "actuator.home_control.last_result"
-      ],
-      "legacy_aliases": [
-        "home_assistant_bridge",
-        "home-assistant-server"
       ]
     },
     {
@@ -289,10 +247,6 @@
         "expression.avatar.connected",
         "expression.avatar.last_message",
         "expression.avatar.vrm_ready"
-      ],
-      "legacy_aliases": [
-        "AITuber Kit",
-        "aituber_kit"
       ]
     },
     {
@@ -305,10 +259,6 @@
         "expression.speech.engine_ready",
         "expression.speech.last_output",
         "expression.speech.voicevox_ready"
-      ],
-      "legacy_aliases": [
-        "VOICEVOX",
-        "voicevox"
       ]
     },
     {
@@ -354,10 +304,6 @@
       "status_keys": [
         "display.projection.mode",
         "display.projection.hud_visible"
-      ],
-      "legacy_aliases": [
-        "Projection Visual",
-        "cube-vault-background"
       ]
     },
     {
@@ -369,9 +315,6 @@
       "status_keys": [
         "display.runtime.udp_ready",
         "display.runtime.last_ping"
-      ],
-      "legacy_aliases": [
-        "touchdesigner-ai-controller"
       ]
     },
     {
@@ -383,10 +326,6 @@
       "status_keys": [
         "diagnostics.body_map_inspector.last_snapshot",
         "diagnostics.body_map_inspector.last_render"
-      ],
-      "legacy_aliases": [
-        "system-house-renderer",
-        "body-map-viewer"
       ]
     }
   ]

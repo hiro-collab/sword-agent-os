@@ -29,7 +29,9 @@ README files and docs should summarize them, not duplicate their full ledgers.
   expanding compatibility surfaces.
 
 New runtime code should depend on body plans, driver manifests, and contracts.
-Aliases are for migration only.
+Aliases are for migration only. Canonical body plans and driver manifests should
+not carry `legacy_aliases`; put old labels in `compat-aliases/` so there is one
+compatibility surface to shrink later.
 
 ## Pin State Classes
 

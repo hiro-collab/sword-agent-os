@@ -93,17 +93,11 @@ function New-AliasMap {
   foreach ($organ in ConvertTo-Array $BodyPlan.organs) {
     $organId = [string]$organ.organ_id
     Add-AliasEntry -Map $map -Alias $organId -OrganId $organId -DriverId ""
-    foreach ($alias in ConvertTo-Array $organ.legacy_aliases) {
-      Add-AliasEntry -Map $map -Alias ([string]$alias) -OrganId $organId -DriverId ""
-    }
   }
   foreach ($driver in ConvertTo-Array $DriverManifest.drivers) {
     $driverId = [string]$driver.driver_id
     $organId = [string]$driver.organ_id
     Add-AliasEntry -Map $map -Alias $driverId -OrganId $organId -DriverId $driverId
-    foreach ($alias in ConvertTo-Array $driver.legacy_aliases) {
-      Add-AliasEntry -Map $map -Alias ([string]$alias) -OrganId $organId -DriverId $driverId
-    }
   }
   foreach ($alias in ConvertTo-Array $CompatAliases.aliases) {
     Add-AliasEntry `

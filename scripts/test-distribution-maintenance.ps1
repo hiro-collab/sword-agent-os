@@ -533,7 +533,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "live_test_readiness" -Message "front-door docs should document Home Control live-test readiness metadata"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "restore_action_id" -Message "front-door docs should document Home Control restore action metadata"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "proof_ceiling" -Message "front-door docs should document Home Control proof ceiling metadata"
-  Assert-TextMatch -Text $frontDoorSurface -Pattern "実行後または restore 後|post-action" -Message "front-door docs should separate CheckState from pre-execution checks"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "post-action" -Message "front-door docs should separate CheckState from pre-execution checks"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "live-home-control-cause-trail\.md" -Message "front-door docs should link live Home Control cause trail"
   Assert-PathPresent -Path (Join-Path $RepoRoot "docs\live-home-control-cause-trail.md")
   $bridgeHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\start-home-control-bridge.ps1")
@@ -574,7 +574,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "ahead_of_manifest|正式採用待ち|parent adoption" -Message "front-door docs should explain ahead-of-manifest pin state"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "git_unreadable[\s\S]{0,240}pin mismatch" -Message "front-door docs should separate git_unreadable from true pin mismatch"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "port-conflict|isolated_override" -Message "public troubleshooting docs should explain port-conflict handling"
-  Assert-TextMatch -Text $troubleshootingSurface -Pattern '既存の `sword-agent-os` directory' -Message "public troubleshooting docs should explain existing clone directory handling"
+  Assert-TextMatch -Text $troubleshootingSurface -Pattern 'existing `sword-agent-os` directory' -Message "public troubleshooting docs should explain existing clone directory handling"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "network permission" -Message "public troubleshooting docs should classify restricted environment network reruns"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "foreground" -Message "front-door docs should explain Home Control bridge foreground behavior"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "accepted/submitted|command submitted|submitted_only" -Message "front-door docs should explain submitted execute status"
@@ -682,7 +682,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Home Assistant state match into physical proof|CheckState[\s\S]{0,160}not physical proof|HA-visible proof is not physical proof" -Message "front-door docs should prevent promoting HA-visible CheckState to physical proof"
   $standardDistributionMap = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\standard-distribution-map.md")
   Assert-TextMatch -Text $standardDistributionMap -Pattern "\.\\sword\.ps1 status[\s\S]{0,120}\.\\sword\.ps1 verify" -Message "standard distribution map should start first success with sword.ps1 front-door checks"
-  Assert-TextMatch -Text $standardDistributionMap -Pattern "sword\.ps1.*入口.*script.*詳細工具|script.*詳細工具.*sword\.ps1.*入口" -Message "standard distribution map should explain front-door vs detailed script roles"
+  Assert-TextMatch -Text $standardDistributionMap -Pattern "sword\.ps1.*front-door.*scripts.*detailed tools|scripts.*detailed tools.*sword\.ps1.*front-door" -Message "standard distribution map should explain front-door vs detailed script roles"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "standard-map:verify-overlap" -Message "standard distribution map should anchor why verify overlaps detailed scripts"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "manifest validation[\s\S]{0,160}strict pin check[\s\S]{0,160}launch" -Message "standard distribution map should explain what sword.ps1 verify already covers"
   Assert-TextMatch -Text $standardDistributionMap -Pattern "docs/home-assistant-setup\.md" -Message "standard distribution map should point external HA setup to the setup guide"

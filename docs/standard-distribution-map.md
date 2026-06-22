@@ -119,8 +119,10 @@ fresh clone
 
 その後、標準ディストリビューションの install / env render / detailed smoke を
 必要に応じて直接 script で確認します。`sword.ps1` が入口、各 script が詳細工具です。
+In short: `sword.ps1` is the front-door, and scripts are detailed tools.
 `.\sword.ps1 verify` は manifest validation、strict pin check、no-live launch
-readiness をまとめる最小 front-door check です。下の script 群は、個別結果を
+readiness をまとめる最小 front-door check です。Verify covers manifest validation,
+strict pin check, and launch readiness. 下の script 群は、個別結果を
 読みたい時、install/env render まで進める時、または smoke 範囲を広げる時に
 使います。
 
@@ -309,14 +311,18 @@ failed.
 
 ## Runtime / Browser Setup
 
-After no-live readiness, start the launcher:
+After no-live readiness, the standard reference path is to start the launcher:
 
 ```powershell
 .\start-home-control-launcher.bat
 ```
 
 Then use Launch Manager to wait for expected services and open Projection Visual
-or AITuber UI.
+or AITuber UI. This Launcher is a reference ignition/control surface, not the
+required shape of the runtime itself. Product integrations may replace it with
+their own launch system as long as they preserve the selected service surfaces,
+readiness checks, demo-safe/action-boundary settings, and cleanup/rerunability
+contracts.
 
 For browser-visible avatar motion, use the Projection Visual starter profile:
 `examples/starter-profiles/projection-visual/README.md`. It connects the normal

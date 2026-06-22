@@ -6,6 +6,12 @@ organized by what you want to do, not by internal subsystem.
 For the full first-run path from prerequisites, clone, local assets, `.env`,
 launcher, and trial operations, use `docs/first-run-operator-guide.md`.
 
+The Launcher is the standard reference control surface for local operators. It
+is not the only valid ignition path for the Sword runtime stack: integrations
+may start the same selected runtime surfaces from their own launch system, then
+use the same readiness, demo-safe settings, action-boundary, and cleanup
+contracts.
+
 The front door defaults to no-live / no-device. It does not start Start Stack,
 call a provider, operate Home Assistant, use a browser profile, open
 camera/audio, or claim physical proof unless a later route explicitly says so.
@@ -57,8 +63,8 @@ Launch Manager route and ports without starting launcher-owned children.
 .\sword.ps1 start -Run
 ```
 
-Use `-Run` only when runtime execution is in scope. The normal path starts or
-reuses the Launcher and reports readiness/status; it does not run a demo,
+Use `-Run` only when runtime execution is in scope. The normal reference path
+starts or reuses the Launcher and reports readiness/status; it does not run a demo,
 submit Home Assistant/Home Control actions, or claim proof. Use
 `-CompatLegacyDelegate` only for an explicit legacy-stack compatibility route.
 Record this as runtime/status proof until browser, input/output, Home

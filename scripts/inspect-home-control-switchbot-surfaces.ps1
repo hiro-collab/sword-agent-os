@@ -324,10 +324,10 @@ function Get-HaReadErrorClass {
   if ($null -ne $ErrorRecord -and $null -ne $ErrorRecord.Exception) {
     $text = [string]$ErrorRecord.Exception.Message
   }
-  if ($text -match "refused|拒否") {
+  if ($text -match "refused") {
     return "connection_refused_or_HA_down"
   }
-  if ($text -match "timed out|timeout|タイムアウト") {
+  if ($text -match "timed out|timeout") {
     return "timeout"
   }
   if ($text -match "401|Unauthorized") {

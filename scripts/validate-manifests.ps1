@@ -313,6 +313,9 @@ foreach ($requiredContract in @("action_request.v0", "event_ingest.v0", "status_
 
 $bodyPlanOrganIds = @($bodyPlan.organs | ForEach-Object { [string]$_.organ_id })
 Assert-True (($bodyPlanOrganIds | Select-Object -Unique).Count -eq $bodyPlanOrganIds.Count) "body plan organ_id values must be unique"
+foreach ($organ in @($bodyPlan.organs)) {
+  Assert-True ($null -eq $organ.PSObject.Properties["legacy_aliases"]) "body plan organ $($organ.organ_id) must keep legacy aliases in compat-aliases"
+}
 foreach ($organId in $bodyPlanOrganIds) {
   Assert-True ($organId -match "^[a-z][a-z0-9_.-]*$") "body plan has unsafe organ_id: $organId"
 }
@@ -343,6 +346,7 @@ foreach ($driver in $actionDriverManifest.drivers) {
   Assert-True ($driverKind -in $validDriverKinds) "action driver $driverId has invalid driver_kind: $driverKind"
   Assert-True ($instancePolicy -in $validInstancePolicies) "action driver $driverId has invalid instance_policy: $instancePolicy"
   Assert-True ($driverOrganId -in $bodyPlanOrganIds) "action driver $driverId references unknown body organ: $driverOrganId"
+  Assert-True ($null -eq $driver.PSObject.Properties["legacy_aliases"]) "action driver $driverId must keep legacy aliases in compat-aliases"
 
   foreach ($action in @($driver.provides_actions)) {
     $actionId = [string]$action.action_id
@@ -380,6 +384,8 @@ foreach ($requiredStatusKey in @("sense.hearing.primary.audio_awareness.summary"
 }
 
 Assert-True ([string]$compatAliases.schema_version -eq "compat_aliases.v0") "compat aliases schema_version must be compat_aliases.v0"
+$compatAliasLabels = @($compatAliases.aliases | ForEach-Object { [string]$_.legacy })
+Assert-True (($compatAliasLabels | Select-Object -Unique).Count -eq $compatAliasLabels.Count) "compat alias legacy labels must be unique"
 foreach ($alias in @($compatAliases.aliases)) {
   Assert-True (-not [string]::IsNullOrWhiteSpace([string]$alias.legacy)) "compat alias missing legacy label"
   Assert-True ([string]$alias.canonical_organ_id -in $bodyPlanOrganIds) "compat alias references unknown canonical organ: $($alias.legacy)"

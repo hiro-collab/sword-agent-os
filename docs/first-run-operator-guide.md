@@ -37,7 +37,7 @@ Sword Agent OS は、PC上で動く「家の中のエージェント本体」で
 
 | 名前 | かみ砕いた意味 |
 | --- | --- |
-| Launch Manager | 起動状態を見たり、各画面へのリンクを開いたりする入口画面 |
+| Launch Manager | 標準サンプルの起動/操作画面。起動状態を見たり、各画面へのリンクを開いたりする入口画面 |
 | Thought Core | 入力を受け取り、会話や判断を担当する中枢 |
 | Environment State | 部屋やシステムの現在状態を見るための状態画面 |
 | Home Assistant | 家電やセンサーをまとめる外部システム |
@@ -224,7 +224,10 @@ notepad local\env\sword-agent-os.env
 
 ## 6. 起動する
 
-通常の起動は、プロジェクト直下の次のファイルをダブルクリックします。
+標準サンプル Launcher で起動する場合は、プロジェクト直下の次のファイルを
+ダブルクリックします。Sword Agent OS の本体 runtime stack は、この Launcher だけを
+起動手段とする必要はありません。自分の環境に組み込む場合は、別の launch system から
+同じ service / readiness / cleanup 境界を使って起動できます。
 
 ```text
 start-home-control-launcher.bat

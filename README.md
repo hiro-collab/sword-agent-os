@@ -19,7 +19,7 @@ Sword Agent OS は、PC上でエージェントを動かすためのローカル
 3. `gesture_model.pkl`、VRM、音声や動画などのローカル素材を指定場所に置く。
 4. `.env` がない状態で基本確認を行う。
 5. `.env` にAPIキーや Home Assistant の接続情報を書く。
-6. 起動用バッチファイルを開き、Launch Manager から各画面を開く。
+6. 標準サンプルの起動用バッチファイルを開き、Launch Manager から各画面を開く。
 7. 会話、音声入力、アバター、状態画面、家電操作を、用意できた範囲で試す。
 8. 起動したものを安全に停止できることを確認する。
 
@@ -37,8 +37,13 @@ Home Assistant、実家電操作は勝手に動きません。
   画像、動画、文字起こし全文は Git に入れないでください。
 - Home Assistant の状態が一致していることと、実物が物理的に動いたことは
   別の確認です。
+- `CheckState` は実行後または restore 後の Home Assistant 状態確認です。
+  It is a post-action / post-restore state check, not physical proof.
+  実行前は `CheckTracking` などの metadata 確認と分けて扱います。
 - 家電操作は、対象、回数、確認方法を決めた上で、必要な時だけ実行します。
 - 公開版として使えるかどうかは、別途レビューが必要です。
+- 制限付き環境で clone や dependency download が止まる場合は、必要な
+  install command だけ network permission を許可して再実行します。
 
 ## よく使うコマンド
 
@@ -54,9 +59,10 @@ Home Assistant、実家電操作は勝手に動きません。
 
 `start` は、既定では起動予定の確認です。実際に起動する時は、
 起動手順に沿ってバッチファイルまたは明示的な実行オプションを使います。
-`.\sword.ps1 start -Run` は通常、Launcher を起動または再利用して
-readiness/status を確認するだけです。旧スタック委譲が必要な互換確認では
-`-CompatLegacyDelegate` を明示してください。
+`.\sword.ps1 start -Run` は通常、標準サンプル Launcher を起動または再利用して
+readiness/status を確認するだけです。Launcher は本体 runtime stack の必須条件では
+なく、各ユーザーの環境では別の launch system から同じ runtime surfaces を起動しても
+構いません。旧スタック委譲が必要な互換確認では `-CompatLegacyDelegate` を明示してください。
 
 Launcher の左メニューには `Demo settings` があります。fresh clone の
 demo-safe 候補はすべて `enabled=false` から始まり、ユーザーの選択は
