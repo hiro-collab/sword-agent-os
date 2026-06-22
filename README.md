@@ -72,6 +72,41 @@ Home Assistant、実家電操作は勝手に動きません。
 各コマンドが何を確認するかは `docs/verification-commands.md` を見てください。
 失敗した時は `docs/troubleshooting.md` を見てください。
 
+## ユーザーに見せるデモ前の確認
+
+画面、音声、アバター、家電操作を人に見せる前に、次の preflight で
+「今その場で見せてよい範囲」を分けて確認します。
+
+```powershell
+.\scripts\run-visible-demo-preflight.ps1
+```
+
+この script は既定で provider/network STT/TTS、マイク、カメラ、
+Home Assistant / Home Control の命令送信を行いません。Launch Manager、
+Thought Core、AITuber / Projection Visual、VOICEVOX などのローカル到達性と、
+デモで必要な確認項目を summary/class だけで返します。
+
+ユーザーまたは操作担当者が実際に確認した画面・音声・AC 操作面は、
+明示的な switch で折り込みます。
+
+```powershell
+.\scripts\run-visible-demo-preflight.ps1 `
+  -OperatorConfirmedAvatarForeground `
+  -OperatorConfirmedChromeWindowHygiene `
+  -OperatorConfirmedAudioHeard `
+  -OperatorConfirmedAcControlSurfaceReadable `
+  -OperatorConfirmedRestoreOffReadable
+```
+
+AC を見せる場合は、Chrome / Home Assistant の見える操作面で現在状態と
+戻し先が読める時だけ進めます。正方向の操作は最大1回、off / restore も
+必要かつ読める時に最大1回、retry は0、無関係な家電ループは0です。
+これは Home Control `/actions` catalog の成功証明ではありません。
+
+画面の前景、Chrome window の整理、VOICEVOX のローカル再生、ブラウザ上の
+会話応答、アバターの見える動き、物理的な家電変化は別の層です。script の
+fallback 文字列をそのまま使うと、Codex / Claude でも同じ止め方で報告できます。
+
 ## 文書の場所
 
 | Need | Authority |
