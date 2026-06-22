@@ -1,0 +1,102 @@
+{
+  "schema_version": "audio_awareness_summary.v0",
+  "summary_id": "aud_sum_source_static_voicevox_pc_output_001",
+  "route_id": "DEMO-AUDIO-AWARENESS-SOURCE-STATIC-01",
+  "generated_at": "2026-06-22T00:00:00Z",
+  "proof_ceiling": "audio_awareness_source_static_summary_only",
+  "source_mode": "synthetic_fixture",
+  "capture_permissions": {
+    "pc_output_capture_enabled": false,
+    "microphone_capture_enabled": false,
+    "microphone_permission_source": "not_required",
+    "live_capture_used": false,
+    "provider_network_stt_enabled": false,
+    "raw_audio_retained": false,
+    "raw_audio_persisted": false
+  },
+  "channels": [
+    {
+      "channel_id": "pc_output.synthetic_voicevox",
+      "channel_kind": "pc_output",
+      "observation_status": "synthetic",
+      "window_ms": 500,
+      "sample_count": 8000,
+      "rms_dbfs": -12.04,
+      "peak_dbfs": -6.02,
+      "silence_ratio": 0,
+      "clipping_count": 0,
+      "dropout_count": 0,
+      "audio_present": true,
+      "speech_present": null,
+      "speech_presence_source": "synthetic_fixture",
+      "source_confidence": 0.8
+    },
+    {
+      "channel_id": "microphone.not_enabled",
+      "channel_kind": "microphone",
+      "observation_status": "not_enabled",
+      "window_ms": 0,
+      "sample_count": 0,
+      "rms_dbfs": null,
+      "peak_dbfs": null,
+      "silence_ratio": null,
+      "clipping_count": 0,
+      "dropout_count": 0,
+      "audio_present": null,
+      "speech_present": null,
+      "speech_presence_source": "none",
+      "source_confidence": null
+    }
+  ],
+  "correlation": {
+    "self_output_event_ref": "tts:local_voicevox_001",
+    "playback_event_ref": "playback:local_player_001",
+    "pc_output_correlated": true,
+    "mic_input_correlated": null,
+    "estimated_lag_ms": 85,
+    "speaker_bleed_likely": null,
+    "echo_likely": null,
+    "confidence": 0.76
+  },
+  "transcript": {
+    "stt_attempted": false,
+    "transcript_present": false,
+    "full_transcript_saved": false,
+    "raw_transcript_included": false,
+    "provider_payload_included": false,
+    "transcript_summary_ref": null
+  },
+  "redaction": {
+    "redaction_status": "summary_only",
+    "shareability_class": "source_static_audio_awareness_summary",
+    "raw_audio_shared": false,
+    "raw_audio_persisted": false,
+    "raw_transcript_shared": false,
+    "private_path_shared": false,
+    "private_endpoint_shared": false,
+    "home_assistant_identifier_shared": false,
+    "provider_payload_shared": false,
+    "screenshot_or_media_shared": false
+  },
+  "safety": {
+    "command_authority": false,
+    "action_authority": false,
+    "thought_core_completion_authority": false,
+    "home_assistant_action": false,
+    "browser_visible_audio_authority": false,
+    "user_heard_audio_authority": false,
+    "physical_device_proof_authority": false,
+    "provider_network_authority": false,
+    "release_or_final_rr003_authority": false
+  },
+  "non_claims": [
+    "not_user_heard_audio",
+    "not_browser_audio_playback",
+    "not_microphone_content",
+    "not_physical_device_effect",
+    "not_raw_audio_publication",
+    "not_full_transcript_publication",
+    "not_home_assistant_action",
+    "not_release_or_final_rr003"
+  ]
+}

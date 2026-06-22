@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json",
+  "title": "Audio Awareness Consumer Routes v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "contract_ref",
+    "id",
+    "purpose",
+    "implementation_readme",
+    "organ_readme",
+    "result_contract_ref",
+    "result_authority_file",
+    "intended_readers",
+    "global_boundaries",
+    "routes",
+    "stop_conditions",
+    "consumer_guidance"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "audio_awareness_consumer_routes.v0"
+    },
+    "contract_ref": {
+      "const": "contracts/audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json"
+    },
+    "id": {
+      "const": "audio-awareness-consumer-routes"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "implementation_readme": {
+      "const": "runtime/audio-awareness/README.md"
+    },
+    "organ_readme": {
+      "const": "organs/speech-input/audio-awareness/README.md"
+    },
+    "result_contract_ref": {
+      "const": "contracts/audio_awareness_summary/audio_awareness_summary.v0.schema.json"
+    },
+    "result_authority_file": {
+      "const": "audio_awareness_summary.json"
+    },
+    "intended_readers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "human_operator",
+          "thought_core",
+          "diagnostics",
+          "status_store",
+          "event_journal",
+          "review_agent",
+          "speech_input_adapter",
+          "visible_demo_preflight"
+        ]
+      }
+    },
+    "global_boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_only",
+        "command_authority",
+        "action_authority",
+        "provider_call",
+        "default_live_microphone_capture",
+        "default_pc_output_capture",
+        "raw_audio_shared",
+        "raw_transcript_shared",
+        "private_path_shared",
+        "home_assistant_identifier_shared",
+        "browser_visible_audio_authority",
+        "user_heard_audio_authority",
+        "physical_device_proof"
+      ],
+      "properties": {
+        "observation_only": {
+          "const": true
+        },
+        "command_authority": {
+          "const": false
+        },
+        "action_authority": {
+          "const": false
+        },
+        "provider_call": {
+          "const": false
+        },
+        "default_live_microphone_capture": {
+          "const": false
+        },
+        "default_pc_output_capture": {
+          "const": false
+        },
+        "raw_audio_shared": {
+          "const": false
+        },
+        "raw_transcript_shared": {
+          "const": false
+        },
+        "private_path_shared": {
+          "const": false
+        },
+        "home_assistant_identifier_shared": {
+          "const": false
+        },
+        "browser_visible_audio_authority": {
+          "const": false
+        },
+        "user_heard_audio_authority": {
+          "const": false
+        },
+        "physical_device_proof": {
+          "const": false
+        }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "route_id",
+          "mode",
+          "audio_focus",
+          "command_template",
+          "proof_layer",
+          "preconditions",
+          "accept_result",
+          "does_not_prove"
+        ],
+        "properties": {
+          "route_id": {
+            "type": "string",
+            "pattern": "^audio_awareness\\.(source_static|runtime)\\.[a-z0-9_]+$"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "SourceStatic",
+              "RuntimeSummary"
+            ]
+          },
+          "audio_focus": {
+            "type": "string",
+            "enum": [
+              "contract_fixture",
+              "pc_output_summary",
+              "microphone_summary",
+              "legacy_vad_adapter",
+              "self_output_correlation"
+            ]
+          },
+          "command_template": {
+            "type": "string",
+            "minLength": 1
+          },
+          "proof_layer": {
+            "type": "string",
+            "enum": [
+              "source_docs_contract_module_scaffold",
+              "audio_awareness_summary_only"
+            ]
+          },
+          "preconditions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "accept_result": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "does_not_prove": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9_./-]+$"
+            }
+          }
+        }
+      }
+    },
+    "stop_conditions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "consumer_guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "thought_core",
+        "diagnostics",
+        "human_operator",
+        "speech_input_adapter",
+        "visible_demo_preflight"
+      ],
+      "properties": {
+        "thought_core": { "type": "string", "minLength": 1 },
+        "diagnostics": { "type": "string", "minLength": 1 },
+        "human_operator": { "type": "string", "minLength": 1 },
+        "speech_input_adapter": { "type": "string", "minLength": 1 },
+        "visible_demo_preflight": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

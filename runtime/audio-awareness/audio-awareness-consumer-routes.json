@@ -1,0 +1,153 @@
+{
+  "$schema": "https://sword-agent-os.local/contracts/audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json",
+  "schema_version": "audio_awareness_consumer_routes.v0",
+  "contract_ref": "contracts/audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json",
+  "id": "audio-awareness-consumer-routes",
+  "purpose": "Stable discovery surface for operators, Thought Core, diagnostics, speech-input adapters, and visible-demo preflight helpers that need PC-output and microphone audio awareness without raw audio capture or transcript publication.",
+  "implementation_readme": "runtime/audio-awareness/README.md",
+  "organ_readme": "organs/speech-input/audio-awareness/README.md",
+  "result_contract_ref": "contracts/audio_awareness_summary/audio_awareness_summary.v0.schema.json",
+  "result_authority_file": "audio_awareness_summary.json",
+  "intended_readers": [
+    "human_operator",
+    "thought_core",
+    "diagnostics",
+    "status_store",
+    "event_journal",
+    "review_agent",
+    "speech_input_adapter",
+    "visible_demo_preflight"
+  ],
+  "global_boundaries": {
+    "observation_only": true,
+    "command_authority": false,
+    "action_authority": false,
+    "provider_call": false,
+    "default_live_microphone_capture": false,
+    "default_pc_output_capture": false,
+    "raw_audio_shared": false,
+    "raw_transcript_shared": false,
+    "private_path_shared": false,
+    "home_assistant_identifier_shared": false,
+    "browser_visible_audio_authority": false,
+    "user_heard_audio_authority": false,
+    "physical_device_proof": false
+  },
+  "routes": [
+    {
+      "route_id": "audio_awareness.source_static.synthetic_summary_fixture",
+      "mode": "SourceStatic",
+      "audio_focus": "contract_fixture",
+      "command_template": "node --test runtime/audio-awareness/tests/audio-awareness.test.mjs",
+      "proof_layer": "source_docs_contract_module_scaffold",
+      "preconditions": [
+        "repository checkout is present",
+        "contract, runtime builder, and example files are available",
+        "no runtime audio capture is being claimed"
+      ],
+      "accept_result": [
+        "test packet validates as audio_awareness_summary.v0",
+        "pc_output and microphone channels remain separate",
+        "raw_audio_shared=false",
+        "full_transcript_saved=false",
+        "command_authority=false"
+      ],
+      "does_not_prove": [
+        "pc_output_live_capture",
+        "microphone_live_capture",
+        "user_heard_audio",
+        "browser_audio_playback",
+        "physical_device_effect",
+        "home_assistant_action"
+      ]
+    },
+    {
+      "route_id": "audio_awareness.source_static.legacy_vad_adapter",
+      "mode": "SourceStatic",
+      "audio_focus": "legacy_vad_adapter",
+      "command_template": "node --test runtime/audio-awareness/tests/audio-awareness.test.mjs",
+      "proof_layer": "source_docs_contract_module_scaffold",
+      "preconditions": [
+        "legacy speech-input VAD result is already available as summary/debug metadata",
+        "no raw microphone audio is shared",
+        "STT and transcript publication remain separate"
+      ],
+      "accept_result": [
+        "legacy VAD checked/speech_detected fields map to a legacy_speech_input channel",
+        "speech_present is represented as summary metadata",
+        "raw audio and transcript flags remain false"
+      ],
+      "does_not_prove": [
+        "stt_quality",
+        "microphone_content",
+        "live_microphone_capture",
+        "user_intent",
+        "home_assistant_action"
+      ]
+    },
+    {
+      "route_id": "audio_awareness.runtime.pc_output_loopback_summary",
+      "mode": "RuntimeSummary",
+      "audio_focus": "pc_output_summary",
+      "command_template": "future-reviewed-route: emit audio_awareness_summary.json from an explicitly enabled PC-output adapter without raw audio persistence",
+      "proof_layer": "audio_awareness_summary_only",
+      "preconditions": [
+        "route explicitly enables PC-output observation",
+        "adapter emits RMS/peak/silence/clipping summary only",
+        "raw samples remain local and are not persisted",
+        "per-application source is not inferred from system mix without a separate event correlation"
+      ],
+      "accept_result": [
+        "audio_awareness_summary.json validates against audio_awareness_summary.v0",
+        "pc_output channel reports audio_present or held with a concrete blocker",
+        "proof ceiling stays at PC-output summary layer"
+      ],
+      "does_not_prove": [
+        "which_application_played_audio",
+        "user_heard_audio",
+        "browser_audio_playback",
+        "microphone_pickup",
+        "physical_device_effect"
+      ]
+    },
+    {
+      "route_id": "audio_awareness.runtime.microphone_summary",
+      "mode": "RuntimeSummary",
+      "audio_focus": "microphone_summary",
+      "command_template": "future-reviewed-route: emit microphone summary only after explicit microphone capture permission",
+      "proof_layer": "audio_awareness_summary_only",
+      "preconditions": [
+        "microphone capture is explicitly authorized for the route",
+        "raw audio persistence remains off",
+        "STT is not attempted unless a later route enables it"
+      ],
+      "accept_result": [
+        "microphone channel reports audio_present/speech_present or held with a concrete blocker",
+        "raw audio and full transcript flags remain false",
+        "proof ceiling stays at microphone summary layer"
+      ],
+      "does_not_prove": [
+        "speaker_identity",
+        "transcript_content",
+        "user_intent",
+        "pc_output_source",
+        "physical_device_effect"
+      ]
+    }
+  ],
+  "stop_conditions": [
+    "the only available evidence requires raw audio, full transcripts, screenshots, private paths, provider payloads, or Home Assistant identifiers",
+    "a consumer tries to treat PC-output loopback as proof the user heard audio",
+    "a consumer tries to treat a TTS request as proof that audio played",
+    "a consumer tries to infer per-application audio source from system-mix energy alone",
+    "microphone capture would occur without an explicit route permission",
+    "STT or provider/network processing would occur without a reviewed route"
+  ],
+  "consumer_guidance": {
+    "thought_core": "Treat audio awareness as observation context only. It may help distinguish TTS request, playback call, PC-output energy, microphone pickup, and possible speaker bleed, but it is not action authority or user-intent proof by itself.",
+    "diagnostics": "Read audio_awareness_summary.json for redacted channel summaries and status refs. Do not persist raw samples, full transcripts, private paths, screenshots, or provider payloads.",
+    "human_operator": "Use this route map to understand which audio proof layer is available before a demo. User-heard audio remains an operator observation unless a later reviewed route adds stronger evidence.",
+    "speech_input_adapter": "Map existing VAD/STT metadata into summary channels without changing legacy endpoints until the adapter migration is explicitly adopted.",
+    "visible_demo_preflight": "Use source/static readiness rows first. Live PC-output or microphone checks need separate explicit route authority."
+  }
+}

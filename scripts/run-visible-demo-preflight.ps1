@@ -190,10 +190,48 @@ function Get-LauncherWorkspaceClass {
   }
 }
 
+function Get-AudioAwarenessSourceStaticClass {
+  $scriptPath = Join-Path $RepoRoot "scripts\check-audio-awareness-readiness.ps1"
+  if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+    return [PSCustomObject]@{
+      status = "hold"
+      class = "readiness_script_missing"
+      detail = "check-audio-awareness-readiness.ps1 missing"
+    }
+  }
+
+  try {
+    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -Json 2>$null
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+      return [PSCustomObject]@{
+        status = "hold"
+        class = "readiness_script_failed"
+        detail = "exit_code=$exitCode"
+      }
+    }
+    $payload = ($output -join "`n") | ConvertFrom-Json
+    $status = [string]$payload.status
+    return [PSCustomObject]@{
+      status = if ($status -eq "pass") { "pass" } else { "hold" }
+      class = if ($status -eq "pass") { "source_static_ready" } else { "source_static_not_ready" }
+      detail = "readiness_status=$status; proof_ceiling=$($payload.proof_ceiling)"
+    }
+  }
+  catch {
+    return [PSCustomObject]@{
+      status = "hold"
+      class = "readiness_script_unreadable"
+      detail = "readiness_json_unavailable"
+    }
+  }
+}
+
 $rows = @()
 $fallbacks = [ordered]@{
   projection_foreground = "blocked_projection_visual_avatar_surface_not_foregrounded"
   chrome_window_hygiene = "blocked_multiple_chrome_windows_route_owned_avatar_surface_not_foregrounded_without_touching_unrelated_user_windows"
+  audio_awareness_source_static = "blocked_audio_awareness_source_static_readiness"
   local_tts_playback = "blocked_local_tts_playback_not_confirmed"
   browser_response_binding = "blocked_projection_visual_conversation_response_not_rendered_message_receiver_client_binding_missing_or_not_consuming"
   ac_control_surface = "blocked_chrome_home_assistant_ac_control_surface_not_visible_or_restore_unreadable"
@@ -209,6 +247,7 @@ if ($ListRows) {
   $rows += New-PreflightRow -Id "projection_foreground" -Status "not_evaluated" -PassClass "avatar_surface_foregrounded_or_operator_confirmed" -HoldClass $fallbacks.projection_foreground -Detail "operator or browser control must confirm the avatar surface is in front"
   $rows += New-PreflightRow -Id "chrome_window_hygiene" -Status "not_evaluated" -PassClass "route_owned_surface_targeted_without_unrelated_window_changes" -HoldClass $fallbacks.chrome_window_hygiene -Detail "do not close or retarget unrelated user Chrome windows"
   $rows += New-PreflightRow -Id "voicevox_endpoint" -Status "not_evaluated" -PassClass "reachable" -HoldClass "blocked_voicevox_endpoint_unreachable" -Detail "VOICEVOX endpoint readiness is service readiness only"
+  $rows += New-PreflightRow -Id "audio_awareness_source_static" -Status "not_evaluated" -PassClass "source_static_ready" -HoldClass $fallbacks.audio_awareness_source_static -Detail "source/static no-live readiness only; does not capture PC output, microphone, browser audio, provider STT/TTS, or Home Assistant state"
   $rows += New-PreflightRow -Id "local_audio_playback" -Status "not_evaluated" -PassClass "playback_call_completed_or_user_observed_audio" -HoldClass $fallbacks.local_tts_playback -Detail "audio claim needs local playback completion or user observation"
   $rows += New-PreflightRow -Id "browser_response_binding" -Status "not_evaluated" -PassClass "message_receiver_client_binding_consuming" -HoldClass $fallbacks.browser_response_binding -Detail "browser-visible response needs a consuming message receiver/client binding"
   $rows += New-PreflightRow -Id "ac_control_surface" -Status "not_evaluated" -PassClass "visible_current_state_and_restore_target_readable" -HoldClass $fallbacks.ac_control_surface -Detail "Chrome/Home Assistant AC fallback needs visible current state and restore/off target"
@@ -286,6 +325,14 @@ else {
     -HoldClass "blocked_voicevox_endpoint_unreachable" `
     -Detail ("endpoint={0}; service_readiness_only=true" -f $voicevox.status)
 
+  $audioAwareness = Get-AudioAwarenessSourceStaticClass
+  $rows += New-PreflightRow `
+    -Id "audio_awareness_source_static" `
+    -Status $audioAwareness.status `
+    -PassClass "source_static_ready" `
+    -HoldClass $fallbacks.audio_awareness_source_static `
+    -Detail ("{0}; no_live_capture=true; no_raw_audio_or_transcript=true" -f $audioAwareness.detail)
+
   $rows += New-PreflightRow `
     -Id "local_audio_playback" `
     -Status $(if ($OperatorConfirmedAudioHeard) { "pass" } else { "hold" }) `
@@ -340,8 +387,10 @@ $result = [PSCustomObject]@{
   default_safety = [PSCustomObject]@{
     provider_network_stt_tts = $false
     live_microphone_or_camera_capture = $false
+    live_pc_output_capture = $false
     home_assistant_command_submission = $false
     home_control_actions_catalog_success_claim = $false
+    raw_audio_or_transcript_publication = $false
     raw_private_publication = $false
   }
   status = if ($ListRows) { "rows_listed" } elseif ($holds.Count -gt 0) { "hold" } else { "pass" }
@@ -355,6 +404,7 @@ $result = [PSCustomObject]@{
   fallback_strings = $fallbacks
   proof_layer_notes = [PSCustomObject]@{
     local_playback = "local playback route evidence only"
+    audio_awareness_source_static = "contract and no-live source/static readiness only"
     user_observed_audio = "observation layer; keep separate from browser TTS summary"
     browser_tts_or_speech_summary = "claim only when the browser surface consumes and reports it"
     avatar_screen = "foreground/display layer only"
@@ -376,7 +426,8 @@ $result = [PSCustomObject]@{
   non_claims = @(
     "no runtime/live appliance operation performed by this preflight",
     "no provider/network STT/TTS",
-    "no live microphone/browser STT/camera/media capture",
+    "no live PC-output/microphone/browser STT/camera/media capture",
+    "no raw audio or transcript publication",
     "no Home Control /actions catalog success",
     "no physical/device proof",
     "no release/readiness/final RR003 pass"
@@ -395,4 +446,4 @@ foreach ($row in $rows) {
   Write-Host ("{0}: {1} pass={2} hold={3} detail={4}" -f $row.id, $row.status, $row.pass_class, $row.hold_class, $row.detail)
 }
 Write-Host "raw_private_publication_flags=false"
-Write-Host "non_claims=no_runtime_live_appliance_operation,no_provider_network_stt_tts,no_mic_camera_capture,no_home_control_actions_catalog_success,no_physical_device_proof,no_final_rr003_pass"
+Write-Host "non_claims=no_runtime_live_appliance_operation,no_provider_network_stt_tts,no_live_pc_output_microphone_browser_stt_camera_media_capture,no_raw_audio_or_transcript_publication,no_home_control_actions_catalog_success,no_physical_device_proof,no_final_rr003_pass"

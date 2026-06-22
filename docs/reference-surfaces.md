@@ -133,6 +133,40 @@ static, keep the result split:
 model-state diagnostic only / Self Mirror no-pass hold
 ```
 
+## Audio Awareness Example
+
+<!-- reference-surfaces:audio-awareness-example -->
+
+Audio Awareness is a hearing reference surface for summary-only PC-output and
+microphone awareness:
+
+- `contracts/audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json`
+  defines the route/discovery map for source/static audio-awareness readers.
+- `runtime/audio-awareness/audio-awareness-consumer-routes.json` is the
+  owner-local route map. It carries `$schema`, `schema_version`, and
+  `contract_ref`, points to the speech-input hearing organ scaffold, names
+  `audio_awareness_summary.json` as the result authority file, and keeps live
+  capture off by default.
+- `contracts/audio_awareness_summary/audio_awareness_summary.v0.schema.json`
+  defines the result packet for `pc_output`, `microphone`, and
+  `legacy_speech_input` channel summaries.
+- `organs/speech-input/audio-awareness/README.md` is the organ scaffold tied to
+  `sense.hearing.primary`.
+- `docs/audio-awareness.md` is the concise operator/reviewer design note for
+  proof-layer separation and raw/private boundaries.
+
+The current proof ceiling is:
+
+```text
+audio_awareness_source_static_summary_only
+```
+
+This surface can describe source/static contract readiness, synthetic fixture
+summaries, and legacy VAD metadata mapping. It cannot prove live PC-output
+capture, microphone capture, browser audio playback, user-heard audio,
+transcript content, Home Assistant action, physical device effect, or
+release/readiness/final RR003 pass.
+
 ## Smells
 
 - A runtime reader parses prose from README instead of a contracted file.

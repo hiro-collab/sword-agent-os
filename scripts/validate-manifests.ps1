@@ -196,7 +196,9 @@ $contractFiles = @(
   "contracts/motion_trace_event/motion_trace_event.v0.schema.json",
   "contracts/motion_memory_candidate/motion_memory_candidate.v0.schema.json",
   "contracts/visual_motion_analysis/visual_motion_analysis.v0.schema.json",
-  "contracts/self_mirror_metric_summary/self_mirror_metric_summary.v0.schema.json"
+  "contracts/self_mirror_metric_summary/self_mirror_metric_summary.v0.schema.json",
+  "contracts/audio_awareness_summary/audio_awareness_summary.v0.schema.json",
+  "contracts/audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json"
 )
 
 $runtimeDirs = @(
@@ -216,7 +218,8 @@ $runtimeDirs = @(
   "runtime/body-schema",
   "runtime/body-display-projection",
   "runtime/motion-runtime",
-  "runtime/visual-motion-analyzer"
+  "runtime/visual-motion-analyzer",
+  "runtime/audio-awareness"
 )
 foreach ($dir in $runtimeDirs) {
   Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath $dir)) "missing runtime directory: $dir"
@@ -264,6 +267,38 @@ $motionMixerDefs = $motionMixerContract.PSObject.Properties["`$defs"].Value
 $motionMixerKinds = @($motionMixerDefs.safe_summary.properties.motion_kind.enum | ForEach-Object { [string]$_ })
 Assert-True ("action_indicator" -in $motionMixerKinds) "motion mixer summary must support action_indicator motion kind"
 
+$audioAwarenessContract = Read-Json -Path (Resolve-ManifestPath "contracts/audio_awareness_summary/audio_awareness_summary.v0.schema.json")
+$audioAwarenessDefs = $audioAwarenessContract.PSObject.Properties["`$defs"].Value
+$audioChannelKinds = @($audioAwarenessDefs.channel_summary.properties.channel_kind.enum | ForEach-Object { [string]$_ })
+foreach ($requiredAudioChannel in @("pc_output", "microphone", "legacy_speech_input")) {
+  Assert-True ($requiredAudioChannel -in $audioChannelKinds) "audio awareness must support $requiredAudioChannel channel summaries"
+}
+$audioCaptureProps = $audioAwarenessContract.properties.capture_permissions.properties
+foreach ($field in @("provider_network_stt_enabled", "raw_audio_retained", "raw_audio_persisted")) {
+  Assert-True ($audioCaptureProps.$field.const -eq $false) "audio awareness capture_permissions.$field must be false"
+}
+$audioSourceStaticProps = $audioAwarenessContract.allOf[0].then.properties.capture_permissions.properties
+foreach ($field in @("pc_output_capture_enabled", "microphone_capture_enabled", "live_capture_used")) {
+  Assert-True ($audioSourceStaticProps.$field.const -eq $false) "source/static audio awareness $field must be false"
+}
+$audioSafetyProps = $audioAwarenessContract.properties.safety.properties
+foreach ($field in @("command_authority", "home_assistant_action", "provider_network_authority", "user_heard_audio_authority")) {
+  Assert-True ($audioSafetyProps.$field.const -eq $false) "audio awareness safety.$field must be false"
+}
+$audioRoutes = Read-Json -Path (Resolve-ManifestPath "runtime/audio-awareness/audio-awareness-consumer-routes.json")
+Assert-True ([string]$audioRoutes.schema_version -eq "audio_awareness_consumer_routes.v0") "audio awareness route map schema_version mismatch"
+Assert-True ([string]$audioRoutes.contract_ref -eq "contracts/audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json") "audio awareness route map contract_ref mismatch"
+Assert-True ([string]$audioRoutes.result_contract_ref -eq "contracts/audio_awareness_summary/audio_awareness_summary.v0.schema.json") "audio awareness route map result_contract_ref mismatch"
+Assert-True ([string]$audioRoutes.organ_readme -eq "organs/speech-input/audio-awareness/README.md") "audio awareness route map organ_readme mismatch"
+Assert-True ($audioRoutes.global_boundaries.default_live_microphone_capture -eq $false) "audio awareness route map must default microphone capture off"
+Assert-True ($audioRoutes.global_boundaries.default_pc_output_capture -eq $false) "audio awareness route map must default PC-output capture off"
+Assert-True ($audioRoutes.global_boundaries.provider_call -eq $false) "audio awareness route map must reject provider calls"
+Assert-True ($audioRoutes.global_boundaries.user_heard_audio_authority -eq $false) "audio awareness route map must reject user-heard proof authority"
+$audioRouteIds = @($audioRoutes.routes | ForEach-Object { [string]$_.route_id })
+foreach ($requiredAudioRoute in @("audio_awareness.source_static.synthetic_summary_fixture", "audio_awareness.source_static.legacy_vad_adapter")) {
+  Assert-True ($requiredAudioRoute -in $audioRouteIds) "audio awareness route map missing $requiredAudioRoute"
+}
+
 Assert-True ([string]$bodyPlan.schema_version -eq "body_plan.v0") "body plan schema_version must be body_plan.v0"
 Assert-True ([string]$bodyPlan.body_plan_id -eq "system_cell_v0") "body plan id must be system_cell_v0"
 Assert-True ([string]$bodyPlan.body_plan_version -match "^[0-9]+\.[0-9]+\.[0-9]+$") "body plan version must be semver-like"
@@ -272,7 +307,7 @@ Assert-True (-not [string]::IsNullOrWhiteSpace([string]$bodyPlan.organism_name))
 Assert-True ($null -eq $bodyPlan.agency_profile_id) "initial body plan should leave agency_profile_id null"
 
 $bodyPlanContractValues = @($bodyPlan.compatible_contracts.PSObject.Properties | ForEach-Object { [string]$_.Value })
-foreach ($requiredContract in @("action_request.v0", "event_ingest.v0", "status_patch.v0", "body_plan.v0", "driver_manifest.v0", "body_schema_snapshot.v0", "body_display_projection.v0")) {
+foreach ($requiredContract in @("action_request.v0", "event_ingest.v0", "status_patch.v0", "body_plan.v0", "driver_manifest.v0", "body_schema_snapshot.v0", "body_display_projection.v0", "audio_awareness_summary.v0", "audio_awareness_consumer_routes.v0")) {
   Assert-True ($requiredContract -in $bodyPlanContractValues) "body plan missing compatible contract: $requiredContract"
 }
 
@@ -281,7 +316,7 @@ Assert-True (($bodyPlanOrganIds | Select-Object -Unique).Count -eq $bodyPlanOrga
 foreach ($organId in $bodyPlanOrganIds) {
   Assert-True ($organId -match "^[a-z][a-z0-9_.-]*$") "body plan has unsafe organ_id: $organId"
 }
-foreach ($requiredOrganId in @("thought.core", "reflex.core", "action.boundary", "environment.state", "sense.vision.primary", "display.projection", "memory.event_journal", "memory.status_store", "body.schema")) {
+foreach ($requiredOrganId in @("thought.core", "reflex.core", "action.boundary", "environment.state", "sense.vision.primary", "sense.hearing.primary", "display.projection", "memory.event_journal", "memory.status_store", "body.schema")) {
   Assert-True ($requiredOrganId -in $bodyPlanOrganIds) "body plan missing required organism organ: $requiredOrganId"
 }
 
@@ -327,6 +362,21 @@ foreach ($driver in $actionDriverManifest.drivers) {
 }
 foreach ($entry in $actionProviderCounts.GetEnumerator()) {
   Assert-True ([int]$entry.Value -le 1) "action has multiple non-dummy providers: $($entry.Key)"
+}
+
+$hearingOrgan = $bodyPlan.organs | Where-Object { [string]$_.organ_id -eq "sense.hearing.primary" } | Select-Object -First 1
+Assert-True ($null -ne $hearingOrgan) "body plan missing sense.hearing.primary"
+$hearingDriverRefs = @($hearingOrgan.driver_manifest_refs | ForEach-Object { [string]$_ })
+Assert-True ("browser_speech_input_driver" -in $hearingDriverRefs) "hearing organ must retain browser speech input driver"
+Assert-True ("hearing_audio_awareness_observer_driver" -in $hearingDriverRefs) "hearing organ missing audio awareness observer driver"
+$audioAwarenessDriver = $actionDriverManifest.drivers | Where-Object { [string]$_.driver_id -eq "hearing_audio_awareness_observer_driver" } | Select-Object -First 1
+Assert-True ($null -ne $audioAwarenessDriver) "audio awareness observer driver missing"
+Assert-True ([string]$audioAwarenessDriver.driver_kind -eq "compat_adapter") "audio awareness observer driver must be compat_adapter"
+Assert-True ([string]$audioAwarenessDriver.organ_id -eq "sense.hearing.primary") "audio awareness observer driver must belong to sense.hearing.primary"
+Assert-True (@($audioAwarenessDriver.provides_actions).Count -eq 0) "audio awareness observer driver must not provide actions"
+$audioAwarenessStatusKeys = @($audioAwarenessDriver.status_keys | ForEach-Object { [string]$_ })
+foreach ($requiredStatusKey in @("sense.hearing.primary.audio_awareness.summary", "sense.hearing.primary.audio_awareness.pc_output", "sense.hearing.primary.audio_awareness.microphone")) {
+  Assert-True ($requiredStatusKey -in $audioAwarenessStatusKeys) "audio awareness observer driver missing status key: $requiredStatusKey"
 }
 
 Assert-True ([string]$compatAliases.schema_version -eq "compat_aliases.v0") "compat aliases schema_version must be compat_aliases.v0"
@@ -678,6 +728,7 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-runtime-
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-conscious-readiness.ps1") -PathType Leaf) "conscious readiness checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-organ-readiness.ps1") -PathType Leaf) "organ readiness checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-launch-readiness.ps1") -PathType Leaf) "launch readiness checker missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-audio-awareness-readiness.ps1") -PathType Leaf) "audio awareness readiness checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/start-launcher.ps1") -PathType Leaf) "launcher start wrapper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/stop-launcher.ps1") -PathType Leaf) "launcher stop wrapper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/prepare-compat-launch.ps1") -PathType Leaf) "compat launch preparation script missing"
@@ -693,6 +744,7 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/build-body-sch
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-visual-motion-analyzer.ps1") -PathType Leaf) "visual motion analyzer wrapper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-self-mirror-proof.ps1") -PathType Leaf) "Self Mirror proof wrapper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/capture-self-mirror-frames.mjs") -PathType Leaf) "Self Mirror browser capture helper missing"
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "docs/audio-awareness.md") -PathType Leaf) "audio awareness design note missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/diagnostic-scheduler/neural-monitoring-test-plan.v0.md") -PathType Leaf) "neural monitoring test plan missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/organ-test-packs/README.md") -PathType Leaf) "organ test pack runtime README missing"
 

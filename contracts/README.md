@@ -30,6 +30,18 @@ against these shapes at the boundary.
   proof, motion proof, or ordinary conversation quality proof.
   - Example:
     `redacted_turn_input/examples/source_no_live.example.json`
+- `audio_awareness_summary/audio_awareness_summary.v0.schema.json`:
+  summary-only hearing/audio awareness packet for `pc_output`, `microphone`,
+  and legacy speech-input VAD metadata. Source/static packets keep live capture,
+  provider/network STT/TTS, raw audio, full transcripts, command authority,
+  browser-visible audio authority, user-heard proof, and physical/device proof
+  out of scope.
+  - Example:
+    `audio_awareness_summary/examples/pc-output-voicevox-correlated.example.json`
+- `audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json`:
+  machine-readable route map for source/static audio-awareness consumers. It
+  points readers to the hearing organ scaffold, runtime helper, result
+  contract, stop conditions, and non-claims without authorizing live capture.
 - `gesture_gate_summary/gesture_gate_summary.v0.schema.json`: compact,
   redacted gesture gate case summary for source-static and source-no-live proof
   rows. It keeps positive/negative gesture-gate outcomes, accepted activation

@@ -12,7 +12,9 @@
     "body_plan": "body_plan.v0",
     "driver_manifest": "driver_manifest.v0",
     "body_schema_snapshot": "body_schema_snapshot.v0",
-    "body_display_projection": "body_display_projection.v0"
+    "body_display_projection": "body_display_projection.v0",
+    "audio_awareness_summary": "audio_awareness_summary.v0",
+    "audio_awareness_consumer_routes": "audio_awareness_consumer_routes.v0"
   },
   "organs": [
     {
@@ -45,7 +47,8 @@
       "role": "sense.hearing",
       "required": false,
       "driver_manifest_refs": [
-        "browser_speech_input_driver"
+        "browser_speech_input_driver",
+        "hearing_audio_awareness_observer_driver"
       ],
       "legacy_aliases": [
         "browser speech input",

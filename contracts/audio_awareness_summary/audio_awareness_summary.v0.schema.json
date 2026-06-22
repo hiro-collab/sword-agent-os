@@ -1,0 +1,449 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/audio_awareness_summary/audio_awareness_summary.v0.schema.json",
+  "title": "Agent OS audio_awareness_summary.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "summary_id",
+    "generated_at",
+    "proof_ceiling",
+    "source_mode",
+    "capture_permissions",
+    "channels",
+    "correlation",
+    "transcript",
+    "redaction",
+    "safety",
+    "non_claims"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "source_mode"
+        ],
+        "properties": {
+          "source_mode": {
+            "enum": [
+              "source_static",
+              "synthetic_fixture"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "capture_permissions": {
+            "properties": {
+              "pc_output_capture_enabled": {
+                "const": false
+              },
+              "microphone_capture_enabled": {
+                "const": false
+              },
+              "live_capture_used": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "audio_awareness_summary.v0"
+    },
+    "summary_id": {
+      "type": "string",
+      "pattern": "^aud_sum_[A-Za-z0-9_.:-]+$",
+      "maxLength": 120
+    },
+    "route_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "maxLength": 160
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proof_ceiling": {
+      "type": "string",
+      "enum": [
+        "audio_awareness_source_static_summary_only",
+        "pc_output_audio_observed_summary_only",
+        "microphone_audio_observed_summary_only",
+        "pc_output_microphone_correlation_summary_only"
+      ]
+    },
+    "source_mode": {
+      "type": "string",
+      "enum": [
+        "source_static",
+        "synthetic_fixture",
+        "runtime_summary"
+      ]
+    },
+    "capture_permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pc_output_capture_enabled",
+        "microphone_capture_enabled",
+        "live_capture_used",
+        "provider_network_stt_enabled",
+        "raw_audio_retained",
+        "raw_audio_persisted"
+      ],
+      "properties": {
+        "pc_output_capture_enabled": {
+          "type": "boolean"
+        },
+        "microphone_capture_enabled": {
+          "type": "boolean"
+        },
+        "microphone_permission_source": {
+          "type": "string",
+          "enum": [
+            "not_granted",
+            "operator_granted",
+            "reviewed_route",
+            "not_required"
+          ]
+        },
+        "live_capture_used": {
+          "type": "boolean"
+        },
+        "provider_network_stt_enabled": {
+          "const": false
+        },
+        "raw_audio_retained": {
+          "const": false
+        },
+        "raw_audio_persisted": {
+          "const": false
+        }
+      }
+    },
+    "channels": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/channel_summary"
+      }
+    },
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "self_output_event_ref",
+        "playback_event_ref",
+        "pc_output_correlated",
+        "mic_input_correlated",
+        "estimated_lag_ms",
+        "speaker_bleed_likely",
+        "echo_likely",
+        "confidence"
+      ],
+      "properties": {
+        "self_output_event_ref": {
+          "anyOf": [
+            { "$ref": "#/$defs/safe_ref" },
+            { "type": "null" }
+          ]
+        },
+        "playback_event_ref": {
+          "anyOf": [
+            { "$ref": "#/$defs/safe_ref" },
+            { "type": "null" }
+          ]
+        },
+        "pc_output_correlated": {
+          "type": ["boolean", "null"]
+        },
+        "mic_input_correlated": {
+          "type": ["boolean", "null"]
+        },
+        "estimated_lag_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "speaker_bleed_likely": {
+          "type": ["boolean", "null"]
+        },
+        "echo_likely": {
+          "type": ["boolean", "null"]
+        },
+        "confidence": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "transcript": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stt_attempted",
+        "transcript_present",
+        "full_transcript_saved",
+        "raw_transcript_included",
+        "provider_payload_included",
+        "transcript_summary_ref"
+      ],
+      "properties": {
+        "stt_attempted": {
+          "type": "boolean"
+        },
+        "transcript_present": {
+          "type": "boolean"
+        },
+        "full_transcript_saved": {
+          "const": false
+        },
+        "raw_transcript_included": {
+          "const": false
+        },
+        "provider_payload_included": {
+          "const": false
+        },
+        "transcript_summary_ref": {
+          "anyOf": [
+            { "$ref": "#/$defs/safe_ref" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_status",
+        "shareability_class",
+        "raw_audio_shared",
+        "raw_audio_persisted",
+        "raw_transcript_shared",
+        "private_path_shared",
+        "private_endpoint_shared",
+        "home_assistant_identifier_shared",
+        "provider_payload_shared",
+        "screenshot_or_media_shared"
+      ],
+      "properties": {
+        "redaction_status": {
+          "const": "summary_only"
+        },
+        "shareability_class": {
+          "type": "string",
+          "enum": [
+            "source_static_audio_awareness_summary",
+            "runtime_audio_awareness_summary"
+          ]
+        },
+        "raw_audio_shared": {
+          "const": false
+        },
+        "raw_audio_persisted": {
+          "const": false
+        },
+        "raw_transcript_shared": {
+          "const": false
+        },
+        "private_path_shared": {
+          "const": false
+        },
+        "private_endpoint_shared": {
+          "const": false
+        },
+        "home_assistant_identifier_shared": {
+          "const": false
+        },
+        "provider_payload_shared": {
+          "const": false
+        },
+        "screenshot_or_media_shared": {
+          "const": false
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_authority",
+        "action_authority",
+        "thought_core_completion_authority",
+        "home_assistant_action",
+        "browser_visible_audio_authority",
+        "user_heard_audio_authority",
+        "physical_device_proof_authority",
+        "provider_network_authority",
+        "release_or_final_rr003_authority"
+      ],
+      "properties": {
+        "command_authority": {
+          "const": false
+        },
+        "action_authority": {
+          "const": false
+        },
+        "thought_core_completion_authority": {
+          "const": false
+        },
+        "home_assistant_action": {
+          "const": false
+        },
+        "browser_visible_audio_authority": {
+          "const": false
+        },
+        "user_heard_audio_authority": {
+          "const": false
+        },
+        "physical_device_proof_authority": {
+          "const": false
+        },
+        "provider_network_authority": {
+          "const": false
+        },
+        "release_or_final_rr003_authority": {
+          "const": false
+        }
+      }
+    },
+    "non_claims": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.:-]*$",
+        "maxLength": 120
+      },
+      "allOf": [
+        { "contains": { "const": "not_user_heard_audio" } },
+        { "contains": { "const": "not_browser_audio_playback" } },
+        { "contains": { "const": "not_microphone_content" } },
+        { "contains": { "const": "not_physical_device_effect" } },
+        { "contains": { "const": "not_raw_audio_publication" } },
+        { "contains": { "const": "not_full_transcript_publication" } },
+        { "contains": { "const": "not_home_assistant_action" } },
+        { "contains": { "const": "not_release_or_final_rr003" } }
+      ]
+    }
+  },
+  "$defs": {
+    "channel_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel_id",
+        "channel_kind",
+        "observation_status",
+        "window_ms",
+        "sample_count",
+        "rms_dbfs",
+        "peak_dbfs",
+        "silence_ratio",
+        "clipping_count",
+        "dropout_count",
+        "audio_present",
+        "speech_present",
+        "speech_presence_source",
+        "source_confidence"
+      ],
+      "properties": {
+        "channel_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]*$",
+          "maxLength": 120
+        },
+        "channel_kind": {
+          "type": "string",
+          "enum": [
+            "pc_output",
+            "microphone",
+            "browser_audio_event",
+            "tts_event",
+            "legacy_speech_input"
+          ]
+        },
+        "observation_status": {
+          "type": "string",
+          "enum": [
+            "observed",
+            "held",
+            "not_enabled",
+            "not_available",
+            "synthetic"
+          ]
+        },
+        "window_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2880000
+        },
+        "rms_dbfs": {
+          "type": ["number", "null"],
+          "minimum": -160,
+          "maximum": 0
+        },
+        "peak_dbfs": {
+          "type": ["number", "null"],
+          "minimum": -160,
+          "maximum": 0
+        },
+        "silence_ratio": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "clipping_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dropout_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "audio_present": {
+          "type": ["boolean", "null"]
+        },
+        "speech_present": {
+          "type": ["boolean", "null"]
+        },
+        "speech_presence_source": {
+          "type": "string",
+          "enum": [
+            "none",
+            "energy_heuristic",
+            "webrtcvad_adapter",
+            "legacy_speech_input",
+            "synthetic_fixture"
+          ]
+        },
+        "source_confidence": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "safe_ref": {
+      "type": "string",
+      "pattern": "^(event|summary|audio|tts|playback|legacy|source):[A-Za-z0-9_.:-]+$",
+      "maxLength": 160
+    }
+  }
+}

@@ -32,6 +32,24 @@
       ]
     },
     {
+      "driver_id": "hearing_audio_awareness_observer_driver",
+      "driver_kind": "compat_adapter",
+      "organ_id": "sense.hearing.primary",
+      "instance_policy": "single",
+      "provides_actions": [],
+      "status_keys": [
+        "sense.hearing.primary.audio_awareness.summary",
+        "sense.hearing.primary.audio_awareness.pc_output",
+        "sense.hearing.primary.audio_awareness.microphone",
+        "sense.hearing.primary.audio_awareness.legacy_vad"
+      ],
+      "legacy_aliases": [
+        "audio awareness",
+        "hearing observer",
+        "speech input VAD summary"
+      ]
+    },
+    {
       "driver_id": "camera_hub_driver",
       "driver_kind": "compat_adapter",
       "organ_id": "sense.vision.primary",

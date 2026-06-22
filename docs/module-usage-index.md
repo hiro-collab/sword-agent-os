@@ -44,6 +44,7 @@ adding a new module or route.
 | Deterministic action guard | `runtime/action-boundary/` | Thought Core semantic reasoning |
 | Display-safe body frames | `runtime/body-display-projection/` | raw logs, raw prompts, raw camera frames |
 | Avatar/body motion indicators | `runtime/motion-runtime/` | direct appliance execution or raw driver routes |
+| Hearing/audio awareness summaries | `runtime/audio-awareness/`, `organs/speech-input/audio-awareness/`, and `contracts/audio_awareness_summary/` | live capture, raw audio, full transcripts, or user-heard proof |
 | Machine-readable reader/discovery surfaces | `contracts/` plus an owner-local JSON/output with `contract_ref` | README-only tables or coordination messages |
 
 ## Runtime vs Diagnostics
@@ -218,6 +219,35 @@ Do not use this surface to claim browser-visible Self Mirror pass, semantic
 expression correctness, physical/projector proof, ROI or threshold authority,
 command authority, release readiness, or final RR003 pass. For visible motion,
 correlate this packet with a separate Self Mirror result authority packet.
+
+## Audio Awareness
+
+Use `audio_awareness_summary.v0` when source code, Thought Core, diagnostics,
+review agents, or demo preflight needs a compact hearing summary that keeps PC
+output and microphone input separate.
+
+The module is tied to the existing speech-input/hearing role:
+
+- `organs/speech-input/audio-awareness/` is the `sense.hearing.primary` organ
+  scaffold.
+- `runtime/audio-awareness/` owns the source/static runtime helper, tests, and
+  consumer route map.
+- `contracts/audio_awareness_summary/` owns the result packet shape.
+- `contracts/audio_awareness_consumer_routes/` owns the route/discovery map
+  shape.
+- `docs/audio-awareness.md` is the operator/reviewer design note for proof
+  layers and raw/private boundaries.
+
+The current implementation is source/static only. It can validate synthetic
+summary fixtures and map legacy speech-input VAD metadata into a
+`legacy_speech_input` channel. It does not run PC-output loopback capture,
+microphone capture, browser audio capture, provider/network STT/TTS, Home
+Assistant/Home Control operations, raw audio handling, or transcript
+publication.
+
+Do not use this surface to claim browser audio playback, user-heard audio,
+microphone content, speaker identity, physical/device proof, command authority,
+release readiness, or final RR003 pass.
 
 ## Where To Add Work
 
