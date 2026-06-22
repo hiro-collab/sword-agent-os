@@ -81,7 +81,6 @@ upstream extension hooks.
 | `projectionDisplayState` | JSON shape is bounded and does not carry private prompts, raw provider payloads, local paths, or raw media |
 | Display-state bridge | mocked updates can reflect without live media or appliance actions |
 | Thought Core endpoint | configured local Thought Core endpoint is normal path; unavailable is distinct from completed |
-| Dify compatibility | legacy Dify compatibility text remains developer/debug-only in the normal HUD |
 | Vision Light/update signal | update indication represents meaningful evidence, not constant ambient animation |
 | Passive mode | current bridge is bounded state/message sync, not same-produced-video-output parity |
 

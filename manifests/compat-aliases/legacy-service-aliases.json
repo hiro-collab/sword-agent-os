@@ -99,11 +99,6 @@
       "canonical_driver_id": "projection_visual_driver"
     },
     {
-      "legacy": "Dify legacy runtime",
-      "canonical_organ_id": "thought.core",
-      "canonical_driver_id": "legacy_dify_compat_adapter"
-    },
-    {
       "legacy": "thought-core-driver",
       "canonical_organ_id": "thought.core",
       "canonical_driver_id": "thought_core_driver"

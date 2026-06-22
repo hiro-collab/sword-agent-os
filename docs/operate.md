@@ -3,6 +3,9 @@
 This page is the short operator front door for the standard distribution. It is
 organized by what you want to do, not by internal subsystem.
 
+For the full first-run path from prerequisites, clone, local assets, `.env`,
+launcher, and trial operations, use `docs/first-run-operator-guide.md`.
+
 The front door defaults to no-live / no-device. It does not start Start Stack,
 call a provider, operate Home Assistant, use a browser profile, open
 camera/audio, or claim physical proof unless a later route explicitly says so.
@@ -102,6 +105,7 @@ private/live full-schema config or reviewed clone-local equivalent.
 
 | Goal | Command | Proof layer |
 | --- | --- | --- |
+| First-run operator path | `docs/first-run-operator-guide.md` | staged install/runtime guide |
 | Version and profile summary | `pwsh -NoProfile -File .\scripts\show-version.ps1 -Profile standard` | source/static |
 | Dry-run install plan | `pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard -DryRun` | install plan |
 | Manifest validation | `pwsh -NoProfile -File .\scripts\validate-manifests.ps1` | source/static |

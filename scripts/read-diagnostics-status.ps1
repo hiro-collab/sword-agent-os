@@ -105,7 +105,6 @@ if ($null -ne $status.PSObject.Properties["no_provider_child_provenance_diagnost
   Write-Output "  thought_core_action_llm_enabled_class: $($provenance.env_binding.thought_core_action_llm_enabled_class)"
   Write-Output "  provider_config_presence_class: $($provenance.env_binding.provider_config_presence_class)"
   Write-Output "  start_script_env_override_class: $($provenance.env_binding.start_script_env_override_class)"
-  Write-Output "  direct_dify_exclusion_class: $($provenance.provider_boundary.direct_dify_exclusion_class)"
   Write-Output "  runtime_import_provenance_class: $($provenance.source_static.runtime_import_provenance_class)"
   Write-Output "  payload_marker_class: $($provenance.payload_preflight.payload_marker_class)"
   Write-Output ""

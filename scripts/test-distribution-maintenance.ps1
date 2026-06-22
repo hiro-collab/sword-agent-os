@@ -1848,8 +1848,6 @@ function Test-NativeLaunchLayoutFixtures {
       "39787",
       "-StackStateDir",
       (Join-Path $workspace ".cache\home-control-stack"),
-      "-SkipDify",
-      "-SkipDifyWatch",
       "-SkipVoicevoxCheck",
       "-MediapipeNoBrowser",
       "-DryRun"
@@ -1884,8 +1882,6 @@ function Test-NativeLaunchLayoutFixtures {
       "39788",
       "-StackStateDir",
       (Join-Path $workspace ".cache\home-control-stack-preferred"),
-      "-SkipDify",
-      "-SkipDifyWatch",
       "-SkipVoicevoxCheck",
       "-MediapipeNoBrowser",
       "-DryRun"
@@ -1936,8 +1932,6 @@ function Test-NativeLaunchLayoutFixtures {
       "thought-core-v0",
       "-StackStateDir",
       (Join-Path $partialAiTalkWorkspace ".cache\home-control-stack"),
-      "-SkipDify",
-      "-SkipDifyWatch",
       "-SkipVoicevoxCheck",
       "-MediapipeNoBrowser",
       "-DryRun"

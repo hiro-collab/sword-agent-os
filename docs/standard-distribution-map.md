@@ -28,6 +28,7 @@ debug tree や coordination history ではなく、標準構成の地図です�
 
 | 初見の問い | まず見る場所 |
 | --- | --- |
+| 初回導入から試し動作まで何をすればよいか | `docs/first-run-operator-guide.md` |
 | 何を入れれば標準構成になるか | `What The Standard Distribution Is` |
 | 最初にどこまで動けばよいか | `First Success` |
 | 代表 loop は何か | `Representative Standard Loop` |

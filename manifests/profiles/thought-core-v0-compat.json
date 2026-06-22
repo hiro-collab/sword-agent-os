@@ -34,7 +34,6 @@
     "touchdesigner_control_gui"
   ],
   "non_standard_profiles": [
-    "full-local",
     "thought-core-experimental"
   ],
   "debug_profiles": [

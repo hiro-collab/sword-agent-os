@@ -370,20 +370,6 @@
         "system-house-renderer",
         "body-map-viewer"
       ]
-    },
-    {
-      "driver_id": "legacy_dify_compat_adapter",
-      "driver_kind": "compat_adapter",
-      "organ_id": "thought.core",
-      "instance_policy": "single",
-      "provides_actions": [],
-      "status_keys": [
-        "thought.core.legacy_dify_available"
-      ],
-      "legacy_aliases": [
-        "Dify legacy runtime",
-        "dify"
-      ]
     }
   ]
 }

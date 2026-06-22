@@ -1,29 +1,48 @@
 # Sword Agent OS
 
-Sword Agent OS is a local body OS for a PC-hosted agent: thought, voice,
-avatar/display, sensing, diagnostics, and guarded Home Assistant action routes.
+Sword Agent OS は、PC上でエージェントを動かすためのローカルシステムです。
+会話、音声入力、アバター表示、状態確認、Home Assistant 経由の家電操作を
+ひとつの流れとして扱います。
 
-This README is only the front door. Detailed rules live in the docs and
-manifests listed below. If a detail appears in both README and a specialist
-doc, treat the specialist doc or manifest as the authority and reduce the
-duplicate here.
+初めて使う人は、まず
+`docs/first-run-operator-guide.md` を読んでください。必要なもの、Git clone、
+ローカルファイルの置き場所、`.env` の作り方、起動、画面の開き方、
+試し動作、停止確認までを順番に書いています。
 
-## Safety Default
+この README は入口です。細かい設定や安全上の決まりは、下の表にある
+専門文書に分けています。
 
-The default product posture is no-live and local-first.
+## 最初にやること
 
-- No provider, microphone, camera, browser, Home Assistant, or device mutation
-  is implied by install, status, doctor, or verification commands.
-- Home Control live work requires an exact route, bounded action family,
-  just-in-time gates, redacted summary output, and a proof ceiling.
-- HA-visible state, external observation, physical movement, release readiness,
-  and final RR003 review are separate claims.
-- Local secrets, tokens, private paths, raw logs, media, Home Assistant entity
-  ids, and provider/browser payloads must stay out of tracked docs.
+1. 必要なソフトと機器を用意する。
+2. このリポジトリを clone する。
+3. `gesture_model.pkl`、VRM、音声や動画などのローカル素材を指定場所に置く。
+4. `.env` がない状態で基本確認を行う。
+5. `.env` にAPIキーや Home Assistant の接続情報を書く。
+6. 起動用バッチファイルを開き、Launch Manager から各画面を開く。
+7. 会話、音声入力、アバター、状態画面、家電操作を、用意できた範囲で試す。
+8. 起動したものを安全に停止できることを確認する。
 
-## Front Door Commands
+詳しい手順:
 
-Run these from the repository root.
+- `docs/first-run-operator-guide.md`
+
+<!-- Safety Default -->
+## 安全の基本
+
+インストール、状態確認、診断コマンドだけでは、マイク、カメラ、
+Home Assistant、実家電操作は勝手に動きません。
+
+- APIキー、トークン、家電ID、ローカルの絶対パス、生ログ、生音声、
+  画像、動画、文字起こし全文は Git に入れないでください。
+- Home Assistant の状態が一致していることと、実物が物理的に動いたことは
+  別の確認です。
+- 家電操作は、対象、回数、確認方法を決めた上で、必要な時だけ実行します。
+- 公開版として使えるかどうかは、別途レビューが必要です。
+
+## よく使うコマンド
+
+リポジトリ直下で実行します。
 
 ```powershell
 .\sword.ps1 status
@@ -33,12 +52,12 @@ Run these from the repository root.
 .\sword.ps1 hold-live
 ```
 
-`start` previews the planned runtime start by default. Use explicit run flags
-only when the current route authorizes that layer.
+`start` は、既定では起動予定の確認です。実際に起動する時は、
+起動手順に沿ってバッチファイルまたは明示的な実行オプションを使います。
 
-## Fresh Install / No-Live Readiness
+## 初回導入の確認
 
-The standard first-time path is:
+最初の安全確認は次の流れです。
 
 ```powershell
 .\scripts\install-distribution.ps1 -Profile standard
@@ -50,75 +69,71 @@ The standard first-time path is:
 .\scripts\run-compat-smoke.ps1
 ```
 
-Use `docs/verification-commands.md` for command intent and expected proof
-layers. Use `docs/troubleshooting.md` when a readiness check fails.
+各コマンドが何を確認するかは `docs/verification-commands.md` を見てください。
+失敗した時は `docs/troubleshooting.md` を見てください。
 
-## Canonical Map
+## 文書の場所
 
 | Need | Authority |
 | --- | --- |
-| Daily operation and front-door behavior | `docs/operate.md` |
-| Architecture planes and where new rules belong | `docs/architecture.md` |
-| User-facing capability choices | `docs/capability-packs.md` |
-| Customization and local env/config shape | `docs/customize.md`, `docs/local-configuration.md` |
-| Standard distribution contents and pin checks | `manifests/README.md`, `docs/standard-distribution-map.md`, `docs/distribution-maintenance.md` |
-| Module ownership and implementation surfaces | `docs/module-usage-index.md` |
-| Machine-readable reference surfaces | `docs/reference-surfaces.md` |
-| Home Assistant setup and action authoring | `docs/home-assistant-setup.md`, `docs/add-home-device.md`, `docs/home-control-action-authoring.md` |
-| Home Control live proof boundaries | `docs/live-home-control-proof.md`, `docs/proof-layers.md` |
-| Verification commands and failure handling | `docs/verification-commands.md`, `docs/troubleshooting.md` |
+| 初めて使う人向けの導入と動作確認 | `docs/first-run-operator-guide.md` |
+| 日常の起動、停止、状態確認 | `docs/operate.md` |
+| 全体構成 | `docs/architecture.md` |
+| 使える機能の選び方 | `docs/capability-packs.md` |
+| `.env` やローカル設定 | `docs/customize.md`, `docs/local-configuration.md` |
+| 配布物とバージョン固定の確認 | `manifests/README.md`, `docs/standard-distribution-map.md`, `docs/distribution-maintenance.md` |
+| 各部品の担当範囲 | `docs/module-usage-index.md` |
+| Home Assistant の準備と家電操作の書き方 | `docs/home-assistant-setup.md`, `docs/add-home-device.md`, `docs/home-control-action-authoring.md` |
+| 家電操作で何を確認できたと言えるか | `docs/live-home-control-proof.md`, `docs/proof-layers.md` |
+| 確認コマンドと失敗時の見方 | `docs/verification-commands.md`, `docs/troubleshooting.md` |
 
-Older one-off reports, startup notes, and legacy indexes are not canonical
-product documentation. Promote durable rules into one of the files above, then
-delete the old record.
+古い一回限りの報告、起動メモ、旧索引は、現在の正本ではありません。
+残すべき内容は上の専門文書へ移し、重複した古い文書は増やさない方針です。
 
-## Distribution Shape
+## 配布構成
 
-The standard distribution is described by manifests, not by README prose.
+標準構成は README の文章ではなく、manifest で管理します。
 
-- `manifests/body-plans/` defines body roles.
-- `manifests/distributions/` defines installable profiles.
-- `manifests/releases/` defines human-readable versions.
-- `manifests/driver-manifests/` and `contracts/` define driver and packet
-  contracts.
-- `manifests/compat-aliases/` is transitional only; do not add new product
-  behavior there.
+- `manifests/body-plans/`: 体の役割。
+- `manifests/distributions/`: インストールできる構成。
+- `manifests/releases/`: 人間が読むバージョン情報。
+- `manifests/driver-manifests/` と `contracts/`: 外部連携やデータ受け渡しの決まり。
+- `manifests/compat-aliases/`: 互換用。新しい機能はここに増やしません。
 
-## Proof Layers
+## 確認できた範囲を分ける
 
-Keep proof wording narrow:
+このプロジェクトでは、「何が確認できたか」を狭く書きます。
 
-- source/config inspection proves only source/config shape;
-- no-live bridge/catalog/readability proves only the checked no-live layer;
-- runtime/browser health proves only reachable local runtime surfaces;
-- command submission proves only accepted submission;
-- HA-visible `CheckState` proves only HA-visible matched state;
-- external or physical proof requires a separate observation route;
-- review-ready, release-ready, and final RR003 pass require explicit review.
+- ファイルや設定を読んだだけなら、ファイルや設定の形だけが確認済みです。
+- 家電連携ブリッジや一覧を読んだだけなら、実行前の準備だけが確認済みです。
+- 画面やローカルサービスが起動しただけなら、画面やサービスの到達だけが確認済みです。
+- 命令を送れたことと、Home Assistant 上の状態が変わったことは別です。
+- Home Assistant 上の状態と、実物が物理的に動いたことも別です。
+- 公開準備完了、リリース準備完了、最終レビュー完了は、別の判断です。
 
-If a result is already terminal before a command, do not claim transition or
-motion causality from the command. State the limitation directly.
+命令前からすでに目的の状態だった場合は、その命令で実物が動いたとは書きません。
+その場合は「すでにその状態だったので、命令は不要だった」と書きます。
 
 ## Home Control
 
-Home Control is deliberately ticketed and bounded. The usual ladder is:
+Home Control は、誤操作を避けるために範囲を決めて扱います。通常は次の順で
+確認します。
 
-1. source/config shape;
-2. bridge health;
-3. catalog parity;
-4. `CheckTracking`;
-5. pre-command `CheckState`;
-6. at most one reviewed command submission;
-7. post-action `CheckState`;
-8. optional external/physical observation under a separate route.
+1. 設定ファイルに必要な情報がある。
+2. 家電連携ブリッジが起動できる。
+3. 操作候補の一覧に対象操作がある。
+4. 実行してよい条件や確認方法が定義されている。
+5. 命令前の現在状態が読める。
+6. 必要な場合だけ、確認済みの操作を最大1回送る。
+7. 命令後の Home Assistant 上の状態を読む。
+8. 物理的な動きまで言うなら、別途カメラ、センサー、人間の目視などで確認する。
 
-Do not convert a Home Assistant state match into physical proof.
+Home Assistant の状態一致だけを、物理的に動いた証拠へ変換しないでください。
 
-## External Projects
+## 外部プロジェクト
 
-Some organ implementations and helper surfaces are vendored or pinned from
-external projects. Keep licenses and upstream pin updates in their specialist
-docs/manifests rather than expanding this README.
+一部の部品は、外部プロジェクトを同梱または特定バージョンに固定して使います。
+ライセンスやバージョン更新の情報は、それぞれの専門文書や manifest に置きます。
+README に重複して書き増やさないでください。
 
-When in doubt, shrink this file and move durable detail to the smallest
-specialist authority.
+迷ったら、この README は短く保ち、詳しい内容は最も近い専門文書に移します。

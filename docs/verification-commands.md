@@ -139,6 +139,63 @@ then points to the separate live-owner ladder for actual execution.
 `git_unreadable` is not the same as a true source pin mismatch. Recheck in the
 normal user context before treating it as source drift.
 
+## First-Run Operator Acceptance
+
+`README.md` and `docs/first-run-operator-guide.md` are user-facing promises.
+Every operation listed there should have one of these outcomes in a first-run
+verification report:
+
+- works in the stated scope;
+- not prepared because a required local file, secret, device, or route is
+  absent;
+- failed with an actionable problem.
+
+Do not leave a documented first-run operation as untested while also claiming
+the current install path is complete.
+
+Minimum post-install checks:
+
+```powershell
+.\sword.ps1 status
+.\sword.ps1 verify
+.\sword.ps1 start
+.\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc
+```
+
+When runtime/browser behavior is in scope, include start/stop safety:
+
+```powershell
+.\sword.ps1 start -Run
+.\sword.ps1 stop
+.\sword.ps1 stop -Run
+```
+
+or use the launcher wrappers:
+
+```powershell
+.\start-home-control-launcher.bat
+.\stop-home-control-launcher.bat
+```
+
+Report startup/shutdown separately. These field names are for test reports; the
+plain-language operator guide describes the same checks as start, stop, and
+cleanup safety.
+
+```text
+launcher_start=<pass|blocked|held>
+selected_workspace=<current|stale|unknown>
+ui_links=<reachable|degraded|blocked|not-tested>
+stop_preview=<pass|blocked|not-tested>
+stop_run=<pass|blocked|not-tested>
+selected_ports_clear_after_stop=<true|false|not-tested>
+cleanup_blocker=<none|exact blocker>
+```
+
+Voice, gesture, avatar, Home Control, Environment State, external observation,
+and physical proof remain separate rows. If the required microphone, camera,
+`gesture_model.pkl`, Home Assistant config, device, or observation source is
+missing, keep that row `held` instead of weakening the test.
+
 ## Optional / Home Control Physical Light Proof
 
 Use this helper when the review needs a bounded SwitchBot remote-style light

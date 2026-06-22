@@ -194,20 +194,6 @@ function New-NoProviderChildProvenanceDiagnostics {
     }
   }
 
-  $selectedServices = ConvertTo-StringArray -Value (Get-OptionalProperty -Object $Profile -Name "required_services" -Default @())
-  $difySelected = @($selectedServices | Where-Object { $_ -match "dify" }).Count -gt 0
-  $serviceIds = @($ServiceManifest.services | ForEach-Object { [string]$_.service_id })
-  $difyInServiceManifest = @($serviceIds | Where-Object { $_ -match "dify" }).Count -gt 0
-  $directDifyExclusionClass = if ($difySelected) {
-    "dify_service_selected"
-  }
-  elseif ($difyInServiceManifest) {
-    "dify_service_manifest_present_but_not_profile_selected"
-  }
-  else {
-    "dify_service_not_in_selected_manifest"
-  }
-
   $providerConfigPresence = if (
     (Get-ClassProperty -Object $startScriptClassesObject -Name "THOUGHT_CORE_LLM_API_KEY") -ne "absent" -or
     (Get-ClassProperty -Object $startScriptClassesObject -Name "OPENAI_API_KEY") -ne "absent" -or
@@ -262,7 +248,6 @@ function New-NoProviderChildProvenanceDiagnostics {
     }
     provider_boundary = [PSCustomObject]@{
       no_provider_binding_runtime_proven = $false
-      direct_dify_exclusion_class = $directDifyExclusionClass
       provider_bearing_runtime_scope_allowed = $false
     }
     source_static = [PSCustomObject]@{

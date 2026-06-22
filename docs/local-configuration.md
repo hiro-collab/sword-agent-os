@@ -75,7 +75,6 @@ redacted classes, counts, and asset ids.
 | `ENVIRONMENT_API_TOKEN` | Environment State API | yes | no | yes | no |
 | `THOUGHT_CORE_LLM_API_KEY` | Thought Core LLM provider | yes | no | yes, when LLM is disabled | no |
 | `OPENAI_API_KEY` | Some OpenAI-compatible adapters | yes | no | yes | no |
-| `DIFY_API_KEY` | Dify compatibility route | yes | no | yes | no |
 | `NEXT_PUBLIC_*` | Browser / AITuber Kit / Projection Visual display and connection settings | no | yes | depends on item | no |
 
 `HOME_CONTROL_API_TOKEN` is not the Home Assistant token. It is a random local

@@ -41,7 +41,6 @@ needs a precise failure classification.
 | `aircon_on` / `aircon_off` は submitted だが climate が変わらない | 現行 action が switch-wrapper の場合、script submission や switch distribution の変化は AC mode proof ではありません。climate entity が期待 mode に変わる climate-domain action を別に設計・実証するまで `command_ack_only` として扱います。 |
 | カメラが1フレーム読めたのに家電 proof にならない | no-save camera check は観測経路の readiness だけを示します。家電の物理状態 proof にするには、保存しない redacted summary の範囲、対象 action、観測タイミング、stop 条件を別途決めた scoped observation run が必要です。ライトの off/on/off restore だけなら `scripts/run-home-control-light-proof.ps1 -ConfirmLiveLightTicket` を使い、`command_submission`、`physical_brightness_observation`、`restore_observed` を分けます。`physical_brightness_observation=inverted` は action mapping または観測 route の取り違え候補であり、期待した on proof ではありません。standard stack が MediaPipe/VSP でカメラを掴んでいる時は、独立 no-save brightness proof 用に stack を止めるか、split camera route を明示します。 |
 | Home Assistant backup API が失敗する | まず API failure と rollback safety を分けます。日次自動バックアップや UI で作成済みのバックアップが確認できる場合は `backup-external` として記録し、設定変更後は config check と対象 domain reload を別 proof として確認します。バックアップがあることは家電操作や物理状態の proof ではありません。 |
-| Dify compatibility が表示される | 通常の Thought Core 経路では Dify は必須ではありません。debug mode だけで確認します。 |
 | TouchDesigner が反応しない | `.toe` project が開いているか、UDP target が合っているか確認します。 |
 
 ## Classification Notes
