@@ -57,9 +57,28 @@ Launch Manager route and ports without starting launcher-owned children.
 .\sword.ps1 start -Run
 ```
 
-Use `-Run` only when runtime execution is in scope. Record this as
-runtime/status proof until browser, input/output, Home Assistant, or physical
-observation checks are separately performed.
+Use `-Run` only when runtime execution is in scope. The normal path starts or
+reuses the Launcher and reports readiness/status; it does not run a demo,
+submit Home Assistant/Home Control actions, or claim proof. Use
+`-CompatLegacyDelegate` only for an explicit legacy-stack compatibility route.
+Record this as runtime/status proof until browser, input/output, Home
+Assistant, or physical observation checks are separately performed.
+
+## Demo-safe settings
+
+The Launcher left menu includes `Demo settings`. Tracked defaults live in
+`manifests/demo-safe-settings/defaults.json` and fresh clones start with every
+candidate disabled. Operator choices are stored as a local Launcher override in
+the existing gitignored state directory, so they survive restarts but are not
+committed.
+
+Editable `demo_safe_settings` are separate from read-only
+`demo_readiness_status`. Settings can allow a bounded demo candidate, but they
+do not prove audio playback, browser-visible avatar motion, Home Assistant
+state change, external observation, or physical device behavior. Appliance demo
+actions must hold when disabled, when current state or restore/off target is
+unreadable, when HOLD_LIVE is active or unreadable, or when count/duration
+limits would be exceeded.
 
 ## 止める前に見る
 
@@ -77,7 +96,8 @@ touching runtime children.
 ```
 
 Use this only for launcher-owned runtime children in the selected profile. Use
-`-Force` only when the current route explicitly allows forceful cleanup.
+`-Force` only when the current route explicitly allows forceful cleanup. Add
+`-CompatLegacyDelegate` only when the route explicitly targets the legacy stack.
 
 ## live 家電操作を止めておく
 

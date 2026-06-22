@@ -54,6 +54,15 @@ Home Assistant、実家電操作は勝手に動きません。
 
 `start` は、既定では起動予定の確認です。実際に起動する時は、
 起動手順に沿ってバッチファイルまたは明示的な実行オプションを使います。
+`.\sword.ps1 start -Run` は通常、Launcher を起動または再利用して
+readiness/status を確認するだけです。旧スタック委譲が必要な互換確認では
+`-CompatLegacyDelegate` を明示してください。
+
+Launcher の左メニューには `Demo settings` があります。fresh clone の
+demo-safe 候補はすべて `enabled=false` から始まり、ユーザーの選択は
+gitignored なローカル Launcher 状態に保存されます。Start は家電操作や
+proof を実行しません。Demo は enabled な demo-safe 候補だけを対象にし、
+Proof は別の明示ルートで扱います。
 
 ## 初回導入の確認
 

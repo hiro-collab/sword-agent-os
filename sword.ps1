@@ -10,7 +10,8 @@ param(
   [switch]$NoLive,
   [switch]$Run,
   [switch]$DryRun,
-  [switch]$Force
+  [switch]$Force,
+  [switch]$CompatLegacyDelegate
 )
 
 $ErrorActionPreference = "Stop"
@@ -56,6 +57,7 @@ function Write-FrontDoorHeader {
   Write-Host ("profile={0}" -f $Profile)
   Write-Host ("runtime_profile={0}" -f $RuntimeProfile)
   Write-Host ("proof_layer={0}" -f $ProofLayer)
+  Write-Host ("compat_legacy_delegate={0}" -f ([bool]$CompatLegacyDelegate))
   Write-Host "default_safety=no-live/no-device"
   Write-Host "raw_private_publication=false"
   Write-Host ""
@@ -109,8 +111,16 @@ switch ($Command) {
   }
   "start" {
     if ($Run) {
-      Write-FrontDoorHeader -ProofLayer "runtime-start"
-      Invoke-RepoScript -RelativeScript "scripts\system.ps1" -Arguments @("start", "-Profile", $RuntimeProfile, "-LegacyDelegate", "-PortMode", $PortMode)
+      if ($CompatLegacyDelegate) {
+        Write-FrontDoorHeader -ProofLayer "runtime-start/compat-legacy-delegate"
+        Invoke-RepoScript -RelativeScript "scripts\system.ps1" -Arguments @("start", "-Profile", $RuntimeProfile, "-LegacyDelegate", "-PortMode", $PortMode)
+      }
+      else {
+        Write-FrontDoorHeader -ProofLayer "launcher-start/readiness"
+        Invoke-RepoScript -RelativeScript "scripts\start-launcher.ps1" -Arguments @("-PortMode", $PortMode, "-ReuseExisting")
+        Write-Host ""
+        Invoke-RepoScript -RelativeScript "scripts\system.ps1" -Arguments @("status", "-Profile", $RuntimeProfile, "-ManifestOnly", "-PortMode", $PortMode, "-TimeoutMs", ([string]$TimeoutMs))
+      }
     }
     else {
       Write-FrontDoorHeader -ProofLayer "source-static-command-preview"
@@ -120,12 +130,22 @@ switch ($Command) {
   }
   "stop" {
     if ($Run) {
-      Write-FrontDoorHeader -ProofLayer "runtime-stop"
-      $stopArgs = @("stop", "-Profile", $RuntimeProfile, "-LegacyDelegate", "-PortMode", $PortMode)
-      if ($Force) {
-        $stopArgs += "-Force"
+      if ($CompatLegacyDelegate) {
+        Write-FrontDoorHeader -ProofLayer "runtime-stop/compat-legacy-delegate"
+        $stopArgs = @("stop", "-Profile", $RuntimeProfile, "-LegacyDelegate", "-PortMode", $PortMode)
+        if ($Force) {
+          $stopArgs += "-Force"
+        }
+        Invoke-RepoScript -RelativeScript "scripts\system.ps1" -Arguments $stopArgs
       }
-      Invoke-RepoScript -RelativeScript "scripts\system.ps1" -Arguments $stopArgs
+      else {
+        Write-FrontDoorHeader -ProofLayer "launcher-stop/readiness"
+        $stopArgs = @("-TimeoutSeconds", ([string][Math]::Ceiling($TimeoutMs / 1000)))
+        if ($Force) {
+          $stopArgs += "-Force"
+        }
+        Invoke-RepoScript -RelativeScript "scripts\stop-launcher.ps1" -Arguments $stopArgs
+      }
     }
     else {
       Write-FrontDoorHeader -ProofLayer "source-static-command-preview"

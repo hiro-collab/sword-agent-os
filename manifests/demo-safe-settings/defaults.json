@@ -1,0 +1,144 @@
+{
+  "schema_version": "demo_safe_settings.v0",
+  "local_override_class": "launcher_state_dir_gitignored_demo_settings_json",
+  "fresh_clone_default_enabled": false,
+  "rows": [
+    {
+      "id": "appliance.aircon_cool_restore",
+      "area": "appliance",
+      "label": "AC cool then restore/off",
+      "description": "Route-relevant climate demo candidate. It must hold unless current state and restore/off target are readable.",
+      "enabled": false,
+      "restore_supported": true,
+      "restore_required": true,
+      "max_action_count": 1,
+      "max_duration_sec": 120,
+      "source_class": "home_control_action_boundary_guidance",
+      "proof_ceiling": "ha_visible_control_surface_ac_mode_result_summary_layer",
+      "does_not_prove": [
+        "physical_hvac_effect",
+        "comfort_change",
+        "home_control_action_closure",
+        "release_readiness"
+      ],
+      "hold_classes": [
+        "hold_demo_safe_appliance_disabled",
+        "hold_live_marker_active",
+        "hold_current_state_unreadable",
+        "hold_restore_target_unreadable",
+        "hold_action_count_over_limit",
+        "hold_action_duration_over_limit",
+        "hold_non_demo_safe_action_requested"
+      ]
+    },
+    {
+      "id": "audio.voicevox_local_speech",
+      "area": "audio",
+      "label": "VOICEVOX local speech",
+      "description": "Local speech endpoint/readiness row. Endpoint readiness is not audible playback proof.",
+      "enabled": false,
+      "restore_supported": false,
+      "restore_required": false,
+      "max_action_count": 0,
+      "max_duration_sec": 20,
+      "source_class": "run_visible_demo_preflight_voicevox_endpoint",
+      "proof_ceiling": "local_endpoint_readiness",
+      "does_not_prove": [
+        "audible_tts_audio",
+        "user_heard_audio",
+        "provider_network_tts"
+      ]
+    },
+    {
+      "id": "audio.browser_or_pc_output_awareness",
+      "area": "audio",
+      "label": "Browser or PC audio awareness",
+      "description": "Local audio-output awareness row. It requires explicit observation before any audible claim.",
+      "enabled": false,
+      "restore_supported": false,
+      "restore_required": false,
+      "max_action_count": 0,
+      "max_duration_sec": 20,
+      "source_class": "run_visible_demo_preflight_local_audio_playback",
+      "proof_ceiling": "source_static_audio_readiness",
+      "does_not_prove": [
+        "microphone_capture",
+        "browser_audio_playback",
+        "raw_transcript",
+        "stt_correctness"
+      ]
+    },
+    {
+      "id": "avatar.aituber_projection_surface",
+      "area": "avatar",
+      "label": "AITuber / Projection Visual surface",
+      "description": "Avatar presentation surface readiness row. Reachability is not visible avatar proof.",
+      "enabled": false,
+      "restore_supported": false,
+      "restore_required": false,
+      "max_action_count": 1,
+      "max_duration_sec": 60,
+      "source_class": "run_visible_demo_preflight_aituber_projection_visual",
+      "proof_ceiling": "local_browser_surface_readiness",
+      "does_not_prove": [
+        "browser_visible_avatar_motion",
+        "aituber_receipt",
+        "self_mirror_pass"
+      ]
+    },
+    {
+      "id": "avatar.expression_or_motion_request",
+      "area": "avatar",
+      "label": "Expression or motion request",
+      "description": "Thought Core motion request row. A request/model-state is not rendered avatar motion.",
+      "enabled": false,
+      "restore_supported": false,
+      "restore_required": false,
+      "max_action_count": 1,
+      "max_duration_sec": 30,
+      "source_class": "thought_core_motion_request_summary",
+      "proof_ceiling": "model_state_request_summary_only",
+      "does_not_prove": [
+        "aituber_receipt",
+        "browser_visible_motion",
+        "semantic_expression_correctness"
+      ]
+    },
+    {
+      "id": "display.projection_visual_mode",
+      "area": "display",
+      "label": "Projection Visual display mode",
+      "description": "Display mode/HUD row. It must hold when current/restore display state is unreadable.",
+      "enabled": false,
+      "restore_supported": true,
+      "restore_required": true,
+      "max_action_count": 1,
+      "max_duration_sec": 60,
+      "source_class": "driver_manifest_projection_visual_mode",
+      "proof_ceiling": "display_runtime_command_ack_or_readiness_only",
+      "does_not_prove": [
+        "browser_visible_projection_visual",
+        "touchdesigner_projector_output",
+        "physical_display_output"
+      ]
+    },
+    {
+      "id": "display.self_mirror_visible_motion",
+      "area": "display",
+      "label": "Self Mirror visible motion",
+      "description": "Self Mirror method/scenario row. It proves nothing until an explicit browser route emits summary metrics.",
+      "enabled": false,
+      "restore_supported": false,
+      "restore_required": false,
+      "max_action_count": 0,
+      "max_duration_sec": 60,
+      "source_class": "projection_visual_starter_self_mirror_method",
+      "proof_ceiling": "source_static_self_mirror_method_readiness",
+      "does_not_prove": [
+        "self_mirror_pass",
+        "browser_visible_avatar_motion",
+        "physical_display_output"
+      ]
+    }
+  ]
+}
