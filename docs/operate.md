@@ -82,9 +82,10 @@ Editable `demo_safe_settings` are separate from read-only
 `demo_readiness_status`. Settings can allow a bounded demo candidate, but they
 do not prove audio playback, browser-visible avatar motion, Home Assistant
 state change, external observation, or physical device behavior. Appliance demo
-actions must hold when disabled, when current state or restore/off target is
-unreadable, when HOLD_LIVE is active or unreadable, or when count/duration
-limits would be exceeded.
+actions must hold when disabled, when HOLD_LIVE is active or unreadable, or
+when count/duration limits would be exceeded. Current-state or restore/off
+unreadability is a proof limitation for command-stimulus routes unless the
+reviewed route explicitly requires those gates before command submission.
 
 ## 止める前に見る
 

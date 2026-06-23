@@ -7,12 +7,21 @@
       "id": "appliance.aircon_cool_restore",
       "area": "appliance",
       "label": "AC cool then restore/off",
-      "description": "Route-relevant climate demo candidate. It must hold unless current state and restore/off target are readable.",
+      "description": "Route-relevant climate command stimulus. Unknown current state is reported as a proof limitation, not an automatic skip, when the reviewed route uses deterministic cool then off cleanup.",
       "enabled": false,
       "restore_supported": true,
       "restore_required": true,
       "max_action_count": 1,
       "max_duration_sec": 120,
+      "action_ids": [
+        "aircon_cool",
+        "aircon_hvac_off"
+      ],
+      "feedback_stimulus_class": "appliance_command_stimulus",
+      "state_requirement_class": "current_state_optional_for_command_stimulus",
+      "timing_estimate_sec": 70,
+      "timing_estimate_source_class": "configured_wait_window_before_live_measurement",
+      "measurement_required": true,
       "source_class": "home_control_action_boundary_guidance",
       "proof_ceiling": "ha_visible_control_surface_ac_mode_result_summary_layer",
       "does_not_prove": [
@@ -24,8 +33,140 @@
       "hold_classes": [
         "hold_demo_safe_appliance_disabled",
         "hold_live_marker_active",
-        "hold_current_state_unreadable",
-        "hold_restore_target_unreadable",
+        "hold_action_count_over_limit",
+        "hold_action_duration_over_limit",
+        "hold_non_demo_safe_action_requested"
+      ]
+    },
+    {
+      "id": "appliance.light_command_stimulus",
+      "area": "appliance",
+      "label": "Light command stimulus",
+      "description": "Light command stimulus for the feedback loop. It does not require restore for this demo and remains external-observation-required unless a separate visual/state route is added.",
+      "enabled": false,
+      "restore_supported": false,
+      "restore_required": false,
+      "max_action_count": 1,
+      "max_duration_sec": 30,
+      "action_ids": [
+        "light_on"
+      ],
+      "feedback_stimulus_class": "appliance_command_stimulus",
+      "state_requirement_class": "current_state_not_required_command_submission",
+      "timing_estimate_sec": 10,
+      "timing_estimate_source_class": "configured_command_ack_window_before_live_measurement",
+      "measurement_required": true,
+      "source_class": "home_control_light_command_stimulus",
+      "proof_ceiling": "command_submission_external_observation_required_layer",
+      "does_not_prove": [
+        "physical_light_state",
+        "home_assistant_state_change",
+        "release_readiness"
+      ],
+      "hold_classes": [
+        "hold_demo_safe_appliance_disabled",
+        "hold_live_marker_active",
+        "hold_action_count_over_limit",
+        "hold_action_duration_over_limit",
+        "hold_non_demo_safe_action_requested"
+      ]
+    },
+    {
+      "id": "appliance.fan_command_stimulus",
+      "area": "appliance",
+      "label": "Fan command stimulus",
+      "description": "Fan command stimulus for the feedback loop. It does not require restore for this demo and remains command-ack/submitted-only unless a separate state route is added.",
+      "enabled": false,
+      "restore_supported": false,
+      "restore_required": false,
+      "max_action_count": 1,
+      "max_duration_sec": 30,
+      "action_ids": [
+        "fan_on"
+      ],
+      "feedback_stimulus_class": "appliance_command_stimulus",
+      "state_requirement_class": "current_state_not_required_command_submission",
+      "timing_estimate_sec": 10,
+      "timing_estimate_source_class": "configured_command_ack_window_before_live_measurement",
+      "measurement_required": true,
+      "source_class": "home_control_fan_command_stimulus",
+      "proof_ceiling": "command_ack_submitted_only_layer",
+      "does_not_prove": [
+        "physical_fan_state",
+        "home_assistant_state_change",
+        "release_readiness"
+      ],
+      "hold_classes": [
+        "hold_demo_safe_appliance_disabled",
+        "hold_live_marker_active",
+        "hold_action_count_over_limit",
+        "hold_action_duration_over_limit",
+        "hold_non_demo_safe_action_requested"
+      ]
+    },
+    {
+      "id": "appliance.door_open_close",
+      "area": "appliance",
+      "label": "Door open then close",
+      "description": "Door command stimulus uses the user-facing door row. Home Assistant cover is the internal domain naming only; the demo sequence is open then close.",
+      "enabled": false,
+      "restore_supported": true,
+      "restore_required": true,
+      "max_action_count": 2,
+      "max_duration_sec": 150,
+      "action_ids": [
+        "door_open",
+        "door_close"
+      ],
+      "feedback_stimulus_class": "appliance_command_stimulus_with_deterministic_followup",
+      "state_requirement_class": "post_action_ha_position_check_when_available",
+      "timing_estimate_sec": 140,
+      "timing_estimate_source_class": "configured_cover_wait_window_before_live_measurement",
+      "measurement_required": true,
+      "source_class": "home_control_door_open_close_stimulus",
+      "proof_ceiling": "ha_visible_cover_position_checkstate_layer",
+      "does_not_prove": [
+        "physical_door_observation",
+        "external_observation",
+        "release_readiness"
+      ],
+      "hold_classes": [
+        "hold_demo_safe_appliance_disabled",
+        "hold_live_marker_active",
+        "hold_action_count_over_limit",
+        "hold_action_duration_over_limit",
+        "hold_non_demo_safe_action_requested"
+      ]
+    },
+    {
+      "id": "appliance.vacuum_start_return",
+      "area": "appliance",
+      "label": "Vacuum start then return",
+      "description": "Vacuum command stimulus starts the vacuum and then returns it to base. Return/restore should be checked through Home Assistant where configured.",
+      "enabled": false,
+      "restore_supported": true,
+      "restore_required": true,
+      "max_action_count": 2,
+      "max_duration_sec": 180,
+      "action_ids": [
+        "vacuum_start",
+        "vacuum_return"
+      ],
+      "feedback_stimulus_class": "appliance_command_stimulus_with_terminal_return",
+      "state_requirement_class": "post_action_ha_vacuum_state_check_when_available",
+      "timing_estimate_sec": 170,
+      "timing_estimate_source_class": "configured_vacuum_wait_window_before_live_measurement",
+      "measurement_required": true,
+      "source_class": "home_control_vacuum_start_return_stimulus",
+      "proof_ceiling": "ha_visible_vacuum_state_checkstate_layer",
+      "does_not_prove": [
+        "physical_vacuum_position",
+        "cleaning_quality",
+        "release_readiness"
+      ],
+      "hold_classes": [
+        "hold_demo_safe_appliance_disabled",
+        "hold_live_marker_active",
         "hold_action_count_over_limit",
         "hold_action_duration_over_limit",
         "hold_non_demo_safe_action_requested"
