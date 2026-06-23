@@ -1,3 +1,10 @@
+if (-not (Test-Path -Path Variable:RepoRoot)) {
+  throw "RepoRoot must be defined before dot-sourcing scripts/lib/common.ps1"
+}
+if ([string]::IsNullOrWhiteSpace([string]$RepoRoot)) {
+  throw "RepoRoot must be non-empty before dot-sourcing scripts/lib/common.ps1"
+}
+
 function Resolve-RepoPath {
   param([Parameter(Mandatory = $true)][string]$Path)
   if ([System.IO.Path]::IsPathRooted($Path)) {

@@ -86,6 +86,26 @@ function Write-HoldLiveState {
   $hold | ConvertTo-Json -Depth 4
 }
 
+function Write-LauncherCommandPreview {
+  param([Parameter(Mandatory = $true)][ValidateSet("start", "stop")][string]$Action)
+
+  Write-Host ("mode=launcher-{0}-preview" -f $Action)
+  Write-Host ("launcher_wrapper=scripts\{0}-launcher.ps1" -f $Action)
+  Write-Host ("port_mode={0}" -f $PortMode)
+  Write-Host "run_required=true"
+  Write-Host "runtime_action_executed=false"
+  Write-Host "home_assistant_command_submission=false"
+  Write-Host "provider_network_calls=false"
+  Write-Host "capture_media=false"
+  Write-Host ""
+
+  $readinessArgs = @("-SkipPortChecks")
+  if ($PortMode -eq "isolated_override") {
+    $readinessArgs += "-UseIsolatedPorts"
+  }
+  Invoke-RepoScript -RelativeScript "scripts\check-launch-readiness.ps1" -Arguments $readinessArgs
+}
+
 $PowerShellCommand = Resolve-CurrentPowerShell
 
 if ($Run -and $NoLive) {
@@ -125,7 +145,7 @@ switch ($Command) {
     else {
       Write-FrontDoorHeader -ProofLayer "source-static-command-preview"
       Write-Host "Start Stack preview only. Add -Run only under an explicit runtime execution lease."
-      Invoke-RepoScript -RelativeScript "scripts\system.ps1" -Arguments @("start", "-Profile", $RuntimeProfile, "-DryRun", "-PortMode", $PortMode)
+      Write-LauncherCommandPreview -Action "start"
     }
   }
   "stop" {
@@ -150,7 +170,7 @@ switch ($Command) {
     else {
       Write-FrontDoorHeader -ProofLayer "source-static-command-preview"
       Write-Host "Stop preview only. Add -Run only when stopping launcher-owned runtime children is explicitly in scope."
-      Invoke-RepoScript -RelativeScript "scripts\system.ps1" -Arguments @("stop", "-Profile", $RuntimeProfile, "-DryRun", "-PortMode", $PortMode)
+      Write-LauncherCommandPreview -Action "stop"
     }
   }
   "hold-live" {
