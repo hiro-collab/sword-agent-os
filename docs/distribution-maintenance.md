@@ -15,7 +15,7 @@ Sword Agent OS は、読めるバージョンと再現可能な source pin を�
 | OS version | `manifests/releases/standard.json` | runtime contract、body plan、cross-organ compatibility の版 |
 | Distribution version | `manifests/distributions/standard.json` | 標準インストール/更新 surface の版 |
 | Organ component version | `manifests/releases/standard.json` と source manifest | 各 organ の人間向け semver |
-| Source pin | `manifests/legacy/control-plane-reference.json` / `manifests/organs/legacy-github.json` | 実際に取得する Git commit |
+| Source pin | `manifests/control-plane/standard.json` / `manifests/organs/standard-sources.json` | 実際に取得する Git commit |
 
 標準構成では、installer 起動時に OS version、distribution version、release 名、
 component 数、Git revision が表示されます。

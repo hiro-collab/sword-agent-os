@@ -27,6 +27,15 @@ function Assert-True {
   }
 }
 
+function Assert-StringEqual {
+  param(
+    [object]$Actual,
+    [object]$Expected,
+    [Parameter(Mandatory = $true)][string]$Message
+  )
+  Assert-True ([string]$Actual -eq [string]$Expected) $Message
+}
+
 function Get-OptionalProperty {
   param(
     [Parameter(Mandatory = $true)]$Object,
@@ -168,10 +177,12 @@ function Test-SafeHttpPath {
 $standardProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/standard.json")
 $compatProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/thought-core-v0-compat.json")
 $serviceManifest = Read-Json -Path (Resolve-ManifestPath $compatProfile.service_manifest)
-$organManifest = Read-Json -Path (Resolve-ManifestPath "manifests/organs/legacy-github.json")
 $distributionManifest = Read-Json -Path (Resolve-ManifestPath "manifests/distributions/standard.json")
 $releaseManifest = Read-Json -Path (Resolve-ManifestPath "manifests/releases/standard.json")
-$controlPlaneReference = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/control-plane-reference.json")
+$organManifest = Read-Json -Path (Resolve-ManifestPath ([string]$distributionManifest.organ_manifest_path))
+$controlPlaneReference = Read-Json -Path (Resolve-ManifestPath ([string]$distributionManifest.control_plane_manifest_path))
+$legacyOrganManifest = Read-Json -Path (Resolve-ManifestPath "manifests/organs/legacy-github.json")
+$legacyControlPlaneReference = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/control-plane-reference.json")
 $recoveryCandidates = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/recovery-candidates.json")
 $authorityManifest = Read-Json -Path (Resolve-ManifestPath "manifests/authorities/standard.json")
 $memoryStewardshipPolicy = Read-Json -Path (Resolve-ManifestPath "policies/data-safety/memory-stewardship.json")
@@ -620,8 +631,61 @@ Assert-True ([string]$distributionManifest.id -eq "standard") "standard distribu
 Assert-True (Test-SemVer -Value ([string]$distributionManifest.os_version)) "standard distribution os_version must be semver"
 Assert-True (Test-SemVer -Value ([string]$distributionManifest.distribution_version)) "standard distribution distribution_version must be semver"
 Assert-True ([string]$distributionManifest.release_manifest_path -eq "manifests/releases/standard.json") "standard distribution release manifest mismatch"
-Assert-True ([string]$distributionManifest.control_plane_manifest_path -eq "manifests/legacy/control-plane-reference.json") "standard distribution control-plane manifest mismatch"
-Assert-True ([string]$distributionManifest.organ_manifest_path -eq "manifests/organs/legacy-github.json") "standard distribution organ manifest mismatch"
+Assert-True ([string]$distributionManifest.control_plane_manifest_path -eq "manifests/control-plane/standard.json") "standard distribution control-plane manifest mismatch"
+Assert-True ([string]$distributionManifest.organ_manifest_path -eq "manifests/organs/standard-sources.json") "standard distribution organ manifest mismatch"
+Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath ([string]$distributionManifest.control_plane_manifest_path)) -PathType Leaf) "standard distribution control-plane manifest missing"
+Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath ([string]$distributionManifest.organ_manifest_path)) -PathType Leaf) "standard distribution organ manifest missing"
+Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath "manifests/legacy/control-plane-reference.json") -PathType Leaf) "legacy control-plane compatibility alias missing"
+Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath "manifests/organs/legacy-github.json") -PathType Leaf) "legacy organ compatibility alias missing"
+Assert-True ([string]$controlPlaneReference.schema_version -eq "control_plane.source_reference.v0") "standard control-plane manifest schema_version mismatch"
+Assert-True ([string]$legacyControlPlaneReference.schema_version -eq "legacy.control_plane_reference.v0") "legacy control-plane compatibility alias schema_version mismatch"
+foreach ($field in @("id", "target_path", "component_version", "version_source", "repo_url", "branch", "commit", "adoption")) {
+  Assert-StringEqual (Get-OptionalProperty -Object $controlPlaneReference -Name $field -Default "") (Get-OptionalProperty -Object $legacyControlPlaneReference -Name $field -Default "") "control-plane compatibility alias source field drift: $field"
+}
+Assert-True ([string]$organManifest.schema_version -eq "organs.sources.v0") "standard organ source manifest schema_version mismatch"
+Assert-True ([string]$organManifest.id -eq "standard-sources") "standard organ source manifest id mismatch"
+Assert-True ([string]$legacyOrganManifest.schema_version -eq "organs.sources.v0") "legacy organ compatibility alias schema_version mismatch"
+Assert-True ([string]$legacyOrganManifest.id -eq "legacy-github") "legacy organ compatibility alias id mismatch"
+Assert-True (@($organManifest.sources).Count -eq @($legacyOrganManifest.sources).Count) "legacy organ compatibility alias source count drift"
+$legacyOrganSourcesById = @{}
+foreach ($legacySource in @($legacyOrganManifest.sources)) {
+  $legacyOrganId = [string]$legacySource.organ_id
+  Assert-True (-not [string]::IsNullOrWhiteSpace($legacyOrganId)) "legacy organ compatibility alias has source missing organ_id"
+  Assert-True (-not $legacyOrganSourcesById.ContainsKey($legacyOrganId)) "legacy organ compatibility alias has duplicate organ_id: $legacyOrganId"
+  $legacyOrganSourcesById[$legacyOrganId] = $legacySource
+}
+foreach ($source in @($organManifest.sources)) {
+  $organId = [string]$source.organ_id
+  Assert-True ($legacyOrganSourcesById.ContainsKey($organId)) "legacy organ compatibility alias missing source: $organId"
+  $legacySource = $legacyOrganSourcesById[$organId]
+  foreach ($field in @(
+      "organ_role",
+      "logical_role",
+      "target_path",
+      "component_version",
+      "version_source",
+      "repo_url",
+      "branch",
+      "commit",
+      "adoption",
+      "legacy_path",
+      "version_linkage",
+      "upstream_repo_url",
+      "upstream_release_tag",
+      "upstream_release_commit",
+      "upstream_release_url",
+      "sword_adapter_version",
+      "patchset_id",
+      "patchset_version",
+      "compatibility_status",
+      "contract_test_pack",
+      "proof_level",
+      "runtime_reflection_status",
+      "adapter_inventory_path"
+    )) {
+    Assert-StringEqual (Get-OptionalProperty -Object $source -Name $field -Default "") (Get-OptionalProperty -Object $legacySource -Name $field -Default "") "legacy organ compatibility alias source field drift for ${organId}: $field"
+  }
+}
 Assert-True (Test-SafeManifestPath -Path ([string]$distributionManifest.env.central_template_path)) "distribution central env template path is unsafe"
 Assert-True (Test-SafeManifestPath -Path ([string]$distributionManifest.env.central_env_path)) "distribution central env path is unsafe"
 Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath ([string]$distributionManifest.env.central_template_path)) -PathType Leaf) "distribution central env template missing"

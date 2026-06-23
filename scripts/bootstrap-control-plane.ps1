@@ -1,5 +1,5 @@
 param(
-  [string]$ManifestPath = "manifests/legacy/control-plane-reference.json",
+  [string]$ManifestPath = "manifests/control-plane/standard.json",
   [switch]$DryRun,
   [switch]$VerifyRemote
 )

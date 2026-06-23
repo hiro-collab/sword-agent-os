@@ -78,7 +78,7 @@ Current source anchors:
 - `sword.ps1`
 - `manifests/distributions/standard.json`
 - `manifests/releases/standard.json`
-- `manifests/organs/legacy-github.json`
+- `manifests/organs/standard-sources.json`
 - `manifests/tests/organ-test-packs/standard.json`
 - `scripts/install-distribution.ps1`
 - `scripts/check-launch-readiness.ps1`
@@ -220,7 +220,7 @@ camera / browser / microphone / local input
 
 These target paths are checkout slots. They are ignored by the parent repo by
 default. The source repo, branch, and commit are described in
-`manifests/organs/legacy-github.json`.
+`manifests/organs/standard-sources.json`.
 
 ## Manifest And Pin Authority
 
@@ -230,7 +230,7 @@ Use this authority model:
 | --- | --- |
 | What is the standard distribution? | `manifests/distributions/standard.json` |
 | What human-facing release is this? | `manifests/releases/standard.json` |
-| Which organ source commits are selected? | `manifests/organs/legacy-github.json` |
+| Which organ source commits are selected? | `manifests/organs/standard-sources.json` |
 | Which local env templates are rendered? | `manifests/distributions/standard.json` |
 | Which test packs belong to the profile? | `manifests/tests/organ-test-packs/standard.json` |
 | Where should a module change go? | `docs/module-usage-index.md` |

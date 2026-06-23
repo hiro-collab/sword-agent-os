@@ -16,10 +16,14 @@ README files and docs should summarize them, not duplicate their full ledgers.
 - `distributions/`: installable distribution profiles. These files tie together
   control-plane and organ source manifests, dependency install commands, local
   env rendering, and manual asset reminders.
+- `control-plane/`: standard control-plane implementation source pins.
+- `organs/`: standard organ implementation source pins.
 - `releases/`: human-readable OS, distribution, and component versions. These
   files complement Git commit pins in source manifests; semantic versions say
   what compatibility release this is, while commit pins say exactly which source
   revision will be installed.
+- `legacy/`: compatibility manifest aliases retained for older tooling while
+  standard distribution entry points move to standard-named paths.
 - `driver-manifests/`: action-capable, dummy, compatibility, and display/runtime
   driver capability declarations used by Action Catalog and Action Boundary.
 - `drivers/`: existing read-only diagnostic driver contracts. These remain

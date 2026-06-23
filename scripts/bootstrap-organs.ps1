@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 
 if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
-  $ManifestPath = Join-Path $RepoRoot "manifests\organs\legacy-github.json"
+  $ManifestPath = Join-Path $RepoRoot "manifests\organs\standard-sources.json"
 }
 elseif (-not [System.IO.Path]::IsPathRooted($ManifestPath)) {
   $ManifestPath = Join-Path $RepoRoot $ManifestPath

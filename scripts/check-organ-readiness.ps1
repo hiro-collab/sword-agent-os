@@ -1,5 +1,5 @@
 param(
-  [string]$OrganManifestPath = "manifests/organs/legacy-github.json",
+  [string]$OrganManifestPath = "manifests/organs/standard-sources.json",
   [string]$ServiceManifestPath = "manifests/services/thought-core-v0-compat.json",
   [switch]$IncludeDeferred,
   [switch]$CheckEndpoints,
