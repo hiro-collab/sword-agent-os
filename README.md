@@ -80,7 +80,7 @@ Proof は別の明示ルートで扱います。
 .\scripts\validate-manifests.ps1
 .\scripts\check-distribution-pins.ps1 -Strict
 .\scripts\check-launch-readiness.ps1
-.\scripts\test-organ-packs.ps1
+.\scripts\run-organ-test-packs.ps1
 .\scripts\run-compat-smoke.ps1
 ```
 

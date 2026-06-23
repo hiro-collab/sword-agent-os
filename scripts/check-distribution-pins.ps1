@@ -11,19 +11,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-
-function Resolve-RepoPath {
-  param([Parameter(Mandatory = $true)][string]$Path)
-  if ([System.IO.Path]::IsPathRooted($Path)) {
-    return $Path
-  }
-  return Join-Path $RepoRoot ($Path -replace "/", [System.IO.Path]::DirectorySeparatorChar)
-}
-
-function Read-JsonFile {
-  param([Parameter(Mandatory = $true)][string]$Path)
-  return Get-Content -Raw -LiteralPath (Resolve-RepoPath $Path) | ConvertFrom-Json
-}
+. (Join-Path $PSScriptRoot "lib/common.ps1")
 
 function Invoke-GitRead {
   param([Parameter(Mandatory = $true)][string[]]$Arguments)
