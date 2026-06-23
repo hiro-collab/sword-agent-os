@@ -1,0 +1,95 @@
+{
+  "schema_version": "projection_visual_diagnostics_consumer_routes.v0",
+  "contract_ref": "contracts/projection_visual_display_audio_summary/projection_visual_display_audio_summary.v0.schema.json",
+  "id": "projection-visual-diagnostics-consumer-routes",
+  "purpose": "Stable route map for Projection Visual display bubble, receiver binding, speech/TTS summary, and display/TTS parity diagnostics without raw text or raw audio publication.",
+  "implementation_readme": "runtime/projection-visual-diagnostics/README.md",
+  "result_contract_ref": "contracts/projection_visual_display_audio_summary/projection_visual_display_audio_summary.v0.schema.json",
+  "result_authority_file": "projection_visual_display_audio_summary.json",
+  "global_boundaries": {
+    "observation_only": true,
+    "runtime_browser_operation_authorized_by_default": false,
+    "provider_network_stt_tts_authorized_by_default": false,
+    "raw_assistant_text_shared": false,
+    "raw_user_text_shared": false,
+    "raw_audio_shared": false,
+    "browser_visible_avatar_motion_authority": false,
+    "self_mirror_authority": false,
+    "user_heard_audio_authority": false,
+    "home_assistant_action_authority": false
+  },
+  "routes": [
+    {
+      "route_id": "projection_visual.source_static.contract_fixture",
+      "mode": "SourceStatic",
+      "command_template": "json-parse contracts/projection_visual_display_audio_summary/*.json runtime/projection-visual-diagnostics/*.json",
+      "proof_layer": "source_static_projection_visual_display_audio_contract_only",
+      "preconditions": [
+        "repository checkout is present",
+        "no browser, audio, microphone, camera, or provider operation is being performed"
+      ],
+      "accept_result": [
+        "schema and example parse",
+        "raw text and raw audio publication classes remain false/not included",
+        "does_not_prove includes user-heard audio, avatar motion, and Self Mirror non-claims"
+      ],
+      "does_not_prove": [
+        "projection_visual_runtime_reachability",
+        "tts_playback",
+        "user_heard_audio",
+        "browser_visible_avatar_motion"
+      ]
+    },
+    {
+      "route_id": "projection_visual.runtime.foreground_ui_display_tts_summary",
+      "mode": "RuntimeSummary",
+      "command_template": "future-reviewed-route: foreground UI input plus GET /api/projectionDisplayState summary classes only",
+      "proof_layer": "projection_visual_display_tts_summary_layer",
+      "preconditions": [
+        "route-local Projection Visual operator surface is open",
+        "foreground UI input path is selected or receiver binding is confirmed",
+        "raw prompt and response text are not published",
+        "provider/network STT/TTS remains disabled unless a separate route allows it"
+      ],
+      "accept_result": [
+        "bubble_render_class reports rendered or missing",
+        "speech_summary_class reports present or concrete blocker",
+        "message id/hash classes are summary-only",
+        "raw_text_publication_class=raw_text_not_included"
+      ],
+      "does_not_prove": [
+        "user_heard_audio",
+        "browser_visible_avatar_motion",
+        "self_mirror_pass",
+        "home_assistant_action"
+      ]
+    },
+    {
+      "route_id": "projection_visual.runtime.limited_same_message_tts_unit",
+      "mode": "RuntimeSummary",
+      "command_template": "future-reviewed-route: accept same-message TTS-unit class without exact same-text claim",
+      "proof_layer": "limited_same_message_tts_unit_summary_layer",
+      "preconditions": [
+        "manager or route owner accepts limited parity mode",
+        "message id match is true or compatible",
+        "bubble/TTS meaning classes do not contradict"
+      ],
+      "accept_result": [
+        "same_message_tts_unit_class=same_message_tts_unit_present",
+        "exact_same_text_same_message_class=exact_same_text_not_claimed",
+        "proof ceiling remains limited"
+      ],
+      "does_not_prove": [
+        "exact_display_tts_same_text",
+        "user_heard_audio",
+        "avatar_motion"
+      ]
+    }
+  ],
+  "stop_conditions": [
+    "a consumer needs raw prompt, raw response text, transcript, provider payload, or raw audio publication",
+    "a consumer tries to promote TTS summary to user-heard audio proof",
+    "a consumer tries to promote bubble render to browser-visible avatar motion or Self Mirror proof",
+    "a consumer attempts Home Assistant or Home Control action through a feedback-only route"
+  ]
+}

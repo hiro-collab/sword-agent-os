@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/os_display_diagnostic_summary/os_display_diagnostic_summary.v0.schema.json",
+  "title": "Agent OS os_display_diagnostic_summary.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "summary_id",
+    "route_id",
+    "generated_at",
+    "target_surface_class",
+    "route_local_url_class",
+    "chrome_start_or_confirm_class",
+    "foreground_window_class",
+    "route_window_focus_class",
+    "operator_surface_class",
+    "prompt_or_warning_present_class",
+    "permission_prompt_class",
+    "window_count_class",
+    "non_route_window_risk_class",
+    "private_window_sweep_class",
+    "capture_scope_class",
+    "capture_method_class",
+    "max_duration_ms",
+    "max_still_count",
+    "raw_screenshot_retained",
+    "raw_screen_recording_retained",
+    "local_only_artifact_count",
+    "retention_deletion_group",
+    "cleanup_owner_class",
+    "review_owner_class",
+    "artifact_shareability",
+    "proof_ceiling",
+    "does_not_prove",
+    "raw_private_publication_flags"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "os_display_diagnostic_summary.v0"
+    },
+    "summary_id": {
+      "type": "string",
+      "pattern": "^os_display_diag_[A-Za-z0-9_.:-]+$",
+      "maxLength": 140
+    },
+    "route_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "maxLength": 160
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "target_surface_class": {
+      "type": "string",
+      "enum": [
+        "projection_visual_operator_surface",
+        "launcher_operator_surface",
+        "home_assistant_visible_control_surface",
+        "route_owned_chrome_tab",
+        "route_owned_browser_profile",
+        "non_route_user_chrome_surface"
+      ]
+    },
+    "route_local_url_class": {
+      "type": "string",
+      "enum": [
+        "route_local_url_present",
+        "route_local_url_not_published",
+        "route_local_url_unavailable",
+        "not_applicable"
+      ]
+    },
+    "chrome_start_or_confirm_class": {
+      "type": "string",
+      "enum": [
+        "chrome_not_running_started_to_route_local_url",
+        "chrome_already_running_route_local_surface_reused",
+        "chrome_start_blocked",
+        "chrome_foreground_blocked",
+        "unrelated_chrome_session_left_untouched"
+      ]
+    },
+    "chrome_start_to_route_local_surface_elapsed_ms_bucket": {
+      "type": "string",
+      "enum": [
+        "not_measured",
+        "lt_5s",
+        "5s_to_15s",
+        "15s_to_30s",
+        "30s_to_60s",
+        "gt_60s"
+      ]
+    },
+    "foreground_window_class": {
+      "type": "string",
+      "enum": [
+        "route_surface_foreground_confirmed_by_window_metadata",
+        "route_surface_open_but_foreground_not_confirmed",
+        "foreground_unavailable_without_capture",
+        "blocked_unrelated_window_risk"
+      ]
+    },
+    "route_window_focus_class": {
+      "type": "string",
+      "enum": [
+        "route_window_focused",
+        "route_window_visible_not_focused",
+        "focus_unknown",
+        "focus_blocked"
+      ]
+    },
+    "operator_surface_class": {
+      "type": "string",
+      "enum": [
+        "operator_surface_visible_by_summary",
+        "operator_surface_open_not_confirmed",
+        "operator_surface_unavailable",
+        "not_applicable"
+      ]
+    },
+    "prompt_or_warning_present_class": {
+      "type": "string",
+      "enum": [
+        "no_prompt_or_warning_observed_by_summary",
+        "route_prompt_or_warning_present",
+        "prompt_status_unknown_without_capture",
+        "blocked_requires_live_os_route"
+      ]
+    },
+    "permission_prompt_class": {
+      "type": "string",
+      "enum": [
+        "no_prompt_observed_by_summary",
+        "route_local_mic_prompt_allowed_by_explicit_route",
+        "route_local_mic_prompt_not_authorized",
+        "browser_permission_prompt_requires_live_os_route",
+        "prompt_status_unknown_without_capture"
+      ]
+    },
+    "window_count_class": {
+      "type": "string",
+      "enum": [
+        "single_route_window",
+        "route_window_plus_unrelated_windows",
+        "window_count_unknown",
+        "not_applicable"
+      ]
+    },
+    "non_route_window_risk_class": {
+      "type": "string",
+      "enum": [
+        "none_observed_by_summary",
+        "unrelated_window_present_do_not_capture",
+        "unknown_without_capture",
+        "not_applicable"
+      ]
+    },
+    "private_window_sweep_class": {
+      "type": "string",
+      "enum": [
+        "not_performed",
+        "metadata_only",
+        "forbidden_broad_window_sweep"
+      ]
+    },
+    "capture_scope_class": {
+      "type": "string",
+      "enum": [
+        "none_source_static",
+        "window_metadata_only",
+        "route_window_summary_only",
+        "bounded_still_summary_later_route",
+        "forbidden_full_desktop_capture"
+      ]
+    },
+    "capture_method_class": {
+      "type": "string",
+      "enum": [
+        "none",
+        "source_static_schema",
+        "window_metadata_summary",
+        "bounded_still_summary",
+        "full_desktop_summary_later_route"
+      ]
+    },
+    "max_duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 600000
+    },
+    "max_still_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 120
+    },
+    "raw_screenshot_retained": {
+      "const": false
+    },
+    "raw_screen_recording_retained": {
+      "const": false
+    },
+    "local_only_artifact_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "retention_deletion_group": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{0,119}$"
+    },
+    "cleanup_owner_class": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{0,119}$"
+    },
+    "review_owner_class": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{0,119}$"
+    },
+    "artifact_shareability": {
+      "type": "string",
+      "enum": [
+        "summary_ok",
+        "filename_only",
+        "local_only",
+        "forbidden"
+      ]
+    },
+    "proof_ceiling": {
+      "type": "string",
+      "enum": [
+        "source_static_os_display_diagnostic_contract_only",
+        "os_window_metadata_summary_only",
+        "bounded_os_display_summary_only"
+      ]
+    },
+    "does_not_prove": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.:-]{0,119}$"
+      },
+      "allOf": [
+        { "contains": { "const": "not_screen_capture" } },
+        { "contains": { "const": "not_os_prompt_observation_proof" } },
+        { "contains": { "const": "not_browser_visible_avatar_motion" } },
+        { "contains": { "const": "not_user_heard_audio" } },
+        { "contains": { "const": "not_home_assistant_action" } },
+        { "contains": { "const": "not_raw_media_publication" } }
+      ]
+    },
+    "raw_private_publication_flags": {
+      "const": false
+    }
+  }
+}

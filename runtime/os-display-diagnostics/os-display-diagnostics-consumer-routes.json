@@ -1,0 +1,94 @@
+{
+  "schema_version": "os_display_diagnostic_consumer_routes.v0",
+  "contract_ref": "contracts/os_display_diagnostic_summary/os_display_diagnostic_summary.v0.schema.json",
+  "id": "os-display-diagnostics-consumer-routes",
+  "purpose": "Stable route map for future OS foreground, prompt, warning, and full-desktop-summary diagnostics without raw screen publication by default.",
+  "implementation_readme": "runtime/os-display-diagnostics/README.md",
+  "result_contract_ref": "contracts/os_display_diagnostic_summary/os_display_diagnostic_summary.v0.schema.json",
+  "result_authority_file": "os_display_diagnostic_summary.json",
+  "global_boundaries": {
+    "observation_only": true,
+    "runtime_capture_authorized_by_default": false,
+    "screen_recording_authorized_by_default": false,
+    "full_desktop_capture_authorized_by_default": false,
+    "raw_screenshot_shared": false,
+    "raw_screen_recording_shared": false,
+    "private_path_shared": false,
+    "provider_payload_shared": false,
+    "home_assistant_identifier_shared": false
+  },
+  "routes": [
+    {
+      "route_id": "os_display.source_static.contract_fixture",
+      "mode": "SourceStatic",
+      "command_template": "json-parse contracts/os_display_diagnostic_summary/*.json runtime/os-display-diagnostics/*.json",
+      "proof_layer": "source_static_os_display_diagnostic_contract_only",
+      "preconditions": [
+        "repository checkout is present",
+        "no browser, OS, screen, or media capture is being performed"
+      ],
+      "accept_result": [
+        "schema and example parse",
+        "raw_screenshot_retained=false",
+        "raw_screen_recording_retained=false",
+        "artifact_shareability=summary_ok"
+      ],
+      "does_not_prove": [
+        "os_prompt_observation",
+        "screen_capture",
+        "browser_visible_avatar_motion",
+        "user_heard_audio"
+      ]
+    },
+    {
+      "route_id": "os_display.runtime.window_metadata_summary",
+      "mode": "RuntimeSummary",
+      "command_template": "future-reviewed-route: emit os_display_diagnostic_summary.json from route-window metadata only",
+      "proof_layer": "os_window_metadata_summary_only",
+      "preconditions": [
+        "runtime route explicitly authorizes browser or window metadata inspection",
+        "route-local target surface is named",
+        "unrelated user windows are not captured"
+      ],
+      "accept_result": [
+        "foreground_window_class reports focused, visible-not-focused, or held",
+        "permission_prompt_class reports route-local prompt status or held",
+        "raw media retained flags remain false"
+      ],
+      "does_not_prove": [
+        "full_desktop_visual_content",
+        "screen_recording",
+        "browser_storage_state",
+        "physical_device_effect"
+      ]
+    },
+    {
+      "route_id": "os_display.runtime.bounded_still_summary",
+      "mode": "RuntimeSummary",
+      "command_template": "future-reviewed-route: emit class/count/bucket summaries from bounded route surface stills",
+      "proof_layer": "bounded_os_display_summary_only",
+      "preconditions": [
+        "route explicitly authorizes screen or window still capture",
+        "duration and still-count caps are set",
+        "raw artifacts are local-only or deleted under the route retention group",
+        "Test-QA and security review cover the exact capture scope"
+      ],
+      "accept_result": [
+        "summary contains prompt/window classes and timing buckets",
+        "raw screenshots are not shared",
+        "non-route window risk is classified"
+      ],
+      "does_not_prove": [
+        "raw_screen_publication",
+        "long_term_monitoring",
+        "user_private_window_content",
+        "home_assistant_action"
+      ]
+    }
+  ],
+  "stop_conditions": [
+    "a route would capture unrelated user windows without explicit authority",
+    "a route would publish raw screenshots, raw screen recording, private paths, browser storage, provider payloads, or raw Home Assistant payloads",
+    "a consumer treats OS display summary as Self Mirror pass, user-heard audio proof, or physical device proof"
+  ]
+}

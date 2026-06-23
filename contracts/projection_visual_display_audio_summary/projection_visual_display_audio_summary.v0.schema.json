@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/projection_visual_display_audio_summary/projection_visual_display_audio_summary.v0.schema.json",
+  "title": "Agent OS projection_visual_display_audio_summary.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "summary_id",
+    "route_id",
+    "generated_at",
+    "source_mode",
+    "target_surface_class",
+    "projection_visual_state_readable_class",
+    "projection_visual_sequence_advanced_class",
+    "display_state_age_bucket",
+    "receiver_or_ui_input_path_class",
+    "foreground_operator_surface_class",
+    "bubble_render_class",
+    "speech_summary_class",
+    "tts_summary_class",
+    "parity_status_class",
+    "same_message_tts_unit_class",
+    "exact_same_text_same_message_class",
+    "message_id_match_class",
+    "text_hash_match_class",
+    "source_field_pair_class",
+    "local_tts_request_status_class",
+    "raw_text_publication_class",
+    "raw_audio_publication_class",
+    "artifact_shareability_class",
+    "proof_ceiling",
+    "does_not_prove",
+    "raw_private_publication_flags"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "projection_visual_display_audio_summary.v0"
+    },
+    "summary_id": {
+      "type": "string",
+      "pattern": "^pv_display_audio_[A-Za-z0-9_.:-]+$",
+      "maxLength": 140
+    },
+    "route_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "maxLength": 160
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_mode": {
+      "type": "string",
+      "enum": [
+        "source_static",
+        "synthetic_fixture",
+        "runtime_summary",
+        "live_capture_summary"
+      ]
+    },
+    "target_surface_class": {
+      "type": "string",
+      "enum": [
+        "projection_visual_operator_surface",
+        "projection_visual_passive_surface",
+        "launcher_operator_surface",
+        "not_applicable"
+      ]
+    },
+    "projection_visual_state_readable_class": {
+      "type": "string",
+      "enum": [
+        "projection_display_state_readable",
+        "projection_display_state_unavailable",
+        "not_checked_source_static"
+      ]
+    },
+    "projection_visual_sequence_advanced_class": {
+      "type": "string",
+      "enum": [
+        "sequence_advanced",
+        "sequence_not_advanced",
+        "sequence_unknown",
+        "not_checked_source_static"
+      ]
+    },
+    "display_state_age_bucket": {
+      "type": "string",
+      "enum": [
+        "fresh_lt_1s",
+        "1s_to_5s",
+        "5s_to_30s",
+        "stale_gt_30s",
+        "unknown",
+        "not_checked_source_static"
+      ]
+    },
+    "receiver_or_ui_input_path_class": {
+      "type": "string",
+      "enum": [
+        "foreground_operator_ui_input",
+        "message_receiver_bound_client_id",
+        "api_queue_acceptance_only",
+        "not_checked_source_static"
+      ]
+    },
+    "foreground_operator_surface_class": {
+      "type": "string",
+      "enum": [
+        "operator_surface_foreground_ready",
+        "operator_surface_open_not_foreground",
+        "operator_surface_unavailable",
+        "not_checked_source_static"
+      ]
+    },
+    "bubble_render_class": {
+      "type": "string",
+      "enum": [
+        "assistant_bubble_rendered_safe_ref",
+        "assistant_bubble_missing",
+        "bubble_not_checked_source_static"
+      ]
+    },
+    "speech_summary_class": {
+      "type": "string",
+      "enum": [
+        "speech_output_summary_present",
+        "speech_output_summary_unavailable",
+        "speech_summary_not_checked_source_static"
+      ]
+    },
+    "tts_summary_class": {
+      "type": "string",
+      "enum": [
+        "tts_unit_present",
+        "tts_summary_unavailable",
+        "tts_not_checked_source_static"
+      ]
+    },
+    "parity_status_class": {
+      "type": "string",
+      "enum": [
+        "same_text_same_message",
+        "same_message_text_scope_mismatch",
+        "text_mismatch",
+        "message_id_mismatch",
+        "parity_unavailable",
+        "not_checked_source_static"
+      ]
+    },
+    "same_message_tts_unit_class": {
+      "type": "string",
+      "enum": [
+        "same_message_tts_unit_present",
+        "same_message_tts_unit_unavailable",
+        "not_checked_source_static"
+      ]
+    },
+    "exact_same_text_same_message_class": {
+      "type": "string",
+      "enum": [
+        "exact_same_text_claimed",
+        "exact_same_text_not_claimed",
+        "not_checked_source_static"
+      ]
+    },
+    "message_id_match_class": {
+      "type": "string",
+      "enum": [
+        "message_id_match_true",
+        "message_id_match_false",
+        "message_id_match_unknown",
+        "not_checked_source_static"
+      ]
+    },
+    "text_hash_match_class": {
+      "type": "string",
+      "enum": [
+        "text_hash_match_true",
+        "text_hash_match_false",
+        "text_hash_match_unknown",
+        "not_checked_source_static"
+      ]
+    },
+    "source_field_pair_class": {
+      "type": "string",
+      "enum": [
+        "bubble_homeStore_chatLog_latestAssistantMessage__tts_Talk_message",
+        "bubble_projectionDisplayState_assistantMessage__tts_speechOutputSummary",
+        "source_pair_unknown",
+        "not_checked_source_static"
+      ]
+    },
+    "local_tts_request_status_class": {
+      "type": "string",
+      "enum": [
+        "local_tts_request_http_200",
+        "local_tts_request_not_observed",
+        "local_tts_request_failed",
+        "not_checked_source_static"
+      ]
+    },
+    "raw_text_publication_class": {
+      "const": "raw_text_not_included"
+    },
+    "raw_audio_publication_class": {
+      "const": "raw_audio_not_included"
+    },
+    "artifact_shareability_class": {
+      "type": "string",
+      "enum": [
+        "summary_ok",
+        "filename_only",
+        "local_only",
+        "forbidden"
+      ]
+    },
+    "proof_ceiling": {
+      "type": "string",
+      "enum": [
+        "source_static_projection_visual_display_audio_contract_only",
+        "projection_visual_display_tts_summary_layer",
+        "limited_same_message_tts_unit_summary_layer",
+        "exact_display_tts_same_text_summary_layer"
+      ]
+    },
+    "does_not_prove": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.:-]{0,119}$"
+      },
+      "allOf": [
+        { "contains": { "const": "not_user_heard_audio" } },
+        { "contains": { "const": "not_browser_visible_avatar_motion" } },
+        { "contains": { "const": "not_self_mirror_pass" } },
+        { "contains": { "const": "not_raw_text_publication" } },
+        { "contains": { "const": "not_raw_audio_publication" } },
+        { "contains": { "const": "not_home_assistant_action" } }
+      ]
+    },
+    "raw_private_publication_flags": {
+      "const": false
+    }
+  }
+}
