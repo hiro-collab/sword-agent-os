@@ -73,7 +73,7 @@ function Write-HoldLiveState {
     broad_cleanup_allowed = $false
     approval_bypass_allowed = $false
     raw_private_publication = $false
-    note = "Local hold marker only; this does not execute Start Stack, Home Assistant actions, providers, browser, camera, or device routes."
+    note = "Local hold marker only; this does not execute the runtime stack, Home Assistant actions, providers, browser, camera, or device routes."
     updated_at = (Get-Date).ToString("o")
   }
 
@@ -144,7 +144,7 @@ switch ($Command) {
     }
     else {
       Write-FrontDoorHeader -ProofLayer "source-static-command-preview"
-      Write-Host "Start Stack preview only. Add -Run only under an explicit runtime execution lease."
+      Write-Host "Launcher command preview only. Add -Run only under an explicit runtime execution lease."
       Write-LauncherCommandPreview -Action "start"
     }
   }

@@ -12,7 +12,7 @@ may start the same selected runtime surfaces from their own launch system, then
 use the same readiness, demo-safe settings, action-boundary, and cleanup
 contracts.
 
-The front door defaults to no-live / no-device. It does not start Start Stack,
+The front door defaults to no-live / no-device. It does not start the runtime stack,
 call a provider, operate Home Assistant, use a browser profile, open
 camera/audio, or claim physical proof unless a later route explicitly says so.
 `status`, `verify`, and `doctor` are no-live by default; `-NoLive` is only an
@@ -54,8 +54,8 @@ distribution diagnosis, not as release readiness or live-device proof.
 .\sword.ps1 start
 ```
 
-Without `-Run`, this is a Start Stack command preview. It shows the selected
-Launch Manager route and ports without starting launcher-owned children.
+Without `-Run`, this is a Launcher command preview. It shows the selected
+Launcher route and ports without starting launcher-owned children.
 
 ## 実際に起動する
 
