@@ -87,6 +87,33 @@ when count/duration limits would be exceeded. Current-state or restore/off
 unreadability is a proof limitation for command-stimulus routes unless the
 reviewed route explicitly requires those gates before command submission.
 
+## ユーザーに見せるデモ前の確認
+
+```powershell
+.\scripts\run-visible-demo-preflight.ps1
+```
+
+The visible demo preflight separates what is safe to show now from what must
+hold. By default it does not call provider/network STT/TTS, microphone, camera,
+Home Assistant/Home Control command submission, or `/actions` catalog routes.
+It returns local reachability and demo-readiness rows as summary/classes.
+
+Fold operator-observed screen, audio, and AC-control surface checks only with
+explicit switches:
+
+```powershell
+.\scripts\run-visible-demo-preflight.ps1 `
+  -OperatorConfirmedAvatarForeground `
+  -OperatorConfirmedChromeWindowHygiene `
+  -OperatorConfirmedAudioHeard `
+  -OperatorConfirmedAcControlSurfaceReadable `
+  -OperatorConfirmedRestoreOffReadable
+```
+
+Those switches are operator assertions for the demo preflight. They are not
+Home Control `/actions` proof, physical device proof, user-heard audio proof
+for another route, or release/readiness approval.
+
 ## 止める前に見る
 
 ```powershell

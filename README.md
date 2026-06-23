@@ -37,9 +37,6 @@ Home Assistant、実家電操作は勝手に動きません。
   画像、動画、文字起こし全文は Git に入れないでください。
 - Home Assistant の状態が一致していることと、実物が物理的に動いたことは
   別の確認です。
-- `CheckState` は実行後または restore 後の Home Assistant 状態確認です。
-  It is a post-action / post-restore state check, not physical proof.
-  実行前は `CheckTracking` などの metadata 確認と分けて扱います。
 - 家電操作は、対象、回数、確認方法を決めた上で、必要な時だけ実行します。
 - 公開版として使えるかどうかは、別途レビューが必要です。
 - 制限付き環境で clone や dependency download が止まる場合は、必要な
@@ -64,10 +61,8 @@ readiness/status を確認するだけです。Launcher は本体 runtime stack 
 なく、各ユーザーの環境では別の launch system から同じ runtime surfaces を起動しても
 構いません。旧スタック委譲が必要な互換確認では `-CompatLegacyDelegate` を明示してください。
 
-Launcher の左メニューには `Demo settings` があります。fresh clone の
-demo-safe 候補はすべて `enabled=false` から始まり、ユーザーの選択は
-gitignored なローカル Launcher 状態に保存されます。Start は家電操作や
-proof を実行しません。Demo は enabled な demo-safe 候補だけを対象にし、
+Launcher の `Demo settings` と demo-safe 候補の扱いは
+`docs/operate.md` を見てください。Start は家電操作や proof を実行しません。
 Proof は別の明示ルートで扱います。
 
 ## 初回導入の確認
@@ -89,38 +84,17 @@ Proof は別の明示ルートで扱います。
 
 ## ユーザーに見せるデモ前の確認
 
-画面、音声、アバター、家電操作を人に見せる前に、次の preflight で
+画面、音声、アバター、家電操作を人に見せる前に、preflight で
 「今その場で見せてよい範囲」を分けて確認します。
 
 ```powershell
 .\scripts\run-visible-demo-preflight.ps1
 ```
 
-この script は既定で provider/network STT/TTS、マイク、カメラ、
-Home Assistant / Home Control の命令送信を行いません。Launch Manager、
-Thought Core、AITuber / Projection Visual、VOICEVOX などのローカル到達性と、
-デモで必要な確認項目を summary/class だけで返します。
-
-ユーザーまたは操作担当者が実際に確認した画面・音声・AC 操作面は、
-明示的な switch で折り込みます。
-
-```powershell
-.\scripts\run-visible-demo-preflight.ps1 `
-  -OperatorConfirmedAvatarForeground `
-  -OperatorConfirmedChromeWindowHygiene `
-  -OperatorConfirmedAudioHeard `
-  -OperatorConfirmedAcControlSurfaceReadable `
-  -OperatorConfirmedRestoreOffReadable
-```
-
-AC を見せる場合は、Chrome / Home Assistant の見える操作面で現在状態と
-戻し先が読める時だけ進めます。正方向の操作は最大1回、off / restore も
-必要かつ読める時に最大1回、retry は0、無関係な家電ループは0です。
-これは Home Control `/actions` catalog の成功証明ではありません。
-
-画面の前景、Chrome window の整理、VOICEVOX のローカル再生、ブラウザ上の
-会話応答、アバターの見える動き、物理的な家電変化は別の層です。script の
-fallback 文字列をそのまま使うと、Codex / Claude でも同じ止め方で報告できます。
+既定では provider/network STT/TTS、マイク、カメラ、Home Assistant /
+Home Control の命令送信は行いません。詳しい demo-safe settings、
+operator-confirmed switch、proof boundary は `docs/operate.md` と
+`docs/proof-layers.md` を見てください。
 
 ## 文書の場所
 
@@ -166,18 +140,9 @@ fallback 文字列をそのまま使うと、Codex / Claude でも同じ止め�
 
 ## Home Control
 
-Home Control は、誤操作を避けるために範囲を決めて扱います。通常は次の順で
-確認します。
-
-1. 設定ファイルに必要な情報がある。
-2. 家電連携ブリッジが起動できる。
-3. 操作候補の一覧に対象操作がある。
-4. 実行してよい条件や確認方法が定義されている。
-5. 命令前の現在状態が読める。
-6. 必要な場合だけ、確認済みの操作を最大1回送る。
-7. 命令後の Home Assistant 上の状態を読む。
-8. 物理的な動きまで言うなら、別途カメラ、センサー、人間の目視などで確認する。
-
+Home Control は、誤操作を避けるために範囲を決めて扱います。設定は
+`docs/home-assistant-setup.md`、操作追加は `docs/add-home-device.md`、
+live route と proof wording は `docs/live-home-control-proof.md` を見てください。
 Home Assistant の状態一致だけを、物理的に動いた証拠へ変換しないでください。
 
 ## 外部プロジェクト
