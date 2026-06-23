@@ -2,6 +2,12 @@
   "schema_version": "demo_safe_settings.v0",
   "local_override_class": "launcher_state_dir_gitignored_demo_settings_json",
   "fresh_clone_default_enabled": false,
+  "preflight_required_row_ids": [
+    "appliance.aircon_cool_restore",
+    "audio.voicevox_local_speech",
+    "avatar.aituber_projection_surface",
+    "display.projection_visual_mode"
+  ],
   "rows": [
     {
       "id": "appliance.aircon_cool_restore",

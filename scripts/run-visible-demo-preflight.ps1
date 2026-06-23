@@ -241,24 +241,22 @@ function Get-DemoSafeDefaultsClass {
     $payload = Get-Content -Raw -LiteralPath $defaultsPath | ConvertFrom-Json
     $rows = @($payload.rows)
     $enabledRows = @($rows | Where-Object { [bool]$_.enabled })
-    $required = @(
-      "appliance.aircon_cool_restore",
-      "audio.voicevox_local_speech",
-      "avatar.aituber_projection_surface",
-      "display.projection_visual_mode"
-    )
+    $required = @($payload.preflight_required_row_ids | ForEach-Object { [string]$_ })
     $ids = @($rows | ForEach-Object { [string]$_.id })
+    $duplicateIdCount = $ids.Count - @($ids | Select-Object -Unique).Count
     $missing = @($required | Where-Object { $_ -notin $ids })
     $pass = (
       [string]$payload.schema_version -eq "demo_safe_settings.v0" -and
       -not [bool]$payload.fresh_clone_default_enabled -and
       $enabledRows.Count -eq 0 -and
-      $missing.Count -eq 0
+      $required.Count -gt 0 -and
+      $missing.Count -eq 0 -and
+      $duplicateIdCount -eq 0
     )
     return [PSCustomObject]@{
       status = if ($pass) { "pass" } else { "hold" }
       class = if ($pass) { "tracked_defaults_all_off" } else { "tracked_defaults_incomplete_or_enabled" }
-      detail = ("rows={0}; enabled={1}; missing_required={2}; local_override_class=launcher_state_dir_gitignored_demo_settings_json" -f $rows.Count, $enabledRows.Count, $missing.Count)
+      detail = ("canonical_source=manifests/demo-safe-settings/defaults.json; rows={0}; required={1}; enabled={2}; missing_required={3}; duplicate_ids={4}; local_override_class=launcher_state_dir_gitignored_demo_settings_json" -f $rows.Count, $required.Count, $enabledRows.Count, $missing.Count, $duplicateIdCount)
     }
   }
   catch {
@@ -284,7 +282,7 @@ $fallbacks = [ordered]@{
 if ($ListRows) {
   $rows += New-PreflightRow -Id "selected_clone" -Status "not_evaluated" -PassClass "selected_clone_current_commit" -HoldClass "blocked_selected_clone_or_commit_unknown" -Detail "git commit must be readable for the selected clone"
   $rows += New-PreflightRow -Id "launch_readiness" -Status "not_evaluated" -PassClass "blockers_0" -HoldClass "blocked_launch_readiness_has_blockers" -Detail "run check-launch-readiness and pass -LaunchReadinessBlockers 0 when blockers are cleared"
-  $rows += New-PreflightRow -Id "demo_safe_settings" -Status "not_evaluated" -PassClass "tracked_defaults_all_off" -HoldClass "blocked_demo_safe_defaults_missing_or_enabled" -Detail "tracked defaults must exist, all candidates start disabled, local overrides must stay gitignored"
+  $rows += New-PreflightRow -Id "demo_safe_settings" -Status "not_evaluated" -PassClass "tracked_defaults_all_off" -HoldClass "blocked_demo_safe_defaults_missing_or_enabled" -Detail "tracked defaults are the canonical inventory; all candidates start disabled; local overrides stay gitignored"
   $rows += New-PreflightRow -Id "launcher" -Status "not_evaluated" -PassClass "reachable" -HoldClass "blocked_launcher_unreachable" -Detail "Launch Manager local status endpoint must be reachable"
   $rows += New-PreflightRow -Id "thought_core" -Status "not_evaluated" -PassClass "reachable_no_provider_mode" -HoldClass "blocked_thought_core_runtime_unreachable" -Detail "Thought Core health must be reachable without provider calls"
   $rows += New-PreflightRow -Id "aituber_projection_visual" -Status "not_evaluated" -PassClass "reachable" -HoldClass "blocked_aituber_projection_visual_unreachable" -Detail "AITuber/Projection Visual local surface must be reachable"
