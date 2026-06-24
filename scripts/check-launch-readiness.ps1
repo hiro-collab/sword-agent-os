@@ -459,29 +459,17 @@ if (Test-Path -LiteralPath $aituberEnvPath -PathType Leaf) {
   }
 }
 
-$legacyControlPlaneAlias = Join-Path $workspace "sword-control-plane"
-$legacyAiTalkCoreAlias = Join-Path $workspace "organs\voice\ai-talk-core"
 if (Test-Path -LiteralPath $controlPlaneRoot -PathType Container) {
   $checks += New-Check -Id "native_delegate_layout.control_plane" -Status "ok" -Severity "info" -Path $controlPlaneRoot -Detail "native control-plane layout available"
 }
 else {
-  $checks += Test-PathCheck `
-    -Id "legacy_delegate_layout.sword_control_plane_alias" `
-    -Path $legacyControlPlaneAlias `
-    -MissingSeverity "warning" `
-    -OkDetail "native control-plane path missing; legacy alias fallback available" `
-    -MissingDetail "native control-plane path missing; legacy alias fallback also missing"
+  $checks += New-Check -Id "native_delegate_layout.control_plane" -Status "missing" -Severity "warning" -Path $controlPlaneRoot -Detail "native control-plane layout missing"
 }
 if (Test-Path -LiteralPath $speechInputRoot -PathType Container) {
   $checks += New-Check -Id "native_delegate_layout.ai_talk_core" -Status "ok" -Severity "info" -Path $speechInputRoot -Detail "native speech-input layout available"
 }
 else {
-  $checks += Test-PathCheck `
-    -Id "legacy_delegate_layout.ai_talk_core_voice_alias" `
-    -Path $legacyAiTalkCoreAlias `
-    -MissingSeverity "warning" `
-    -OkDetail "native speech-input path missing; legacy voice alias fallback available" `
-    -MissingDetail "native speech-input path missing; legacy voice alias fallback also missing"
+  $checks += New-Check -Id "native_delegate_layout.ai_talk_core" -Status "missing" -Severity "warning" -Path $speechInputRoot -Detail "native speech-input layout missing"
 }
 
 $checks += Test-HttpEndpoint -Id "endpoint.voicevox" -Url "http://127.0.0.1:50021/version"

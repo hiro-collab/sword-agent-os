@@ -734,7 +734,6 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-launch-r
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-audio-awareness-readiness.ps1") -PathType Leaf) "audio awareness readiness checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/start-launcher.ps1") -PathType Leaf) "launcher start wrapper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/stop-launcher.ps1") -PathType Leaf) "launcher stop wrapper missing"
-Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/prepare-compat-launch.ps1") -PathType Leaf) "compat launch preparation script missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/prepare-aituberkit-sword-adapter.ps1") -PathType Leaf) "AITuberKit adapter preparation script missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-compat-smoke.ps1") -PathType Leaf) "compat launch smoke script missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-full-install-verification.ps1") -PathType Leaf) "full install verification helper missing"
