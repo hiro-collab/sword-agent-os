@@ -1,17 +1,17 @@
 {
   "schema_version": "services.inventory.v0",
   "id": "thought-core-v0-compat",
-  "description": "Legacy thought-core-v0 service inventory used as the first Agent OS compatibility baseline.",
+  "description": "Current local Thought Core service inventory for the standard distribution.",
   "profile_id": "thought-core-v0-compat",
   "legacy_profile_id": "thought-core-v0",
-  "legacy_reference": "manifests/legacy/control-plane-reference.json",
+  "legacy_reference": "manifests/control-plane/standard.json",
   "port_modes": {
     "manifest_default": {
-      "description": "Legacy-compatible fixed localhost ports. These remain the canonical compatibility defaults.",
+      "description": "Standard fixed localhost ports for the local runtime.",
       "accepted_for": [
         "standard_start",
         "standard_health",
-        "final_compatibility_check"
+        "final_local_check"
       ],
       "conflict_policy": "Report blocked or unavailable when a port is owned by another process; do not stop unowned processes automatically.",
       "service_ports": {
@@ -28,13 +28,13 @@
       }
     },
     "isolated_override": {
-      "description": "Temporary localhost port override for repeatable validation, side-by-side legacy testing, and active worker coordination.",
+      "description": "Temporary localhost port override for repeatable validation, side-by-side local testing, and active worker coordination.",
       "accepted_for": [
         "integration_smoke",
         "parallel_validation",
         "port_conflict_debugging"
       ],
-      "conflict_policy": "Valid operation-check evidence path, but not the published compatibility endpoint set.",
+      "conflict_policy": "Valid operation-check evidence path, but not the standard fixed endpoint set.",
       "service_ports": {
         "home_assistant_bridge": 18887,
         "environment_state_server": 18890,
@@ -133,7 +133,6 @@
       "logical_service": "thought-core",
       "organ_id": "sword-voice-agent-control-plane",
       "target_path": "control-plane/sword-voice-agent/services/thought-core",
-      "legacy_path": "sword-control-plane/services/thought-core",
       "contracts": [
         "turn",
         "events",
@@ -167,7 +166,7 @@
         ".cache/home-control-stack/thought-core-chat-events.jsonl",
         ".cache/sword_voice_agent"
       ],
-      "notes": "Canonical legacy turn service v0. It may propose memory candidates but must not directly commit long-term memory."
+      "notes": "Current local turn service. It may propose memory candidates but must not directly commit long-term memory."
     },
     {
       "service_id": "mediapipe_camera_hub_stack",
@@ -275,7 +274,6 @@
       "logical_service": "turn-router-adapter",
       "organ_id": "sword-voice-agent-control-plane",
       "target_path": "control-plane/sword-voice-agent/src/sword_voice_agent/apps/watch_handoff_to_thought_core.py",
-      "legacy_path": "sword-control-plane/src/sword_voice_agent/apps/watch_handoff_to_thought_core.py",
       "contracts": [
         "turn",
         "events",

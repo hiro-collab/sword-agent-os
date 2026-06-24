@@ -35,13 +35,6 @@
           "expect": "exists"
         },
         {
-          "id": "body_plan.compat_aliases",
-          "mode": "auto",
-          "type": "path_exists",
-          "path": "manifests/compat-aliases/legacy-service-aliases.json",
-          "expect": "exists"
-        },
-        {
           "id": "body_schema.snapshot_contract",
           "mode": "auto",
           "type": "command",

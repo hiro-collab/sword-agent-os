@@ -257,7 +257,6 @@ release readiness, or final RR003 pass.
 | New value that Thought Core, diagnostics, or source code should read | `docs/reference-surfaces.md`, then `contracts/<name>/<name>.v0.schema.json` plus owner-local reader surface with `contract_ref` |
 | New organ role or body role | `manifests/body-plans/` |
 | New executable action or driver adapter | `manifests/driver-manifests/` |
-| Legacy name compatibility | `manifests/compat-aliases/` |
 | Current-state writer/normalizer | `runtime/state-event-ingest/` |
 | Current-state reader/model | `runtime/status-store/` or `runtime/body-schema/` |
 | Historical event/query behavior | `runtime/event-journal/` |

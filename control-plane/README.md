@@ -5,9 +5,7 @@ the standard distribution and compatibility profiles.
 
 The Agent OS repository owns manifests, runtime boundaries, and integration
 rules. The control-plane implementation remains its own Git repository and is
-bootstrapped from `manifests/control-plane/standard.json`. The older
-`manifests/legacy/control-plane-reference.json` path is retained as a
-compatibility alias for legacy tooling.
+bootstrapped from `manifests/control-plane/standard.json`.
 
 The standard checkout is a Thought Core / compatibility control-plane
 implementation. It may expose launcher diagnostics, timing summaries, and

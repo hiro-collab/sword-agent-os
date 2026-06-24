@@ -14,5 +14,3 @@ and process observation belongs to runtime diagnostics.
   an autonomous agent body or as a cyborg-like shell without assuming desire or
   personality.
 - `organ_id` names body roles, not implementation repositories.
-- Legacy service names stay in `../compat-aliases/`, not in canonical body
-  plans.

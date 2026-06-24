@@ -122,7 +122,6 @@ operator-confirmed switch、proof boundary は `docs/operate.md` と
 - `manifests/distributions/`: インストールできる構成。
 - `manifests/releases/`: 人間が読むバージョン情報。
 - `manifests/driver-manifests/` と `contracts/`: 外部連携やデータ受け渡しの決まり。
-- `manifests/compat-aliases/`: 互換用。新しい機能はここに増やしません。
 
 ## 確認できた範囲を分ける
 

@@ -181,9 +181,6 @@ $distributionManifest = Read-Json -Path (Resolve-ManifestPath "manifests/distrib
 $releaseManifest = Read-Json -Path (Resolve-ManifestPath "manifests/releases/standard.json")
 $organManifest = Read-Json -Path (Resolve-ManifestPath ([string]$distributionManifest.organ_manifest_path))
 $controlPlaneReference = Read-Json -Path (Resolve-ManifestPath ([string]$distributionManifest.control_plane_manifest_path))
-$legacyOrganManifest = Read-Json -Path (Resolve-ManifestPath "manifests/organs/legacy-github.json")
-$legacyControlPlaneReference = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/control-plane-reference.json")
-$recoveryCandidates = Read-Json -Path (Resolve-ManifestPath "manifests/legacy/recovery-candidates.json")
 $authorityManifest = Read-Json -Path (Resolve-ManifestPath "manifests/authorities/standard.json")
 $memoryStewardshipPolicy = Read-Json -Path (Resolve-ManifestPath "policies/data-safety/memory-stewardship.json")
 $driverManifest = Read-Json -Path (Resolve-ManifestPath "manifests/drivers/standard.json")
@@ -191,7 +188,6 @@ $diagnosticPolicy = Read-Json -Path (Resolve-ManifestPath "manifests/diagnostics
 $organTestPacks = Read-Json -Path (Resolve-ManifestPath "manifests/tests/organ-test-packs/standard.json")
 $bodyPlan = Read-Json -Path (Resolve-ManifestPath "manifests/body-plans/system-cell-v0.json")
 $actionDriverManifest = Read-Json -Path (Resolve-ManifestPath "manifests/driver-manifests/system-cell-v0.json")
-$compatAliases = Read-Json -Path (Resolve-ManifestPath "manifests/compat-aliases/legacy-service-aliases.json")
 
 $contractFiles = @(
   "contracts/action_request/action_request.v0.schema.json",
@@ -324,9 +320,6 @@ foreach ($requiredContract in @("action_request.v0", "event_ingest.v0", "status_
 
 $bodyPlanOrganIds = @($bodyPlan.organs | ForEach-Object { [string]$_.organ_id })
 Assert-True (($bodyPlanOrganIds | Select-Object -Unique).Count -eq $bodyPlanOrganIds.Count) "body plan organ_id values must be unique"
-foreach ($organ in @($bodyPlan.organs)) {
-  Assert-True ($null -eq $organ.PSObject.Properties["legacy_aliases"]) "body plan organ $($organ.organ_id) must keep legacy aliases in compat-aliases"
-}
 foreach ($organId in $bodyPlanOrganIds) {
   Assert-True ($organId -match "^[a-z][a-z0-9_.-]*$") "body plan has unsafe organ_id: $organId"
 }
@@ -357,7 +350,6 @@ foreach ($driver in $actionDriverManifest.drivers) {
   Assert-True ($driverKind -in $validDriverKinds) "action driver $driverId has invalid driver_kind: $driverKind"
   Assert-True ($instancePolicy -in $validInstancePolicies) "action driver $driverId has invalid instance_policy: $instancePolicy"
   Assert-True ($driverOrganId -in $bodyPlanOrganIds) "action driver $driverId references unknown body organ: $driverOrganId"
-  Assert-True ($null -eq $driver.PSObject.Properties["legacy_aliases"]) "action driver $driverId must keep legacy aliases in compat-aliases"
 
   foreach ($action in @($driver.provides_actions)) {
     $actionId = [string]$action.action_id
@@ -392,17 +384,6 @@ Assert-True (@($audioAwarenessDriver.provides_actions).Count -eq 0) "audio aware
 $audioAwarenessStatusKeys = @($audioAwarenessDriver.status_keys | ForEach-Object { [string]$_ })
 foreach ($requiredStatusKey in @("sense.hearing.primary.audio_awareness.summary", "sense.hearing.primary.audio_awareness.pc_output", "sense.hearing.primary.audio_awareness.microphone")) {
   Assert-True ($requiredStatusKey -in $audioAwarenessStatusKeys) "audio awareness observer driver missing status key: $requiredStatusKey"
-}
-
-Assert-True ([string]$compatAliases.schema_version -eq "compat_aliases.v0") "compat aliases schema_version must be compat_aliases.v0"
-$compatAliasLabels = @($compatAliases.aliases | ForEach-Object { [string]$_.legacy })
-Assert-True (($compatAliasLabels | Select-Object -Unique).Count -eq $compatAliasLabels.Count) "compat alias legacy labels must be unique"
-foreach ($alias in @($compatAliases.aliases)) {
-  Assert-True (-not [string]::IsNullOrWhiteSpace([string]$alias.legacy)) "compat alias missing legacy label"
-  Assert-True ([string]$alias.canonical_organ_id -in $bodyPlanOrganIds) "compat alias references unknown canonical organ: $($alias.legacy)"
-  if (-not [string]::IsNullOrWhiteSpace([string]$alias.canonical_driver_id)) {
-    Assert-True ([string]$alias.canonical_driver_id -in $actionDriverIds) "compat alias references unknown canonical driver: $($alias.legacy)"
-  }
 }
 
 foreach ($component in $standardProfile.health_model.boot_critical_runtime) {
@@ -635,57 +616,9 @@ Assert-True ([string]$distributionManifest.control_plane_manifest_path -eq "mani
 Assert-True ([string]$distributionManifest.organ_manifest_path -eq "manifests/organs/standard-sources.json") "standard distribution organ manifest mismatch"
 Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath ([string]$distributionManifest.control_plane_manifest_path)) -PathType Leaf) "standard distribution control-plane manifest missing"
 Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath ([string]$distributionManifest.organ_manifest_path)) -PathType Leaf) "standard distribution organ manifest missing"
-Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath "manifests/legacy/control-plane-reference.json") -PathType Leaf) "legacy control-plane compatibility alias missing"
-Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath "manifests/organs/legacy-github.json") -PathType Leaf) "legacy organ compatibility alias missing"
 Assert-True ([string]$controlPlaneReference.schema_version -eq "control_plane.source_reference.v0") "standard control-plane manifest schema_version mismatch"
-Assert-True ([string]$legacyControlPlaneReference.schema_version -eq "legacy.control_plane_reference.v0") "legacy control-plane compatibility alias schema_version mismatch"
-foreach ($field in @("id", "target_path", "component_version", "version_source", "repo_url", "branch", "commit", "adoption")) {
-  Assert-StringEqual (Get-OptionalProperty -Object $controlPlaneReference -Name $field -Default "") (Get-OptionalProperty -Object $legacyControlPlaneReference -Name $field -Default "") "control-plane compatibility alias source field drift: $field"
-}
 Assert-True ([string]$organManifest.schema_version -eq "organs.sources.v0") "standard organ source manifest schema_version mismatch"
 Assert-True ([string]$organManifest.id -eq "standard-sources") "standard organ source manifest id mismatch"
-Assert-True ([string]$legacyOrganManifest.schema_version -eq "organs.sources.v0") "legacy organ compatibility alias schema_version mismatch"
-Assert-True ([string]$legacyOrganManifest.id -eq "legacy-github") "legacy organ compatibility alias id mismatch"
-Assert-True (@($organManifest.sources).Count -eq @($legacyOrganManifest.sources).Count) "legacy organ compatibility alias source count drift"
-$legacyOrganSourcesById = @{}
-foreach ($legacySource in @($legacyOrganManifest.sources)) {
-  $legacyOrganId = [string]$legacySource.organ_id
-  Assert-True (-not [string]::IsNullOrWhiteSpace($legacyOrganId)) "legacy organ compatibility alias has source missing organ_id"
-  Assert-True (-not $legacyOrganSourcesById.ContainsKey($legacyOrganId)) "legacy organ compatibility alias has duplicate organ_id: $legacyOrganId"
-  $legacyOrganSourcesById[$legacyOrganId] = $legacySource
-}
-foreach ($source in @($organManifest.sources)) {
-  $organId = [string]$source.organ_id
-  Assert-True ($legacyOrganSourcesById.ContainsKey($organId)) "legacy organ compatibility alias missing source: $organId"
-  $legacySource = $legacyOrganSourcesById[$organId]
-  foreach ($field in @(
-      "organ_role",
-      "logical_role",
-      "target_path",
-      "component_version",
-      "version_source",
-      "repo_url",
-      "branch",
-      "commit",
-      "adoption",
-      "legacy_path",
-      "version_linkage",
-      "upstream_repo_url",
-      "upstream_release_tag",
-      "upstream_release_commit",
-      "upstream_release_url",
-      "sword_adapter_version",
-      "patchset_id",
-      "patchset_version",
-      "compatibility_status",
-      "contract_test_pack",
-      "proof_level",
-      "runtime_reflection_status",
-      "adapter_inventory_path"
-    )) {
-    Assert-StringEqual (Get-OptionalProperty -Object $source -Name $field -Default "") (Get-OptionalProperty -Object $legacySource -Name $field -Default "") "legacy organ compatibility alias source field drift for ${organId}: $field"
-  }
-}
 Assert-True (Test-SafeManifestPath -Path ([string]$distributionManifest.env.central_template_path)) "distribution central env template path is unsafe"
 Assert-True (Test-SafeManifestPath -Path ([string]$distributionManifest.env.central_env_path)) "distribution central env path is unsafe"
 Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath ([string]$distributionManifest.env.central_template_path)) -PathType Leaf) "distribution central env template missing"
@@ -818,13 +751,6 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "docs/audio-awareness.m
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/diagnostic-scheduler/neural-monitoring-test-plan.v0.md") -PathType Leaf) "neural monitoring test plan missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "runtime/organ-test-packs/README.md") -PathType Leaf) "organ test pack runtime README missing"
 
-foreach ($candidate in $recoveryCandidates.candidates) {
-  Assert-True (-not [string]::IsNullOrWhiteSpace([string]$candidate.repo_url)) "recovery candidate $($candidate.id) missing repo_url"
-  Assert-True (-not [string]::IsNullOrWhiteSpace([string]$candidate.branch)) "recovery candidate $($candidate.id) missing branch"
-  Assert-True ([string]$candidate.commit -match "^[0-9a-f]{40}$") "recovery candidate $($candidate.id) commit is not a full SHA"
-  Assert-True ([string]$candidate.handling -match "^(inspect-and-recover-feature-elements|inspect-and-cherry-pick-candidate)$") "recovery candidate $($candidate.id) has invalid handling"
-}
-
 $authorityIds = @($authorityManifest.authorities | ForEach-Object { [string]$_.authority_id })
 foreach ($requiredAuthority in @("memory-core", "approval-queue", "data-safety-policy")) {
   Assert-True ($requiredAuthority -in $authorityIds) "standard authorities missing: $requiredAuthority"
@@ -853,12 +779,6 @@ if ($VerifyRemote) {
   $cpRemoteCommit = (($cpLine | Select-Object -First 1) -split "`t")[0]
   Assert-True ($cpRemoteCommit -eq [string]$controlPlaneReference.commit) "control-plane remote commit mismatch: expected $($controlPlaneReference.commit), got $cpRemoteCommit"
 
-  foreach ($candidate in $recoveryCandidates.candidates) {
-    $candidateLine = git ls-remote ([string]$candidate.repo_url) "refs/heads/$($candidate.branch)"
-    Assert-True (-not [string]::IsNullOrWhiteSpace(($candidateLine -join ""))) "remote branch not found for recovery candidate $($candidate.id): $($candidate.branch)"
-    $candidateRemoteCommit = (($candidateLine | Select-Object -First 1) -split "`t")[0]
-    Assert-True ($candidateRemoteCommit -eq [string]$candidate.commit) "remote commit mismatch for recovery candidate $($candidate.id): expected $($candidate.commit), got $candidateRemoteCommit"
-  }
 }
 
 [PSCustomObject]@{
@@ -870,7 +790,6 @@ if ($VerifyRemote) {
   distributions = 1
   os_version = $releaseManifest.os_version
   distribution_version = $releaseManifest.distribution_version
-  recovery_candidates = $recoveryCandidates.candidates.Count
   authorities = $authorityManifest.authorities.Count
   driver_count = $driverManifest.generic_drivers.Count + $driverManifest.organ_drivers.Count
   diagnostic_tiers = $diagnosticPolicy.tiers.Count

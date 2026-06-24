@@ -22,20 +22,12 @@ README files and docs should summarize them, not duplicate their full ledgers.
   files complement Git commit pins in source manifests; semantic versions say
   what compatibility release this is, while commit pins say exactly which source
   revision will be installed.
-- `legacy/`: compatibility manifest aliases retained for older tooling while
-  standard distribution entry points move to standard-named paths.
 - `driver-manifests/`: action-capable, dummy, compatibility, and display/runtime
   driver capability declarations used by Action Catalog and Action Boundary.
 - `drivers/`: existing read-only diagnostic driver contracts. These remain
   separate from action-capable driver manifests.
-- `compat-aliases/`: transitional mapping from old labels and service ids to
-  canonical ids. Do not add new behavior here; delete stale aliases instead of
-  expanding compatibility surfaces.
 
 New runtime code should depend on body plans, driver manifests, and contracts.
-Aliases are for migration only. Canonical body plans and driver manifests should
-not carry `legacy_aliases`; put old labels in `compat-aliases/` so there is one
-compatibility surface to shrink later.
 
 ## Pin State Classes
 

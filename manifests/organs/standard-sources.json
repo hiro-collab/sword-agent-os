@@ -15,7 +15,6 @@
       "branch": "main",
       "commit": "b546cd5d24306430c5f6d60e1e3941ecadbf5e36",
       "adoption": "standard_candidate",
-      "legacy_path": "organs/voice/ai-talk-core",
       "notes": "STT, browser recording, transcript, and handoff boundary."
     },
     {
@@ -29,7 +28,6 @@
       "branch": "feature/camera-hub-topic-envelope",
       "commit": "0130db25a01c76c751a2ef5f72827fef8eb0e788",
       "adoption": "standard_candidate",
-      "legacy_path": "organs/reflex/mediapipe-sword-sign",
       "notes": "Camera Hub, gesture inference, and reflex topic surface."
     },
     {
@@ -43,7 +41,6 @@
       "branch": "main",
       "commit": "14156947eb6e3116a9b4adf273630c28c3c2a8e9",
       "adoption": "standard_candidate",
-      "legacy_path": "organs/environment/environment-state-server",
       "notes": "Environment snapshot, indicators, health aggregation, and feedback capture."
     },
     {
@@ -57,7 +54,6 @@
       "branch": "main",
       "commit": "64b52a8852316383db61bf8b8f5af6595d2fe296",
       "adoption": "standard_candidate",
-      "legacy_path": "organs/environment/vision-snapshot-processor",
       "notes": "Low-frequency vision snapshots such as room light state."
     },
     {
@@ -71,7 +67,6 @@
       "branch": "codex/add-fault-injection",
       "commit": "958ca352d57cf72c7a211b0b4d3ee74df848876d",
       "adoption": "standard_candidate",
-      "legacy_path": "organs/action/home-assistant-server",
       "notes": "Home Assistant safety bridge, allowlist, confirmation, audit, and fault injection."
     },
     {
@@ -85,7 +80,6 @@
       "branch": "main",
       "commit": "404fb041a1a25447bef3d03937b32f736bf2465f",
       "adoption": "standard_candidate",
-      "legacy_path": "organs/expression/tts-service",
       "notes": "Speech synthesis, playback, status, and volume control."
     },
     {
@@ -97,7 +91,6 @@
       "branch": "main",
       "commit": "abd203a28e1bb83732c20db8a7b7cf49841bdefe",
       "adoption": "deferred_reference",
-      "legacy_path": "organs/expression/avatar-service",
       "notes": "Reference-only until an expression runtime replacement decision reintroduces it."
     },
     {
@@ -124,7 +117,6 @@
       "runtime_reflection_status": "not-proven",
       "adapter_inventory_path": "docs/aituberkit-sword-adapter-inventory.md",
       "adoption": "standard_candidate",
-      "legacy_path": "organs/expression/aituber-kit",
       "notes": "Projection Visual, HUD, avatar speech queue, and AITuber UI. Use the fork remote for installation, and the official upstream release tag for the human-facing component version."
     },
     {
@@ -138,7 +130,6 @@
       "branch": "codex/projection-visual-docs",
       "commit": "9173a780cd680310e0c28cd1201c2e7ab6931aec",
       "adoption": "standard_candidate",
-      "legacy_path": "organs/display/touchdesigner-ai-controller",
       "notes": "Display runtime GUI, TouchDesigner UDP visual trigger, and display bridge."
     },
     {
@@ -152,7 +143,6 @@
       "branch": "codex/system-house-authority-map",
       "commit": "148ae714d3631b73b48dc51634c69c3acc5aab1f",
       "adoption": "standard_candidate",
-      "legacy_path": "organs/diagnostics/system-house-renderer",
       "notes": "Topology/runtime trace visualization and redaction evidence."
     }
   ]

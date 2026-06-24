@@ -1,7 +1,6 @@
 param(
   [string]$BodyPlanPath = "manifests/body-plans/system-cell-v0.json",
   [string]$DriverManifestPath = "manifests/driver-manifests/system-cell-v0.json",
-  [string]$CompatAliasesPath = "manifests/compat-aliases/legacy-service-aliases.json",
   [string]$StatusPath = ".cache/agent-os/status/current.json",
   [string]$BodySchemaOutputPath = ".cache/agent-os/body-schema/current.json",
   [string]$ProjectionOutputPath = ".cache/agent-os/body-display-projection/latest.json",
@@ -86,8 +85,7 @@ function Add-AliasEntry {
 function New-AliasMap {
   param(
     [Parameter(Mandatory = $true)]$BodyPlan,
-    [Parameter(Mandatory = $true)]$DriverManifest,
-    [Parameter(Mandatory = $true)]$CompatAliases
+    [Parameter(Mandatory = $true)]$DriverManifest
   )
   $map = @{}
   foreach ($organ in ConvertTo-Array $BodyPlan.organs) {
@@ -98,13 +96,6 @@ function New-AliasMap {
     $driverId = [string]$driver.driver_id
     $organId = [string]$driver.organ_id
     Add-AliasEntry -Map $map -Alias $driverId -OrganId $organId -DriverId $driverId
-  }
-  foreach ($alias in ConvertTo-Array $CompatAliases.aliases) {
-    Add-AliasEntry `
-      -Map $map `
-      -Alias ([string]$alias.legacy) `
-      -OrganId ([string]$alias.canonical_organ_id) `
-      -DriverId ([string]$alias.canonical_driver_id)
   }
   return $map
 }
@@ -391,9 +382,8 @@ function Add-ProjectionContractErrors {
 
 $bodyPlan = Read-JsonRequired -Path $BodyPlanPath
 $driverManifest = Read-JsonRequired -Path $DriverManifestPath
-$compatAliases = Read-JsonRequired -Path $CompatAliasesPath
 $status = Read-JsonOptional -Path $StatusPath
-$aliasMap = New-AliasMap -BodyPlan $bodyPlan -DriverManifest $driverManifest -CompatAliases $compatAliases
+$aliasMap = New-AliasMap -BodyPlan $bodyPlan -DriverManifest $driverManifest
 $generatedAt = [DateTimeOffset]::Now.ToString("o")
 
 $organs = @()
