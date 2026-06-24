@@ -164,7 +164,7 @@
         "approval requirement known for requested action"
       ],
       "deep_checks": [
-        "real reversible action E2E such as light_on then light_off, explicit approval required"
+        "bounded appliance route E2E through a reviewed action pair, explicit approval required; toggle-only light stays external-observation-required"
       ]
     },
     {

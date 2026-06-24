@@ -25,7 +25,7 @@ repeatably.
 
 | Organ service | Driver focus | Required first checks | Deep or manual checks |
 | --- | --- | --- | --- |
-| `home_assistant_bridge` | action boundary and Home Assistant bridge health | HTTP health, allowlist/catalog presence, safe dry-run or reversible action evidence | Real light on/off plus feedback comparison |
+| `home_assistant_bridge` | action boundary and Home Assistant bridge health | HTTP health, allowlist/catalog presence, safe dry-run or reviewed action evidence | Reviewed appliance-route feedback comparison; toggle-only light requires separate external observation |
 | `environment_state_server` | environment projection | HTTP health, current/indicator state availability, separation of Home Assistant and camera/vision state | Token-protected state query and feedback freshness |
 | `mediapipe_camera_hub_stack` | reflex/camera hub | managed process evidence, WebSocket topic freshness when allowed, gesture state current metric | Camera live E2E and replay-image/video gesture regression |
 | `vision_snapshot_processor` | slower visual environment estimate | managed process evidence, vision topic dependency, room-light estimate freshness | Snapshot model validation against still images |

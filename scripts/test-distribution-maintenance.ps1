@@ -116,6 +116,17 @@ function Assert-TextMatch {
   }
 }
 
+function Assert-TextNotMatch {
+  param(
+    [Parameter(Mandatory = $true)][string]$Text,
+    [Parameter(Mandatory = $true)][string]$Pattern,
+    [Parameter(Mandatory = $true)][string]$Message
+  )
+  if ($Text -match $Pattern) {
+    throw $Message
+  }
+}
+
 function Assert-PathPresent {
   param([Parameter(Mandatory = $true)][string]$Path)
   if (-not (Test-Path -LiteralPath $Path)) {
@@ -586,6 +597,15 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "toggle-only light[\s\S]{0,220}light_toggle|light_toggle[\s\S]{0,220}toggle-only light" -Message "front-door docs should describe toggle-only light through light_toggle semantics"
   Assert-TextMatch -Text $verificationSurface -Pattern "docs/live-home-control-proof\.md" -Message "public verification docs should point live proof recipes to the canonical Home Control proof doc"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "toggle-only light[\s\S]{0,240}external-observation-required|external-observation-required[\s\S]{0,240}toggle-only light" -Message "troubleshooting should point toggle-only light handling to external-observation-required semantics"
+  $demoSafeSettings = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "manifests\demo-safe-settings\defaults.json")
+  $driverManifest = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "manifests\drivers\standard.json")
+  $diagnosticTestPlan = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "runtime\diagnostic-scheduler\neural-monitoring-test-plan.v0.md")
+  Assert-TextMatch -Text $demoSafeSettings -Pattern '"id"\s*:\s*"appliance\.light_command_stimulus"[\s\S]{0,700}"light_toggle"' -Message "demo-safe light stimulus should use the toggle-only action id"
+  Assert-TextNotMatch -Text $demoSafeSettings -Pattern '"id"\s*:\s*"appliance\.light_command_stimulus"[\s\S]{0,700}"light_on"' -Message "demo-safe light stimulus should not use directional light_on"
+  Assert-TextMatch -Text $driverManifest -Pattern "toggle-only light stays external-observation-required" -Message "driver manifest should keep toggle-only light out of reversible-action examples"
+  Assert-TextNotMatch -Text $driverManifest -Pattern "light_on then light_off" -Message "driver manifest should not promote light_on/light_off as reversible proof"
+  Assert-TextMatch -Text $diagnosticTestPlan -Pattern "toggle-only light requires separate external observation" -Message "diagnostic plan should keep toggle-only light as external-observation-required"
+  Assert-TextNotMatch -Text $diagnosticTestPlan -Pattern "Real light on/off" -Message "diagnostic plan should not claim real light on/off as the default deep check"
   Assert-PathAbsent -Path (Join-Path $RepoRoot "scripts\run-home-control-light-proof.ps1")
   Assert-TextMatch -Text $verificationSurface -Pattern "inspect-home-control-switchbot-surfaces\.ps1" -Message "public verification docs should document the SwitchBot read-only surface helper"
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\inspect-home-control-switchbot-surfaces.ps1")
