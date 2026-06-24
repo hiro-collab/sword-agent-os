@@ -4,6 +4,29 @@ Sword Agent OS は、PC上でエージェントを動かすためのローカル
 会話、音声入力、アバター表示、状態確認、Home Assistant 経由の家電操作を
 ひとつの流れとして扱います。
 
+<!-- front-door:system-at-a-glance -->
+## 何のシステムか
+
+Sword Agent OS は、ローカルPCを中心にした「声、身振り、思考、表示、環境状態、
+家電操作」をつなぐエージェント実行基盤です。クラウドサービス単体ではなく、
+PC上の control-plane と複数の organ を組み合わせて、人間の入力、エージェントの
+判断、アバターやHUDへの表示、Home Assistant 連携、確認レポートを安全に分けて扱います。
+
+```mermaid
+flowchart LR
+  Human["User / operator"] --> Inputs["Voice / gesture / UI"]
+  Inputs --> Thought["Thought Core / control-plane"]
+  Env["Camera / environment state"] --> Thought
+  Thought --> Expression["Avatar / Projection Visual / TTS"]
+  Thought --> Home["Home Control / Home Assistant"]
+  Home --> Proof["Proof layers / state checks"]
+  Expression --> Human
+  Proof --> Human
+```
+
+ひとことで言うと、「PC上のエージェントが、見聞きした状態と人間の指示をもとに、
+画面やアバターで返し、必要な時だけ境界付きで家電操作まで進む」ための土台です。
+
 初めて使う人は、まず
 `docs/first-run-operator-guide.md` を読んでください。必要なもの、Git clone、
 ローカルファイルの置き場所、`.env` の作り方、起動、画面の開き方、
