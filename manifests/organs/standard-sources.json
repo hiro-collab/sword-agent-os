@@ -2,7 +2,7 @@
   "schema_version": "organs.sources.v0",
   "id": "standard-sources",
   "description": "GitHub-backed organ implementation sources selected for the standard Sword Agent OS distribution. These are checkout source pins, not vendored source files.",
-  "checked_at": "2026-06-09",
+  "checked_at": "2026-06-24",
   "sources": [
     {
       "organ_id": "ai-talk-core",
@@ -39,7 +39,7 @@
       "version_source": "organs/environment/environment-state-server/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/environment-state-server.git",
       "branch": "main",
-      "commit": "14156947eb6e3116a9b4adf273630c28c3c2a8e9",
+      "commit": "19c40f9ecd9c4e38d22b00799937fe739facc351",
       "adoption": "standard_candidate",
       "notes": "Environment snapshot, indicators, health aggregation, and feedback capture."
     },
