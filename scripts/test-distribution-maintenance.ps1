@@ -1725,11 +1725,9 @@ function Test-NativeLaunchLayoutFixtures {
       throw "native launch readiness used wrong workspace root: $($readiness.workspace_root)"
     }
     $readinessIds = @($readiness.checks | ForEach-Object { [string]$_.id })
-    if ("legacy_delegate_layout.sword_control_plane_alias" -in $readinessIds) {
-      throw "native launch readiness should not require sword-control-plane alias"
-    }
-    if ("legacy_delegate_layout.ai_talk_core_voice_alias" -in $readinessIds) {
-      throw "native launch readiness should not require organs/voice/ai-talk-core alias"
+    $compatibilityAliasReadinessIds = @($readinessIds | Where-Object { $_ -match "(^|[._-])(legacy|alias)([._-]|$)" })
+    if ($compatibilityAliasReadinessIds.Count -gt 0) {
+      throw "native launch readiness should not expose compatibility alias checks"
     }
     if (@($readinessIds | Where-Object { $_ -match "avatar" }).Count -gt 0) {
       throw "native launch readiness should not require deferred avatar-service"
