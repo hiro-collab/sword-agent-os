@@ -50,11 +50,10 @@ Do not replace architecture planes with capability packs:
 - proof layers answer "what evidence does this actually prove?".
 
 Starter profiles use `examples/starter-profiles/_template.md` as their standard
-shape. A valid starter profile keeps Goal, Safe Route, Result Fields, Stop
-Conditions, and Does Not Prove separate. It also says explicitly that the
-profile is a journey/guide, not proof, not live authorization, and not
-automatically a new front-door command. This prevents examples from becoming a
-second undocumented product surface.
+shape. A valid starter profile keeps Goal, Safe Route, Report Shape, Stop
+Conditions, and Next Paths separate, while making claim/non-claim boundaries
+explicit. This prevents examples from becoming a second undocumented product
+surface.
 
 ## External Patterns Used
 

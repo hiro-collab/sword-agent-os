@@ -43,15 +43,13 @@ For every command, say whether it is:
 If the route depends on local/private inputs, say how the operator should
 confirm that the selected context is intentional without publishing raw values.
 
-## Result Fields
+## Report Shape
 
-<!-- starter-profile:template-result-fields -->
+<!-- starter-profile:template-report-shape -->
 
-Keep evidence fields separate. Prefer a table with these columns:
-
-| Field | Meaning | Does not prove |
-| --- | --- | --- |
-| `<field>` | `<what was checked>` | `<proof layer not reached>` |
+Keep evidence compact and separated. Name the checked route, result
+classification, claim, and non-claim. Use a table only when prose would be
+less clear.
 
 Do not merge helper reachability, preview, dry-run, command submission,
 HA-visible state, external observation, and physical/device proof into one
@@ -73,27 +71,10 @@ Include relevant stops for:
   private paths to explain;
 - any route that would require preview/dry-run/live work outside this profile.
 
-## Does Not Prove
-
-<!-- starter-profile:template-does-not-prove -->
-
-List the proof claims that this profile does not make.
-
-At minimum, decide whether to exclude:
-
-- provider response quality;
-- Home Assistant preview acceptance;
-- dry-run acceptance;
-- live command submission;
-- post-action HA-visible state;
-- external/user observation;
-- camera/media proof;
-- physical/device proof;
-- release/readiness.
-
-## Optional Next Paths
+## Next Paths
 
 <!-- starter-profile:template-next-paths -->
 
-Link the next docs or profiles without making them implicit continuation routes.
-If the next step is live, say that it needs a separate exact route/ticket.
+Link the next docs or profiles without making them implicit continuation
+routes. If the next step is live, external, device-facing, or proof-upgrading,
+say that it needs a separate exact route/ticket.

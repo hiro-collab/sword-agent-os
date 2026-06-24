@@ -72,7 +72,13 @@ pwsh -NoProfile -File .\scripts\run-self-mirror-proof.ps1 `
 This proves the local Self Mirror measurement method and ROI classification
 only. It does not prove a live browser, real VRM, or real runtime.
 
-Run browser Self Mirror for visible avatar motion:
+Run browser Self Mirror with one scenario/trigger pair:
+
+| Scenario | Trigger | Use when |
+| --- | --- | --- |
+| `dance_visible_motion` | `dance` | broad body/arm motion |
+| `expression_visible_change` | `expression-visible` | face/head visible change |
+| `context_nod` | `context-nod` | nod-style motion |
 
 ```powershell
 pwsh -NoProfile -File .\scripts\run-self-mirror-proof.ps1 `
@@ -82,25 +88,8 @@ pwsh -NoProfile -File .\scripts\run-self-mirror-proof.ps1 `
   -Url "http://127.0.0.1:3000/projection-visual/?mode=passive&visualTest=self-mirror-baseline"
 ```
 
-For face/head expression visibility, use:
-
-```powershell
-pwsh -NoProfile -File .\scripts\run-self-mirror-proof.ps1 `
-  -Mode Browser `
-  -Scenario expression_visible_change `
-  -Trigger expression-visible `
-  -Url "http://127.0.0.1:3000/projection-visual/?mode=passive&visualTest=self-mirror-baseline"
-```
-
-For context nod visibility, use:
-
-```powershell
-pwsh -NoProfile -File .\scripts\run-self-mirror-proof.ps1 `
-  -Mode Browser `
-  -Scenario context_nod `
-  -Trigger context-nod `
-  -Url "http://127.0.0.1:3000/projection-visual/?mode=passive&visualTest=self-mirror-baseline"
-```
+Substitute the scenario and trigger from the table when checking expression or
+context nod visibility.
 
 Self Mirror writes a local result package under `.cache\agent-os\self-mirror\`.
 The reader-safe authority file is `self_mirror_metric_summary.json`; supporting
@@ -114,24 +103,13 @@ System readers such as Thought Core, diagnostics, and review agents should use
 the supported routes, expected scenarios, result authority file, proof ceiling,
 and non-claims.
 
-## Result Fields
+## Report Shape
 
-<!-- starter-profile:projection-visual-result-fields -->
+<!-- starter-profile:projection-visual-report-shape -->
 
-Keep these fields separate in notes and reports:
-
-| Field | Meaning | Does not prove |
-| --- | --- | --- |
-| front-door status | `sword.ps1 status` can inspect the selected workspace | runtime/browser proof, avatar motion |
-| front-door verify | no-live install/readiness checks pass or classify blockers | browser rendering, provider response, physical display |
-| start command preview | launch plan is visible without starting runtime | running stack or visible avatar |
-| runtime start | selected launcher/runtime was intentionally started | browser-visible motion or input/output loop quality |
-| browser route reachability | Projection Visual / AITuber page can be opened | avatar motion, dance, expression correctness |
-| Self Mirror synthetic method | analyzer method and ROI classification work on synthetic frames | real browser, real VRM, live runtime |
-| Self Mirror browser dance | expected avatar body/arm ROIs moved during `dance_visible_motion` | semantic dance quality, rhythm, choreography, physical projector proof |
-| Self Mirror expression | expected face/head ROI changed during `expression_visible_change` | semantic smile/frown/emotion correctness |
-| Self Mirror context nod | expected avatar ROI moved during `context_nod` | natural-language correctness or general gesture proof |
-| raw/private/media boundary | raw frames are cleaned or kept local-only | shareability of screenshots, transcripts, provider payloads |
+Keep notes compact: command preview status, runtime route, scenario/trigger,
+browser route reachability, Self Mirror classification, raw-retention state,
+claim, and non-claim.
 
 ## Stop Conditions
 
@@ -154,31 +132,12 @@ Stop before claiming the next proof layer if:
 - The next step would claim microphone/camera input, provider response quality,
   Home Assistant action, physical projector output, or physical-device proof.
 
-## Does Not Prove
-
-<!-- starter-profile:projection-visual-does-not-prove -->
-
-- voice intent parsing;
-- provider response quality;
-- TTS synthesis or audio playback;
-- real microphone or camera input;
-- Home Assistant preview, dry-run, live execute, or HA-visible CheckState;
-- semantic dance quality, rhythm, or choreography;
-- semantic smile/frown/emotion correctness;
-- TouchDesigner or physical projector output;
-- external/user observation unless separately recorded;
-- physical/device proof;
-- release/readiness.
-
-## Optional Next Paths
+## Next Paths
 
 <!-- starter-profile:projection-visual-next-paths -->
 
-- For the Self Mirror implementation and proof modes, use
-  `runtime/visual-motion-analyzer/README.md`.
-- For route discovery by Thought Core or diagnostics, use
-  `runtime/visual-motion-analyzer/self-mirror-consumer-routes.json`.
-- For voice/avatar no-live setup, use
-  `examples/starter-profiles/voice-avatar/README.md`.
-- For physical projector or TouchDesigner verification, open a separate exact
-  route when that hardware is available.
+Use `runtime/visual-motion-analyzer/README.md` for implementation details,
+`runtime/visual-motion-analyzer/self-mirror-consumer-routes.json` for route
+discovery, and `examples/starter-profiles/voice-avatar/README.md` for no-live
+voice/avatar setup. Physical projector or TouchDesigner checks need a separate
+exact route.

@@ -46,8 +46,8 @@ truth, and local/private config for workspace selection.
 
 Starter profiles are product journeys, not proof claims and not automatic
 front-door commands. Use `examples/starter-profiles/_template.md` when adding
-or materially rewriting a profile. Required sections are Goal, Safe Route,
-Result Fields, Stop Conditions, and Does Not Prove.
+or materially rewriting a profile. Keep Goal, Safe Route, Report Shape, Stop
+Conditions, and Next Paths separate without turning examples into mini-runbooks.
 If a profile says preview, it must distinguish read-only/helper readiness from
 Home Assistant preview endpoint proof.
 
