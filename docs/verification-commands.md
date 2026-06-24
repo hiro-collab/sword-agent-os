@@ -209,12 +209,6 @@ configured `live_test_readiness`, restore/stop classes, safety blockers, and
 proof ceiling for each target row. Do not treat these read-only surface checks
 as physical obstruction, floor/path safety, or physical device success proof.
 
-`scripts\check-rr003-env-state-review-preflight.ps1` also reads the
-Environment State `action_readiness` summary. Use that summary to confirm which
-Home Control rows are `test_now` versus blocked by current configuration,
-restore/stop, safety, or observation gaps. This is a diagnostic/readiness layer;
-it does not execute Home Assistant services or prove physical appliance motion.
-
 ## Optional / Runtime-Browser
 
 Launch Manager, Start Stack, Projection Visual, AITuber Kit browser display,

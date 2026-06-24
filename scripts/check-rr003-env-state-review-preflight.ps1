@@ -318,54 +318,6 @@ function Get-RoomLightSummary {
   }
 }
 
-function Get-ActionReadinessSummary {
-  param([object]$Payload)
-
-  $summary = Get-ObjectProperty -Object $Payload -Name "action_readiness"
-  if ($null -ne $summary) {
-    return [PSCustomObject]@{
-      schema_version = [string](Get-ObjectProperty -Object $summary -Name "schema_version" -Default "home_control_action_readiness.v0")
-      test_now_count = [int](Get-ObjectProperty -Object $summary -Name "test_now_count" -Default 0)
-      blocked_candidate_count = [int](Get-ObjectProperty -Object $summary -Name "blocked_candidate_count" -Default 0)
-      live_test_candidate_ids = @(Get-ObjectProperty -Object $summary -Name "live_test_candidate_ids" -Default @())
-      blocked_live_test_candidate_ids = @(Get-ObjectProperty -Object $summary -Name "blocked_live_test_candidate_ids" -Default @())
-      by_readiness = Get-ObjectProperty -Object $summary -Name "by_readiness" -Default ([PSCustomObject]@{})
-      proof_ceilings = Get-ObjectProperty -Object $summary -Name "proof_ceilings" -Default ([PSCustomObject]@{})
-      source = "environment_current.action_readiness"
-    }
-  }
-
-  $actions = @(Get-ObjectProperty -Object $Payload -Name "actions" -Default @())
-  $testNow = @()
-  $blocked = @()
-  $candidates = @()
-  foreach ($action in $actions) {
-    $actionId = [string](Get-ObjectProperty -Object $action -Name "action_id" -Default "")
-    $readiness = [string](Get-ObjectProperty -Object $action -Name "live_test_readiness" -Default "")
-    $isCandidate = [bool](Get-ObjectProperty -Object $action -Name "live_test_candidate" -Default $false)
-    if ($isCandidate -and -not [string]::IsNullOrWhiteSpace($actionId)) {
-      $candidates += $actionId
-      if ($readiness -eq "test_now") {
-        $testNow += $actionId
-      }
-      else {
-        $blocked += $actionId
-      }
-    }
-  }
-
-  return [PSCustomObject]@{
-    schema_version = "home_control_action_readiness.v0"
-    test_now_count = $testNow.Count
-    blocked_candidate_count = $blocked.Count
-    live_test_candidate_ids = $candidates
-    blocked_live_test_candidate_ids = $blocked
-    by_readiness = [PSCustomObject]@{}
-    proof_ceilings = [PSCustomObject]@{}
-    source = "environment_current.actions_derived"
-  }
-}
-
 function New-EnvironmentSample {
   param(
     [Parameter(Mandatory = $true)][string]$Phase,
@@ -382,7 +334,6 @@ function New-EnvironmentSample {
     $sourceSummaries[$sourceName] = Get-SourceSummary -Sources $sources -SourceName $sourceName
   }
   $roomLight = Get-RoomLightSummary -Payload $payload
-  $actionReadiness = Get-ActionReadinessSummary -Payload $payload
   $sourceMarker = (@($sourceSummaries.Values | ForEach-Object { "{0}:{1}:{2}" -f $_.label, $_.updated_at, $_.age_ms }) -join "|")
   $advanceMarker = "{0}|{1}|{2}|{3}|{4}" -f `
     (Get-ObjectProperty -Object $payload -Name "sequence" -Default ""), `
@@ -402,7 +353,6 @@ function New-EnvironmentSample {
     snapshot_id = [string](Get-ObjectProperty -Object $payload -Name "snapshot_id" -Default "")
     source_freshness = [PSCustomObject]$sourceSummaries
     room_light = $roomLight
-    action_readiness = $actionReadiness
     advance_marker = $advanceMarker
   }
 }
@@ -737,7 +687,6 @@ $sourceFreshness = [PSCustomObject]@{
   home_assistant_events = if ($null -ne $lastSample) { $lastSample.source_freshness.home_assistant_events.label } else { "unavailable" }
 }
 $roomLight = if ($null -ne $lastSample) { $lastSample.room_light } else { $null }
-$actionReadiness = if ($null -ne $lastSample) { $lastSample.action_readiness } else { Get-ActionReadinessSummary -Payload $null }
 $roomLightClaim = Get-RoomLightClaim -RoomLight $roomLight
 $roomLightResponsiveness = Get-RoomLightResponsiveness -Baseline $baseline -Followup $followup -Claim $roomLightClaim
 $hud = Get-HudStatusSummary -Url $DisplayStatusUrl -ExpectedMode $effectiveAdapter
@@ -779,7 +728,6 @@ $result = [PSCustomObject]@{
       home_assistant_token = Get-TokenStatus -Value (Get-FirstEnvValue -Maps @($homeAssistantEnv, $centralEnv) -Name "HOME_ASSISTANT_TOKEN")
     }
     room_light = $roomLight
-    home_control_action_readiness = $actionReadiness
     room_light_delta = $roomLightResponsiveness.delta
     hud = $hud
   }
@@ -813,7 +761,6 @@ else {
   Write-Host ("  home_assistant_events: {0}" -f $result.source_freshness.home_assistant_events)
   Write-Host ("room_light_responsiveness: {0}" -f $result.room_light_responsiveness)
   Write-Host ("room_light_claim: {0}" -f $result.room_light_claim)
-  Write-Host ("home_control_action_readiness: test_now={0}, blocked_candidates={1}" -f $result.details.home_control_action_readiness.test_now_count, $result.details.home_control_action_readiness.blocked_candidate_count)
   Write-Host ("home_action_mode: {0}" -f $result.home_action_mode)
   Write-Host ("hud_mode_visibility: {0}" -f $result.hud_mode_visibility)
   Write-Host ("samples: baseline {0}/{1}, followup {2}/{3}" -f $result.details.baseline_samples_ok, $result.details.baseline_samples_total, $result.details.followup_samples_ok, $result.details.followup_samples_total)
