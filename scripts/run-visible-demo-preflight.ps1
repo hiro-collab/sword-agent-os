@@ -281,16 +281,16 @@ $fallbacks = [ordered]@{
 
 if ($ListRows) {
   $rows += New-PreflightRow -Id "selected_clone" -Status "not_evaluated" -PassClass "selected_clone_current_commit" -HoldClass "blocked_selected_clone_or_commit_unknown" -Detail "git commit must be readable for the selected clone"
-  $rows += New-PreflightRow -Id "launch_readiness" -Status "not_evaluated" -PassClass "blockers_0" -HoldClass "blocked_launch_readiness_has_blockers" -Detail "run check-launch-readiness and pass -LaunchReadinessBlockers 0 when blockers are cleared"
+  $rows += New-PreflightRow -Id "launch_blocker_summary" -Status "not_evaluated" -PassClass "launch_blockers_0" -HoldClass "blocked_launch_has_blockers" -Detail "run check-launch-readiness and pass -LaunchReadinessBlockers 0 when setup blockers are cleared"
   $rows += New-PreflightRow -Id "demo_safe_settings" -Status "not_evaluated" -PassClass "tracked_defaults_all_off" -HoldClass "blocked_demo_safe_defaults_missing_or_enabled" -Detail "tracked defaults are the canonical inventory; all candidates start disabled; local overrides stay gitignored"
   $rows += New-PreflightRow -Id "launcher" -Status "not_evaluated" -PassClass "reachable" -HoldClass "blocked_launcher_unreachable" -Detail "Launch Manager local status endpoint must be reachable"
   $rows += New-PreflightRow -Id "thought_core" -Status "not_evaluated" -PassClass "reachable_no_provider_mode" -HoldClass "blocked_thought_core_runtime_unreachable" -Detail "Thought Core health must be reachable without provider calls"
   $rows += New-PreflightRow -Id "aituber_projection_visual" -Status "not_evaluated" -PassClass "reachable" -HoldClass "blocked_aituber_projection_visual_unreachable" -Detail "AITuber/Projection Visual local surface must be reachable"
-  $rows += New-PreflightRow -Id "projection_foreground" -Status "not_evaluated" -PassClass "avatar_surface_foregrounded_or_operator_confirmed" -HoldClass $fallbacks.projection_foreground -Detail "operator or browser control must confirm the avatar surface is in front"
+  $rows += New-PreflightRow -Id "projection_foreground" -Status "not_evaluated" -PassClass "projection_visual_surface_foreground_confirmed" -HoldClass $fallbacks.projection_foreground -Detail "operator or browser control must confirm the Projection Visual surface is in front"
   $rows += New-PreflightRow -Id "chrome_window_hygiene" -Status "not_evaluated" -PassClass "route_owned_surface_targeted_without_unrelated_window_changes" -HoldClass $fallbacks.chrome_window_hygiene -Detail "do not close or retarget unrelated user Chrome windows"
-  $rows += New-PreflightRow -Id "voicevox_endpoint" -Status "not_evaluated" -PassClass "reachable" -HoldClass "blocked_voicevox_endpoint_unreachable" -Detail "VOICEVOX endpoint readiness is service readiness only"
+  $rows += New-PreflightRow -Id "voicevox_endpoint" -Status "not_evaluated" -PassClass "endpoint_reachable_only" -HoldClass "blocked_voicevox_endpoint_unreachable" -Detail "VOICEVOX endpoint readiness is service readiness only"
   $rows += New-PreflightRow -Id "audio_awareness_source_static" -Status "not_evaluated" -PassClass "source_static_ready" -HoldClass $fallbacks.audio_awareness_source_static -Detail "source/static no-live readiness only; does not capture PC output, microphone, browser audio, provider STT/TTS, or Home Assistant state"
-  $rows += New-PreflightRow -Id "local_audio_playback" -Status "not_evaluated" -PassClass "playback_call_completed_or_user_observed_audio" -HoldClass $fallbacks.local_tts_playback -Detail "audio claim needs local playback completion or user observation"
+  $rows += New-PreflightRow -Id "local_audio_playback" -Status "not_evaluated" -PassClass "explicit_audio_observation_confirmed" -HoldClass $fallbacks.local_tts_playback -Detail "audible audio claim needs explicit local playback status or user observation"
   $rows += New-PreflightRow -Id "browser_response_binding" -Status "not_evaluated" -PassClass "message_receiver_client_binding_consuming" -HoldClass $fallbacks.browser_response_binding -Detail "browser-visible response needs a consuming message receiver/client binding"
   $rows += New-PreflightRow -Id "ac_control_surface" -Status "not_evaluated" -PassClass "visible_current_state_and_restore_target_readable" -HoldClass $fallbacks.ac_control_surface -Detail "Chrome/Home Assistant AC fallback needs visible current state and restore/off target"
   $rows += New-PreflightRow -Id "service_down_relevance" -Status "not_evaluated" -PassClass "down_services_classified_route_blocking_or_nonblocking" -HoldClass "blocked_service_down_relevance_unknown" -Detail "down services must be classified as route-blocking, non-blocking, or out of scope"
@@ -313,10 +313,10 @@ else {
     "blockers={0}" -f $LaunchReadinessBlockers
   }
   $rows += New-PreflightRow `
-    -Id "launch_readiness" `
+    -Id "launch_blocker_summary" `
     -Status $launchReadinessStatus `
-    -PassClass "blockers_0" `
-    -HoldClass "blocked_launch_readiness_has_blockers" `
+    -PassClass "launch_blockers_0" `
+    -HoldClass "blocked_launch_has_blockers" `
     -Detail $launchReadinessDetail
 
   $demoSafeDefaults = Get-DemoSafeDefaultsClass
@@ -356,7 +356,7 @@ else {
   $rows += New-PreflightRow `
     -Id "projection_foreground" `
     -Status $(if ($OperatorConfirmedAvatarForeground) { "pass" } else { "hold" }) `
-    -PassClass "avatar_surface_foregrounded_or_operator_confirmed" `
+    -PassClass "projection_visual_surface_foreground_confirmed" `
     -HoldClass $fallbacks.projection_foreground `
     -Detail "requires operator or browser-control confirmation; this script does not open or retarget Chrome"
 
@@ -386,9 +386,9 @@ else {
   $rows += New-PreflightRow `
     -Id "local_audio_playback" `
     -Status $(if ($OperatorConfirmedAudioHeard) { "pass" } else { "hold" }) `
-    -PassClass "playback_call_completed_or_user_observed_audio" `
+    -PassClass "explicit_audio_observation_confirmed" `
     -HoldClass $fallbacks.local_tts_playback `
-    -Detail "VOICEVOX endpoint readiness is not an audible playback claim"
+    -Detail "VOICEVOX endpoint readiness is not an audible playback claim; pass only when explicit audio observation is supplied"
 
   $aituberEnvPath = Join-Path $RepoRoot "organs\expression\aituber-kit\.env"
   $receiverClass = Get-BooleanEnvClass -Value (Read-DotEnvValue -Path $aituberEnvPath -Name "NEXT_PUBLIC_MESSAGE_RECEIVER_ENABLED")
@@ -433,7 +433,7 @@ $infos = @($rows | Where-Object { $_.status -eq "info" -or $_.status -eq "not_ev
 
 $result = [PSCustomObject]@{
   route_id = "DEMO-REPEATABILITY-FRESH-CLONE-CODEX-CLAUDE-READY-01"
-  entrypoint_class = "bounded_visible_demo_preflight"
+  entrypoint_class = "bounded_user_visible_route_preflight"
   default_safety = [PSCustomObject]@{
     provider_network_stt_tts = $false
     live_microphone_or_camera_capture = $false
@@ -453,7 +453,7 @@ $result = [PSCustomObject]@{
   rows = @($rows)
   fallback_strings = $fallbacks
   proof_layer_notes = [PSCustomObject]@{
-    local_playback = "local playback route evidence only"
+    local_playback = "explicit local playback or user-observation layer only"
     audio_awareness_source_static = "contract and no-live source/static readiness only"
     user_observed_audio = "observation layer; keep separate from browser TTS summary"
     browser_tts_or_speech_summary = "claim only when the browser surface consumes and reports it"
@@ -480,7 +480,7 @@ $result = [PSCustomObject]@{
     "no raw audio or transcript publication",
     "no Home Control /actions catalog success",
     "no physical/device proof",
-    "no release/readiness/final RR003 pass"
+    "no release/final RR003 pass or route-ready claim"
   )
 }
 
@@ -489,7 +489,7 @@ if ($Json) {
   return
 }
 
-Write-Host "Visible demo preflight"
+Write-Host "User-visible route preflight"
 Write-Host ("status={0}" -f $result.status)
 Write-Host ("rows={0} pass={1} hold={2}" -f $result.counts.rows, $result.counts.pass, $result.counts.hold)
 foreach ($row in $rows) {
