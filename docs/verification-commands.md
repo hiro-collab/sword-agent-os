@@ -196,45 +196,12 @@ and physical proof remain separate rows. If the required microphone, camera,
 `gesture_model.pkl`, Home Assistant config, device, or observation source is
 missing, keep that row `held` instead of weakening the test.
 
-## Optional / Home Control Physical Light Proof
+## Optional / Home Control Live Proof
 
-Use this helper when the review needs a bounded SwitchBot remote-style light
-operation plus no-save camera brightness summary. It is narrower than the full
-install helper: it only targets the light off/on/off restore route and reports
-redacted aggregate metrics.
-
-Preview the route first:
-
-```powershell
-pwsh -NoProfile -File .\scripts\run-home-control-light-proof.ps1 -DryRun
-```
-
-Run the live ticket only after the operator has opened the physical-light
-scope. The helper starts a temporary Home Control bridge unless
-`-UseExistingBridge` is supplied. It performs preview and dry-run for each
-action, then uses a fresh preview token for live execute.
-
-```powershell
-pwsh -NoProfile -File .\scripts\run-home-control-light-proof.ps1 -ConfirmLiveLightTicket -OffActionId light_off -OnActionId light_on -Json
-```
-
-Report its rows separately:
-
-```text
-command_submission=<pass|blocked|preview-only>
-physical_brightness_observation=<pass|inverted|not-reproduced>
-restore_observed=<pass|not-reproduced>
-raw_media_saved=false
-raw_media_shared=false
-raw_secret_shared=false
-entity_id_shared=false
-```
-
-If brightness moves in the opposite direction, keep the result as `inverted`;
-that is evidence of an action mapping or observation-route mismatch, not proof
-that the requested `on` state was reached. If brightness does not move enough,
-keep it as `not-reproduced` and check camera ownership, ambient daylight,
-camera auto-exposure, target light mapping, and observation timing.
+Do not keep live or physical proof recipes in this general command reference.
+Use `docs/live-home-control-proof.md` for the ticketed ladder, and keep command
+submission, HA-visible state, external observation, and physical proof as
+separate rows.
 
 ## Optional / SwitchBot Surface Read-Only Inspection
 

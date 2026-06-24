@@ -309,134 +309,27 @@ If `gesture_model.pkl`, VRM, Home Assistant, camera, microphone, or VOICEVOX is
 not available yet, keep those as held lanes instead of treating no-live setup as
 failed.
 
-## Runtime / Browser Setup
+## Runtime And Optional Lanes
 
-After no-live readiness, the standard reference path is to start the launcher:
+This map names the lane owners; it is not a runbook for every lane.
 
-```powershell
-.\start-home-control-launcher.bat
-```
+| Lane | Canonical surface |
+| --- | --- |
+| launcher / runtime browser | `docs/operate.md` |
+| Projection Visual / Self Mirror | `examples/starter-profiles/projection-visual/README.md` |
+| local media replay | `docs/verification-commands.md` |
+| camera / gesture | `docs/proof-layers.md` and the relevant organ README |
+| speech / STT / TTS | `examples/starter-profiles/voice-avatar/README.md` |
+| Home Assistant setup | `docs/home-assistant-setup.md` |
+| Home Assistant live proof | `docs/live-home-control-proof.md` |
 
-Then use Launch Manager to wait for expected services and open Projection Visual
-or AITuber UI. This Launcher is a reference ignition/control surface, not the
-required shape of the runtime itself. Product integrations may replace it with
-their own launch system as long as they preserve the selected service surfaces,
-readiness checks, demo-safe/action-boundary settings, and cleanup/rerunability
-contracts.
+For live Home Assistant, `HOME_CONTROL_CONFIG` must point to a private full-schema
+config or reviewed clone-local equivalent, not a public demo/default/template.
 
-For browser-visible avatar motion, use the Projection Visual starter profile:
-`examples/starter-profiles/projection-visual/README.md`. It connects the normal
-runtime/browser route to Self Mirror scenarios such as `context_nod`,
-`expression_visible_change`, and `dance_visible_motion`. The system-readable
-route map for Thought Core and diagnostics is
-`runtime/visual-motion-analyzer/self-mirror-consumer-routes.json`.
-
-Runtime/browser proof should report:
-
-- which profile was used;
-- whether the launcher belongs to the current workspace;
-- which services reached ready/degraded/blocked;
-- whether UI routes opened;
-- what was not tested.
-
-Do not include private absolute paths, secret values, raw screenshots with
-private data, raw logs, or provider payloads in public reports.
-
-## Local Media Replay
-
-Local media replay is for repeatable checks from local-only media assets.
-
-It may help test camera-hub or room-light lanes without using a live camera in
-the moment. It is not a substitute for general real-world robustness.
-
-Public-safe report shape:
-
-```text
-asset id:
-mode:
-status:
-redacted summary:
-known gaps:
-```
-
-Do not publish raw videos, raw audio, frames, transcripts, or private local paths.
-
-## Camera / Gesture Lane
-
-Camera and gesture checks require a camera source and, for classification,
-`gesture_model.pkl`.
-
-If the model is missing:
-
-- install and no-live setup may still proceed;
-- camera/gesture readiness can remain held;
-- do not claim gesture-positive detection.
-
-If the model is present:
-
-- keep the model local-only;
-- confirm readiness before claiming gesture proof;
-- separate camera service readiness from gesture-positive detection;
-- separate gesture-positive detection from gesture-to-voice gate transition.
-
-## Speech / STT Lane
-
-Speech input may use real microphone input or a controlled virtual-audio path.
-
-Keep these separate:
-
-- microphone device availability;
-- STT service readiness;
-- transcript generation;
-- handoff into Thought Core;
-- gesture-to-voice gate transition;
-- voice output / TTS.
-
-Do not publish raw audio or raw transcripts unless explicitly cleared.
-
-## Home Assistant Dry-Run And Live Pilot Lane
-
-Home Assistant live work must be bounded.
-First-time external Home Assistant setup starts at `docs/home-assistant-setup.md`.
-Do not treat this map, README examples, or a rendered demo/default/template
-config as the live proof authority.
-
-Before live execute, require:
-
-- Home Assistant host is powered on and reachable;
-- selected `HOME_CONTROL_CONFIG` is an ignored private full-schema config or a
-  reviewed clone-local equivalent, not a public demo/default/template or
-  short/minimal action-only override;
-- allowed action id;
-- restore action id when restoration is part of the pilot;
-- expected states;
-- current and restore-side states are readable, not `unavailable`;
-- preview pass;
-- dry-run pass;
-- maximum action count;
-- stop conditions;
-- state check after execute;
-- cleanup / restore check.
-
-Default safe order:
-
-```text
-config/readiness
--> action catalog
--> preview
--> dry-run
--> execute exactly the ticketed action
--> state check
--> restore if scoped
--> final state check
-```
-
-Do not use a successful one-light on/off pilot to claim broad appliance coverage,
-locks/heaters/curtains safety, fuzz/stress coverage, or long-run reliability.
-
-If the Home Assistant host is off, unreachable, or returns `unavailable` for the
-expected restore-side state, hold the live pilot. That is an environment
-precondition failure for the run, not a reason to execute anyway.
+Keep runtime reachability, local media replay, real camera, speech/STT,
+Home Assistant dry-run, Home Assistant live execution, external observation, and
+physical proof as separate results. Do not publish raw media, raw transcripts,
+private paths, tokens, provider payloads, or Home Assistant payloads.
 
 ## Developer / Codex Workspace Boundary
 

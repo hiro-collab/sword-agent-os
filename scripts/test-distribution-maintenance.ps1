@@ -524,7 +524,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "health_config_error" -Message "front-door docs should define live Home Control health config-error behavior"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "actions_unavailable" -Message "front-door docs should define live Home Control action-unavailable safe stop behavior"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "preview\s*/\s*dry-run\s*/\s*execute|preview, dry-run, execute" -Message "front-door docs should require preview before live execute"
-  Assert-TextMatch -Text $frontDoorSurface -Pattern "live pilot|live 確認.*ladder|OpenAPI" -Message "front-door docs should provide a live pilot command ladder without requiring OpenAPI discovery"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Use this ladder|live ticket|Live Home Control proof" -Message "front-door docs should provide a canonical live proof ladder without requiring OpenAPI discovery"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "-Force[\s\S]{0,260}home-control\.yaml|home-control\.yaml[\s\S]{0,260}-Force" -Message "front-door docs should warn that render-env-files -Force regenerates home-control.yaml"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "/actions/<allowed-action-id>/preview" -Message "front-door docs should show a concrete preview route shape"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "dry-run execute only when the route shape explicitly includes it" -Message "front-door docs should constrain dry-run execute behavior"
@@ -587,7 +587,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "forced render[\s\S]{0,180}restart|restart[\s\S]{0,180}env/config" -Message "front-door docs should explain restart after forced env/config render"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "run-full-install-verification\.ps1" -Message "front-door docs should document the full install verification helper"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "run-home-control-light-proof\.ps1" -Message "front-door docs should document the physical light proof helper"
-  Assert-TextMatch -Text $verificationSurface -Pattern "run-home-control-light-proof\.ps1" -Message "public verification docs should document the physical light proof helper"
+  Assert-TextMatch -Text $verificationSurface -Pattern "docs/live-home-control-proof\.md" -Message "public verification docs should point live proof recipes to the canonical Home Control proof doc"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern "run-home-control-light-proof\.ps1" -Message "troubleshooting should point light physical proof to the bounded helper"
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\run-home-control-light-proof.ps1")
   Assert-TextMatch -Text $verificationSurface -Pattern "inspect-home-control-switchbot-surfaces\.ps1" -Message "public verification docs should document the SwitchBot read-only surface helper"
