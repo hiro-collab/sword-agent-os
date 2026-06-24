@@ -34,19 +34,10 @@ local machine paths in tracked files.
 ## Home Assistant Config Rule
 
 For first-time setup in an external Home Assistant environment, start with
-`docs/home-assistant-setup.md`. For Home Assistant state proof, use a
-full-schema private/live config or a reviewed clone-local equivalent. A short
-action-only override can be useful for command shape or command-ack checks, but
-it is not enough for HA-visible CheckState proof.
-
-The action row needs the command binding and the verification metadata together:
-script/action binding, expected-effect target, verification mode, accepted
-post-action states, proof ceiling, settle/timeout, restore or stop metadata,
-and safety blockers. Keep `CheckTracking` and `CheckState` separate:
-
-- `CheckTracking` says whether an action row is tracked and testable.
-- `CheckState` reads the current or post-action state and can only prove the
-  layer named by the route.
+`docs/home-assistant-setup.md`. For action row fields, use
+`docs/add-home-device.md` and `docs/home-control-action-authoring.md`. Keep
+short command-shape overrides separate from full-schema Home Assistant state
+proof, and keep `CheckTracking` / `CheckState` wording in those canonical docs.
 
 ## Change Flow
 

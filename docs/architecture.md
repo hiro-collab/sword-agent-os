@@ -154,30 +154,6 @@ Treat these as active review smells:
 - Legacy/fallback paths are left unnamed instead of classified as active,
   compatibility, or delete-candidate.
 
-## Next Patch Policy
-
-The next broad cleanup patches should still be coherent, not many tiny serial
-diagnostics. Revised priority after comparing AITuber OnAir:
-
-| Priority | Patch shape | Why |
-| --- | --- | --- |
-| P0 | Create and maintain `docs/capability-packs.md` | Gives users/developers a feature-based map, not only internal repo planes |
-| P0 | Add "choose your path" wording around starter profiles without adding new commands yet | Makes the front door closer to hosted/starter/example/package style entry points while keeping safety |
-| P1 | Maintain `docs/add-home-device.md` for the Home Control Pack | Turns full-schema action authoring into a beginner-facing how-to without duplicating the reference |
-| P1 | Keep a reader/enforcement check for `HOLD_LIVE` at one live-route entry layer | Moves runtime control from marker-only toward actual route protection |
-| P1 | Maintain the first no-live starter-profile example | Gives fresh developers a small entry point before the full standard distribution |
-| P2 | Maintain one agent skill, `repair-no-live-readiness` | Reduces repeated prompts without creating a broad Codex worker too early |
-| P2 | Use the ADR/decision-log convention under `governance/architecture-decisions/` | Keeps durable architecture decisions out of transient coordination messages |
-| P2 | Classify one legacy/fallback area as active / compatibility / delete-candidate | Reduces hidden legacy without a risky rewrite |
-
-Bad patch shapes:
-
-- Add many `sword.ps1` commands at once.
-- Rewrite every doc because one route failed.
-- Merge proof layers to make the story simpler.
-- Put private Home Assistant IDs, tickets, or raw validation logs into examples.
-- Let coordination-only discoveries become hidden requirements for fresh users.
-
 ## Review Thread Use
 
 <!-- architecture:review-thread-use -->
