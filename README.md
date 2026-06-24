@@ -12,20 +12,15 @@ Sword Agent OS は、ローカルPCを中心にした「声、身振り、思考
 PC上の control-plane と複数の organ を組み合わせて、人間の入力、エージェントの
 判断、アバターやHUDへの表示、Home Assistant 連携、確認レポートを安全に分けて扱います。
 
-```mermaid
-flowchart LR
-  Human["User / operator"] --> Inputs["Voice / gesture / UI"]
-  Inputs --> Thought["Thought Core / control-plane"]
-  Env["Camera / environment state"] --> Thought
-  Thought --> Expression["Avatar / Projection Visual / TTS"]
-  Thought --> Home["Home Control / Home Assistant"]
-  Home --> Proof["Proof layers / state checks"]
-  Expression --> Human
-  Proof --> Human
-```
+![Projection Visual のアバター表示、状態HUD、会話バブル、入力欄](docs/assets/readme/projection-visual-example-1.png)
 
-ひとことで言うと、「PC上のエージェントが、見聞きした状態と人間の指示をもとに、
-画面やアバターで返し、必要な時だけ境界付きで家電操作まで進む」ための土台です。
+上の画面が、人に見える代表的な姿です。中央のアバター、左右の状態HUD、
+会話バブル、下部の入力欄を同じ Projection Visual 上で扱います。
+
+内側では、人間の声、身振り、UI入力を Thought Core / control-plane が受け、
+Expression organ がアバター、Projection Visual、TTSに返します。環境状態や
+Home Control / Home Assistant 連携は別の境界として扱い、確認レポートや
+proof layer は「何を確認したか」を分けて残します。
 
 初めて使う人は、まず
 `docs/first-run-operator-guide.md` を読んでください。必要なもの、Git clone、
