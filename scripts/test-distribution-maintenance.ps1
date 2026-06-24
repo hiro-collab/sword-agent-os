@@ -516,7 +516,6 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "_secret_inputs.*product convention|製品として特定のフォルダ名を要求しません" -Message "front-door docs should not make _secret_inputs look like a required product convention"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "First Success" -Message "front-door docs should include the first-success path"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "render-env-files\.ps1 -Profile standard -Force" -Message "front-door docs should show central env re-render after editing local env"
-  Assert-TextMatch -Text $frontDoorSurface -Pattern "MediapipeVideoSource testsrc" -Message "front-door docs should show device-free/no-camera compat smoke with testsrc"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "runtime/browser|実マイク|実カメラ|live Home Assistant|物理家電" -Message "front-door docs should separate no-live install/readiness from runtime/browser/live proof"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Representative Standard Loop|標準構成.*流れ" -Message "front-door docs should explain the standard distribution flow"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Sword sign|gesture-to-voice gate" -Message "front-door docs should explain the sword-sign input gate"
@@ -964,10 +963,6 @@ function Test-RouteAParentNoLiveUxStatic {
   Assert-TextMatch -Text $mediaPrep -Pattern "consumer_readiness_map" -Message "local media preparation should expose consumer readiness mapping"
   Assert-TextMatch -Text $mediaPrep -Pattern "intentionally_not_copied" -Message "local media preparation should list data it does not copy"
   Assert-TextMatch -Text $mediaPrep -Pattern "run-full-install-verification\.ps1" -Message "local media readiness map should point to full verification consumer"
-
-  $compatSmoke = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-compat-smoke.ps1")
-  Assert-TextMatch -Text $compatSmoke -Pattern "start_exit_code_class" -Message "compat smoke should classify start exit code mixed signals"
-  Assert-TextMatch -Text $compatSmoke -Pattern "nonzero_after_route_success_explained" -Message "compat smoke should explain route-success/nonzero-exit mixed signals"
 
   Write-Host "Route A parent no-live UX static ok"
 }
@@ -1814,39 +1809,6 @@ function Test-NativeLaunchLayoutFixtures {
     Assert-TextMatch -Text ([string]$missingGestureCheck[0].detail) -Pattern "model_not_found|Camera Hub topics timeout" -Message "missing gesture model detail should explain the startup symptom"
     Assert-TextMatch -Text ([string]$missingGestureCheck[0].detail) -Pattern "already have|do not have" -Message "missing gesture model detail should explain both prepared-model and no-model first-run paths"
     Set-Content -LiteralPath $gestureModelPath -Value "fixture" -Encoding utf8
-
-    $launchOutput = Invoke-Checked -Command @(
-      $PowerShellCommand,
-      "-NoProfile",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      (Join-Path $RepoRoot "control-plane\sword-voice-agent\ops\scripts\system.ps1"),
-      "-WorkspaceRoot",
-      $workspace,
-      "start",
-      "-Profile",
-      "thought-core-v0",
-      "-ThoughtCorePort",
-      "39787",
-      "-StackStateDir",
-      (Join-Path $workspace ".cache\home-control-stack"),
-      "-SkipVoicevoxCheck",
-      "-MediapipeNoBrowser",
-      "-DryRun"
-    )
-    $launchText = $launchOutput -join "`n"
-    Assert-TextMatch -Text $launchText -Pattern "control-plane\\sword-voice-agent\\scripts\\start-thought-core\.ps1" -Message "dry-run did not use native Thought Core script path"
-    Assert-TextMatch -Text $launchText -Pattern "organs\\speech-input\\ai-talk-core" -Message "dry-run did not use native AI Talk Core path"
-    if ($launchText -match "directory not found") {
-      throw "native launch dry-run reported missing directory: $launchText"
-    }
-    if ($launchText -match "sword-control-plane\\scripts") {
-      throw "native launch dry-run still used legacy sword-control-plane scripts"
-    }
-    if ($launchText -match "organs\\voice\\ai-talk-core") {
-      throw "native launch dry-run still used legacy AI Talk Core voice alias"
-    }
 
     $partialAiTalkWorkspace = Join-Path $root "partial-ai-talk"
     New-NativeLaunchWorkspaceFixture -Root $partialAiTalkWorkspace

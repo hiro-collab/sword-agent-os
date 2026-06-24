@@ -11,8 +11,7 @@ does not define service contracts or decide whether an operation is allowed.
 - Support start, stop, status, dry-run, and manifest-only checks.
 - Feed current process projections into status-store.
 - Append lifecycle events to event-journal after redaction.
-- Preserve compatibility with old `.cache/home-control-stack/pids.json` during
-  migration.
+- Read the selected stack PID registry when present.
 
 ## Boundaries
 
@@ -21,49 +20,26 @@ does not define service contracts or decide whether an operation is allowed.
 - Durable memory and forgetting live in memory-core.
 - Local secrets are injected by ops or adapters and must not be written here.
 
-## Initial Compatibility Targets
+## Current Status Probe
 
-The first compatibility profile is `thought-core-v0-compat`. Its process set is
-defined in:
+The selected process set is defined in:
 
 ```text
 manifests/services/thought-core-v0-compat.json
 ```
 
-For a non-starting status probe, use:
+For a non-starting status probe, use the front door or the profile health
+helper:
 
 ```powershell
-.\scripts\system.ps1 status -Profile thought-core-v0 -ManifestOnly
-.\scripts\system.ps1 status -Profile thought-core-v0
+.\sword.ps1 status
+.\scripts\check-profile-health.ps1 -ManifestOnly
 ```
 
-For start/stop compatibility planning, use:
-
-```powershell
-.\scripts\system.ps1 start -Profile thought-core-v0 -DryRun
-.\scripts\system.ps1 stop -Profile thought-core-v0 -DryRun -Force
-```
-
-Launch GUI surfaces should call the Agent OS facade first, not the legacy
-control-plane script directly. `manifest_default` is the compatibility contract;
-`isolated_override` is an explicit local-conflict or side-by-side validation
-mode. When `system.ps1` is called with `-PortMode isolated_override`, it maps
-the service-manifest port mode into the legacy delegate's concrete port
-arguments.
-
-```powershell
-.\scripts\system.ps1 start -Profile thought-core-v0 -PortMode manifest_default -DryRun
-.\scripts\system.ps1 start -Profile thought-core-v0 -PortMode isolated_override -DryRun
-.\scripts\system.ps1 status -Profile thought-core-v0 -PortMode isolated_override
-```
-
-`system.ps1 status` labels WebSocket services as process-registry evidence
-without a routine WebSocket probe. Strict WebSocket capability truth belongs to
+Profile health labels WebSocket services as process-registry evidence without a
+routine WebSocket probe. Strict WebSocket capability truth belongs to
 diagnostics/status-store or an explicit deep check, while routine diagnostics
 can use process evidence to avoid making monitor UIs look unstable.
-
-Actual start/stop execution is still delegated to the bootstrapped legacy
-control-plane checkout and requires `-LegacyDelegate`.
 
 Before real launch attempts, run:
 
@@ -72,4 +48,4 @@ Before real launch attempts, run:
 ```
 
 This reports missing local-only inputs such as secrets, Home Assistant config,
-VRM assets, tool availability, and legacy delegate layout assumptions.
+VRM assets, tool availability, and native delegate layout assumptions.

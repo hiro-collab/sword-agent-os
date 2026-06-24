@@ -161,7 +161,6 @@ APIキーや Home Assistant のトークンを入れる前でも、基本チェ�
 .\sword.ps1 status
 .\sword.ps1 verify
 .\sword.ps1 start
-.\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc
 ```
 
 `.\sword.ps1 start` は、何を起動する予定かを見る確認です。実際に起動するには、

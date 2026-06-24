@@ -86,7 +86,7 @@ Shared runners live under `scripts/`. Do not move them into
 | `scripts/prepare-local-media-index.ps1` | Prepare local media index inputs without committing raw media. |
 
 Scoped helpers such as local-media, Home Control, Self Mirror, Environment
-State, screenshot/UI, compatibility smoke, doctor/troubleshooting, and
+State, screenshot/UI, doctor/troubleshooting, and
 organ-contract/status scripts may also live under `scripts/`, but they should
 not be presented as the main fresh-install or service-mode entrypoint unless a
 specific review route says so.

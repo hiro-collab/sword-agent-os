@@ -309,17 +309,9 @@ if ($RunNoLiveSmoke) {
     -ScriptName "run-organ-test-packs.ps1" `
     -PassDetail "organ test packs completed" `
     -FailureDetail "organ test packs failed" | Out-Null
-  Add-CommandLayer `
-    -Id "FIV-02e" `
-    -Name "No-camera compatibility smoke" `
-    -ProofLayer "no-live/compat-smoke" `
-    -ScriptName "run-compat-smoke.ps1" `
-    -Arguments @("-UseIsolatedPorts", "-MediapipeVideoSource", "testsrc", "-RunManualTurn", "-RunSafeIntegrationProbes") `
-    -PassDetail "no-camera compatibility smoke completed" `
-    -FailureDetail "no-camera compatibility smoke failed" | Out-Null
 }
 else {
-  Add-HeldLayer -Id "FIV-02c" -Name "No-live readiness / compatibility smoke" -ProofLayer "no-live" -Detail "held by default; run with -RunNoLiveSmoke to execute check-launch-readiness, organ test packs, and no-camera compat smoke"
+  Add-HeldLayer -Id "FIV-02c" -Name "No-live readiness" -ProofLayer "no-live" -Detail "held by default; run with -RunNoLiveSmoke to execute check-launch-readiness and organ test packs"
 }
 
 if ($RunRuntimeHttpChecks) {

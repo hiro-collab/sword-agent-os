@@ -65,8 +65,7 @@ Launcher route and ports without starting launcher-owned children.
 
 Use `-Run` only when runtime execution is in scope. The normal reference path
 starts or reuses the Launcher and reports readiness/status; it does not run a demo,
-submit Home Assistant/Home Control actions, or claim proof. Use
-`-CompatLegacyDelegate` only for an explicit legacy-stack compatibility route.
+submit Home Assistant/Home Control actions, or claim proof.
 Record this as runtime/status proof until browser, input/output, Home
 Assistant, or physical observation checks are separately performed.
 
@@ -130,8 +129,7 @@ touching runtime children.
 ```
 
 Use this only for launcher-owned runtime children in the selected profile. Use
-`-Force` only when the current route explicitly allows forceful cleanup. Add
-`-CompatLegacyDelegate` only when the route explicitly targets the legacy stack.
+`-Force` only when the current route explicitly allows forceful cleanup.
 
 ## live 家電操作を止めておく
 

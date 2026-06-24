@@ -83,7 +83,6 @@ Current source anchors:
 - `scripts/install-distribution.ps1`
 - `scripts/check-launch-readiness.ps1`
 - `scripts/run-organ-test-packs.ps1`
-- `scripts/run-compat-smoke.ps1`
 
 ## First Success vs Representative Standard Loop
 
@@ -99,7 +98,6 @@ fresh clone
 -> central env render
 -> launch readiness check
 -> organ test packs
--> no-live / no-camera compatibility smoke
 ```
 
 代表的なコマンド:
@@ -133,7 +131,6 @@ pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile standard
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1
 pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1
-pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes
 ```
 
 First Success だけでは、次は証明されません。
@@ -279,7 +276,7 @@ Keep proof labels separate.
 | --- | --- | --- | --- |
 | source/static | manifest validation, docs/scripts inspection | files are present and internally consistent | runtime behavior |
 | install/readiness | install, env render, readiness | standard setup can prepare the repo | live runtime behavior |
-| no-live/mock | organ tests and compat smoke with mock/safe probes | safe service compatibility | real camera/mic/live device behavior |
+| no-live/mock | organ tests and readiness probes | safe service shape | real camera/mic/live device behavior |
 | runtime/browser | launcher and UI reachability | local runtime can open and respond | physical device action unless separately checked |
 | local media replay | replay from local media index | repeatable media-lane behavior on supplied assets | general real-world robustness |
 | real camera | camera service / gesture observation | camera path works in current environment | voice or action behavior |
@@ -302,7 +299,6 @@ notepad local\env\sword-agent-os.env
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1
 pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1
-pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes
 ```
 
 If `gesture_model.pkl`, VRM, Home Assistant, camera, microphone, or VOICEVOX is

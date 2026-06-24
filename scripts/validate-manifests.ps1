@@ -726,7 +726,6 @@ $aituberInventoryPath = [string](Get-OptionalProperty -Object $aituberSource -Na
 Assert-True (Test-SafeManifestPath -Path $aituberInventoryPath) "AITuberKit adapter_inventory_path is unsafe"
 Assert-True (Test-Path -LiteralPath (Resolve-ManifestPath $aituberInventoryPath) -PathType Leaf) "AITuberKit adapter inventory file missing"
 
-Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/system.ps1") -PathType Leaf) "runtime system facade missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-runtime-reflex.ps1") -PathType Leaf) "runtime reflex checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-conscious-readiness.ps1") -PathType Leaf) "conscious readiness checker missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-organ-readiness.ps1") -PathType Leaf) "organ readiness checker missing"
@@ -735,7 +734,6 @@ Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/check-audio-aw
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/start-launcher.ps1") -PathType Leaf) "launcher start wrapper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/stop-launcher.ps1") -PathType Leaf) "launcher stop wrapper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/prepare-aituberkit-sword-adapter.ps1") -PathType Leaf) "AITuberKit adapter preparation script missing"
-Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-compat-smoke.ps1") -PathType Leaf) "compat launch smoke script missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/run-full-install-verification.ps1") -PathType Leaf) "full install verification helper missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/update-diagnostics-status.ps1") -PathType Leaf) "diagnostics status writer missing"
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot "scripts/read-diagnostics-status.ps1") -PathType Leaf) "diagnostics status reader missing"

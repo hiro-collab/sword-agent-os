@@ -59,7 +59,7 @@ Home Assistant、実家電操作は勝手に動きません。
 `.\sword.ps1 start -Run` は通常、標準サンプル Launcher を起動または再利用して
 readiness/status を確認するだけです。Launcher は本体 runtime stack の必須条件では
 なく、各ユーザーの環境では別の launch system から同じ runtime surfaces を起動しても
-構いません。旧スタック委譲が必要な互換確認では `-CompatLegacyDelegate` を明示してください。
+構いません。
 
 Launcher の `Demo settings` と demo-safe 候補の扱いは
 `docs/operate.md` を見てください。Start は家電操作や proof を実行しません。
@@ -76,7 +76,6 @@ Proof は別の明示ルートで扱います。
 .\scripts\check-distribution-pins.ps1 -Strict
 .\scripts\check-launch-readiness.ps1
 .\scripts\run-organ-test-packs.ps1
-.\scripts\run-compat-smoke.ps1
 ```
 
 各コマンドが何を確認するかは `docs/verification-commands.md` を見てください。

@@ -17,26 +17,12 @@ readiness. These commands are not a substitute for live review.
 ```powershell
 pwsh -NoProfile -File .\scripts\doctor-distribution.ps1 -Profile standard
 pwsh -NoProfile -File .\scripts\check-distribution-pins.ps1 -Profile standard
-pwsh -NoProfile -File .\scripts\system.ps1 status -Profile thought-core-v0 -ManifestOnly
 pwsh -NoProfile -File .\scripts\check-runtime-reflex.ps1
 pwsh -NoProfile -File .\scripts\check-conscious-readiness.ps1
 pwsh -NoProfile -File .\scripts\check-organ-readiness.ps1
 pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1
 pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1
 ```
-
-## No-Camera / No-Live Compatibility Smoke
-
-```powershell
-pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc
-pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn
-pwsh -NoProfile -File .\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc -RunManualTurn -RunSafeIntegrationProbes
-```
-
-This smoke uses a test source. It is not proof of real camera video, real
-microphone input, or physical appliance behavior. `-RunSafeIntegrationProbes`
-includes mock/no-live safe probes, but when `THOUGHT_CORE_TOOLS_ADAPTER=mock`
-is still set, the probe does not send actions to live Home Assistant.
 
 ## Optional / Local-Media Replay Preview
 
@@ -159,7 +145,6 @@ Minimum post-install checks:
 .\sword.ps1 status
 .\sword.ps1 verify
 .\sword.ps1 start
-.\scripts\run-compat-smoke.ps1 -UseIsolatedPorts -MediapipeVideoSource testsrc
 ```
 
 When runtime/browser behavior is in scope, include start/stop safety:
