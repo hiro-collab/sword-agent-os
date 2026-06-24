@@ -286,8 +286,8 @@ function Get-RoomLightSummary {
     return [PSCustomObject]@{
       available = $false
       stale = $true
-      effective_state = "unknown"
-      effective_confidence_label = "none"
+      state = "unknown"
+      confidence_label = "none"
       electric_on_probability = $null
       daylight_present_probability = $null
       dark_probability = $null
@@ -300,14 +300,14 @@ function Get-RoomLightSummary {
 
   $evidence = Get-ObjectProperty -Object $roomLight -Name "evidence"
   $freshness = Get-ObjectProperty -Object $roomLight -Name "freshness"
-  $effectiveState = [string](Get-ObjectProperty -Object $roomLight -Name "effective_state" -Default (Get-ObjectProperty -Object $roomLight -Name "state" -Default "unknown"))
-  $effectiveConfidence = [string](Get-ObjectProperty -Object $roomLight -Name "effective_confidence_label" -Default (Get-ObjectProperty -Object $roomLight -Name "confidence_label" -Default "none"))
+  $state = [string](Get-ObjectProperty -Object $roomLight -Name "state" -Default "unknown")
+  $confidence = [string](Get-ObjectProperty -Object $roomLight -Name "confidence_label" -Default "none")
 
   return [PSCustomObject]@{
     available = [bool](Get-ObjectProperty -Object $roomLight -Name "available" -Default $false)
     stale = [bool](Get-ObjectProperty -Object $roomLight -Name "stale" -Default $true)
-    effective_state = $effectiveState
-    effective_confidence_label = $effectiveConfidence
+    state = $state
+    confidence_label = $confidence
     electric_on_probability = ConvertTo-NullableDouble (Get-ObjectProperty -Object $evidence -Name "electric_on_probability")
     daylight_present_probability = ConvertTo-NullableDouble (Get-ObjectProperty -Object $evidence -Name "daylight_present_probability")
     dark_probability = ConvertTo-NullableDouble (Get-ObjectProperty -Object $evidence -Name "dark_probability")
@@ -411,12 +411,12 @@ function Get-RoomLightClaim {
   if ($null -eq $RoomLight -or -not [bool]$RoomLight.available -or [bool]$RoomLight.stale) {
     return "unavailable"
   }
-  $state = ([string]$RoomLight.effective_state).ToLowerInvariant()
-  $confidence = ([string]$RoomLight.effective_confidence_label).ToLowerInvariant()
+  $state = ([string]$RoomLight.state).ToLowerInvariant()
+  $confidence = ([string]$RoomLight.confidence_label).ToLowerInvariant()
   if ($state -notin @("on", "off") -or $confidence -notin @("high")) {
-    return "available-but-not-decisive-current-light-observation"
+    return "available-but-not-decisive-camera-light-estimate"
   }
-  return "reliable-current-light-observation"
+  return "camera-light-estimate-high-confidence"
 }
 
 function Get-RoomLightDelta {
@@ -435,7 +435,7 @@ function Get-RoomLightDelta {
     }
   }
 
-  $stateChanged = [string]$Before.effective_state -ne [string]$After.effective_state
+  $stateChanged = [string]$Before.state -ne [string]$After.state
   $snapshotChanged = [string]$Before.source_snapshot_id -ne [string]$After.source_snapshot_id -or [string]$Before.updated_at -ne [string]$After.updated_at
   $deltas = @()
   foreach ($field in @("electric_on_probability", "daylight_present_probability", "dark_probability")) {
@@ -490,11 +490,11 @@ function Get-RoomLightResponsiveness {
       detail = "no_material_room_light_change"
     }
   }
-  if ($Claim -eq "reliable-current-light-observation") {
+  if ($Claim -eq "camera-light-estimate-high-confidence") {
     return [PSCustomObject]@{
       status = "pass"
       delta = $delta
-      detail = "material_change_with_reliable_current_light_observation"
+      detail = "material_change_with_high_confidence_camera_light_estimate"
     }
   }
   return [PSCustomObject]@{
@@ -585,7 +585,7 @@ function ConvertTo-OverallStatus {
     $EnvironmentStatePeriodicUpdate -eq "pass" -and
     @($sourceValues | Where-Object { $_ -in @("fresh", "recent") }).Count -eq 4 -and
     $RoomLightResponsiveness -eq "pass" -and
-    $RoomLightClaim -eq "reliable-current-light-observation" -and
+    $RoomLightClaim -eq "camera-light-estimate-high-confidence" -and
     $HomeActionMode -ne "unknown" -and
     $HudModeVisibility -eq "pass"
   ) {
