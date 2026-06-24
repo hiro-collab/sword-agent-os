@@ -296,7 +296,15 @@ Example: gesture-opened microphone leading to a Home Assistant light action.
     "issue_ticket_id": "ticket_living_room_light_001",
     "action_id": "action_light_on_001",
     "authority_domain": "execution",
-    "summary": "Home Assistant light action executed",
+    "status_projection_ref": "status://action_boundary/action_light_on_001/command_ack",
+    "current_state_authority_ref": null,
+    "physical_proof_claimed": false,
+    "does_not_prove": [
+      "current physical light state",
+      "external observation",
+      "user-visible effect"
+    ],
+    "summary": "Home Assistant bridge accepted the light command",
     "redaction_level": "summary_only"
   }
 ]
@@ -327,7 +335,15 @@ same `issue_ticket_id`. This trimmed example shows the identity boundary:
     "turn_id": "turn_living_room_001",
     "issue_ticket_id": "ticket_living_room_light_001",
     "action_id": "action_light_on_001",
-    "summary": "Home Assistant reported success, but the ticket remains open"
+    "status_projection_ref": "status://action_boundary/action_light_on_001/command_ack",
+    "current_state_authority_ref": null,
+    "physical_proof_claimed": false,
+    "does_not_prove": [
+      "current physical light state",
+      "external observation",
+      "ticket resolution"
+    ],
+    "summary": "Home Assistant bridge accepted the command, but the ticket remains open"
   },
   {
     "schema_version": "event.correlation.v0",
@@ -363,8 +379,8 @@ Do not rewrite old journal events to change status. Write a new
 `ticket.status_changed` event, or a new memory-ticket metadata revision, with
 the previous and new status.
 
-Example: one ticket starts `open`, moves to `in_progress`, and resolves after a
-second turn:
+Example: one ticket starts `open`, moves to `in_progress`, and remains blocked
+after a second turn because current-state proof is still missing:
 
 ```json
 [
@@ -406,8 +422,8 @@ second turn:
     "turn_id": "turn_living_room_002",
     "issue_ticket_id": "ticket_living_room_light_001",
     "previous_ticket_status": "in_progress",
-    "new_ticket_status": "resolved",
-    "summary": "Thought Core marked the light-control ticket resolved"
+    "new_ticket_status": "blocked",
+    "summary": "Thought Core kept the light-control ticket blocked pending state proof"
   }
 ]
 ```
@@ -601,8 +617,16 @@ Example ticket label record:
       ]
     }
   ],
-  "expected_effect": "Living room light becomes visibly on",
-  "observed_effect": "Vision still reports room dark",
+  "status_projection_ref": "status://ticket/ticket_living_room_light_001/projection",
+  "current_state_authority_ref": null,
+  "physical_proof_claimed": false,
+  "does_not_prove": [
+    "current physical light state",
+    "Home Assistant command caused visible change",
+    "ticket resolution"
+  ],
+  "expected_effect": "Light-on command requested; visible state requires separate observation",
+  "observed_effect": "Vision observation still reports room dark",
   "retry_or_confirmation_need": "hold_for_confirmation_or_manual_followup",
   "confirmation_loop": {
     "operation_count": 1,
