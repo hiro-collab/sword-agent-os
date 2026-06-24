@@ -977,7 +977,7 @@ function Test-HomeControlTrackingHelperFixtures {
     "-SelfTestTracking"
   )
   $text = $output -join "`n"
-  Assert-TextMatch -Text $text -Pattern "tracking_self_test: legacy_tracked=tracked" -Message "tracking helper should keep legacy /actions payload fallback"
+  Assert-TextMatch -Text $text -Pattern "tracking_self_test: effect_only=blocked" -Message "tracking helper should block expected_effect-only rows from HA state proof"
   Assert-TextMatch -Text $text -Pattern "tracking_self_test: new_tracked=tracked" -Message "tracking helper should accept new tracked metadata"
   Assert-TextMatch -Text $text -Pattern "tracking_self_test: external_required=blocked" -Message "tracking helper should block external-required actions from HA state proof"
   Assert-TextMatch -Text $text -Pattern "tracking_self_test: ack_only=blocked" -Message "tracking helper should block ack-only actions from HA state proof"

@@ -558,20 +558,12 @@ function Get-ActionTrackingProbe {
     [string]$ActionId
   )
 
+  $trackingStatus = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $Action -Name "state_tracking")
+  if ($trackingStatus -eq "none") { $trackingStatus = "untracked" }
   $effect = Get-ObjectPropertyValue -Object $Action -Name "expected_effect"
-  $trackingRaw = Get-ObjectPropertyValue -Object $Action -Name "state_tracking"
-  $trackingStatus = if ($null -eq $trackingRaw -or [string]::IsNullOrWhiteSpace([string]$trackingRaw)) {
-    if ($null -eq $effect) { "untracked" } else { "tracked" }
-  } else {
-    [string]$trackingRaw
-  }
-
-  $verificationRaw = Get-ObjectPropertyValue -Object $Action -Name "verification_mode"
-  $verificationMode = if ($null -eq $verificationRaw -or [string]::IsNullOrWhiteSpace([string]$verificationRaw)) { "legacy" } else { [string]$verificationRaw }
-  $controlTypeRaw = Get-ObjectPropertyValue -Object $Action -Name "control_type"
-  $controlType = if ($null -eq $controlTypeRaw -or [string]::IsNullOrWhiteSpace([string]$controlTypeRaw)) { "legacy" } else { [string]$controlTypeRaw }
-  $stateAuthorityRaw = Get-ObjectPropertyValue -Object $Action -Name "state_authority"
-  $stateAuthority = if ($null -eq $stateAuthorityRaw -or [string]::IsNullOrWhiteSpace([string]$stateAuthorityRaw)) { "legacy" } else { [string]$stateAuthorityRaw }
+  $verificationMode = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $Action -Name "verification_mode")
+  $controlType = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $Action -Name "control_type")
+  $stateAuthority = ConvertTo-NoneText -Value (Get-ObjectPropertyValue -Object $Action -Name "state_authority")
   $effectExpectedStateRaw = Get-ObjectPropertyValue -Object $effect -Name "expected_state"
   $effectExpectedState = if ($null -eq $effectExpectedStateRaw -or [string]::IsNullOrWhiteSpace([string]$effectExpectedStateRaw)) { "none" } else { [string]$effectExpectedStateRaw }
   $acceptedStatesRaw = Get-ObjectPropertyValue -Object $Action -Name "expected_states"
@@ -633,8 +625,8 @@ function Assert-TrackingSelfTest {
 }
 
 function Invoke-TrackingSelfTest {
-  $legacyTracked = [pscustomobject]@{
-    action_id = "legacy_tracked"
+  $effectOnly = [pscustomobject]@{
+    action_id = "effect_only"
     expected_effect = [pscustomobject]@{ expected_state = "on" }
   }
   $newTracked = [pscustomobject]@{
@@ -672,9 +664,9 @@ function Invoke-TrackingSelfTest {
     state_tracking = "ack_only"
   }
 
-  $legacyProbe = Get-ActionTrackingProbe -Action $legacyTracked -ActionId "legacy_tracked"
-  Assert-TrackingSelfTest -Condition ($legacyProbe.CanProduceHaStateProof -and $legacyProbe.VerificationMode -eq "legacy" -and $legacyProbe.ExpectedState -eq "on") -Message "legacy /actions payload should fall back to tracked when expected_effect exists"
-  Write-Host ("tracking_self_test: legacy_tracked={0}" -f $legacyProbe.TrackingStatus)
+  $effectOnlyProbe = Get-ActionTrackingProbe -Action $effectOnly -ActionId "effect_only"
+  Assert-TrackingSelfTest -Condition ((-not $effectOnlyProbe.CanProduceHaStateProof) -and $effectOnlyProbe.TrackingStatus -eq "untracked" -and $effectOnlyProbe.VerificationMode -eq "none") -Message "expected_effect alone must not become HA state proof"
+  Write-Host "tracking_self_test: effect_only=blocked"
 
   $newProbe = Get-ActionTrackingProbe -Action $newTracked -ActionId "new_tracked"
   Assert-TrackingSelfTest -Condition ($newProbe.CanProduceHaStateProof -and $newProbe.ControlType -eq "stateful_target" -and $newProbe.StateAuthority -eq "ha_entity" -and $newProbe.VerificationMode -eq "ha_state" -and $newProbe.ExpectedState -eq "off" -and $newProbe.ExpectedStates -eq "off,closed" -and $newProbe.PositionAttribute -eq "current_position" -and $newProbe.ExpectedPosition -eq "95<=current_position<=100" -and $newProbe.SettleSeconds -eq "2" -and $newProbe.TimeoutSeconds -eq "30" -and $newProbe.ProofCeiling -eq "ha_visible_state_checkstate_layer" -and $newProbe.LiveTestReadiness -eq "test_now" -and $newProbe.RestoreActionId -eq "restore_action") -Message "new tracked metadata should remain HA state proof capable"
@@ -688,7 +680,7 @@ function Invoke-TrackingSelfTest {
   Assert-TrackingSelfTest -Condition ((-not $ackProbe.CanProduceHaStateProof) -and $ackProbe.TrackingStatus -eq "ack_only") -Message "ack_only must not be treated as HA state proof"
   Write-Host "tracking_self_test: ack_only=blocked"
 
-  $fixtureRows = @($legacyTracked, $newTracked, $externalRequired, $ackOnly)
+  $fixtureRows = @($effectOnly, $newTracked, $externalRequired, $ackOnly)
   $missingRows = @($fixtureRows | Where-Object { [string]$_.action_id -eq "missing_action" })
   Assert-TrackingSelfTest -Condition ($missingRows.Count -eq 0) -Message "missing action should remain a hard stop before preview/execute"
   Write-Host "tracking_self_test: missing_action=blocked"
