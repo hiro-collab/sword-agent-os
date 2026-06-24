@@ -239,7 +239,6 @@ function Test-MaintenanceSafetyStatic {
     "scripts/render-env-files.ps1",
     "scripts/start-home-control-bridge.ps1",
     "scripts/inspect-home-control-switchbot-surfaces.ps1",
-    "scripts/run-home-control-light-proof.ps1",
     "scripts/check-voicevox-readiness.ps1",
     "scripts/prepare-aituberkit-sword-adapter.ps1",
     "start-home-control-launcher.bat",
@@ -584,24 +583,15 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "check-voicevox-readiness\.ps1" -Message "front-door docs should document the VOICEVOX readiness helper"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "forced render[\s\S]{0,180}restart|restart[\s\S]{0,180}env/config" -Message "front-door docs should explain restart after forced env/config render"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "run-full-install-verification\.ps1" -Message "front-door docs should document the full install verification helper"
-  Assert-TextMatch -Text $frontDoorSurface -Pattern "run-home-control-light-proof\.ps1" -Message "front-door docs should document the retired light toggle hold helper"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "toggle-only light[\s\S]{0,220}light_toggle|light_toggle[\s\S]{0,220}toggle-only light" -Message "front-door docs should describe toggle-only light through light_toggle semantics"
   Assert-TextMatch -Text $verificationSurface -Pattern "docs/live-home-control-proof\.md" -Message "public verification docs should point live proof recipes to the canonical Home Control proof doc"
-  Assert-TextMatch -Text $troubleshootingSurface -Pattern "run-home-control-light-proof\.ps1[\s\S]{0,240}retired/hold helper|retired/hold helper[\s\S]{0,240}run-home-control-light-proof\.ps1" -Message "troubleshooting should point toggle-only light handling to the retired hold helper"
-  Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\run-home-control-light-proof.ps1")
+  Assert-TextMatch -Text $troubleshootingSurface -Pattern "toggle-only light[\s\S]{0,240}external-observation-required|external-observation-required[\s\S]{0,240}toggle-only light" -Message "troubleshooting should point toggle-only light handling to external-observation-required semantics"
+  Assert-PathAbsent -Path (Join-Path $RepoRoot "scripts\run-home-control-light-proof.ps1")
   Assert-TextMatch -Text $verificationSurface -Pattern "inspect-home-control-switchbot-surfaces\.ps1" -Message "public verification docs should document the SwitchBot read-only surface helper"
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\inspect-home-control-switchbot-surfaces.ps1")
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\measure-camera-brightness.py")
-  $lightProofHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-home-control-light-proof.ps1")
   $switchBotInspectHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\inspect-home-control-switchbot-surfaces.ps1")
   $cameraBrightnessHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\measure-camera-brightness.py")
-  Assert-TextMatch -Text $lightProofHelper -Pattern "retired_directional_light_on_off_proof_helper" -Message "light helper should report retired directional semantics"
-  Assert-TextMatch -Text $lightProofHelper -Pattern "blocked_light_on_light_off_directional_semantics_untrusted_for_toggle_only_device" -Message "light helper should return the concrete toggle-only blocker"
-  Assert-TextMatch -Text $lightProofHelper -Pattern "light_toggle_only_open_loop_external_observation_required" -Message "light helper should name toggle-only external-observation semantics"
-  Assert-TextMatch -Text $lightProofHelper -Pattern "preview_count\s*=\s*0" -Message "light helper should not run preview"
-  Assert-TextMatch -Text $lightProofHelper -Pattern "dry_run_count\s*=\s*0" -Message "light helper should not run dry-run"
-  Assert-TextMatch -Text $lightProofHelper -Pattern "live_execute_count\s*=\s*0" -Message "light helper should not run live execute"
-  Assert-TextMatch -Text $lightProofHelper -Pattern "camera_capture_count\s*=\s*0" -Message "light helper should not capture camera frames"
-  Assert-TextMatch -Text $lightProofHelper -Pattern 'raw_private_publication_flags\s*=\s*\$false' -Message "light helper should keep raw/private publication false"
   Assert-TextMatch -Text $switchBotInspectHelper -Pattern 'ha_service_call = "no"' -Message "SwitchBot read-only helper should not perform HA service calls"
   Assert-TextMatch -Text $switchBotInspectHelper -Pattern "live_test_readiness" -Message "SwitchBot read-only helper should report live-test readiness"
   Assert-TextMatch -Text $switchBotInspectHelper -Pattern "safety_requirement" -Message "SwitchBot read-only helper should report safety requirement blockers"
