@@ -526,7 +526,7 @@
           "id": "aituber_kit.projection_visual_manual",
           "mode": "manual",
           "type": "manual_check",
-          "instructions": "Confirm VRM renders, Projection Visual shows reflex/environment context, and gesture-triggered mic activation is represented as system-autonomic/reflex behavior."
+          "instructions": "Confirm the selected VRM path resolves, Projection Visual route is reachable, and reflex/environment context remains display readiness only; do not report this manual check as Self Mirror, avatar-motion, audio, or mic proof."
         }
       ]
     },

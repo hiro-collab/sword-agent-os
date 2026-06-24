@@ -73,22 +73,13 @@ This is a source/static command preview. It must not be reported as STT
 execution, audio playback, browser runtime proof, Thought Core turn proof,
 avatar motion, or user-facing voice proof.
 
-## Result Fields
+## Report Shape
 
 <!-- starter-profile:voice-avatar-result-fields -->
 
-Keep these fields separate in notes and reports:
-
-| Field | Meaning | Does not prove |
-| --- | --- | --- |
-| front-door status | `sword.ps1 status` can inspect the local workspace | provider call, browser runtime, audio output |
-| front-door verify | no-live install/readiness checks pass or classify blockers | avatar render, mic/camera input, physical observation |
-| start command preview | launch plan can be shown without `-Run` | running stack, browser page, avatar motion |
-| VOICEVOX endpoint readiness | local endpoint is ready/skipped/blocked | TTS playback, voice quality, global audio route |
-| local-media voice-gate preview | helper command shape and redaction fields are visible | media playback, STT execution, transcript correctness |
-| avatar config location | selected avatar path/config can be found in docs/local config | licensed asset proof, rendered avatar, motion dispatch |
-| browser/runtime reachability | not part of this starter profile | avatar rendering or AITuber UI proof |
-| gesture/camera input | not part of this starter profile | live camera, gesture acceptance, voice gate-open proof |
+Report only redacted readiness classes, selected config refs, and blockers.
+Use `docs/proof-layers.md` for proof boundaries instead of copying another
+result-field ledger into this starter profile.
 
 ## Stop Conditions
 
@@ -108,22 +99,12 @@ Stop before claiming the next proof layer if:
   screenshots, transcripts, private local paths, tokens, or private model/asset
   details.
 
-## Does Not Prove
+## Boundary
 
 <!-- starter-profile:voice-avatar-does-not-prove -->
 
-- provider response quality;
-- raw prompt or response safety beyond the redacted helper fields;
-- TTS synthesis quality;
-- audio playback;
-- real microphone or camera input;
-- browser runtime reachability;
-- rendered avatar visibility;
-- avatar motion dispatch;
-- gesture-to-voice gate acceptance;
-- external/user observation;
-- physical/audio proof;
-- release/readiness.
+This profile remains source/docs/no-live readiness. It does not claim provider
+quality, audio playback, real microphone or camera input, browser runtime reachability, rendered avatar visibility, avatar motion dispatch, external/user observation, physical proof, or release readiness.
 
 ## Optional Next Paths
 

@@ -158,7 +158,7 @@
     },
     {
       "id": "avatar-assets",
-      "detail": "A tracked sample VRM is available for clean install. To use a custom licensed VRM/Live2D asset, place it under organs/expression/aituber-kit/public/vrm and set NEXT_PUBLIC_SELECTED_VRM_PATH to a matching /vrm/<file>.vrm."
+      "detail": "Selected VRM must resolve under organs/expression/aituber-kit/public/vrm. The tracked sample is /vrm/nikechan_v1.vrm; custom licensed assets stay local and use NEXT_PUBLIC_SELECTED_VRM_PATH=/vrm/<file>.vrm."
     },
     {
       "id": "mediapipe-gesture-model",

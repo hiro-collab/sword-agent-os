@@ -56,7 +56,7 @@ can also wait if you only want a minimal no-live startup check.
 | appliance adapter | `THOUGHT_CORE_TOOLS_ADAPTER` | `mock` is no-live simulation. Use `home_control` only for live appliance action. |
 | Environment API token | `ENVIRONMENT_API_TOKEN` | Local protection for the Environment State API. It can be empty in the standard no-live setup. |
 | VOICEVOX URL | `VOICEVOX_SERVER_URL` | Speech synthesis endpoint. |
-| avatar path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | AITuber Kit / Projection Visual avatar path. Clean install uses tracked sample `/vrm/nikechan_v1.vrm`. Use `/vrm/<your-model>.vrm` only for a local licensed model. |
+| avatar path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | Browser path for an AITuber Kit public VRM. The sample is `/vrm/nikechan_v1.vrm`; custom licensed assets stay local under `public/vrm`. |
 | Thought Core endpoint | `THOUGHT_CORE_BASE_URL`, `NEXT_PUBLIC_THOUGHT_CORE_BASE_URL` | AITuber Kit to Thought Core connection. |
 
 ## Secret Boundaries

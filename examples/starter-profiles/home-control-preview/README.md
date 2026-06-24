@@ -74,21 +74,14 @@ execute. If neither is available under `HOLD_LIVE`, stop and report bridge
 unavailable. Do not clear the hold, run preview/dry-run/live, or switch to a
 different bridge just to make the helper commands pass.
 
-## Result Fields
+## Report Shape
 
-<!-- starter-profile:home-control-preview-result-fields -->
+<!-- starter-profile:home-control-preview-report-shape -->
 
-Keep these fields separate in notes and reports:
-
-| Field | Meaning | Does not prove |
-| --- | --- | --- |
-| bridge health | The local bridge can answer a redacted health check | action execution |
-| catalog binding | The expected action appears in the bridge catalog | target moved |
-| config context | The selected config is non-demo and full-schema when state proof is needed | live permission |
-| `CheckTracking` | The action row carries proof metadata and readiness/blockers | current or post-action state |
-| read-only `CheckState` | Current state surface is readable/matched/unavailable at that moment | live effect, transition, dock/path/floor proof |
-| preview/dry-run/live | Not part of this starter profile | external or physical proof |
-| external observation | Not part of this starter profile | camera/media proof unless separately routed |
+Report only redacted bridge health, catalog binding, config context,
+`CheckTracking`, optional read-only `CheckState`, and blockers. Use
+`docs/proof-layers.md` for proof boundaries instead of copying a result-field
+ledger into this starter profile.
 
 ## Stop Conditions
 
@@ -104,13 +97,9 @@ Stop before any preview/dry-run/live route if:
 - You would need to publish raw HA entity IDs, script IDs, URLs, private config,
   tokens, screenshots, logs, or media to explain the result.
 
-## Does Not Prove
+## Boundary
 
-- preview acceptance;
-- dry-run acceptance;
-- live Home Assistant execution;
-- command submission;
-- post-action HA-visible terminal state;
-- external/user observation;
-- physical/device proof;
-- release/readiness.
+This profile is read-only readiness. It does not claim preview/dry-run/live
+execution, command submission, post-action HA-visible terminal state,
+external/user observation, physical/device proof, or release readiness.
+`preview/dry-run/live`: Not part of this starter profile.

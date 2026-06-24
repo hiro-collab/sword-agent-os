@@ -88,7 +88,7 @@ Sword Agent OS は、PC上で動く「家の中のエージェント本体」で
 | カメラ | ジェスチャー入力や外部観測を試す | 基本インストールだけなら不要 |
 | `gesture_model.pkl` | ジェスチャー認識 | `organs\reflex\mediapipe-sword-sign\gesture_model.pkl` に置く |
 | VOICEVOX | 音声で返答させる | ローカルで起動する |
-| VRM / Live2D ファイル | アバターを表示する | サンプルVRMは同梱。自分のVRMは利用権を確認してローカルに置く |
+| VRM / Live2D ファイル | アバターを表示する | 標準は同梱サンプル。独自モデルは利用権を確認してローカルに置く |
 | TouchDesigner | プロジェクターや外部演出 | 必要な場合だけ別途インストール |
 | ffmpeg / ffprobe / mediamtx | カメラ映像の配信や診断 | カメラ系の確認で使う |
 
@@ -129,8 +129,7 @@ Home Assistant、家電操作は勝手には実行されません。
 | ファイル | 置き場所 / 設定 | ない場合 |
 | --- | --- | --- |
 | ジェスチャー認識モデル | `organs\reflex\mediapipe-sword-sign\gesture_model.pkl` | ジェスチャー確認は未準備 |
-| 同梱サンプルVRM | `/vrm/nikechan_v1.vrm` | そのまま使える |
-| 独自VRM | `organs\expression\aituber-kit\public\vrm\<file>.vrm` に置き、`.env` で `NEXT_PUBLIC_SELECTED_VRM_PATH=/vrm/<file>.vrm` を指定 | 独自アバター確認は未準備 |
+| VRM | 標準は `/vrm/nikechan_v1.vrm`。独自VRMは `organs\expression\aituber-kit\public\vrm\<file>.vrm` に置き、`.env` で `/vrm/<file>.vrm` を指定 | 独自アバター確認は未準備 |
 | 音声、動画などのローカルサンプル | 非公開の素材フォルダから `local\media\media-index.json` を作る | サンプル再生や音声サンプル確認は未準備 |
 | Home Control 設定 | `.env` の `HOME_CONTROL_CONFIG` で指定 | 家電の状態確認や操作は未準備 |
 

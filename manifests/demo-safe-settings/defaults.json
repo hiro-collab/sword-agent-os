@@ -181,7 +181,7 @@
     {
       "id": "audio.voicevox_local_speech",
       "area": "audio",
-      "label": "VOICEVOX local speech",
+      "label": "VOICEVOX endpoint readiness",
       "description": "Local speech endpoint/readiness row. Endpoint readiness is not audible playback proof.",
       "enabled": false,
       "restore_supported": false,
@@ -207,7 +207,7 @@
       "max_action_count": 0,
       "max_duration_sec": 20,
       "source_class": "run_visible_demo_preflight_local_audio_playback",
-      "proof_ceiling": "source_static_audio_readiness",
+      "proof_ceiling": "explicit_audio_observation_required",
       "does_not_prove": [
         "microphone_capture",
         "browser_audio_playback",
@@ -218,7 +218,7 @@
     {
       "id": "avatar.aituber_projection_surface",
       "area": "avatar",
-      "label": "AITuber / Projection Visual surface",
+      "label": "AITuber / Projection Visual reachability",
       "description": "Avatar presentation surface readiness row. Reachability is not visible avatar proof.",
       "enabled": false,
       "restore_supported": false,

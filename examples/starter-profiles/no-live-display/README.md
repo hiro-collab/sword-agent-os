@@ -23,13 +23,11 @@ physical-device proof.
 `start` is a command preview by default. Use `docs/operate.md` before adding
 `-Run`.
 
-## Does Not Prove
+## Boundary
 
-- provider response quality;
-- live Home Assistant execution;
-- camera/microphone proof;
-- external or physical/device proof;
-- release/readiness.
+This profile does not claim provider response quality, live Home Assistant
+execution, camera/microphone proof, external or physical/device proof, or
+release readiness.
 
 ## Next Paths
 

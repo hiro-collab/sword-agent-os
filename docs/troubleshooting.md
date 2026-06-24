@@ -20,7 +20,7 @@ needs a precise failure classification.
 | VOICEVOX が down | `scripts/check-voicevox-readiness.ps1` で endpoint-first に確認します。必要な時だけ通常ユーザー端末で `-StartIfNeeded` を付け、既存 VOICEVOX app の検出/起動を試します。install/update/download、global audio device、PATH/env 変更はしません。 |
 | カメラが動かない | 他アプリがカメラを掴んでいないか、カメラ名が合っているか確認します。 |
 | `model_not_found` / Camera Hub topics timeout | `gesture_model.pkl` がある場合は `organs/reflex/mediapipe-sword-sign/gesture_model.pkl` に置いたか確認します。ない場合は、Camera Hub / gesture proof は未準備として分け、カメラ不要の no-live / source-static 確認だけを先に進めます。これはローカル専用資材なので Git には入れません。 |
-| アバター / VRM が表示されない | clean install では `NEXT_PUBLIC_SELECTED_VRM_PATH=/vrm/nikechan_v1.vrm` の tracked sample で確認できます。手元のライセンス済み VRM を使う場合は `organs/expression/aituber-kit/public/vrm/` に置き、`NEXT_PUBLIC_SELECTED_VRM_PATH` を実ファイル名に合う `/vrm/<file>.vrm` へ変更します。特定のローカル VRM 名を指定している場合は、そのファイルが現在の checkout に存在するか確認してください。 |
+| アバター / VRM が表示されない | `NEXT_PUBLIC_SELECTED_VRM_PATH` は AITuberKit の `public/vrm` 配下を指す `/vrm/<file>.vrm` です。`scripts/doctor-distribution.ps1 -Profile standard` で、選択中のVRMが現在の checkout に存在するか確認します。 |
 | マイクが反応しない | Chrome のマイク権限、入力欄の focus を確認します。 |
 | 家電操作が失敗する | Home Assistant URL / token、action catalog mapping を確認します。 |
 | API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更します。 |

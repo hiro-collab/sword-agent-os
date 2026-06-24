@@ -158,7 +158,7 @@ else {
   }
 }
 if ([string]::IsNullOrWhiteSpace($selectedVrm)) {
-  Add-Check -Checks $checks -Id "asset.selected_vrm" -Status "unknown" -Severity "warning" -Detail "NEXT_PUBLIC_SELECTED_VRM_PATH is not set in readable env files"
+  Add-Check -Checks $checks -Id "asset.selected_vrm" -Status "unknown" -Severity "warning" -Detail "NEXT_PUBLIC_SELECTED_VRM_PATH is unset; use /vrm/<file>.vrm for an asset under organs/expression/aituber-kit/public/vrm"
 }
 else {
   $relativeVrm = $selectedVrm.TrimStart("/") -replace "/", [System.IO.Path]::DirectorySeparatorChar
@@ -167,7 +167,7 @@ else {
     Add-Check -Checks $checks -Id "asset.selected_vrm" -Status "ok" -Severity "info" -Detail "selected VRM asset exists" -Path $selectedVrm
   }
   else {
-    Add-Check -Checks $checks -Id "asset.selected_vrm" -Status "missing" -Severity "blocker" -Detail "selected VRM path does not resolve to an installed asset" -Path $selectedVrm
+    Add-Check -Checks $checks -Id "asset.selected_vrm" -Status "missing" -Severity "blocker" -Detail "selected VRM path must resolve under organs/expression/aituber-kit/public/vrm; keep licensed assets local and set /vrm/<file>.vrm" -Path $selectedVrm
   }
 }
 
