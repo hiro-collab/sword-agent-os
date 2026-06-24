@@ -28,6 +28,31 @@ recently failed. It should be organized around six stable planes:
 If a new document or script crosses more than two planes, it is a design smell.
 Either split it or make the cross-plane handoff explicit.
 
+<!-- architecture:front-door-thinning-rule -->
+## Front Door Thinning Rule
+
+The front door should be thin because it is an entry surface, not because short
+text is automatically better. Keep material in `README.md` only when a first
+operator needs it before choosing a specialist document, or when it prevents a
+dangerous proof, live-operation, secret-handling, or local-device
+misunderstanding.
+
+Move details out of the front door when one stable plane clearly owns them:
+
+- setup procedures and local config detail belong in configuration and
+  operation docs;
+- proof ladders, result fields, and non-claims belong in proof docs;
+- module ownership, contracts, and organ pins belong in architecture,
+  manifests, contracts, or module docs;
+- temporary route evidence and handoff state belong in workspace-level
+  coordination unless adopted through an exact product diff.
+
+Delete or archive only after the ownership is clear. Good delete candidates are
+closed one-off route reports, retired-helper instructions, stale proof wording,
+and duplicated prose whose current meaning already exists in a specialist
+document. If a detail is still required for safe use, keep it by moving or
+rewriting it rather than silently dropping it.
+
 ## Capability Packs Are The External Shape
 
 <!-- architecture:capability-pack-layer -->
