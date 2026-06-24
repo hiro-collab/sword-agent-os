@@ -2,7 +2,7 @@
   "schema_version": "diagnostics.policy.v0",
   "id": "standard-diagnostics",
   "description": "Read-only diagnostic pulse, storage, and retention policy for the first Agent OS standard baseline.",
-  "profile_id": "thought-core-v0-compat",
+  "profile_id": "standard",
   "driver_manifest": "manifests/drivers/standard.json",
   "safety": {
     "read_only": true,

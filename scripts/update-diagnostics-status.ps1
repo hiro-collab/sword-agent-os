@@ -1,5 +1,5 @@
 param(
-  [string]$ProfilePath = "manifests/profiles/thought-core-v0-compat.json",
+  [string]$ProfilePath = "manifests/profiles/standard.json",
   [string]$DiagnosticPolicyPath = "manifests/diagnostics/standard.json",
   [string]$DriverManifestPath = "manifests/drivers/standard.json",
   [ValidateSet("manifest_default", "isolated_override")]

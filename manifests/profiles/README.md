@@ -25,7 +25,7 @@ Startup is staged:
   result into status and event history.
 - `full_conscious_ready`: the configured full turn path works with external
   AI/API access and expected integration surfaces such as expression forwarding
-  or compatibility E2E probes.
+  and standard service probes.
 
 The initial reflex probe is `scripts/check-runtime-reflex.ps1`. It is
 deliberately cheap: read the standard profile, confirm boot-critical runtime
@@ -52,16 +52,13 @@ standard capabilities, but they can report `blocked`, `unavailable`, or
 `degraded` without making the whole OS unhealthy unless a specific profile marks
 one of them boot-critical.
 
-Compatibility profiles and smoke tests may still require a stricter set of
-legacy services so migration regressions are visible.
-
 ## Port Policy
 
 Profiles distinguish the published default endpoint contract from local
 validation overrides.
 
-- `manifest_default` keeps the legacy-compatible localhost ports. This remains
-  the final compatibility target and the default start/status contract.
+- `manifest_default` keeps the standard localhost ports and the default
+  start/status contract.
 - `isolated_override` is a first-class validation path for integration smoke
   checks, local port conflicts, and multiple active worker threads.
 
@@ -69,4 +66,4 @@ If a default port is already owned by another process, runtime tooling should
 report the relevant service or capability as `blocked`, `unavailable`, or
 `degraded`. It should not kill an unowned process automatically. A successful
 isolated-port smoke run is valid operation-check evidence, while a final
-standard-port pass can remain a separate compatibility checkpoint.
+standard-port pass can remain a separate checkpoint.

@@ -1,7 +1,7 @@
 param(
   [ValidateSet("all", "thought_core", "action_boundary", "environment_state", "diagnostics_metrics", "event_correlation")]
   [string]$Scope = "all",
-  [string]$ServiceManifestPath = "manifests/services/thought-core-v0-compat.json",
+  [string]$ServiceManifestPath = "manifests/services/standard.json",
   [string]$DiagnosticPolicyPath = "manifests/diagnostics/standard.json",
   [string]$TestPackPath = "manifests/tests/organ-test-packs/standard.json",
   [switch]$Json

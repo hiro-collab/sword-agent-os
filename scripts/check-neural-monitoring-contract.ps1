@@ -1,7 +1,7 @@
 param(
   [string]$StatusPath = ".cache/agent-os/status/current.json",
   [string]$TopologyPath = ".cache/agent-os/status/topology.json",
-  [string]$ProfilePath = "manifests/profiles/thought-core-v0-compat.json",
+  [string]$ProfilePath = "manifests/profiles/standard.json",
   [string]$DiagnosticPolicyPath = "manifests/diagnostics/standard.json",
   [string]$DriverManifestPath = "manifests/drivers/standard.json",
   [switch]$Json

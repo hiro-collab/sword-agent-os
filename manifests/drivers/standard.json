@@ -2,8 +2,8 @@
   "schema_version": "organ-drivers.v0",
   "id": "standard-organ-drivers",
   "description": "Read-only driver contracts for observing current Agent OS organ services and normalizing their evidence.",
-  "profile_id": "thought-core-v0-compat",
-  "service_manifest": "manifests/services/thought-core-v0-compat.json",
+  "profile_id": "standard",
+  "service_manifest": "manifests/services/standard.json",
   "diagnostic_policy": "manifests/diagnostics/standard.json",
   "driver_contract": {
     "default_safety": {

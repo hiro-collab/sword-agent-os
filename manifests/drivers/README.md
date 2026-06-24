@@ -12,7 +12,7 @@ viewers to know which driver should be asked for which kind of evidence.
 
 ## Files
 
-- `standard.json`: first driver set for the current `thought-core-v0-compat`
+- `standard.json`: first driver set for the current standard
   migration baseline.
 
 ## Update Model
@@ -26,4 +26,3 @@ The driver manifest changes when an organ integration surface changes:
 
 Live topology and current capability state are generated snapshots. They should
 not be manually edited into this manifest.
-

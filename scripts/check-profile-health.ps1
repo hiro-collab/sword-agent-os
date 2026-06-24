@@ -1,5 +1,5 @@
 param(
-  [string]$ProfilePath = "manifests/profiles/thought-core-v0-compat.json",
+  [string]$ProfilePath = "manifests/profiles/standard.json",
   [switch]$ManifestOnly,
   [ValidateSet("manifest_default", "isolated_override")]
   [string]$PortMode = "manifest_default",

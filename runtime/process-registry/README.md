@@ -25,7 +25,7 @@ does not define service contracts or decide whether an operation is allowed.
 The selected process set is defined in:
 
 ```text
-manifests/services/thought-core-v0-compat.json
+manifests/services/standard.json
 ```
 
 For a non-starting status probe, use the front door or the profile health

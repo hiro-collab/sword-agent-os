@@ -1,9 +1,9 @@
 {
   "schema_version": "organ-test-packs.v0",
   "id": "standard-organ-test-packs",
-  "profile_id": "thought-core-v0-compat",
+  "profile_id": "standard",
   "description": "Initial black-box test packs for the selected Agent OS standard cell organs.",
-  "service_manifest": "manifests/services/thought-core-v0-compat.json",
+  "service_manifest": "manifests/services/standard.json",
   "driver_manifest": "manifests/drivers/standard.json",
   "default_modes": ["auto"],
   "safety": {

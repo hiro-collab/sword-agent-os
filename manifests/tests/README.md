@@ -26,7 +26,7 @@ Use these terms consistently:
 | `runtime/` | Agent OS substrate responsibilities and authorities used by ordinary operation: memory, event journal, status, process registry, routers, action boundary, action catalog, organ drivers, organ test packs | `runtime/memory-core/`, `runtime/event-journal/`, `runtime/action-boundary/` |
 | `organs/` | Concrete capability modules or external organs. Many are runnable servers/apps, but their primary category is capability responsibility | `organs/action/home-assistant-server/`, `organs/environment/vision-snapshot-processor/`, `organs/expression/aituber-kit/` |
 | `services` | Execution/process shape: an independently launched server, worker, UI, bridge, or adapter. A service can live under `organs/` or `control-plane/`; do not add a top-level `services/` directory just to satisfy the name | Thought Core under `control-plane/sword-voice-agent/services/thought-core`; Home Control bridge under `organs/action/home-assistant-server/` |
-| `manifests/services/` | Data describing selected runnable/observable services for a profile | `manifests/services/thought-core-v0-compat.json` |
+| `manifests/services/` | Data describing selected runnable/observable services for a profile | `manifests/services/standard.json` |
 
 Therefore, an organ can be a service, but not every service lives under a
 directory named `services/`. `organ` is a role/module category; `service` is how

@@ -1,6 +1,6 @@
 param(
   [string]$OrganManifestPath = "manifests/organs/standard-sources.json",
-  [string]$ServiceManifestPath = "manifests/services/thought-core-v0-compat.json",
+  [string]$ServiceManifestPath = "manifests/services/standard.json",
   [switch]$IncludeDeferred,
   [switch]$CheckEndpoints,
   [switch]$UseIsolatedPorts,

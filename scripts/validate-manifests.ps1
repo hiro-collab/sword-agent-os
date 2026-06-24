@@ -175,8 +175,7 @@ function Test-SafeHttpPath {
 }
 
 $standardProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/standard.json")
-$compatProfile = Read-Json -Path (Resolve-ManifestPath "manifests/profiles/thought-core-v0-compat.json")
-$serviceManifest = Read-Json -Path (Resolve-ManifestPath $compatProfile.service_manifest)
+$serviceManifest = Read-Json -Path (Resolve-ManifestPath $standardProfile.service_manifest)
 $distributionManifest = Read-Json -Path (Resolve-ManifestPath "manifests/distributions/standard.json")
 $releaseManifest = Read-Json -Path (Resolve-ManifestPath "manifests/releases/standard.json")
 $organManifest = Read-Json -Path (Resolve-ManifestPath ([string]$distributionManifest.organ_manifest_path))
@@ -406,15 +405,11 @@ foreach ($stage in @("nonresponsive", "reflex_alive", "conscious_ready", "full_c
   Assert-True ($stage -in $startupStages) "standard profile missing startup stage: $stage"
 }
 
-Assert-True ($compatProfile.required_services.Count -eq 8) "thought-core-v0-compat should require 8 services"
-Assert-True ($serviceManifest.services.Count -eq 8) "thought-core-v0-compat service inventory should define 8 services"
-Assert-True ("manifest_default" -in @($compatProfile.validation_policy.accepted_port_modes)) "compat profile must accept manifest_default port mode"
-Assert-True ("isolated_override" -in @($compatProfile.validation_policy.accepted_port_modes)) "compat profile must accept isolated_override port mode"
-Assert-True ([string]$compatProfile.validation_policy.final_standard_port_mode -eq "manifest_default") "compat final standard port mode should be manifest_default"
-Assert-True ([string]$compatProfile.validation_policy.routine_smoke_port_mode -eq "isolated_override") "compat routine smoke port mode should be isolated_override"
+Assert-True ($standardProfile.required_services.Count -eq 8) "standard profile should require 8 services"
+Assert-True ($serviceManifest.services.Count -eq 8) "standard service inventory should define 8 services"
 
 $serviceIds = @($serviceManifest.services | ForEach-Object { $_.service_id })
-foreach ($serviceId in $compatProfile.required_services) {
+foreach ($serviceId in $standardProfile.required_services) {
   Assert-True ($serviceId -in $serviceIds) "profile requires missing service: $serviceId"
 }
 
@@ -452,14 +447,14 @@ foreach ($service in $serviceManifest.services) {
   Assert-True (-not [string]::IsNullOrWhiteSpace([string]$service.health.type)) "service $($service.service_id) missing health type"
 }
 
-Assert-True ([string]$driverManifest.profile_id -eq [string]$compatProfile.id) "driver manifest profile_id must match compat profile id"
-Assert-True ([string]$driverManifest.service_manifest -eq [string]$compatProfile.service_manifest) "driver manifest must reference compat service manifest"
+Assert-True ([string]$driverManifest.profile_id -eq [string]$standardProfile.id) "driver manifest profile_id must match standard profile id"
+Assert-True ([string]$driverManifest.service_manifest -eq [string]$standardProfile.service_manifest) "driver manifest must reference standard service manifest"
 Assert-True ([string]$driverManifest.diagnostic_policy -eq "manifests/diagnostics/standard.json") "driver manifest must reference standard diagnostics policy"
-Assert-True ([string]$diagnosticPolicy.profile_id -eq [string]$compatProfile.id) "diagnostic policy profile_id must match compat profile id"
+Assert-True ([string]$diagnosticPolicy.profile_id -eq [string]$standardProfile.id) "diagnostic policy profile_id must match standard profile id"
 Assert-True ([string]$diagnosticPolicy.driver_manifest -eq "manifests/drivers/standard.json") "diagnostic policy must reference standard driver manifest"
 Assert-True ([string]$organTestPacks.schema_version -eq "organ-test-packs.v0") "organ test packs schema_version must be organ-test-packs.v0"
-Assert-True ([string]$organTestPacks.profile_id -eq [string]$compatProfile.id) "organ test packs profile_id must match compat profile id"
-Assert-True ([string]$organTestPacks.service_manifest -eq [string]$compatProfile.service_manifest) "organ test packs must reference compat service manifest"
+Assert-True ([string]$organTestPacks.profile_id -eq [string]$standardProfile.id) "organ test packs profile_id must match standard profile id"
+Assert-True ([string]$organTestPacks.service_manifest -eq [string]$standardProfile.service_manifest) "organ test packs must reference standard service manifest"
 Assert-True ([string]$organTestPacks.driver_manifest -eq "manifests/drivers/standard.json") "organ test packs must reference standard driver manifest"
 Assert-True ([bool]$driverManifest.driver_contract.default_safety.read_only) "driver default safety must be read-only"
 Assert-True (-not [bool]$driverManifest.driver_contract.default_safety.may_execute_actions) "diagnostic drivers must not execute actions"
@@ -781,7 +776,7 @@ if ($VerifyRemote) {
 [PSCustomObject]@{
   status = "ok"
   standard_runtime = $standardProfile.required_runtime.Count
-  compatibility_profile = $compatProfile.id
+  profile = $standardProfile.id
   services = $serviceManifest.services.Count
   organ_sources = $organManifest.sources.Count
   distributions = 1

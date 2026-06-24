@@ -1,10 +1,8 @@
 {
   "schema_version": "services.inventory.v0",
-  "id": "thought-core-v0-compat",
+  "id": "standard-services",
   "description": "Current local Thought Core service inventory for the standard distribution.",
-  "profile_id": "thought-core-v0-compat",
-  "legacy_profile_id": "thought-core-v0",
-  "legacy_reference": "manifests/control-plane/standard.json",
+  "profile_id": "standard",
   "port_modes": {
     "manifest_default": {
       "description": "Standard fixed localhost ports for the local runtime.",
@@ -61,7 +59,7 @@
         "access-control"
       ],
       "start": {
-        "type": "legacy-stack-script",
+        "type": "stack-script",
         "owner": "ops/scripts/home-control-stack/start-home-control-stack.ps1"
       },
       "health": {
@@ -97,7 +95,7 @@
         "access-control"
       ],
       "start": {
-        "type": "legacy-stack-script",
+        "type": "stack-script",
         "owner": "ops/scripts/home-control-stack/start-home-control-stack.ps1"
       },
       "health": {
@@ -143,7 +141,7 @@
         "access-control"
       ],
       "start": {
-        "type": "legacy-script",
+        "type": "script",
         "owner": "scripts/start-thought-core.ps1"
       },
       "health": {
@@ -178,7 +176,7 @@
         "reflex"
       ],
       "start": {
-        "type": "legacy-stack-script",
+        "type": "stack-script",
         "owner": "organs/reflex/mediapipe-sword-sign/scripts/start_camera_hub_stack.bat"
       },
       "health": {
@@ -211,7 +209,7 @@
         "environment"
       ],
       "start": {
-        "type": "legacy-stack-script",
+        "type": "stack-script",
         "owner": "ops/scripts/home-control-stack/start-home-control-stack.ps1"
       },
       "health": {
@@ -243,7 +241,7 @@
         "expression"
       ],
       "start": {
-        "type": "legacy-stack-script",
+        "type": "stack-script",
         "owner": "ops/scripts/home-control-stack/start-home-control-stack.ps1"
       },
       "health": {
@@ -280,7 +278,7 @@
         "expression"
       ],
       "start": {
-        "type": "legacy-script",
+        "type": "script",
         "owner": "sword-thought-core-watch"
       },
       "health": {

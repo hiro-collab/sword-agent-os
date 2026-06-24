@@ -8,5 +8,4 @@ They do not define organ behavior. Organ-specific evidence contracts live under
 storage, and retention policy that invokes those drivers.
 
 - `standard.json`: first read-only diagnostics schedule and retention policy for
-  the current `thought-core-v0-compat` baseline.
-
+  the current standard baseline.

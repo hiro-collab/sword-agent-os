@@ -1,6 +1,7 @@
 {
   "id": "standard",
   "description": "Standard Sword Agent OS profile. This is not a minimal demo.",
+  "service_manifest": "manifests/services/standard.json",
   "required_organs": [
     "speech-input",
     "reflex",
@@ -22,6 +23,16 @@
     "memory-core",
     "approval-queue"
   ],
+  "required_services": [
+    "home_assistant_bridge",
+    "environment_state_server",
+    "thought_core_api",
+    "mediapipe_camera_hub_stack",
+    "vision_snapshot_processor",
+    "aituber_kit",
+    "thought_core_watcher",
+    "touchdesigner_control_gui"
+  ],
   "port_policy": {
     "default_mode": "manifest_default",
     "accepted_validation_modes": [
@@ -30,7 +41,7 @@
     ],
     "parallel_validation_mode": "isolated_override",
     "conflict_policy": "Default fixed ports are preserved as the standard contract. Port conflicts must be reported as blocked, unavailable, or degraded; runtime tooling must not kill unowned processes automatically.",
-    "notes": "Isolated override ports are first-class validation evidence for local development and multi-thread work, while manifest default ports remain the final compatibility endpoint contract."
+    "notes": "Isolated override ports are first-class validation evidence for local development and multi-thread work, while manifest default ports remain the standard endpoint contract."
   },
   "health_model": {
     "startup_stages": [
@@ -48,7 +59,7 @@
       },
       {
         "stage": "full_conscious_ready",
-        "meaning": "The OS can complete the configured full turn path with external AI/API access and expected integration surfaces such as expression forwarding or compatibility E2E probes."
+        "meaning": "The OS can complete the configured full turn path with external AI/API access and expected integration surfaces such as expression forwarding and standard service probes."
       }
     ],
     "boot_critical_runtime": [

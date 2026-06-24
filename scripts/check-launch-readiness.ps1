@@ -1,5 +1,5 @@
 param(
-  [string]$ProfilePath = "manifests/profiles/thought-core-v0-compat.json",
+  [string]$ProfilePath = "manifests/profiles/standard.json",
   [string]$WorkspaceRoot = "",
   [switch]$CheckEndpoints,
   [switch]$SkipPortChecks,

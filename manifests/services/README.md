@@ -5,9 +5,6 @@ profile. They do not vendor implementation code. They name the service,
 selected organ source, contracts, start/status expectations, runtime outputs,
 authority touched, and migration notes.
 
-Legacy compatibility manifests may point at old launch scripts and old service
-names while the native Agent OS runtime is still being built.
-
 ## Terms
 
 Use `organ` for the capability or responsibility boundary. Use `organ service`
@@ -53,12 +50,9 @@ non-critical capability is `blocked` or `unavailable`.
 Service manifests may define `port_modes`.
 
 - `manifest_default` records the canonical localhost ports for the profile.
-  For the first compatibility profile, these are the old `thought-core-v0`
-  ports.
 - `isolated_override` records temporary ports used by smoke tests and
   side-by-side development.
 
 Health and launch tools should read these port modes instead of keeping
-independent hard-coded port maps. The default ports remain the compatibility
-contract, but isolated ports are valid for routine integration evidence when
-the system under test is otherwise the same stack.
+independent hard-coded port maps. Isolated ports are valid for routine
+integration evidence when the system under test is otherwise the same stack.
