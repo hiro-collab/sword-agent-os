@@ -3,6 +3,13 @@
 Profiles describe the runtime components and organ capabilities expected for an
 Agent OS shape.
 
+Runtime profiles describe what the OS expects to be available. Platform
+profiles describe where and how those expectations are started: for example a
+Windows demo, a Linux headless check, a WSL proof-of-concept, or an Ubuntu
+sensor node. Keep those two concerns separate so a Windows demo dependency does
+not silently become required for every environment. See
+`docs/platform-profiles.md`.
+
 ## Boot Health
 
 Profile health is not the same as full body capability.

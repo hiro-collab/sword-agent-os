@@ -1,0 +1,46 @@
+{
+  "schema_version": "platform_profile.v0",
+  "id": "linux-headless",
+  "display_name": "Linux headless",
+  "runtime_profile": "standard",
+  "status": "draft",
+  "purpose": "Define a small startup target that can validate the core loop without requiring camera, microphone, speech output, avatar display, TouchDesigner, or Home Assistant devices.",
+  "platform_family": "linux",
+  "startup_policy": {
+    "default_mode": "headless_minimum",
+    "minimum_startup_target": "conscious_ready",
+    "default_optional_lanes": [],
+    "may_start_optional_lanes": true,
+    "notes": "Optional lanes remain available when explicitly configured, but they are not required for the first headless startup."
+  },
+  "substrates": [
+    {
+      "id": "native_linux",
+      "kind": "host_os",
+      "authority": "process_host_only",
+      "may_decide_actions": false,
+      "may_grant_proof": false
+    },
+    {
+      "id": "ros_sensorimotor_substrate",
+      "kind": "optional_substrate",
+      "authority": "sensor_robot_bridge_only",
+      "may_decide_actions": false,
+      "may_grant_proof": false
+    }
+  ],
+  "excluded_by_default": [
+    "camera",
+    "voice",
+    "avatar",
+    "home_control",
+    "touchdesigner"
+  ],
+  "non_claims": [
+    "not_runtime_success_by_itself",
+    "not_ros_implementation",
+    "not_home_control_operation",
+    "not_physical_device_proof",
+    "not_release_readiness"
+  ]
+}

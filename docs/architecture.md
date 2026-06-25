@@ -72,6 +72,7 @@ Do not replace architecture planes with capability packs:
 - planes answer "who owns this concern?";
 - packs answer "what feature is the user trying to use?";
 - starter profiles answer "what is the smallest route to try this safely?";
+- platform profiles answer "which environment and start policy is selected?";
 - proof layers answer "what evidence does this actually prove?".
 
 Starter profiles use `examples/starter-profiles/_template.md` as their standard
@@ -79,6 +80,10 @@ shape. A valid starter profile keeps Goal, Safe Route, Report Shape, Stop
 Conditions, and Next Paths separate, while making claim/non-claim boundaries
 explicit. This prevents examples from becoming a second undocumented product
 surface.
+
+Use `docs/platform-profiles.md` before adding Linux, WSL, ROS, or sensor-node
+startup surfaces. Those environments should be selected as platform profiles,
+not folded into the Windows demo stack by default.
 
 ## External Patterns Used
 

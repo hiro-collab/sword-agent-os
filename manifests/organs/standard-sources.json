@@ -2,7 +2,7 @@
   "schema_version": "organs.sources.v0",
   "id": "standard-sources",
   "description": "GitHub-backed organ implementation sources selected for the standard Sword Agent OS distribution. These are checkout source pins, not vendored source files.",
-  "checked_at": "2026-06-24",
+  "checked_at": "2026-06-25",
   "sources": [
     {
       "organ_id": "ai-talk-core",

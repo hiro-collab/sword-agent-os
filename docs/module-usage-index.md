@@ -87,6 +87,13 @@ directory named `services/`.
 In short: `organ` names what capability owns the responsibility; `service`
 names how it runs; `runtime` names OS substrate authority.
 
+Use `platform profile` for the environment-level start policy: Windows demo,
+Linux headless, WSL proof-of-concept, or Ubuntu sensor node. Use `substrate`
+for a lower execution base shared by multiple organs, such as WSL, Ubuntu, or
+ROS 2. A substrate can carry sensor or process infrastructure, but it must not
+become Thought Core, Action Boundary, or proof authority. See
+`docs/platform-profiles.md`.
+
 Memory Core and Event Journal are core runtime substrate. They may eventually
 run as managed processes, but their source-home and authority remain
 `runtime/memory-core/` and `runtime/event-journal/` unless a later explicit

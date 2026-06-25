@@ -22,6 +22,9 @@ README files and docs should summarize them, not duplicate their full ledgers.
   files complement Git commit pins in source manifests; semantic versions say
   what compatibility release this is, while commit pins say exactly which source
   revision will be installed.
+- `platform-profiles/`: draft environment start policies. These keep Windows
+  demo, Linux headless, WSL, ROS, and sensor-node expectations separate from the
+  runtime profile itself.
 - `driver-manifests/`: action-capable, dummy, compatibility, and display/runtime
   driver capability declarations used by Action Catalog and Action Boundary.
 - `drivers/`: existing read-only diagnostic driver contracts. These remain

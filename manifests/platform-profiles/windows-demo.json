@@ -1,0 +1,41 @@
+{
+  "schema_version": "platform_profile.v0",
+  "id": "windows-demo",
+  "display_name": "Windows demo",
+  "runtime_profile": "standard",
+  "status": "draft",
+  "purpose": "Keep the current Windows PC demo shape available for screen, voice, avatar, camera, home control, and TouchDesigner lanes when explicitly selected.",
+  "platform_family": "windows",
+  "startup_policy": {
+    "default_mode": "demo_launcher",
+    "minimum_startup_target": "conscious_ready",
+    "default_optional_lanes": [
+      "avatar",
+      "voice",
+      "camera",
+      "home_control",
+      "touchdesigner"
+    ],
+    "may_start_optional_lanes": true,
+    "notes": "This profile preserves the rich local demo route. It is not the minimum install/start requirement for every environment."
+  },
+  "substrates": [
+    {
+      "id": "native_windows",
+      "kind": "host_os",
+      "authority": "process_host_only",
+      "may_decide_actions": false,
+      "may_grant_proof": false
+    }
+  ],
+  "excluded_by_default": [
+    "ros_sensorimotor_substrate",
+    "linux_sensor_node"
+  ],
+  "non_claims": [
+    "not_runtime_success_by_itself",
+    "not_home_control_operation",
+    "not_physical_device_proof",
+    "not_release_readiness"
+  ]
+}

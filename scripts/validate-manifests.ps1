@@ -187,6 +187,12 @@ $diagnosticPolicy = Read-Json -Path (Resolve-ManifestPath "manifests/diagnostics
 $organTestPacks = Read-Json -Path (Resolve-ManifestPath "manifests/tests/organ-test-packs/standard.json")
 $bodyPlan = Read-Json -Path (Resolve-ManifestPath "manifests/body-plans/system-cell-v0.json")
 $actionDriverManifest = Read-Json -Path (Resolve-ManifestPath "manifests/driver-manifests/system-cell-v0.json")
+$platformProfileDir = Resolve-ManifestPath "manifests/platform-profiles"
+$platformProfileFiles = @()
+if (Test-Path -LiteralPath $platformProfileDir -PathType Container) {
+  $platformProfileFiles = @(Get-ChildItem -LiteralPath $platformProfileDir -Filter "*.json" -File | Sort-Object Name)
+}
+$platformProfiles = @($platformProfileFiles | ForEach-Object { Read-Json -Path $_.FullName })
 
 $contractFiles = @(
   "contracts/action_request/action_request.v0.schema.json",
@@ -403,6 +409,24 @@ Assert-True ("organ-drivers" -in @($standardProfile.required_runtime)) "standard
 $startupStages = @($standardProfile.health_model.startup_stages | ForEach-Object { [string]$_.stage })
 foreach ($stage in @("nonresponsive", "reflex_alive", "conscious_ready", "full_conscious_ready")) {
   Assert-True ($stage -in $startupStages) "standard profile missing startup stage: $stage"
+}
+
+Assert-True ($platformProfiles.Count -ge 2) "platform profiles should include initial Windows and Linux drafts"
+$platformProfileIds = @($platformProfiles | ForEach-Object { [string]$_.id })
+foreach ($requiredPlatformProfile in @("windows-demo", "linux-headless")) {
+  Assert-True ($requiredPlatformProfile -in $platformProfileIds) "platform profile missing: $requiredPlatformProfile"
+}
+foreach ($platformProfile in $platformProfiles) {
+  $platformProfileId = [string]$platformProfile.id
+  Assert-True ([string]$platformProfile.schema_version -eq "platform_profile.v0") "platform profile $platformProfileId schema_version mismatch"
+  Assert-True ($platformProfileId -match "^[a-z][a-z0-9-]*$") "platform profile id is unsafe: $platformProfileId"
+  Assert-True ([string]$platformProfile.runtime_profile -eq "standard") "platform profile $platformProfileId must reference standard runtime profile"
+  Assert-True ([string]$platformProfile.status -in @("draft", "active", "deprecated")) "platform profile $platformProfileId has invalid status"
+  Assert-True ([string]$platformProfile.startup_policy.minimum_startup_target -in $startupStages) "platform profile $platformProfileId has unknown minimum startup target"
+  foreach ($substrate in @($platformProfile.substrates)) {
+    Assert-True (-not [bool]$substrate.may_decide_actions) "platform profile $platformProfileId substrate must not decide actions: $($substrate.id)"
+    Assert-True (-not [bool]$substrate.may_grant_proof) "platform profile $platformProfileId substrate must not grant proof: $($substrate.id)"
+  }
 }
 
 Assert-True ($standardProfile.required_services.Count -eq 8) "standard profile should require 8 services"
@@ -713,6 +737,9 @@ foreach ($fieldName in $aituberFields) {
   Assert-True (Test-SafeManifestText -Value $sourceValue) "AITuberKit $fieldName is unsafe"
 }
 Assert-True ([string](Get-OptionalProperty -Object $aituberSource -Name "upstream_release_commit" -Default "") -match "^[0-9a-f]{40}$") "AITuberKit upstream_release_commit must be a full SHA"
+Assert-True ([string](Get-OptionalProperty -Object $aituberSource -Name "commit" -Default "") -match "^[0-9a-f]{40}$") "AITuberKit source commit must be a full SHA"
+Assert-True ([string](Get-OptionalProperty -Object $aituberRelease -Name "fork_commit" -Default "") -match "^[0-9a-f]{40}$") "AITuberKit release fork_commit must be a full SHA"
+Assert-True ([string](Get-OptionalProperty -Object $aituberRelease -Name "fork_commit" -Default "") -eq [string](Get-OptionalProperty -Object $aituberSource -Name "commit" -Default "")) "AITuberKit release fork_commit must match organ source commit"
 Assert-True (Test-SemVer -Value ([string](Get-OptionalProperty -Object $aituberSource -Name "sword_adapter_version" -Default ""))) "AITuberKit sword_adapter_version must be semver"
 Assert-True (Test-SemVer -Value ([string](Get-OptionalProperty -Object $aituberSource -Name "patchset_version" -Default ""))) "AITuberKit patchset_version must be semver"
 Assert-True ([string](Get-OptionalProperty -Object $aituberSource -Name "proof_level" -Default "") -in @("source-static", "browser-local", "runtime-reflected", "live-pilot")) "AITuberKit proof_level is invalid"
