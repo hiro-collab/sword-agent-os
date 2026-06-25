@@ -26,7 +26,7 @@
       "version_source": "organs/reflex/mediapipe-sword-sign/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
       "branch": "feature/camera-hub-topic-envelope",
-      "commit": "0130db25a01c76c751a2ef5f72827fef8eb0e788",
+      "commit": "fdb18f1f1bbcf02e8944500d59cc8fb191c802a3",
       "adoption": "standard_candidate",
       "notes": "Camera Hub, gesture inference, and reflex topic surface."
     },
@@ -107,7 +107,7 @@
       "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
       "repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "branch": "main",
-      "commit": "b09bcc2cd8e765d0becd01ac55e89fdecf7b24df",
+      "commit": "38ad36438f69cdc8ef5bdb36e99432743b56c470",
       "sword_adapter_version": "0.1.3",
       "patchset_id": "sword-aituberkit",
       "patchset_version": "0.1.3",
@@ -128,7 +128,7 @@
       "version_source": "agent-os release manifest",
       "repo_url": "https://github.com/hiro-collab/touchdesigner-ai-controller.git",
       "branch": "codex/projection-visual-docs",
-      "commit": "9173a780cd680310e0c28cd1201c2e7ab6931aec",
+      "commit": "cac55f85718bc311fe07b59029b7cb594ab24a59",
       "adoption": "standard_candidate",
       "notes": "Display runtime GUI, TouchDesigner UDP visual trigger, and display bridge."
     },
