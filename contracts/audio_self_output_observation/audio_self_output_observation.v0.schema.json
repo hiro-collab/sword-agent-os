@@ -1,0 +1,635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/audio_self_output_observation/audio_self_output_observation.v0.schema.json",
+  "title": "Agent OS audio_self_output_observation.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation_id",
+    "generated_at",
+    "source_mode",
+    "route_id",
+    "proof_ceiling",
+    "speaker_role",
+    "route",
+    "classification",
+    "adoption_decision_owner",
+    "may_start_user_turn",
+    "turn_adoption_authority",
+    "turn_adoption_status",
+    "pre_turn_result",
+    "system_speech",
+    "input_gate",
+    "refs",
+    "timing",
+    "confidence",
+    "transcript_ref_policy",
+    "loop_breakers",
+    "system_ref_policy",
+    "no_live_fixture_guards",
+    "suggested_followup",
+    "suggestion_emitted",
+    "redaction",
+    "non_claims",
+    "raw_private_publication_flags"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "audio_self_output_observation.v0"
+    },
+    "observation_id": {
+      "type": "string",
+      "pattern": "^aso_[A-Za-z0-9_:-]+$",
+      "maxLength": 120
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_mode": {
+      "type": "string",
+      "enum": [
+        "source_static",
+        "synthetic_fixture"
+      ]
+    },
+    "route_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_:-]+$",
+      "maxLength": 180
+    },
+    "proof_ceiling": {
+      "const": "source_docs_contract_test_only"
+    },
+    "speaker_role": {
+      "const": "system_self_output"
+    },
+    "route": {
+      "const": "self_output_observation"
+    },
+    "classification": {
+      "type": "string",
+      "enum": [
+        "system_self_output_candidate",
+        "blocked_self_output",
+        "blocked_cooldown",
+        "blocked_ambiguous",
+        "blocked_missing_session_join",
+        "blocked_low_confidence",
+        "blocked_capture_not_ready",
+        "mixed_or_ambiguous_audio"
+      ]
+    },
+    "adoption_decision_owner": {
+      "const": "ai_talk_core"
+    },
+    "may_start_user_turn": {
+      "const": false
+    },
+    "turn_adoption_authority": {
+      "const": false
+    },
+    "turn_adoption_status": {
+      "type": "string",
+      "enum": [
+        "blocked_self_output",
+        "blocked_cooldown",
+        "blocked_ambiguous",
+        "blocked_missing_session_join",
+        "blocked_low_confidence",
+        "blocked_capture_not_ready"
+      ]
+    },
+    "pre_turn_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_owner",
+        "turn_input_materialized",
+        "normal_turn_adoption_blocked",
+        "normal_turn_block_reason",
+        "thought_core_turn_input_ref"
+      ],
+      "properties": {
+        "decision_owner": {
+          "const": "ai_talk_core"
+        },
+        "turn_input_materialized": {
+          "const": false
+        },
+        "normal_turn_adoption_blocked": {
+          "const": true
+        },
+        "normal_turn_block_reason": {
+          "type": "string",
+          "enum": [
+            "self_output_observation",
+            "system_speaking_active",
+            "cooldown_active",
+            "mixed_or_ambiguous_audio",
+            "session_join_missing",
+            "low_confidence",
+            "capture_not_ready",
+            "latch_generation_mismatch",
+            "missing_speaker_role",
+            "missing_route",
+            "raw_or_private_publication_required"
+          ]
+        },
+        "thought_core_turn_input_ref": {
+          "type": "null"
+        }
+      }
+    },
+    "system_speech": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system_speech_session_id",
+        "speech_session_generation",
+        "speaking_state",
+        "tts_intended_text_ref",
+        "playback_event_ref"
+      ],
+      "properties": {
+        "system_speech_session_id": {
+          "$ref": "#/$defs/speech_session_ref"
+        },
+        "speech_session_generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "speaking_state": {
+          "type": "string",
+          "enum": [
+            "system_speaking_playing",
+            "system_speaking_cooldown",
+            "system_speaking_recently_finished",
+            "system_speaking_unknown"
+          ]
+        },
+        "tts_intended_text_ref": {
+          "$ref": "#/$defs/opaque_ref"
+        },
+        "playback_event_ref": {
+          "$ref": "#/$defs/opaque_ref"
+        }
+      }
+    },
+    "input_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_gate_latch_id",
+        "latched_by_system_speech_session_id",
+        "latch_generation",
+        "latch_state",
+        "latch_acquired_at_ms",
+        "latch_release_not_before_ms",
+        "latch_release_reason",
+        "normal_turn_latch_suppressed",
+        "release_semantics",
+        "release_requires_match",
+        "release_rejected_status"
+      ],
+      "properties": {
+        "input_gate_latch_id": {
+          "$ref": "#/$defs/latch_ref"
+        },
+        "latched_by_system_speech_session_id": {
+          "$ref": "#/$defs/speech_session_ref"
+        },
+        "latch_generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "latch_state": {
+          "type": "string",
+          "enum": [
+            "closed_self_output",
+            "cooldown_self_output",
+            "held_ambiguous",
+            "capture_not_ready"
+          ]
+        },
+        "latch_acquired_at_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "latch_release_not_before_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "latch_release_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "cooldown_elapsed",
+            "session_replaced",
+            "operator_reset",
+            null
+          ]
+        },
+        "normal_turn_latch_suppressed": {
+          "const": true
+        },
+        "release_semantics": {
+          "const": "compare_and_release_required"
+        },
+        "release_requires_match": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "input_gate_latch_id",
+              "latch_generation",
+              "latched_by_system_speech_session_id",
+              "speech_session_generation"
+            ]
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": "input_gate_latch_id"
+              }
+            },
+            {
+              "contains": {
+                "const": "latch_generation"
+              }
+            },
+            {
+              "contains": {
+                "const": "latched_by_system_speech_session_id"
+              }
+            },
+            {
+              "contains": {
+                "const": "speech_session_generation"
+              }
+            }
+          ]
+        },
+        "release_rejected_status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "release_rejected_generation_mismatch",
+            "release_rejected_latch_id_mismatch",
+            "release_rejected_session_mismatch",
+            null
+          ]
+        }
+      }
+    },
+    "refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audio_awareness_summary_ref",
+        "heard_text_observation_ref",
+        "microphone_summary_ref"
+      ],
+      "properties": {
+        "audio_awareness_summary_ref": {
+          "$ref": "#/$defs/opaque_ref"
+        },
+        "heard_text_observation_ref": {
+          "type": "null"
+        },
+        "microphone_summary_ref": {
+          "type": "null"
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clock_kind",
+        "trigger_at_ms",
+        "playback_started_at_ms",
+        "playback_ended_at_ms",
+        "cooldown_ended_at_ms",
+        "stt_window_start_ms",
+        "stt_window_end_ms"
+      ],
+      "properties": {
+        "clock_kind": {
+          "const": "relative_monotonic_ms"
+        },
+        "trigger_at_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "playback_started_at_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "playback_ended_at_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cooldown_ended_at_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stt_window_start_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stt_window_end_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stt_confidence",
+        "session_join_confidence",
+        "source_correlation_confidence",
+        "intended_vs_heard_similarity"
+      ],
+      "properties": {
+        "stt_confidence": {
+          "$ref": "#/$defs/nullable_unit_interval"
+        },
+        "session_join_confidence": {
+          "$ref": "#/$defs/nullable_unit_interval"
+        },
+        "source_correlation_confidence": {
+          "$ref": "#/$defs/nullable_unit_interval"
+        },
+        "intended_vs_heard_similarity": {
+          "$ref": "#/$defs/nullable_unit_interval"
+        }
+      }
+    },
+    "transcript_ref_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transcript_ref_allowed",
+        "transcript_ref_policy",
+        "retention_class",
+        "access_scope",
+        "transcript_body_shared",
+        "full_transcript_saved",
+        "provider_payload_shared"
+      ],
+      "properties": {
+        "transcript_ref_allowed": {
+          "const": false
+        },
+        "transcript_ref_policy": {
+          "const": "no_shared_transcript_ref"
+        },
+        "retention_class": {
+          "const": "none_shared"
+        },
+        "access_scope": {
+          "const": "shared_artifact_none"
+        },
+        "transcript_body_shared": {
+          "const": false
+        },
+        "full_transcript_saved": {
+          "const": false
+        },
+        "provider_payload_shared": {
+          "const": false
+        }
+      }
+    },
+    "loop_breakers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recent_self_output_fingerprint_ref",
+        "cooldown_dedupe_matched",
+        "overlapping_session_hold"
+      ],
+      "properties": {
+        "recent_self_output_fingerprint_ref": {
+          "$ref": "#/$defs/opaque_ref"
+        },
+        "cooldown_dedupe_matched": {
+          "type": "boolean"
+        },
+        "overlapping_session_hold": {
+          "type": "boolean"
+        }
+      }
+    },
+    "system_ref_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system_refs_are_opaque_non_dereferenceable",
+        "system_refs_may_contain_text",
+        "system_refs_may_contain_provider_ids",
+        "system_refs_may_contain_paths",
+        "system_refs_may_contain_browser_storage_keys",
+        "system_refs_may_contain_audio_or_media_paths"
+      ],
+      "properties": {
+        "system_refs_are_opaque_non_dereferenceable": {
+          "const": true
+        },
+        "system_refs_may_contain_text": {
+          "const": false
+        },
+        "system_refs_may_contain_provider_ids": {
+          "const": false
+        },
+        "system_refs_may_contain_paths": {
+          "const": false
+        },
+        "system_refs_may_contain_browser_storage_keys": {
+          "const": false
+        },
+        "system_refs_may_contain_audio_or_media_paths": {
+          "const": false
+        }
+      }
+    },
+    "no_live_fixture_guards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "build_handoff_payload_reached",
+        "save_handoff_bundle_reached",
+        "runner_handoff_payload_created",
+        "redacted_turn_input_created",
+        "thought_core_turn_input_created",
+        "older_session_releases_newer_latch",
+        "newer_session_releases_older_cooling_latch",
+        "transcript_like_ref_materialized"
+      ],
+      "properties": {
+        "build_handoff_payload_reached": {
+          "const": false
+        },
+        "save_handoff_bundle_reached": {
+          "const": false
+        },
+        "runner_handoff_payload_created": {
+          "const": false
+        },
+        "redacted_turn_input_created": {
+          "const": false
+        },
+        "thought_core_turn_input_created": {
+          "const": false
+        },
+        "older_session_releases_newer_latch": {
+          "const": false
+        },
+        "newer_session_releases_older_cooling_latch": {
+          "const": false
+        },
+        "transcript_like_ref_materialized": {
+          "const": false
+        }
+      }
+    },
+    "suggested_followup": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "post_cooldown_repeat_prompt_suggested",
+        null
+      ]
+    },
+    "suggestion_emitted": {
+      "const": false
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_audio_shared",
+        "raw_audio_persisted",
+        "raw_transcript_shared",
+        "private_path_shared",
+        "provider_payload_shared",
+        "screenshot_or_media_shared"
+      ],
+      "properties": {
+        "raw_audio_shared": {
+          "const": false
+        },
+        "raw_audio_persisted": {
+          "const": false
+        },
+        "raw_transcript_shared": {
+          "const": false
+        },
+        "private_path_shared": {
+          "const": false
+        },
+        "provider_payload_shared": {
+          "const": false
+        },
+        "screenshot_or_media_shared": {
+          "const": false
+        }
+      }
+    },
+    "non_claims": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.:-]*$",
+        "maxLength": 120
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "not_user_input"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_user_intent"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_command_authority"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_action_authority"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_raw_audio_publication"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_full_transcript_publication"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_thought_core_turn_input"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_release_or_final_rr003"
+          }
+        }
+      ]
+    },
+    "raw_private_publication_flags": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "nullable_unit_interval": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "speech_session_ref": {
+      "type": "string",
+      "pattern": "^speech_session:[A-Za-z0-9_:-]+$",
+      "maxLength": 120
+    },
+    "latch_ref": {
+      "type": "string",
+      "pattern": "^latch:[A-Za-z0-9_:-]+$",
+      "maxLength": 120
+    },
+    "opaque_ref": {
+      "type": "string",
+      "pattern": "^opaque_(class|correlation|hash)_ref:[A-Za-z0-9_:-]+$",
+      "maxLength": 160
+    }
+  }
+}

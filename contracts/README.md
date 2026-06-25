@@ -38,6 +38,15 @@ against these shapes at the boundary.
   out of scope.
   - Example:
     `audio_awareness_summary/examples/pc-output-voicevox-correlated.example.json`
+- `audio_self_output_observation/audio_self_output_observation.v0.schema.json`:
+  source/static self-output observation and adoption-gate boundary shape. It
+  records that recognized system speech is held as `system_self_output`, cannot
+  materialize a normal Thought Core `TurnInput`, carries no shared transcript
+  refs, and keeps runtime audio capture, provider STT, raw audio/transcripts,
+  user intent, command authority, source adoption, and release/readiness proof
+  out of scope.
+  - Example:
+    `audio_self_output_observation/examples/source_static_self_output_blocked.example.json`
 - `audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json`:
   machine-readable route map for source/static audio-awareness consumers. It
   points readers to the hearing organ scaffold, runtime helper, result

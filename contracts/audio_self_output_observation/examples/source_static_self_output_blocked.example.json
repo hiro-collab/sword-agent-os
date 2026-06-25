@@ -1,0 +1,121 @@
+{
+  "schema_version": "audio_self_output_observation.v0",
+  "observation_id": "aso_source_static_self_output_blocked_001",
+  "generated_at": "2026-06-25T00:00:00Z",
+  "source_mode": "source_static",
+  "route_id": "AUDIO-SELF-OUTPUT-OBSERVATION-CONTRACT-ROUTE-A-01",
+  "proof_ceiling": "source_docs_contract_test_only",
+  "speaker_role": "system_self_output",
+  "route": "self_output_observation",
+  "classification": "system_self_output_candidate",
+  "adoption_decision_owner": "ai_talk_core",
+  "may_start_user_turn": false,
+  "turn_adoption_authority": false,
+  "turn_adoption_status": "blocked_self_output",
+  "pre_turn_result": {
+    "decision_owner": "ai_talk_core",
+    "turn_input_materialized": false,
+    "normal_turn_adoption_blocked": true,
+    "normal_turn_block_reason": "self_output_observation",
+    "thought_core_turn_input_ref": null
+  },
+  "system_speech": {
+    "system_speech_session_id": "speech_session:self_output_001",
+    "speech_session_generation": 1,
+    "speaking_state": "system_speaking_playing",
+    "tts_intended_text_ref": "opaque_class_ref:tts_intended_text_bucket_001",
+    "playback_event_ref": "opaque_correlation_ref:playback_event_001"
+  },
+  "input_gate": {
+    "input_gate_latch_id": "latch:self_output_001",
+    "latched_by_system_speech_session_id": "speech_session:self_output_001",
+    "latch_generation": 1,
+    "latch_state": "closed_self_output",
+    "latch_acquired_at_ms": 0,
+    "latch_release_not_before_ms": 1800,
+    "latch_release_reason": null,
+    "normal_turn_latch_suppressed": true,
+    "release_semantics": "compare_and_release_required",
+    "release_requires_match": [
+      "input_gate_latch_id",
+      "latch_generation",
+      "latched_by_system_speech_session_id",
+      "speech_session_generation"
+    ],
+    "release_rejected_status": null
+  },
+  "refs": {
+    "audio_awareness_summary_ref": "opaque_correlation_ref:audio_awareness_summary_001",
+    "heard_text_observation_ref": null,
+    "microphone_summary_ref": null
+  },
+  "timing": {
+    "clock_kind": "relative_monotonic_ms",
+    "trigger_at_ms": 0,
+    "playback_started_at_ms": 0,
+    "playback_ended_at_ms": 1000,
+    "cooldown_ended_at_ms": 1800,
+    "stt_window_start_ms": 0,
+    "stt_window_end_ms": 1200
+  },
+  "confidence": {
+    "stt_confidence": 0.91,
+    "session_join_confidence": 0.95,
+    "source_correlation_confidence": 0.88,
+    "intended_vs_heard_similarity": 0.84
+  },
+  "transcript_ref_policy": {
+    "transcript_ref_allowed": false,
+    "transcript_ref_policy": "no_shared_transcript_ref",
+    "retention_class": "none_shared",
+    "access_scope": "shared_artifact_none",
+    "transcript_body_shared": false,
+    "full_transcript_saved": false,
+    "provider_payload_shared": false
+  },
+  "loop_breakers": {
+    "recent_self_output_fingerprint_ref": "opaque_hash_ref:self_output_fingerprint_001",
+    "cooldown_dedupe_matched": false,
+    "overlapping_session_hold": false
+  },
+  "system_ref_policy": {
+    "system_refs_are_opaque_non_dereferenceable": true,
+    "system_refs_may_contain_text": false,
+    "system_refs_may_contain_provider_ids": false,
+    "system_refs_may_contain_paths": false,
+    "system_refs_may_contain_browser_storage_keys": false,
+    "system_refs_may_contain_audio_or_media_paths": false
+  },
+  "no_live_fixture_guards": {
+    "build_handoff_payload_reached": false,
+    "save_handoff_bundle_reached": false,
+    "runner_handoff_payload_created": false,
+    "redacted_turn_input_created": false,
+    "thought_core_turn_input_created": false,
+    "older_session_releases_newer_latch": false,
+    "newer_session_releases_older_cooling_latch": false,
+    "transcript_like_ref_materialized": false
+  },
+  "suggested_followup": null,
+  "suggestion_emitted": false,
+  "redaction": {
+    "raw_audio_shared": false,
+    "raw_audio_persisted": false,
+    "raw_transcript_shared": false,
+    "private_path_shared": false,
+    "provider_payload_shared": false,
+    "screenshot_or_media_shared": false
+  },
+  "non_claims": [
+    "not_user_input",
+    "not_user_intent",
+    "not_command_authority",
+    "not_action_authority",
+    "not_user_heard_audio",
+    "not_raw_audio_publication",
+    "not_full_transcript_publication",
+    "not_thought_core_turn_input",
+    "not_release_or_final_rr003"
+  ],
+  "raw_private_publication_flags": false
+}

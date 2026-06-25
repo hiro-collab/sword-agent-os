@@ -950,6 +950,98 @@ function Test-ReadmeFirstRunGuidance {
   Write-Host "README first-run guidance static ok"
 }
 
+function Test-AudioSelfOutputObservationContractStatic {
+  Write-TestStep "Audio self-output observation contract static checks"
+
+  $schemaPath = Join-Path $RepoRoot "contracts\audio_self_output_observation\audio_self_output_observation.v0.schema.json"
+  $examplePath = Join-Path $RepoRoot "contracts\audio_self_output_observation\examples\source_static_self_output_blocked.example.json"
+  Assert-PathPresent -Path $schemaPath
+  Assert-PathPresent -Path $examplePath
+
+  $schema = Get-Content -Raw -LiteralPath $schemaPath
+  $exampleText = Get-Content -Raw -LiteralPath $examplePath
+  $contractsReadme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "contracts\README.md")
+  $schemaJson = $schema | ConvertFrom-Json
+  $example = $exampleText | ConvertFrom-Json
+
+  if ([string]$schemaJson.properties.schema_version.const -ne "audio_self_output_observation.v0") {
+    throw "audio self-output schema should lock schema_version"
+  }
+  if ([string]$example.schema_version -ne "audio_self_output_observation.v0") {
+    throw "audio self-output example should use the v0 schema"
+  }
+  if ([string]$example.speaker_role -ne "system_self_output") {
+    throw "audio self-output example should classify speaker_role as system_self_output"
+  }
+  if ([string]$example.route -ne "self_output_observation") {
+    throw "audio self-output example should use the self_output_observation route"
+  }
+  if ($example.may_start_user_turn -ne $false -or $example.turn_adoption_authority -ne $false) {
+    throw "audio self-output example should not start or authorize a user turn"
+  }
+  if ([string]$example.adoption_decision_owner -ne "ai_talk_core" -or [string]$example.pre_turn_result.decision_owner -ne "ai_talk_core") {
+    throw "audio self-output adoption decision should belong to AI Talk Core"
+  }
+  if ($example.pre_turn_result.turn_input_materialized -ne $false -or $example.pre_turn_result.normal_turn_adoption_blocked -ne $true) {
+    throw "audio self-output pre-turn result should block normal turn materialization"
+  }
+  if ($null -ne $example.pre_turn_result.thought_core_turn_input_ref) {
+    throw "audio self-output example should not contain a Thought Core turn input ref"
+  }
+  if ($null -ne $example.refs.heard_text_observation_ref) {
+    throw "audio self-output v0 example should keep heard_text_observation_ref null"
+  }
+  if ($example.transcript_ref_policy.transcript_ref_allowed -ne $false -or
+      [string]$example.transcript_ref_policy.transcript_ref_policy -ne "no_shared_transcript_ref" -or
+      [string]$example.transcript_ref_policy.retention_class -ne "none_shared") {
+    throw "audio self-output transcript ref policy should keep v0 transcript refs unshared"
+  }
+
+  foreach ($field in @(
+    "build_handoff_payload_reached",
+    "save_handoff_bundle_reached",
+    "runner_handoff_payload_created",
+    "redacted_turn_input_created",
+    "thought_core_turn_input_created",
+    "older_session_releases_newer_latch",
+    "newer_session_releases_older_cooling_latch",
+    "transcript_like_ref_materialized"
+  )) {
+    if ($example.no_live_fixture_guards.$field -ne $false) {
+      throw "audio self-output no-live fixture guard should keep $field false"
+    }
+  }
+
+  Assert-TextMatch -Text $schema -Pattern '"may_start_user_turn"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should reject may_start_user_turn=true"
+  Assert-TextMatch -Text $schema -Pattern '"turn_adoption_authority"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should reject turn adoption authority"
+  Assert-TextNotMatch -Text $schema -Pattern "adoptable_user_turn" -Message "audio self-output schema should not expose adoptable_user_turn"
+  Assert-TextMatch -Text $schema -Pattern '"turn_input_materialized"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should prevent turn input materialization"
+  Assert-TextMatch -Text $schema -Pattern '"thought_core_turn_input_ref"[\s\S]{0,80}"type"\s*:\s*"null"' -Message "audio self-output schema should force Thought Core turn refs to null"
+  Assert-TextMatch -Text $schema -Pattern '"missing_speaker_role"[\s\S]{0,160}"missing_route"|missing_route[\s\S]{0,160}missing_speaker_role' -Message "audio self-output schema should represent missing speaker and route hold reasons separately"
+  Assert-TextMatch -Text $schema -Pattern '"build_handoff_payload_reached"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should guard build_handoff_payload leakage"
+  Assert-TextMatch -Text $schema -Pattern '"save_handoff_bundle_reached"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should guard save_handoff_bundle leakage"
+  Assert-TextMatch -Text $schema -Pattern '"runner_handoff_payload_created"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should guard runner handoff leakage"
+  Assert-TextMatch -Text $schema -Pattern '"redacted_turn_input_created"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should guard redacted_turn_input leakage"
+  Assert-TextMatch -Text $schema -Pattern '"thought_core_turn_input_created"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should guard Thought Core TurnInput leakage"
+  Assert-TextMatch -Text $schema -Pattern '"older_session_releases_newer_latch"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should guard old-session/new-latch release"
+  Assert-TextMatch -Text $schema -Pattern '"newer_session_releases_older_cooling_latch"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should guard new-session/old-cooling release"
+  Assert-TextMatch -Text $schema -Pattern '"heard_text_observation_ref"[\s\S]{0,80}"type"\s*:\s*"null"' -Message "audio self-output schema should force heard text refs to null"
+  Assert-TextMatch -Text $schema -Pattern '"transcript_ref_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should reject shared transcript refs"
+  Assert-TextMatch -Text $schema -Pattern '"transcript_ref_policy"[\s\S]{0,80}"const"\s*:\s*"no_shared_transcript_ref"' -Message "audio self-output schema should name no_shared_transcript_ref"
+  Assert-TextMatch -Text $schema -Pattern '"retention_class"[\s\S]{0,80}"const"\s*:\s*"none_shared"' -Message "audio self-output schema should use none_shared retention"
+  Assert-TextMatch -Text $schema -Pattern '"system_refs_are_opaque_non_dereferenceable"[\s\S]{0,80}"const"\s*:\s*true' -Message "audio self-output schema should require opaque system refs"
+  Assert-TextMatch -Text $schema -Pattern '"system_refs_may_contain_text"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should forbid text in system refs"
+  Assert-TextMatch -Text $schema -Pattern '"system_refs_may_contain_provider_ids"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should forbid provider ids in refs"
+  Assert-TextMatch -Text $schema -Pattern '"system_refs_may_contain_paths"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should forbid paths in refs"
+  Assert-TextMatch -Text $schema -Pattern '"system_refs_may_contain_browser_storage_keys"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should forbid browser storage keys in refs"
+  Assert-TextMatch -Text $schema -Pattern '"system_refs_may_contain_audio_or_media_paths"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should forbid audio/media paths in refs"
+  Assert-TextNotMatch -Text $exampleText -Pattern 'C:\\|\\\\|/Users/|localStorage|sessionStorage|provider:[A-Za-z0-9_-]+|provider_payload_(id|ref|body)|"provider_id"\s*:|\.wav|\.mp3|\.mp4|"transcript_body"\s*:' -Message "audio self-output example should not contain private paths, browser keys, media filenames, provider ids, provider payloads, or transcript bodies"
+  Assert-TextMatch -Text $contractsReadme -Pattern "audio_self_output_observation/audio_self_output_observation\.v0\.schema\.json" -Message "Contracts README should list audio self-output observation"
+  Assert-TextMatch -Text $contractsReadme -Pattern 'cannot\s+materialize\s+a\s+normal\s+Thought Core `TurnInput`|cannot[\s\S]{0,120}Thought Core `TurnInput`' -Message "Contracts README should state self-output cannot materialize a Thought Core turn"
+
+  Write-Host "Audio self-output observation contract static ok"
+}
+
 function Test-RouteAParentNoLiveUxStatic {
   Write-TestStep "Route A parent no-live UX static checks"
 
@@ -2001,6 +2093,7 @@ Test-MaintenanceSafetyStatic
 Test-PublicPathLeakStatic
 Test-TestLayoutPolicy
 Test-ReadmeFirstRunGuidance
+Test-AudioSelfOutputObservationContractStatic
 Test-RouteAParentNoLiveUxStatic
 Test-HomeControlTrackingHelperFixtures
 Test-ManifestAndVersion
