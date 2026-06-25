@@ -12,6 +12,12 @@ may start the same selected runtime surfaces from their own launch system, then
 use the same readiness, demo-safe settings, action-boundary, and cleanup
 contracts.
 
+Some launcher implementation paths still live under `home-control-stack`
+because the reference Launcher grew out of the Home Control stack scripts. In
+the standard profile, that path name is a package/history detail: it can start
+or supervise selected standard runtime surfaces, not only Home Control, and it
+does not by itself imply live Home Assistant action proof.
+
 The front door defaults to no-live / no-device. It does not start the runtime stack,
 call a provider, operate Home Assistant, use a browser profile, open
 camera/audio, or claim physical proof unless a later route explicitly says so.

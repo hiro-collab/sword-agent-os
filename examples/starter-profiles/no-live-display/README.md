@@ -12,7 +12,7 @@ Confirm that a fresh developer can reach the safe display/runtime path before
 touching Home Assistant live actions, browser/camera capture, provider calls, or
 physical-device proof.
 
-## Route
+## Safe Route
 
 ```powershell
 .\sword.ps1 status
@@ -20,14 +20,25 @@ physical-device proof.
 .\sword.ps1 start
 ```
 
-`start` is a command preview by default. Use `docs/operate.md` before adding
-`-Run`.
+`status` and `verify` are no-live/read-only checks. `start` is a command
+preview by default. Use `docs/operate.md` before adding `-Run`.
 
-## Boundary
+## Report Shape
 
-This profile does not claim provider response quality, live Home Assistant
-execution, camera/microphone proof, external or physical/device proof, or
-release readiness.
+Report the route name, command result, claim, and non-claim. Keep command
+preview separate from runtime/browser reachability, provider responses, live
+Home Assistant execution, camera/microphone proof, external observation,
+physical/device proof, and release readiness.
+
+## Stop Conditions
+
+Stop before the next proof layer if:
+
+- `status` or `verify` reports a missing required local input or dependency;
+- `start` would require `-Run`, a browser/runtime operation, a provider call, a
+  camera/microphone surface, or Home Assistant live action;
+- explaining the result would require raw logs, screenshots, audio, private
+  paths, tokens, or local config values.
 
 ## Next Paths
 

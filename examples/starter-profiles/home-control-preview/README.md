@@ -97,9 +97,16 @@ Stop before any preview/dry-run/live route if:
 - You would need to publish raw HA entity IDs, script IDs, URLs, private config,
   tokens, screenshots, logs, or media to explain the result.
 
-## Boundary
+## Next Paths
 
 This profile is read-only readiness. It does not claim preview/dry-run/live
 execution, command submission, post-action HA-visible terminal state,
 external/user observation, physical/device proof, or release readiness.
 `preview/dry-run/live`: Not part of this starter profile.
+
+- For Home Assistant setup, use `docs/home-assistant-setup.md`.
+- For action authoring, use `docs/home-control-action-authoring.md`.
+- For proof wording, use `docs/proof-layers.md`.
+- For any preview, dry-run, live, external, device-facing, or proof-upgrading
+  step, open a separate exact route instead of treating it as an implicit
+  continuation of this starter profile.
