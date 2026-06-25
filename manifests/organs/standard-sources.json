@@ -107,7 +107,7 @@
       "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
       "repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "branch": "main",
-      "commit": "38ad36438f69cdc8ef5bdb36e99432743b56c470",
+      "commit": "aa082fa0b1dee5e424edad91012f6784cc4545d7",
       "sword_adapter_version": "0.1.3",
       "patchset_id": "sword-aituberkit",
       "patchset_version": "0.1.3",
@@ -128,7 +128,7 @@
       "version_source": "agent-os release manifest",
       "repo_url": "https://github.com/hiro-collab/touchdesigner-ai-controller.git",
       "branch": "codex/projection-visual-docs",
-      "commit": "cac55f85718bc311fe07b59029b7cb594ab24a59",
+      "commit": "24fc04ff09fb43f2e65151fa1e1bb3989a0b568b",
       "adoption": "standard_candidate",
       "notes": "Display runtime GUI, TouchDesigner UDP visual trigger, and display bridge."
     },
