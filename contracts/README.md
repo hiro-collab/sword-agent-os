@@ -32,7 +32,7 @@ against these shapes at the boundary.
     `redacted_turn_input/examples/source_no_live.example.json`
 - `audio_awareness_summary/audio_awareness_summary.v0.schema.json`:
   summary-only hearing/audio awareness packet for `pc_output`, `microphone`,
-  and legacy speech-input VAD metadata. Source/static packets keep live capture,
+  and speech-input VAD adapter metadata. Source/static packets keep live capture,
   provider/network STT/TTS, raw audio, full transcripts, command authority,
   browser-visible audio authority, user-heard proof, and physical/device proof
   out of scope.

@@ -21,8 +21,8 @@ approval queue.
 - `body-display-projection/`: emits display-safe body-state frames for
   projector/background/display clients.
 - `audio-awareness/`: exposes source/static, summary-only hearing awareness
-  helpers and consumer routes for PC-output, microphone, and legacy
-  speech-input VAD metadata under `sense.hearing.primary`.
+  helpers and consumer routes for PC-output, microphone, and speech-input VAD
+  adapter metadata under `sense.hearing.primary`.
 - `diagnostic-scheduler/`: owns read-only observation pulse timing.
 - `organ-drivers/`: translates organ-specific evidence into common status,
   event, topology, and capability observations.

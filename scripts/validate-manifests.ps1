@@ -276,7 +276,7 @@ Assert-True ("action_indicator" -in $motionMixerKinds) "motion mixer summary mus
 $audioAwarenessContract = Read-Json -Path (Resolve-ManifestPath "contracts/audio_awareness_summary/audio_awareness_summary.v0.schema.json")
 $audioAwarenessDefs = $audioAwarenessContract.PSObject.Properties["`$defs"].Value
 $audioChannelKinds = @($audioAwarenessDefs.channel_summary.properties.channel_kind.enum | ForEach-Object { [string]$_ })
-foreach ($requiredAudioChannel in @("pc_output", "microphone", "legacy_speech_input")) {
+foreach ($requiredAudioChannel in @("pc_output", "microphone", "speech_input_vad_adapter")) {
   Assert-True ($requiredAudioChannel -in $audioChannelKinds) "audio awareness must support $requiredAudioChannel channel summaries"
 }
 $audioCaptureProps = $audioAwarenessContract.properties.capture_permissions.properties
@@ -301,7 +301,7 @@ Assert-True ($audioRoutes.global_boundaries.default_pc_output_capture -eq $false
 Assert-True ($audioRoutes.global_boundaries.provider_call -eq $false) "audio awareness route map must reject provider calls"
 Assert-True ($audioRoutes.global_boundaries.user_heard_audio_authority -eq $false) "audio awareness route map must reject user-heard proof authority"
 $audioRouteIds = @($audioRoutes.routes | ForEach-Object { [string]$_.route_id })
-foreach ($requiredAudioRoute in @("audio_awareness.source_static.synthetic_summary_fixture", "audio_awareness.source_static.legacy_vad_adapter")) {
+foreach ($requiredAudioRoute in @("audio_awareness.source_static.synthetic_summary_fixture", "audio_awareness.source_static.speech_input_vad_adapter")) {
   Assert-True ($requiredAudioRoute -in $audioRouteIds) "audio awareness route map missing $requiredAudioRoute"
 }
 

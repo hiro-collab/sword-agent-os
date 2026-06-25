@@ -371,7 +371,7 @@
             "microphone",
             "browser_audio_event",
             "tts_event",
-            "legacy_speech_input"
+            "speech_input_vad_adapter"
           ]
         },
         "observation_status": {
@@ -429,7 +429,7 @@
             "none",
             "energy_heuristic",
             "webrtcvad_adapter",
-            "legacy_speech_input",
+            "speech_input_vad_adapter",
             "synthetic_fixture"
           ]
         },
@@ -442,7 +442,7 @@
     },
     "safe_ref": {
       "type": "string",
-      "pattern": "^(event|summary|audio|tts|playback|legacy|source):[A-Za-z0-9_.:-]+$",
+      "pattern": "^(event|summary|audio|tts|playback|adapter|source):[A-Za-z0-9_.:-]+$",
       "maxLength": 160
     }
   }

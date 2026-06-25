@@ -13,7 +13,7 @@ The concrete scaffold is:
 Do not start this module as a disconnected top-level
 `organs/auditory-awareness/` implementation. Existing
 `organs/speech-input/ai-talk-core` VAD/STT behavior remains an adapter boundary:
-the current slice maps legacy VAD metadata into summary fields and does not
+the current slice maps speech-input VAD metadata into summary fields and does not
 refactor nested `ai-talk-core`.
 
 ## MVP Boundary

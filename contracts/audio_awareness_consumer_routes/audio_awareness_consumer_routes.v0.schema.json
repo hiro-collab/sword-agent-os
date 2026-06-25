@@ -162,7 +162,7 @@
               "contract_fixture",
               "pc_output_summary",
               "microphone_summary",
-              "legacy_vad_adapter",
+              "speech_input_vad_adapter",
               "self_output_correlation"
             ]
           },

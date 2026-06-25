@@ -149,7 +149,7 @@ microphone awareness:
   capture off by default.
 - `contracts/audio_awareness_summary/audio_awareness_summary.v0.schema.json`
   defines the result packet for `pc_output`, `microphone`, and
-  `legacy_speech_input` channel summaries.
+  `speech_input_vad_adapter` channel summaries.
 - `organs/speech-input/audio-awareness/README.md` is the organ scaffold tied to
   `sense.hearing.primary`.
 - `docs/audio-awareness.md` is the concise operator/reviewer design note for
@@ -162,7 +162,7 @@ audio_awareness_source_static_summary_only
 ```
 
 This surface can describe source/static contract readiness, synthetic fixture
-summaries, and legacy VAD metadata mapping. It cannot prove live PC-output
+summaries, and speech-input VAD adapter metadata mapping. It cannot prove live PC-output
 capture, microphone capture, browser audio playback, user-heard audio,
 transcript content, Home Assistant action, physical device effect, or
 release/readiness/final RR003 pass.

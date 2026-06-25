@@ -81,7 +81,7 @@ $rowCatalog = @(
     id = "summary_contract_boundary"
     pass = "audio_awareness_summary_contract_no_live_source_static"
     hold = "audio_awareness_summary_contract_boundary_missing"
-    detail = "summary schema separates pc_output, microphone, legacy VAD, redaction, transcript, and no-live source/static flags"
+    detail = "summary schema separates pc_output, microphone, speech-input VAD adapter, redaction, transcript, and no-live source/static flags"
   },
   [PSCustomObject]@{
     id = "summary_fixture_no_live"
@@ -185,10 +185,10 @@ else {
     $sourceStaticCaptureProps = $summarySchema.allOf[0].then.properties.capture_permissions.properties
     $failures = @()
     if ([string]$summarySchema.properties.schema_version.const -ne "audio_awareness_summary.v0") { $failures += "schema_version" }
-    foreach ($kind in @("pc_output", "microphone", "legacy_speech_input")) {
+    foreach ($kind in @("pc_output", "microphone", "speech_input_vad_adapter")) {
       if ($kind -notin $channelKinds) { $failures += "channel_kind:$kind" }
     }
-    foreach ($source in @("legacy_speech_input", "synthetic_fixture")) {
+    foreach ($source in @("speech_input_vad_adapter", "synthetic_fixture")) {
       if ($source -notin $speechSources) { $failures += "speech_source:$source" }
     }
     foreach ($field in @("provider_network_stt_enabled", "raw_audio_retained", "raw_audio_persisted")) {
@@ -211,7 +211,7 @@ else {
       -Status $(if ($failures.Count -eq 0) { "pass" } else { "hold" }) `
       -PassClass "audio_awareness_summary_contract_no_live_source_static" `
       -HoldClass "audio_awareness_summary_contract_boundary_missing" `
-      -Detail $(if ($failures.Count -eq 0) { "schema=audio_awareness_summary.v0; channels=pc_output,microphone,legacy_speech_input" } else { "failed={0}" -f (Join-ShortList $failures) })
+      -Detail $(if ($failures.Count -eq 0) { "schema=audio_awareness_summary.v0; channels=pc_output,microphone,speech_input_vad_adapter" } else { "failed={0}" -f (Join-ShortList $failures) })
   }
   catch {
     $rows += New-ReadinessRow -Id "summary_contract_boundary" -Status "hold" -PassClass "audio_awareness_summary_contract_no_live_source_static" -HoldClass "audio_awareness_summary_contract_boundary_missing" -Detail "schema_unreadable_or_invalid_json"
@@ -265,7 +265,7 @@ else {
     foreach ($field in @("command_authority", "action_authority", "provider_call", "default_live_microphone_capture", "default_pc_output_capture", "raw_audio_shared", "raw_transcript_shared", "home_assistant_identifier_shared", "user_heard_audio_authority", "physical_device_proof")) {
       if (-not (Test-FalseProperty -Object $routes.global_boundaries -Name $field)) { $failures += "global:$field" }
     }
-    foreach ($routeId in @("audio_awareness.source_static.synthetic_summary_fixture", "audio_awareness.source_static.legacy_vad_adapter")) {
+    foreach ($routeId in @("audio_awareness.source_static.synthetic_summary_fixture", "audio_awareness.source_static.speech_input_vad_adapter")) {
       if ($routeId -notin $routeIds) { $failures += "route:$routeId" }
     }
     foreach ($field in @("provider_call", "default_live_microphone_capture", "default_pc_output_capture", "raw_audio_shared")) {
@@ -277,7 +277,7 @@ else {
       -Status $(if ($failures.Count -eq 0) { "pass" } else { "hold" }) `
       -PassClass "consumer_routes_observation_only" `
       -HoldClass "consumer_routes_boundary_missing" `
-      -Detail $(if ($failures.Count -eq 0) { "routes=source_static_fixture,legacy_vad_adapter; default_live_capture=false" } else { "failed={0}" -f (Join-ShortList $failures) })
+      -Detail $(if ($failures.Count -eq 0) { "routes=source_static_fixture,speech_input_vad_adapter; default_live_capture=false" } else { "failed={0}" -f (Join-ShortList $failures) })
   }
   catch {
     $rows += New-ReadinessRow -Id "consumer_routes_boundary" -Status "hold" -PassClass "consumer_routes_observation_only" -HoldClass "consumer_routes_boundary_missing" -Detail "routes_unreadable_or_invalid_json"
@@ -437,7 +437,7 @@ $result = [PSCustomObject]@{
     source_static = "contract, docs, manifests, fixture, and no-live self-tests only"
     pc_output = "pc-output channel summary shape only; no live loopback capture"
     microphone = "microphone channel summary shape only; no live microphone capture"
-    legacy_vad = "legacy VAD metadata mapping only; nested ai-talk-core is not refactored here"
+    speech_input_vad_adapter = "speech-input VAD metadata mapping only; nested ai-talk-core is not refactored here"
   }
   raw_private_publication_flags = $false
   non_claims = @(

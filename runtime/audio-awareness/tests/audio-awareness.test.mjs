@@ -6,7 +6,7 @@ import {
   AUDIO_AWARENESS_NON_CLAIMS,
   AUDIO_AWARENESS_SCHEMA_VERSION,
   buildAudioAwarenessSummary,
-  buildLegacyVadChannel,
+  buildSpeechInputVadAdapterChannel,
   buildSyntheticAudioAwarenessSummary,
   validateAudioAwarenessSummary,
 } from "../audio-awareness.mjs";
@@ -64,8 +64,8 @@ test("summarizes samples without retaining raw audio", () => {
   assert.equal(channel.peak_dbfs, -6.02);
 });
 
-test("maps legacy speech-input VAD debug into hearing summary channel", () => {
-  const channel = buildLegacyVadChannel({
+test("maps speech-input VAD debug into hearing summary channel", () => {
+  const channel = buildSpeechInputVadAdapterChannel({
     vad: {
       checked: true,
       speech_detected: true,
@@ -74,10 +74,10 @@ test("maps legacy speech-input VAD debug into hearing summary channel", () => {
     },
   });
 
-  assert.equal(channel.channel_kind, "legacy_speech_input");
+  assert.equal(channel.channel_kind, "speech_input_vad_adapter");
   assert.equal(channel.observation_status, "observed");
   assert.equal(channel.speech_present, true);
-  assert.equal(channel.speech_presence_source, "legacy_speech_input");
+  assert.equal(channel.speech_presence_source, "speech_input_vad_adapter");
 });
 
 test("keeps committed fixture compatible with the runtime validator", () => {

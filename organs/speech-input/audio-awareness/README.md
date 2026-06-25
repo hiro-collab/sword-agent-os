@@ -22,7 +22,7 @@ The organ should eventually provide adapters for:
 - microphone observation, only under explicit route permission;
 - browser audio or media events when a browser route supplies them;
 - local TTS/VOICEVOX generation and playback event summaries;
-- legacy speech-input VAD/STT metadata.
+- speech-input VAD/STT adapter metadata.
 
 The organ emits `audio_awareness_summary.json` packets that validate against:
 
@@ -35,8 +35,8 @@ The runtime reader surface is:
 ## Current Status
 
 This is a source/static scaffold. The current adopted code lives in
-`runtime/audio-awareness/` and supports synthetic sample summaries plus a legacy
-VAD compatibility mapper.
+`runtime/audio-awareness/` and supports synthetic sample summaries plus a
+speech-input VAD adapter mapper.
 
 No live PC-output capture, microphone capture, browser audio capture, STT,
 provider network call, generated audio sharing, or raw audio persistence is
@@ -49,9 +49,9 @@ migrated through adapters rather than forced into this scaffold all at once.
 
 Suggested order:
 
-1. Keep legacy endpoints and events working.
-2. Map legacy VAD debug metadata into `legacy_speech_input` channel summaries.
-3. Add a compatibility reader that emits `audio_awareness_summary.v0`.
+1. Keep existing speech-input endpoints and events working while the adapter boundary is explicit.
+2. Map speech-input VAD debug metadata into `speech_input_vad_adapter` channel summaries.
+3. Add a reader that emits `audio_awareness_summary.v0`.
 4. Move live capture adapters only after a reviewed route authorizes them.
 5. Keep STT optional and outside the default audio-awareness core.
 

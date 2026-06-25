@@ -239,8 +239,8 @@ The module is tied to the existing speech-input/hearing role:
   layers and raw/private boundaries.
 
 The current implementation is source/static only. It can validate synthetic
-summary fixtures and map legacy speech-input VAD metadata into a
-`legacy_speech_input` channel. It does not run PC-output loopback capture,
+summary fixtures and map speech-input VAD metadata into a
+`speech_input_vad_adapter` channel. It does not run PC-output loopback capture,
 microphone capture, browser audio capture, provider/network STT/TTS, Home
 Assistant/Home Control operations, raw audio handling, or transcript
 publication.

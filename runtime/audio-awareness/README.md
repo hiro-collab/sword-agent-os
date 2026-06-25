@@ -29,9 +29,9 @@ The expected authority result packet is:
 The current implementation is source/static:
 
 - `audio-awareness.mjs` builds and validates summary packets from synthetic
-  samples or legacy VAD metadata.
+  samples or speech-input VAD adapter metadata.
 - `tests/audio-awareness.test.mjs` validates the contract fixture, builder,
-  redaction flags, and legacy VAD adapter boundary.
+  redaction flags, and speech-input VAD adapter boundary.
 - `scripts/check-audio-awareness-readiness.ps1` is the no-live readiness
   entrypoint.
 
@@ -40,16 +40,16 @@ network call, or raw audio persistence is implemented by this slice.
 
 ## Existing Speech Input Integration
 
-Existing speech-input VAD remains a compatibility source. Its summary/debug
+Existing speech-input VAD remains an adapter source. Its summary/debug
 fields, such as `checked` and `speech_detected`, can be mapped into a
-`legacy_speech_input` channel through `buildLegacyVadChannel`.
+`speech_input_vad_adapter` channel through `buildSpeechInputVadAdapterChannel`.
 
 Do not make Thought Core, diagnostics, or reviewers parse raw audio files,
 temporary upload paths, full transcripts, or private logs to understand VAD
 state. The long-term route is:
 
 ```text
-legacy speech-input VAD/STT
+speech-input VAD/STT adapter
 -> audio_awareness_summary.v0 channel summary
 -> status/event/memory safe refs
 ```
@@ -60,7 +60,7 @@ Audio Awareness can support narrow claims such as:
 
 - PC-output energy was observed in a bounded window;
 - microphone energy or speech-presence metadata was observed;
-- a legacy VAD adapter reported speech/no-speech as summary metadata;
+- a speech-input VAD adapter reported speech/no-speech as summary metadata;
 - a TTS/playback event and PC-output energy were correlated at a summary layer.
 
 It cannot prove by itself:

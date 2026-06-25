@@ -10,13 +10,13 @@ const DEFAULT_AUDIO_PRESENT_DBFS = -60;
 const SAFE_ID_PATTERN = /^[a-z][a-z0-9_.:-]*$/;
 const SUMMARY_ID_PATTERN = /^aud_sum_[A-Za-z0-9_.:-]+$/;
 const SAFE_REF_PATTERN =
-  /^(event|summary|audio|tts|playback|legacy|source):[A-Za-z0-9_.:-]+$/;
+  /^(event|summary|audio|tts|playback|adapter|source):[A-Za-z0-9_.:-]+$/;
 const CHANNEL_KINDS = new Set([
   "pc_output",
   "microphone",
   "browser_audio_event",
   "tts_event",
-  "legacy_speech_input",
+  "speech_input_vad_adapter",
 ]);
 const OBSERVATION_STATUSES = new Set([
   "observed",
@@ -29,7 +29,7 @@ const SPEECH_SOURCES = new Set([
   "none",
   "energy_heuristic",
   "webrtcvad_adapter",
-  "legacy_speech_input",
+  "speech_input_vad_adapter",
   "synthetic_fixture",
 ]);
 const SOURCE_MODES = new Set([
@@ -210,16 +210,16 @@ export function buildDisabledChannel({
   };
 }
 
-export function buildLegacyVadChannel({
-  channelId = "microphone.legacy_speech_input",
+export function buildSpeechInputVadAdapterChannel({
+  channelId = "microphone.speech_input_vad_adapter",
   vad = {},
 } = {}) {
   const checked = vad.checked === true;
   const speechDetected =
     typeof vad.speech_detected === "boolean" ? vad.speech_detected : null;
   return {
-    channel_id: safeId(channelId, "microphone.legacy_speech_input"),
-    channel_kind: "legacy_speech_input",
+    channel_id: safeId(channelId, "microphone.speech_input_vad_adapter"),
+    channel_kind: "speech_input_vad_adapter",
     observation_status: checked ? "observed" : "held",
     window_ms: 0,
     sample_count: 0,
@@ -230,7 +230,7 @@ export function buildLegacyVadChannel({
     dropout_count: 0,
     audio_present: speechDetected,
     speech_present: speechDetected,
-    speech_presence_source: checked ? "legacy_speech_input" : "none",
+    speech_presence_source: checked ? "speech_input_vad_adapter" : "none",
     source_confidence: checked ? (speechDetected === true ? 0.72 : 0.64) : null,
   };
 }
