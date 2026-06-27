@@ -48,14 +48,14 @@
       "id": "appliance.light_command_stimulus",
       "area": "appliance",
       "label": "Light command stimulus",
-      "description": "Toggle-only light command stimulus for the feedback loop. It does not require restore for this demo and remains external-observation-required unless a separate visual/state route is added.",
+      "description": "Explicit light_on command stimulus for the feedback loop. It does not require restore for this demo and remains external-observation-required unless a separate visual/state route is added.",
       "enabled": false,
       "restore_supported": false,
       "restore_required": false,
       "max_action_count": 1,
       "max_duration_sec": 30,
       "action_ids": [
-        "light_toggle"
+        "light_on"
       ],
       "feedback_stimulus_class": "appliance_command_stimulus",
       "state_requirement_class": "current_state_not_required_command_submission",

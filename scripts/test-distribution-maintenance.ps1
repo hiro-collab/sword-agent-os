@@ -594,7 +594,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "check-voicevox-readiness\.ps1" -Message "front-door docs should document the VOICEVOX readiness helper"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "forced render[\s\S]{0,180}restart|restart[\s\S]{0,180}env/config" -Message "front-door docs should explain restart after forced env/config render"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "run-full-install-verification\.ps1" -Message "front-door docs should document the full install verification helper"
-  Assert-TextMatch -Text $frontDoorSurface -Pattern "toggle-only light[\s\S]{0,220}light_toggle|light_toggle[\s\S]{0,220}toggle-only light" -Message "front-door docs should describe toggle-only light through light_toggle semantics"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "demo-safe light command stimulus[\s\S]{0,220}light_on|light_on[\s\S]{0,220}command submission" -Message "front-door docs should describe light_on as command-submission-only demo-safe stimulus"
   Assert-TextMatch -Text $readme -Pattern "front-door:system-at-a-glance" -Message "README should anchor the system-at-a-glance overview"
   Assert-TextMatch -Text $readme -Pattern "## 何のシステムか" -Message "README should explain what the system is before setup steps"
   $readmeProjectionVisualImagePath = Join-Path $RepoRoot "docs\assets\readme\projection-visual-example-1.png"
@@ -609,12 +609,12 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "architecture:front-door-thinning-rule" -Message "architecture docs should anchor the front-door thinning rule"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "Delete or archive only after the ownership is clear" -Message "architecture docs should prevent arbitrary entrypoint deletion"
   Assert-TextMatch -Text $verificationSurface -Pattern "docs/live-home-control-proof\.md" -Message "public verification docs should point live proof recipes to the canonical Home Control proof doc"
-  Assert-TextMatch -Text $troubleshootingSurface -Pattern "toggle-only light[\s\S]{0,240}external-observation-required|external-observation-required[\s\S]{0,240}toggle-only light" -Message "troubleshooting should point toggle-only light handling to external-observation-required semantics"
+  Assert-TextMatch -Text $troubleshootingSurface -Pattern "demo-safe light command stimulus[\s\S]{0,260}light_on[\s\S]{0,260}command submission|light_on[\s\S]{0,260}HA state proof" -Message "troubleshooting should keep light_on as command-submission-only, not HA-state proof"
   $demoSafeSettings = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "manifests\demo-safe-settings\defaults.json")
   $driverManifest = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "manifests\drivers\standard.json")
   $diagnosticTestPlan = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "runtime\diagnostic-scheduler\neural-monitoring-test-plan.v0.md")
-  Assert-TextMatch -Text $demoSafeSettings -Pattern '"id"\s*:\s*"appliance\.light_command_stimulus"[\s\S]{0,700}"light_toggle"' -Message "demo-safe light stimulus should use the toggle-only action id"
-  Assert-TextNotMatch -Text $demoSafeSettings -Pattern '"id"\s*:\s*"appliance\.light_command_stimulus"[\s\S]{0,700}"light_on"' -Message "demo-safe light stimulus should not use directional light_on"
+  Assert-TextMatch -Text $demoSafeSettings -Pattern '"id"\s*:\s*"appliance\.light_command_stimulus"[\s\S]{0,700}"light_on"' -Message "demo-safe light stimulus should use the canonical explicit light_on action id"
+  Assert-TextNotMatch -Text $demoSafeSettings -Pattern '"id"\s*:\s*"appliance\.light_command_stimulus"[\s\S]{0,700}"light_toggle"' -Message "demo-safe light stimulus should not keep the legacy light_toggle action id"
   Assert-TextMatch -Text $driverManifest -Pattern "toggle-only light stays external-observation-required" -Message "driver manifest should keep toggle-only light out of reversible-action examples"
   Assert-TextNotMatch -Text $driverManifest -Pattern "light_on then light_off" -Message "driver manifest should not promote light_on/light_off as reversible proof"
   Assert-TextMatch -Text $diagnosticTestPlan -Pattern "toggle-only light requires separate external observation" -Message "diagnostic plan should keep toggle-only light as external-observation-required"
