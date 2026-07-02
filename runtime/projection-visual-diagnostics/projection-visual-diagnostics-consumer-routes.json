@@ -53,6 +53,8 @@
       ],
       "accept_result": [
         "bubble_render_class reports rendered or missing",
+        "intended_text_class, bubble_text_scope_class, and tts_provider_input_text_class separate intended display text from the current bubble page and TTS provider input",
+        "heard_text_class remains not_collected_or_not_authorized unless a separate Audio Awareness route opens self-output observation",
         "speech_summary_class reports present or concrete blocker",
         "message id/hash classes are summary-only",
         "raw_text_publication_class=raw_text_not_included"
@@ -76,6 +78,7 @@
       ],
       "accept_result": [
         "same_message_tts_unit_class=same_message_tts_unit_present",
+        "parity_status_class may report same_message_text_scope_mismatch when message id matches but bubble text scope and TTS provider input differ",
         "exact_same_text_same_message_class=exact_same_text_not_claimed",
         "proof ceiling remains limited"
       ],

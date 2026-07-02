@@ -17,6 +17,10 @@
     "receiver_or_ui_input_path_class",
     "foreground_operator_surface_class",
     "bubble_render_class",
+    "intended_text_class",
+    "bubble_text_scope_class",
+    "tts_provider_input_text_class",
+    "heard_text_class",
     "speech_summary_class",
     "tts_summary_class",
     "parity_status_class",
@@ -121,6 +125,39 @@
         "assistant_bubble_rendered_safe_ref",
         "assistant_bubble_missing",
         "bubble_not_checked_source_static"
+      ]
+    },
+    "intended_text_class": {
+      "type": "string",
+      "enum": [
+        "intended_text_summary_present",
+        "intended_text_summary_unavailable",
+        "not_checked_source_static"
+      ]
+    },
+    "bubble_text_scope_class": {
+      "type": "string",
+      "enum": [
+        "full_message",
+        "compacted_full_text",
+        "current_visible_page",
+        "scope_unknown",
+        "not_checked_source_static"
+      ]
+    },
+    "tts_provider_input_text_class": {
+      "type": "string",
+      "enum": [
+        "tts_provider_input_text_present",
+        "tts_provider_input_text_unavailable",
+        "not_checked_source_static"
+      ]
+    },
+    "heard_text_class": {
+      "type": "string",
+      "enum": [
+        "not_collected_or_not_authorized",
+        "not_checked_source_static"
       ]
     },
     "speech_summary_class": {

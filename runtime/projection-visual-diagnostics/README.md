@@ -16,6 +16,10 @@ Default route posture:
   in shared summaries;
 - display/TTS parity remains a summary/hash/class layer and is not user-heard
   audio proof.
+- display/TTS text summaries separate intended text, current bubble/display text
+  scope, and TTS provider input text; heard text remains
+  `not_collected_or_not_authorized` unless a separate Audio Awareness route
+  explicitly opens it.
 
 Projection Visual display/TTS is separate from Self Mirror, VRM model telemetry,
 audio-awareness, OS display diagnostics, and Home Assistant/Home Control. A
