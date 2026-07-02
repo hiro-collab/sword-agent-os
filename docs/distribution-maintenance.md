@@ -64,6 +64,11 @@ pwsh -NoProfile -File .\scripts\check-distribution-pins.ps1 -Profile standard -S
 の Test-QA / Security / Integration review を終え、親 manifest の commit pin を更新し、
 必要なら distribution version を上げ、fresh install でその pin が再現されることを確認します。
 
+`local_artifact_hold_at_manifest_pin` は source pin は一致しているが、Git source として
+採用しないローカル runtime artifact が残っている状態です。通常モードでは warning として
+source pin と artifact hold を分けて見せ、`-Strict` では fresh install / release readiness
+の green を止めます。
+
 `git_unreadable` は pin mismatch とは別です。制限付き環境、別ユーザー実行、Git の
 `dubious ownership` などで checkout を読めない時に出ます。この場合は通常ユーザーの端末で
 同じ command を再実行するか、診断目的で exact path の `safe.directory` override を使います。

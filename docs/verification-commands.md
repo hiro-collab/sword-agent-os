@@ -24,6 +24,10 @@ pwsh -NoProfile -File .\scripts\check-launch-readiness.ps1
 pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1
 ```
 
+`check-distribution-pins.ps1` can report `local_artifact_hold_at_manifest_pin`
+when source pins match but a local runtime artifact still blocks strict release
+or fresh-install readiness.
+
 ## Optional / Local-Media Replay Preview
 
 When local `local/media/README.md` and `local/media/media-index.json` exist,

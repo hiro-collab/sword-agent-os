@@ -580,6 +580,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "doctor-distribution\.ps1" -Message "front-door docs should document the distribution doctor"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "check-distribution-pins\.ps1" -Message "front-door docs should document the distribution pin checker"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "ahead_of_manifest|正式採用待ち|parent adoption" -Message "front-door docs should explain ahead-of-manifest pin state"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "local_artifact_hold_at_manifest_pin" -Message "front-door docs should explain local artifact hold pin state"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "git_unreadable[\s\S]{0,240}pin mismatch" -Message "front-door docs should separate git_unreadable from true pin mismatch"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "port-conflict|isolated_override" -Message "public troubleshooting docs should explain port-conflict handling"
   Assert-TextMatch -Text $troubleshootingSurface -Pattern 'existing `sword-agent-os` directory' -Message "public troubleshooting docs should explain existing clone directory handling"
@@ -1566,6 +1567,67 @@ function Test-DistributionPinCheckerFixtures {
     if ([string]$exactJson.status -ne "ok") {
       throw "exact pin fixture should pass strict check; got $($exactJson.status)"
     }
+
+    $toeRepo = Join-Path $root "pin-touchdesigner-local-artifact-checkout"
+    New-LocalGitRepository -Path $toeRepo | Out-Null
+    $toeDir = Join-Path $toeRepo "touchdesigner"
+    New-Item -ItemType Directory -Force -Path $toeDir | Out-Null
+    $toeFile = Join-Path $toeDir "20260501AITuber.toe"
+    Set-Content -LiteralPath $toeFile -Value "tracked local runtime artifact fixture" -Encoding utf8
+    Invoke-Checked -Command @("git", "-C", $toeRepo, "add", "touchdesigner/20260501AITuber.toe") | Out-Null
+    Invoke-Checked -Command @(
+      "git",
+      "-C",
+      $toeRepo,
+      "-c",
+      "user.name=Sword Agent OS Maintenance Test",
+      "-c",
+      "user.email=maintenance-test@example.invalid",
+      "commit",
+      "-q",
+      "-m",
+      "add touchdesigner project fixture"
+    ) | Out-Null
+    $toeHead = ((Invoke-Checked -Command @("git", "-C", $toeRepo, "rev-parse", "HEAD") | Select-Object -First 1) -join "").Trim()
+    Set-Content -LiteralPath $toeFile -Value "dirty local runtime artifact fixture" -Encoding utf8
+    $toeManifest = New-UpdateFixtureManifest -Root $root -TargetPath $toeRepo -Commit $toeHead -Id "touchdesigner-ai-controller"
+    $toeOutput = Invoke-Checked -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-distribution-pins.ps1"),
+      "-DistributionManifestPath",
+      $toeManifest,
+      "-Json"
+    )
+    $toeJson = ($toeOutput -join "`n") | ConvertFrom-Json
+    if ([string]$toeJson.status -ne "warning") {
+      throw "local artifact hold fixture should be warning in non-strict mode; got $($toeJson.status)"
+    }
+    if ([string]$toeJson.items[0].status -ne "local_artifact_hold_at_manifest_pin") {
+      throw "local artifact hold fixture did not report local_artifact_hold_at_manifest_pin"
+    }
+    if ([int]$toeJson.local_artifact_holds -ne 1) {
+      throw "local artifact hold fixture did not report local_artifact_holds=1"
+    }
+    if (-not [bool]$toeJson.items[0].local_artifact_hold) {
+      throw "local artifact hold fixture did not set local_artifact_hold=true"
+    }
+    if (@($toeJson.items[0].dirty_blocking).Count -ne 0) {
+      throw "local artifact hold fixture should not report dirty_blocking source changes"
+    }
+    Assert-TextMatch -Text ((@($toeJson.items[0].dirty_local_artifacts) -join "`n")) -Pattern "touchdesigner/20260501AITuber\.toe" -Message "local artifact hold fixture did not report the relative TouchDesigner artifact path"
+    $toeStrictOutput = Invoke-ExpectFailure -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      (Join-Path $PSScriptRoot "check-distribution-pins.ps1"),
+      "-DistributionManifestPath",
+      $toeManifest,
+      "-Strict",
+      "-Json"
+    )
+    Assert-TextMatch -Text ($toeStrictOutput -join "`n") -Pattern "local_artifact_hold_at_manifest_pin" -Message "strict pin check should fail on local artifact hold"
 
     $aheadRepo = Join-Path $root "pin-ahead-checkout"
     $aheadManifestHead = New-LocalGitRepository -Path $aheadRepo

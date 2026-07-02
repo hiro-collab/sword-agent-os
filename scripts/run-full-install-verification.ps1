@@ -291,8 +291,8 @@ Add-CommandLayer `
   -Arguments ($distributionArgs + @("-Strict", "-Json")) `
   -PassDetail "pin check completed without strict violation" `
   -FailureDetail "pin check failed" `
-  -BlockedPattern "git_unreadable|dubious ownership|detected dubious ownership" `
-  -BlockedDetail "git_unreadable or ownership friction; rerun in normal user context before calling this a true pin mismatch" | Out-Null
+  -BlockedPattern "git_unreadable|dubious ownership|detected dubious ownership|local_artifact_hold" `
+  -BlockedDetail "pin check reached a classified hold; distinguish Git readability friction or local artifact hold from a true source pin mismatch" | Out-Null
 
 if ($RunNoLiveSmoke) {
   Add-CommandLayer `

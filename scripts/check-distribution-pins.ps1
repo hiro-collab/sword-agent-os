@@ -59,15 +59,59 @@ function Test-GeneratedDirtyLine {
   )
 }
 
+function Get-GitStatusPath {
+  param([Parameter(Mandatory = $true)][string]$Line)
+  if ($Line.Length -lt 4) {
+    return ""
+  }
+  return ($Line.Substring(3).Trim() -replace "\\", "/")
+}
+
+function Test-LocalArtifactHoldDirtyLine {
+  param(
+    [Parameter(Mandatory = $true)][string]$Line,
+    [string]$ItemId = "",
+    [string]$TargetPath = ""
+  )
+
+  if ($Line.Length -lt 4) {
+    return $false
+  }
+
+  $status = $Line.Substring(0, 2)
+  if ($status -notmatch "M") {
+    return $false
+  }
+
+  $normalizedTargetPath = ($TargetPath -replace "\\", "/").Trim("/")
+  $isTouchDesignerCheckout = (
+    [string]$ItemId -eq "touchdesigner-ai-controller" -or
+    $normalizedTargetPath -eq "organs/display/touchdesigner-ai-controller"
+  )
+  if (-not $isTouchDesignerCheckout) {
+    return $false
+  }
+
+  return ((Get-GitStatusPath -Line $Line) -eq "touchdesigner/20260501AITuber.toe")
+}
+
 function Split-DirtyLines {
-  param([string[]]$Lines)
+  param(
+    [string[]]$Lines,
+    [string]$ItemId = "",
+    [string]$TargetPath = ""
+  )
   $generated = @()
+  $localArtifacts = @()
   $blocking = @()
   foreach ($line in @($Lines)) {
     if ([string]::IsNullOrWhiteSpace($line)) {
       continue
     }
-    if (Test-GeneratedDirtyLine -Line $line) {
+    if (Test-LocalArtifactHoldDirtyLine -Line $line -ItemId $ItemId -TargetPath $TargetPath) {
+      $localArtifacts += $line
+    }
+    elseif (Test-GeneratedDirtyLine -Line $line) {
       $generated += $line
     }
     else {
@@ -76,6 +120,7 @@ function Split-DirtyLines {
   }
   return [PSCustomObject]@{
     generated = $generated
+    local_artifacts = $localArtifacts
     blocking = $blocking
   }
 }
@@ -123,6 +168,7 @@ function New-PinResult {
     [string]$CurrentBranch = "",
     [string[]]$DirtyBlocking = @(),
     [string[]]$DirtyGenerated = @(),
+    [string[]]$DirtyLocalArtifacts = @(),
     [bool]$StrictViolation = $false
   )
 
@@ -139,6 +185,8 @@ function New-PinResult {
     detail = $Detail
     dirty_blocking = @($DirtyBlocking)
     dirty_generated = @($DirtyGenerated)
+    dirty_local_artifacts = @($DirtyLocalArtifacts)
+    local_artifact_hold = (@($DirtyLocalArtifacts).Count -gt 0)
     strict_violation = $StrictViolation
   }
 }
@@ -161,7 +209,7 @@ function Test-CheckoutPin {
   if ($statusRead.exit_code -ne 0) {
     return New-PinResult -Item $Item -Status "git_unreadable" -Severity "warning" -Detail (($statusRead.output | Select-Object -First 3) -join " | ") -StrictViolation $true
   }
-  $dirty = Split-DirtyLines -Lines @($statusRead.output)
+  $dirty = Split-DirtyLines -Lines @($statusRead.output) -ItemId ([string]$Item.id) -TargetPath ([string]$Item.target_path)
 
   $headRead = Invoke-GitRead -Arguments @("-C", $target, "rev-parse", "HEAD")
   if ($headRead.exit_code -ne 0) {
@@ -177,37 +225,41 @@ function Test-CheckoutPin {
 
   $commitExists = Test-GitSuccess -Arguments @("-C", $target, "cat-file", "-e", "$expected^{commit}")
   if (-not $commitExists) {
-    return New-PinResult -Item $Item -Status "manifest_commit_missing_locally" -Severity "blocker" -Detail "expected manifest commit is not available in this checkout; run installer/update with network access or check the manifest pin" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -StrictViolation $true
+    return New-PinResult -Item $Item -Status "manifest_commit_missing_locally" -Severity "blocker" -Detail "expected manifest commit is not available in this checkout; run installer/update with network access or check the manifest pin" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -DirtyLocalArtifacts $dirty.local_artifacts -StrictViolation $true
   }
 
   $branchMismatch = (-not [string]::IsNullOrWhiteSpace($currentBranch) -and $currentBranch -ne $branch)
   $dirtyViolation = ($dirty.blocking.Count -gt 0)
+  $localArtifactHold = ($dirty.local_artifacts.Count -gt 0)
 
   if ($head -eq $expected) {
     if ($dirtyViolation) {
-      return New-PinResult -Item $Item -Status "dirty_at_manifest_pin" -Severity "warning" -Detail "checkout is at the manifest pin but has local source changes" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -StrictViolation $true
+      return New-PinResult -Item $Item -Status "dirty_at_manifest_pin" -Severity "warning" -Detail "checkout is at the manifest pin but has local source changes" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -DirtyLocalArtifacts $dirty.local_artifacts -StrictViolation $true
     }
     if ($branchMismatch) {
-      return New-PinResult -Item $Item -Status "branch_mismatch_at_manifest_pin" -Severity "warning" -Detail "checkout is at the manifest pin but on a different named branch" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -StrictViolation $true
+      return New-PinResult -Item $Item -Status "branch_mismatch_at_manifest_pin" -Severity "warning" -Detail "checkout is at the manifest pin but on a different named branch" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -DirtyLocalArtifacts $dirty.local_artifacts -StrictViolation $true
     }
-    return New-PinResult -Item $Item -Status "ok" -Severity "ok" -Detail "checkout matches manifest pin" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated
+    if ($localArtifactHold) {
+      return New-PinResult -Item $Item -Status "local_artifact_hold_at_manifest_pin" -Severity "warning" -Detail "checkout matches manifest pin but has a local runtime artifact held outside source/Git; strict readiness still requires separate artifact disposition" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -DirtyLocalArtifacts $dirty.local_artifacts -StrictViolation $true
+    }
+    return New-PinResult -Item $Item -Status "ok" -Severity "ok" -Detail "checkout matches manifest pin" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -DirtyLocalArtifacts $dirty.local_artifacts
   }
 
   if ($dirtyViolation) {
-    return New-PinResult -Item $Item -Status "dirty_not_at_manifest_pin" -Severity "blocker" -Detail "checkout is dirty and does not match manifest pin" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -StrictViolation $true
+    return New-PinResult -Item $Item -Status "dirty_not_at_manifest_pin" -Severity "blocker" -Detail "checkout is dirty and does not match manifest pin" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -DirtyLocalArtifacts $dirty.local_artifacts -StrictViolation $true
   }
 
   $expectedAncestorOfHead = Test-GitAncestor -Target $target -Ancestor $expected -Descendant $head
   if ($expectedAncestorOfHead -eq $true) {
-    return New-PinResult -Item $Item -Status "ahead_of_manifest" -Severity "warning" -Detail "checkout is ahead of the manifest pin; parent adoption decision required before release" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -StrictViolation $true
+    return New-PinResult -Item $Item -Status "ahead_of_manifest" -Severity "warning" -Detail "checkout is ahead of the manifest pin; parent adoption decision required before release" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -DirtyLocalArtifacts $dirty.local_artifacts -StrictViolation $true
   }
 
   $headAncestorOfExpected = Test-GitAncestor -Target $target -Ancestor $head -Descendant $expected
   if ($headAncestorOfExpected -eq $true) {
-    return New-PinResult -Item $Item -Status "behind_manifest" -Severity "blocker" -Detail "checkout is behind the manifest pin; run update-distribution or reinstall" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -StrictViolation $true
+    return New-PinResult -Item $Item -Status "behind_manifest" -Severity "blocker" -Detail "checkout is behind the manifest pin; run update-distribution or reinstall" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -DirtyLocalArtifacts $dirty.local_artifacts -StrictViolation $true
   }
 
-  return New-PinResult -Item $Item -Status "pin_mismatch" -Severity "blocker" -Detail "checkout head is not related to the manifest pin by a simple ancestry check" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -StrictViolation $true
+  return New-PinResult -Item $Item -Status "pin_mismatch" -Severity "blocker" -Detail "checkout head is not related to the manifest pin by a simple ancestry check" -CurrentHead $head -CurrentBranch $currentBranch -DirtyBlocking $dirty.blocking -DirtyGenerated $dirty.generated -DirtyLocalArtifacts $dirty.local_artifacts -StrictViolation $true
 }
 
 function Test-RemoteHead {
@@ -253,6 +305,7 @@ foreach ($result in $pinResults) {
 }
 
 $strictViolations = @($pinResults | Where-Object { [bool]$_.strict_violation })
+$localArtifactHolds = @($pinResults | Where-Object { [bool]$_.local_artifact_hold })
 $blocking = @($pinResults | Where-Object { [string]$_.severity -eq "blocker" })
 $warnings = @($pinResults | Where-Object { [string]$_.severity -eq "warning" })
 $remoteProblems = @($remoteResults | Where-Object { [string]$_.status -ne "ok" })
@@ -273,6 +326,7 @@ $summary = [PSCustomObject]@{
   total = $pinResults.Count
   counts = $counts
   strict_violations = $strictViolations.Count
+  local_artifact_holds = $localArtifactHolds.Count
   items = $pinResults
   remote = $remoteResults
 }
@@ -308,6 +362,9 @@ else {
   Write-Host "Summary:"
   foreach ($key in $counts.Keys) {
     Write-Host "  ${key}: $($counts[$key])"
+  }
+  if ($localArtifactHolds.Count -gt 0) {
+    Write-Host "  local_artifact_holds: $($localArtifactHolds.Count)"
   }
 }
 
