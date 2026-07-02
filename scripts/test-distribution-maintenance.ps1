@@ -1042,6 +1042,46 @@ function Test-AudioSelfOutputObservationContractStatic {
   Write-Host "Audio self-output observation contract static ok"
 }
 
+function Test-AudioAwarenessRefPolicyStatic {
+  Write-TestStep "Audio Awareness self-output ref policy static checks"
+
+  $schemaPath = Join-Path $RepoRoot "contracts\audio_awareness_summary\audio_awareness_summary.v0.schema.json"
+  $examplePath = Join-Path $RepoRoot "contracts\audio_awareness_summary\examples\pc-output-voicevox-correlated.example.json"
+  $runtimePath = Join-Path $RepoRoot "runtime\audio-awareness\audio-awareness.mjs"
+  $routesPath = Join-Path $RepoRoot "runtime\audio-awareness\audio-awareness-consumer-routes.json"
+  $docsPath = Join-Path $RepoRoot "docs\audio-awareness.md"
+
+  Assert-PathPresent -Path $schemaPath
+  Assert-PathPresent -Path $examplePath
+  Assert-PathPresent -Path $runtimePath
+  Assert-PathPresent -Path $routesPath
+
+  $schemaText = Get-Content -Raw -LiteralPath $schemaPath
+  $exampleText = Get-Content -Raw -LiteralPath $examplePath
+  $runtimeText = Get-Content -Raw -LiteralPath $runtimePath
+  $routesText = Get-Content -Raw -LiteralPath $routesPath
+  $docsText = Get-Content -Raw -LiteralPath $docsPath
+  $schema = $schemaText | ConvertFrom-Json
+  $example = $exampleText | ConvertFrom-Json
+
+  if ($null -ne $example.correlation.self_output_event_ref -or
+      $null -ne $example.correlation.playback_event_ref -or
+      $null -ne $example.transcript.transcript_summary_ref) {
+    throw "Audio Awareness source/static fixture should keep self-output, playback, and transcript refs null"
+  }
+
+  if ([string]$schema.properties.transcript.properties.transcript_summary_ref.type -ne "null") {
+    throw "Audio Awareness summary schema should force transcript_summary_ref to null in v0"
+  }
+  Assert-TextNotMatch -Text $schema.'$defs'.safe_ref.pattern -Pattern "\btts\b|\bplayback\b" -Message "Audio Awareness safe refs should not allow legacy tts/playback prefixes"
+  Assert-TextNotMatch -Text $exampleText -Pattern '"(self_output_event_ref|playback_event_ref)"\s*:\s*"(tts|playback):|transcript_summary_ref"\s*:\s*"[^"]+"' -Message "Audio Awareness fixture should not contain legacy self-output or transcript-like refs"
+  Assert-TextNotMatch -Text $runtimeText -Pattern '"(tts|playback):synthetic_source_static"|transcript_summary_ref:\s*safeRef' -Message "Audio Awareness runtime defaults should normalize legacy refs away"
+  Assert-TextMatch -Text $routesText -Pattern "audio_self_output_observation\.v0" -Message "Audio Awareness routes should send self-output STT/adoption-block observations to audio_self_output_observation.v0"
+  Assert-TextMatch -Text $docsText -Pattern "audio_self_output_observation\.v0" -Message "Audio Awareness docs should document the self-output observation split"
+
+  Write-Host "Audio Awareness self-output ref policy static ok"
+}
+
 function Test-RouteAParentNoLiveUxStatic {
   Write-TestStep "Route A parent no-live UX static checks"
 
@@ -2094,6 +2134,7 @@ Test-PublicPathLeakStatic
 Test-TestLayoutPolicy
 Test-ReadmeFirstRunGuidance
 Test-AudioSelfOutputObservationContractStatic
+Test-AudioAwarenessRefPolicyStatic
 Test-RouteAParentNoLiveUxStatic
 Test-HomeControlTrackingHelperFixtures
 Test-ManifestAndVersion

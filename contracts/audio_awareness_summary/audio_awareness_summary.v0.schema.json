@@ -214,10 +214,7 @@
           "const": false
         },
         "transcript_summary_ref": {
-          "anyOf": [
-            { "$ref": "#/$defs/safe_ref" },
-            { "type": "null" }
-          ]
+          "type": "null"
         }
       }
     },
@@ -442,7 +439,14 @@
     },
     "safe_ref": {
       "type": "string",
-      "pattern": "^(event|summary|audio|tts|playback|adapter|source):[A-Za-z0-9_.:-]+$",
+      "pattern": "^(event|summary|audio|adapter|source):[A-Za-z0-9_.:-]+$",
+      "not": {
+        "anyOf": [
+          { "pattern": "\\.(wav|mp3|mp4|m4a|flac|ogg|webm)$" },
+          { "pattern": "(localStorage|sessionStorage|browser-storage|browser_storage)" },
+          { "pattern": "(provider_payload|provider_id|transcript_body)" }
+        ]
+      },
       "maxLength": 160
     }
   }

@@ -49,8 +49,8 @@
     }
   ],
   "correlation": {
-    "self_output_event_ref": "tts:local_voicevox_001",
-    "playback_event_ref": "playback:local_player_001",
+    "self_output_event_ref": null,
+    "playback_event_ref": null,
     "pc_output_correlated": true,
     "mic_input_correlated": null,
     "estimated_lag_ms": 85,

@@ -167,6 +167,11 @@ capture, microphone capture, browser audio playback, user-heard audio,
 transcript content, Home Assistant action, physical device effect, or
 release/readiness/final RR003 pass.
 
+Self-output STT/adoption-block observations use
+`audio_self_output_observation.v0`; `audio_awareness_summary.v0` keeps
+self-output, playback, and transcript summary refs null in the v0 source/static
+path.
+
 ## Smells
 
 - A runtime reader parses prose from README instead of a contracted file.

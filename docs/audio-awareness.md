@@ -31,6 +31,13 @@ This slice does not add WASAPI loopback workers, microphone workers, browser
 audio capture, provider/network STT/TTS, Home Assistant/Home Control calls, or
 raw media handling.
 
+Self-output STT and turn-adoption blocking do not live in
+`audio_awareness_summary.v0` refs. Use
+`audio_self_output_observation.v0` for those observations; Audio Awareness keeps
+source/static `self_output_event_ref`, `playback_event_ref`, and
+`transcript_summary_ref` null unless a later reviewed route changes that
+contract.
+
 ## Proof Layers
 
 Keep these layers separate in reports and preflight output:

@@ -183,6 +183,7 @@ else {
     $transcriptProps = $summarySchema.properties.transcript.properties
     $safetyProps = $summarySchema.properties.safety.properties
     $sourceStaticCaptureProps = $summarySchema.allOf[0].then.properties.capture_permissions.properties
+    $safeRefPattern = [string]$summaryDefs.safe_ref.pattern
     $failures = @()
     if ([string]$summarySchema.properties.schema_version.const -ne "audio_awareness_summary.v0") { $failures += "schema_version" }
     foreach ($kind in @("pc_output", "microphone", "speech_input_vad_adapter")) {
@@ -200,6 +201,8 @@ else {
     foreach ($field in @("full_transcript_saved", "raw_transcript_included", "provider_payload_included")) {
       if ((Get-ObjectProperty -Object $transcriptProps.$field -Name "const" -Default $true) -ne $false) { $failures += "transcript:$field" }
     }
+    if ([string]$transcriptProps.transcript_summary_ref.type -ne "null") { $failures += "transcript:transcript_summary_ref" }
+    if ($safeRefPattern -match "\btts\b|\bplayback\b") { $failures += "safe_ref:legacy_prefix" }
     foreach ($field in @("command_authority", "home_assistant_action", "provider_network_authority", "user_heard_audio_authority")) {
       if ((Get-ObjectProperty -Object $safetyProps.$field -Name "const" -Default $true) -ne $false) { $failures += "safety:$field" }
     }
@@ -236,6 +239,9 @@ else {
     foreach ($field in @("full_transcript_saved", "raw_transcript_included", "provider_payload_included")) {
       if (-not (Test-FalseProperty -Object $fixture.transcript -Name $field)) { $failures += "transcript:$field" }
     }
+    if ($null -ne $fixture.correlation.self_output_event_ref) { $failures += "correlation:self_output_event_ref" }
+    if ($null -ne $fixture.correlation.playback_event_ref) { $failures += "correlation:playback_event_ref" }
+    if ($null -ne $fixture.transcript.transcript_summary_ref) { $failures += "transcript:transcript_summary_ref" }
     foreach ($field in @("command_authority", "home_assistant_action", "browser_visible_audio_authority", "user_heard_audio_authority", "release_or_final_rr003_authority")) {
       if (-not (Test-FalseProperty -Object $fixture.safety -Name $field)) { $failures += "safety:$field" }
     }
@@ -365,11 +371,15 @@ else {
     $failures = @()
     if ($contractsReadme -notmatch "audio_awareness_summary/audio_awareness_summary\.v0\.schema\.json") { $failures += "contracts_readme:summary" }
     if ($contractsReadme -notmatch "audio_awareness_consumer_routes/audio_awareness_consumer_routes\.v0\.schema\.json") { $failures += "contracts_readme:routes" }
+    if ($contractsReadme -notmatch "audio_self_output_observation\.v0") { $failures += "contracts_readme:self_output_split" }
     if ($audioAwarenessDoc -notmatch "sense\.hearing\.primary") { $failures += "audio_awareness_doc:body_role" }
     if ($audioAwarenessDoc -notmatch "PC-output loopback summary") { $failures += "audio_awareness_doc:proof_layers" }
+    if ($audioAwarenessDoc -notmatch "audio_self_output_observation\.v0") { $failures += "audio_awareness_doc:self_output_split" }
     if ($audioAwarenessDoc -notmatch "raw\s+audio[\s\S]{0,80}transcript bodies[\s\S]{0,80}private paths") { $failures += "audio_awareness_doc:raw_private" }
     if ($referenceSurfaces -notmatch "Audio Awareness Example") { $failures += "reference_surfaces" }
+    if ($referenceSurfaces -notmatch "audio_self_output_observation\.v0") { $failures += "reference_surfaces:self_output_split" }
     if ($moduleUsage -notmatch "Audio Awareness") { $failures += "module_usage" }
+    if ($moduleUsage -notmatch "audio_self_output_observation\.v0") { $failures += "module_usage:self_output_split" }
     if ($runtimeReadme -notmatch "audio-awareness") { $failures += "runtime_readme" }
     if ($preflight -notmatch "audio_awareness_source_static") { $failures += "visible_demo_preflight" }
     $rows += New-ReadinessRow `

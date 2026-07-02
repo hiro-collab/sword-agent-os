@@ -28,6 +28,13 @@ The organ emits `audio_awareness_summary.json` packets that validate against:
 
 - `contracts/audio_awareness_summary/audio_awareness_summary.v0.schema.json`
 
+Self-output STT/adoption-block observations are a separate boundary:
+
+- `contracts/audio_self_output_observation/audio_self_output_observation.v0.schema.json`
+
+Do not put transcript, `tts:`, or `playback:` self-output refs into Audio
+Awareness summary refs.
+
 The runtime reader surface is:
 
 - `runtime/audio-awareness/audio-awareness-consumer-routes.json`

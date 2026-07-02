@@ -48,6 +48,8 @@
       "accept_result": [
         "test packet validates as audio_awareness_summary.v0",
         "pc_output and microphone channels remain separate",
+        "self-output and playback correlation refs are null in source/static fixtures",
+        "transcript_summary_ref is null in v0 summaries",
         "raw_audio_shared=false",
         "full_transcript_saved=false",
         "command_authority=false"
@@ -139,6 +141,7 @@
     "the only available evidence requires raw audio, full transcripts, screenshots, private paths, provider payloads, or Home Assistant identifiers",
     "a consumer tries to treat PC-output loopback as proof the user heard audio",
     "a consumer tries to treat a TTS request as proof that audio played",
+    "a consumer tries to put self-output STT, transcript, tts:, or playback: refs into audio_awareness_summary.v0 instead of audio_self_output_observation.v0",
     "a consumer tries to infer per-application audio source from system-mix energy alone",
     "microphone capture would occur without an explicit route permission",
     "STT or provider/network processing would occur without a reviewed route"
@@ -147,7 +150,7 @@
     "thought_core": "Treat audio awareness as observation context only. It may help distinguish TTS request, playback call, PC-output energy, microphone pickup, and possible speaker bleed, but it is not action authority or user-intent proof by itself.",
     "diagnostics": "Read audio_awareness_summary.json for redacted channel summaries and status refs. Do not persist raw samples, full transcripts, private paths, screenshots, or provider payloads.",
     "human_operator": "Use this route map to understand which audio proof layer is available before a demo. User-heard audio remains an operator observation unless a later reviewed route adds stronger evidence.",
-    "speech_input_adapter": "Map existing VAD/STT metadata into summary channels without treating adapter compatibility as the canonical turn-adoption path.",
+    "speech_input_adapter": "Map existing VAD metadata into summary channels without treating adapter compatibility as the canonical turn-adoption path. Self-output STT/adoption-block observations belong in audio_self_output_observation.v0, not in Audio Awareness typed refs.",
     "visible_demo_preflight": "Use source/static readiness rows first. Live PC-output or microphone checks need separate explicit route authority."
   }
 }

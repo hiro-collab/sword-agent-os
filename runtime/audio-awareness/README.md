@@ -24,6 +24,11 @@ The expected authority result packet is:
 
 - `audio_awareness_summary.json`
 
+`audio_awareness_summary.v0` is not the self-output STT/adoption gate. Its
+source/static fixture keeps `self_output_event_ref`, `playback_event_ref`, and
+`transcript_summary_ref` null. Use `audio_self_output_observation.v0` for
+blocked system-self-output observations.
+
 ## Current Implementation
 
 The current implementation is source/static:

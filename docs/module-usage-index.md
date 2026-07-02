@@ -252,6 +252,10 @@ microphone capture, browser audio capture, provider/network STT/TTS, Home
 Assistant/Home Control operations, raw audio handling, or transcript
 publication.
 
+Self-output STT/adoption-block observations belong to
+`audio_self_output_observation.v0`. Do not store `tts:`, `playback:`, or
+transcript-like self-output refs in `audio_awareness_summary.v0`.
+
 Do not use this surface to claim browser audio playback, user-heard audio,
 microphone content, speaker identity, physical/device proof, command authority,
 release readiness, or final RR003 pass.

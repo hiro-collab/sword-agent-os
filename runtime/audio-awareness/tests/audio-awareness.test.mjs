@@ -41,6 +41,9 @@ test("builds a summary-only synthetic PC-output packet", () => {
   assert.equal(payload.channels[0].audio_present, true);
   assert.equal(payload.channels[1].channel_kind, "microphone");
   assert.equal(payload.channels[1].observation_status, "not_enabled");
+  assert.equal(payload.correlation.self_output_event_ref, null);
+  assert.equal(payload.correlation.playback_event_ref, null);
+  assert.equal(payload.transcript.transcript_summary_ref, null);
   assert.equal(payload.redaction.raw_audio_shared, false);
   assert.equal(payload.safety.command_authority, false);
   assert.deepEqual(validateAudioAwarenessSummary(payload), []);
@@ -82,10 +85,73 @@ test("maps speech-input VAD debug into hearing summary channel", () => {
 
 test("keeps committed fixture compatible with the runtime validator", () => {
   assert.deepEqual(validateAudioAwarenessSummary(fixture), []);
+  assert.equal(fixture.correlation.self_output_event_ref, null);
+  assert.equal(fixture.correlation.playback_event_ref, null);
+  assert.equal(fixture.transcript.transcript_summary_ref, null);
   assert.equal(fixture.redaction.raw_audio_shared, false);
   assert.equal(fixture.transcript.full_transcript_saved, false);
   for (const claim of AUDIO_AWARENESS_NON_CLAIMS) {
     assert.ok(fixture.non_claims.includes(claim));
+  }
+});
+
+test("normalizes legacy self-output refs away from summaries", () => {
+  const payload = buildAudioAwarenessSummary({
+    summaryId: "aud_sum_legacy_ref_normalized",
+    generatedAt: "2026-06-22T00:00:00Z",
+    channels: [
+      analyzePcmWindow({
+        channelId: "pc_output.synthetic_tone",
+        channelKind: "pc_output",
+        samples: [0.2, 0.2, 0.2],
+      }),
+    ],
+    correlation: {
+      self_output_event_ref: "tts:synthetic_source_static",
+      playback_event_ref: "playback:synthetic_source_static",
+    },
+    transcript: {
+      transcript_summary_ref: "summary:transcript_like_ref",
+    },
+  });
+
+  assert.equal(payload.correlation.self_output_event_ref, null);
+  assert.equal(payload.correlation.playback_event_ref, null);
+  assert.equal(payload.transcript.transcript_summary_ref, null);
+  assert.deepEqual(validateAudioAwarenessSummary(payload), []);
+});
+
+test("rejects legacy and transcript-like refs in received summaries", () => {
+  const payload = buildAudioAwarenessSummary({
+    summaryId: "aud_sum_bad_refs",
+    generatedAt: "2026-06-22T00:00:00Z",
+    channels: [
+      analyzePcmWindow({
+        channelId: "pc_output.synthetic_tone",
+        channelKind: "pc_output",
+        samples: [0.2, 0.2, 0.2],
+      }),
+    ],
+  });
+
+  const badRefs = [
+    ["correlation.self_output_event_ref", "tts:local_voicevox_001"],
+    ["correlation.playback_event_ref", "playback:local_player_001"],
+    ["correlation.self_output_event_ref", "source:localStorage.audio_key"],
+    ["correlation.playback_event_ref", "audio:voice.wav"],
+    ["correlation.self_output_event_ref", "provider:voicevox_001"],
+    ["transcript.transcript_summary_ref", "summary:transcript_like_ref"],
+    ["transcript.transcript_summary_ref", "transcript body text"],
+  ];
+
+  for (const [path, ref] of badRefs) {
+    const candidate = structuredClone(payload);
+    if (path.startsWith("correlation.")) {
+      candidate.correlation[path.split(".")[1]] = ref;
+    } else {
+      candidate.transcript.transcript_summary_ref = ref;
+    }
+    assert.notDeepEqual(validateAudioAwarenessSummary(candidate), [], path);
   }
 });
 
@@ -159,6 +225,14 @@ test("schema locks raw audio and transcript safety constants", () => {
   assert.equal(
     schema.properties.transcript.properties.full_transcript_saved.const,
     false,
+  );
+  assert.equal(
+    schema.properties.transcript.properties.transcript_summary_ref.type,
+    "null",
+  );
+  assert.doesNotMatch(
+    schema.$defs.safe_ref.pattern,
+    /\btts\b|\bplayback\b/,
   );
   assert.equal(
     schema.properties.safety.properties.home_assistant_action.const,

@@ -10,7 +10,9 @@ const DEFAULT_AUDIO_PRESENT_DBFS = -60;
 const SAFE_ID_PATTERN = /^[a-z][a-z0-9_.:-]*$/;
 const SUMMARY_ID_PATTERN = /^aud_sum_[A-Za-z0-9_.:-]+$/;
 const SAFE_REF_PATTERN =
-  /^(event|summary|audio|tts|playback|adapter|source):[A-Za-z0-9_.:-]+$/;
+  /^(event|summary|audio|adapter|source):[A-Za-z0-9_.:-]+$/;
+const UNSAFE_REF_TEXT_PATTERN =
+  /\.(wav|mp3|mp4|m4a|flac|ogg|webm)$|localStorage|sessionStorage|browser-storage|browser_storage|provider_payload|provider_id|transcript_body/;
 const CHANNEL_KINDS = new Set([
   "pc_output",
   "microphone",
@@ -97,7 +99,9 @@ function safeDate(value) {
 
 function safeRef(value) {
   const text = String(value ?? "").trim();
-  return SAFE_REF_PATTERN.test(text) ? text : null;
+  return SAFE_REF_PATTERN.test(text) && !UNSAFE_REF_TEXT_PATTERN.test(text)
+    ? text
+    : null;
 }
 
 function defaultCapturePermissions({
@@ -296,7 +300,7 @@ export function buildAudioAwarenessSummary({
       full_transcript_saved: false,
       raw_transcript_included: false,
       provider_payload_included: false,
-      transcript_summary_ref: safeRef(transcript.transcript_summary_ref),
+      transcript_summary_ref: null,
     },
     redaction: {
       redaction_status: "summary_only",
@@ -364,8 +368,8 @@ export function buildSyntheticAudioAwarenessSummary({
       }),
     ],
     correlation: {
-      self_output_event_ref: "tts:synthetic_source_static",
-      playback_event_ref: "playback:synthetic_source_static",
+      self_output_event_ref: null,
+      playback_event_ref: null,
       pc_output_correlated: true,
       mic_input_correlated: null,
       estimated_lag_ms: 0,
@@ -384,9 +388,17 @@ function assertFalse(errors, value, path) {
 
 function assertSafeRef(errors, value, path) {
   if (value === null || value === undefined) return;
-  if (typeof value !== "string" || !SAFE_REF_PATTERN.test(value)) {
+  if (
+    typeof value !== "string" ||
+    !SAFE_REF_PATTERN.test(value) ||
+    UNSAFE_REF_TEXT_PATTERN.test(value)
+  ) {
     errors.push(`${path} must be a safe ref or null`);
   }
+}
+
+function assertNull(errors, value, path) {
+  if (value !== null) errors.push(`${path} must be null`);
 }
 
 function assertChannel(errors, channel, index) {
@@ -497,7 +509,7 @@ export function validateAudioAwarenessSummary(payload) {
     assertFalse(errors, transcript.full_transcript_saved, "transcript.full_transcript_saved");
     assertFalse(errors, transcript.raw_transcript_included, "transcript.raw_transcript_included");
     assertFalse(errors, transcript.provider_payload_included, "transcript.provider_payload_included");
-    assertSafeRef(errors, transcript.transcript_summary_ref, "transcript.transcript_summary_ref");
+    assertNull(errors, transcript.transcript_summary_ref, "transcript.transcript_summary_ref");
   }
   for (const sectionName of ["redaction", "safety"]) {
     if (!payload[sectionName] || typeof payload[sectionName] !== "object") {

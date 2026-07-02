@@ -35,7 +35,9 @@ against these shapes at the boundary.
   and speech-input VAD adapter metadata. Source/static packets keep live capture,
   provider/network STT/TTS, raw audio, full transcripts, command authority,
   browser-visible audio authority, user-heard proof, and physical/device proof
-  out of scope.
+  out of scope. The v0 source/static path keeps self-output, playback, and
+  transcript summary refs null; self-output STT/adoption-block observations use
+  `audio_self_output_observation.v0` instead.
   - Example:
     `audio_awareness_summary/examples/pc-output-voicevox-correlated.example.json`
 - `audio_self_output_observation/audio_self_output_observation.v0.schema.json`:
