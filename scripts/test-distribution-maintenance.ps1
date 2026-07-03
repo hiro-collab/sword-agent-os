@@ -1105,6 +1105,179 @@ function Test-AudioSelfOutputObservationContractStatic {
   Write-Host "Audio self-output observation contract static ok"
 }
 
+function Test-LocalOfflineRecognizerRedactedAdapterContractStatic {
+  Write-TestStep "Local offline recognizer redacted adapter contract static checks"
+
+  $contractDir = Join-Path $RepoRoot "contracts\local_offline_recognizer_redacted_adapter"
+  $schemaPath = Join-Path $contractDir "local_offline_recognizer_redacted_adapter.v0.schema.json"
+  $examplesDir = Join-Path $contractDir "examples"
+  $examplePaths = @(
+    Join-Path $examplesDir "source_static_pass_candidate.example.json"
+    Join-Path $examplesDir "source_static_missing_model_blocked.example.json"
+    Join-Path $examplesDir "source_static_download_needed_blocked.example.json"
+    Join-Path $examplesDir "source_static_transcript_oriented_cli_blocked.example.json"
+    Join-Path $examplesDir "source_static_raw_transcript_or_text_exposure_blocked.example.json"
+    Join-Path $examplesDir "source_static_path_exposure_blocked.example.json"
+    Join-Path $examplesDir "source_static_private_metadata_exposure_blocked.example.json"
+    Join-Path $examplesDir "source_static_provider_or_browser_required_blocked.example.json"
+    Join-Path $examplesDir "source_static_playback_or_capture_required_blocked.example.json"
+    Join-Path $examplesDir "source_static_turn_materialization_attempt_blocked.example.json"
+  )
+
+  Assert-PathPresent -Path $schemaPath
+  foreach ($examplePath in $examplePaths) {
+    Assert-PathPresent -Path $examplePath
+  }
+
+  $schemaText = Get-Content -Raw -LiteralPath $schemaPath
+  $schema = $schemaText | ConvertFrom-Json
+  $contractsReadme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "contracts\README.md")
+  $examples = @()
+  $combinedExampleText = ""
+  foreach ($examplePath in $examplePaths) {
+    $exampleText = Get-Content -Raw -LiteralPath $examplePath
+    $combinedExampleText += "`n$exampleText"
+    $examples += @($exampleText | ConvertFrom-Json)
+  }
+
+  if ([string]$schema.properties.schema_version.const -ne "local_offline_recognizer_redacted_adapter.v0") {
+    throw "local offline recognizer adapter schema should lock schema_version"
+  }
+  Assert-TextMatch -Text $schemaText -Pattern '"redaction_before_artifact_required"[\s\S]{0,80}"const"\s*:\s*true' -Message "local offline recognizer adapter should require redaction before artifacts"
+  Assert-TextMatch -Text $schemaText -Pattern '"shared_output_policy"[\s\S]{0,80}"const"\s*:\s*"class_bucket_opaque_ref_only"' -Message "local offline recognizer adapter should limit shared output to classes, buckets, and opaque refs"
+  Assert-TextMatch -Text $schemaText -Pattern '"fail_closed_on_unredactable_output"[\s\S]{0,80}"const"\s*:\s*true' -Message "local offline recognizer adapter should fail closed on unredactable output"
+  Assert-TextMatch -Text $schemaText -Pattern '"transcript_oriented_output_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should reject transcript-oriented output"
+  Assert-TextMatch -Text $schemaText -Pattern '"provider_or_network_stt_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should reject provider/network STT"
+  Assert-TextMatch -Text $schemaText -Pattern '"browser_stt_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should reject browser STT"
+  Assert-TextMatch -Text $schemaText -Pattern '"playback_or_capture_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should reject playback/capture"
+  Assert-TextMatch -Text $schemaText -Pattern '"model_download_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should reject model download"
+  Assert-TextMatch -Text $schemaText -Pattern '"source_label_policy"[\s\S]{0,80}"const"\s*:\s*"stable_local_media_asset_id_only"' -Message "local offline recognizer adapter should accept stable source labels only"
+  Assert-TextMatch -Text $schemaText -Pattern '"source_label"[\s\S]{0,260}Opaque stable local media id only[\s\S]{0,260}must not encode transcript text' -Message "local offline recognizer adapter should document source_label as an opaque non-transcript id"
+  if ([string]$schema.'$defs'.source_label.pattern -ne '^voice\.(sample|local_sample|synthetic_sample|fixture)_[a-z0-9_:-]+$') {
+    throw "local offline recognizer adapter source_label should be constrained to opaque sample-style ids"
+  }
+  Assert-TextMatch -Text $schemaText -Pattern '"turn_materialization_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not materialize turns"
+  Assert-TextMatch -Text $schemaText -Pattern '"thought_core_adoption_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not authorize Thought Core adoption"
+  Assert-TextMatch -Text $schemaText -Pattern '"may_start_user_turn"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not start user turns"
+  Assert-TextMatch -Text $schemaText -Pattern '"thought_core_turn_input_ref"[\s\S]{0,80}"type"\s*:\s*"null"' -Message "local offline recognizer adapter should force Thought Core turn refs to null"
+  Assert-TextMatch -Text $schemaText -Pattern '"redacted_turn_input_created"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not create redacted_turn_input"
+  Assert-TextMatch -Text $schemaText -Pattern '"recognized_text_hash_ref"[\s\S]{0,220}opaque_ref' -Message "local offline recognizer adapter should allow only opaque recognized-text refs"
+
+  $requiredNegativeCases = @(
+    "missing_model",
+    "model_download_needed",
+    "transcript_oriented_output_only",
+    "raw_transcript_or_text_exposure",
+    "path_or_filename_exposure",
+    "private_metadata_exposure",
+    "provider_or_browser_stt_required",
+    "playback_or_capture_required",
+    "turn_materialization_attempted"
+  )
+  $seenNegativeCases = @{}
+  $opaqueSourceLabelPattern = '^voice\.(sample|local_sample|synthetic_sample|fixture)_[a-z0-9_:-]+$'
+  $transcriptLikeSourceLabelPattern = '(?i)(dance|please|smile|clean|cleaner|cleaning|aircon|cool|heat|dry|stop|return|set|back|hello|phrase|command|transcript|utterance|recognized|text)'
+  foreach ($example in $examples) {
+    if ([string]$example.schema_version -ne "local_offline_recognizer_redacted_adapter.v0") {
+      throw "local offline recognizer adapter example should use v0 schema"
+    }
+    foreach ($sourceLabel in @(
+      [string]$example.source_label,
+      [string]$example.input.source_label,
+      [string]$example.recognition_summary.source_label
+    )) {
+      if ($sourceLabel -notmatch $opaqueSourceLabelPattern) {
+        throw "local offline recognizer adapter examples should use opaque non-semantic sample source labels"
+      }
+      if ($sourceLabel -match $transcriptLikeSourceLabelPattern) {
+        throw "local offline recognizer adapter source labels should not encode transcript-like or command-like text"
+      }
+    }
+    if ([string]$example.input.source_label_policy -ne "stable_local_media_asset_id_only") {
+      throw "local offline recognizer adapter examples should accept stable local media asset ids only"
+    }
+    if ($example.input.raw_audio_allowed -ne $false -or
+        $example.input.private_path_allowed -ne $false -or
+        $example.input.filename_or_extension_allowed -ne $false) {
+      throw "local offline recognizer adapter input should not allow raw audio, private paths, or filenames"
+    }
+    if ($example.adapter_policy.redaction_before_artifact_required -ne $true -or
+        [string]$example.adapter_policy.shared_output_policy -ne "class_bucket_opaque_ref_only" -or
+        $example.adapter_policy.fail_closed_on_unredactable_output -ne $true) {
+      throw "local offline recognizer adapter should require redaction-first fail-closed policy"
+    }
+    if ($example.adapter_policy.raw_output_may_be_logged -ne $false -or
+        $example.adapter_policy.transcript_oriented_output_allowed -ne $false -or
+        $example.adapter_policy.provider_or_network_stt_allowed -ne $false -or
+        $example.adapter_policy.browser_stt_allowed -ne $false -or
+        $example.adapter_policy.playback_or_capture_allowed -ne $false -or
+        $example.adapter_policy.model_download_allowed -ne $false) {
+      throw "local offline recognizer adapter examples should keep execution/leakage policy flags false"
+    }
+    if ($example.recognizer_runtime.model_download_attempted -ne $false -or
+        $example.recognizer_runtime.provider_or_network_stt_used -ne $false -or
+        $example.recognizer_runtime.browser_stt_used -ne $false -or
+        $example.recognizer_runtime.audio_playback_used -ne $false -or
+        $example.recognizer_runtime.audio_capture_used -ne $false -or
+        $example.recognizer_runtime.raw_transcript_emitted_to_shared_artifact -ne $false) {
+      throw "local offline recognizer adapter examples should not execute download, provider/browser STT, playback/capture, or raw transcript sharing"
+    }
+    if ($example.recognition_summary.turn_materialization_allowed -ne $false -or
+        $example.recognition_summary.thought_core_adoption_allowed -ne $false) {
+      throw "local offline recognizer recognition summaries should not materialize or adopt Thought Core turns"
+    }
+    if ($example.turn_boundary.may_start_user_turn -ne $false -or
+        $example.turn_boundary.turn_materialization_allowed -ne $false -or
+        $example.turn_boundary.thought_core_adoption_allowed -ne $false -or
+        $null -ne $example.turn_boundary.thought_core_turn_input_ref -or
+        $example.turn_boundary.redacted_turn_input_created -ne $false -or
+        $example.turn_boundary.home_control_or_action_authority -ne $false) {
+      throw "local offline recognizer adapter examples should keep turn and action boundaries closed"
+    }
+    foreach ($field in @(
+      "raw_audio_shared",
+      "raw_audio_persisted",
+      "raw_transcript_shared",
+      "literal_text_shared",
+      "recognized_text_body_shared",
+      "private_path_shared",
+      "filename_or_extension_shared",
+      "provider_payload_shared",
+      "provider_or_network_stt_used",
+      "browser_storage_key_shared",
+      "device_id_shared",
+      "token_or_secret_shared",
+      "home_control_or_action_authority"
+    )) {
+      if ($example.redaction_guards.$field -ne $false) {
+        throw "local offline recognizer adapter redaction guard should keep $field false"
+      }
+    }
+    if ([bool]$example.negative_fixture.is_negative_fixture) {
+      $seenNegativeCases[[string]$example.negative_fixture.negative_case] = $true
+      if ([string]$example.negative_fixture.expected_adapter_decision -ne "blocked") {
+        throw "local offline recognizer negative fixtures should be blocked"
+      }
+      if ($null -eq $example.negative_fixture.blocked_reason) {
+        throw "local offline recognizer negative fixtures should carry a class-coded blocked reason"
+      }
+    }
+  }
+  foreach ($requiredCase in $requiredNegativeCases) {
+    if (-not $seenNegativeCases.ContainsKey($requiredCase)) {
+      throw "local offline recognizer adapter should include negative fixture case: $requiredCase"
+    }
+  }
+
+  Assert-TextNotMatch -Text $combinedExampleText -Pattern 'C:\\|\\\\|/Users/|localStorage|sessionStorage|provider:[A-Za-z0-9_-]+|provider_payload_(id|ref|body)|"provider_id"\s*:|\.wav|\.mp3|\.m4a|\.mp4|"transcript_body"\s*:|"recognized_text_body"\s*:|"raw_transcript_text"\s*:|"recognized_text"\s*:|"audio_file_path"\s*:|"filename"\s*:|"private_path"\s*:|"device_id"\s*:|"token"\s*:|"secret"\s*:' -Message "local offline recognizer examples should not contain private paths, browser keys, media filenames, provider ids, provider payloads, transcript bodies, recognized text bodies, raw text, device ids, tokens, or secrets"
+  Assert-TextMatch -Text $contractsReadme -Pattern "local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter\.v0\.schema\.json" -Message "Contracts README should list local offline recognizer redacted adapter"
+  Assert-TextMatch -Text $contractsReadme -Pattern "redaction[\s\S]{0,80}before shared artifacts|redaction[\s\S]{0,120}shared artifacts" -Message "Contracts README should state redaction-before-artifact boundary"
+  Assert-TextMatch -Text $contractsReadme -Pattern "performs no[\s\S]{0,80}recognition|does not run[\s\S]{0,80}recognition|no recognition" -Message "Contracts README should not claim recognition execution"
+  Assert-TextMatch -Text $contractsReadme -Pattern 'Thought Core `TurnInput`' -Message "Contracts README should state no Thought Core TurnInput authority"
+
+  Write-Host "Local offline recognizer redacted adapter contract static ok"
+}
+
 function Test-AudioAwarenessRefPolicyStatic {
   Write-TestStep "Audio Awareness self-output ref policy static checks"
 
@@ -2258,6 +2431,7 @@ Test-PublicPathLeakStatic
 Test-TestLayoutPolicy
 Test-ReadmeFirstRunGuidance
 Test-AudioSelfOutputObservationContractStatic
+Test-LocalOfflineRecognizerRedactedAdapterContractStatic
 Test-AudioAwarenessRefPolicyStatic
 Test-RouteAParentNoLiveUxStatic
 Test-HomeControlTrackingHelperFixtures

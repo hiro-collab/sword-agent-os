@@ -1,0 +1,550 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json",
+  "title": "Agent OS local_offline_recognizer_redacted_adapter.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "adapter_contract_id",
+    "generated_at",
+    "proof_layer",
+    "route_id",
+    "source_label",
+    "input",
+    "adapter_policy",
+    "recognizer_runtime",
+    "recognition_summary",
+    "turn_boundary",
+    "redaction_guards",
+    "negative_fixture",
+    "non_claims",
+    "raw_private_publication_flags"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "local_offline_recognizer_redacted_adapter.v0"
+    },
+    "adapter_contract_id": {
+      "type": "string",
+      "pattern": "^lora_[A-Za-z0-9_:-]+$",
+      "maxLength": 120
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proof_layer": {
+      "const": "source_static_contract_test_only"
+    },
+    "route_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_:-]+$",
+      "maxLength": 180
+    },
+    "source_label": {
+      "$ref": "#/$defs/source_label"
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_label",
+        "source_label_policy",
+        "sample_media_class",
+        "sample_origin_class",
+        "raw_audio_allowed",
+        "private_path_allowed",
+        "filename_or_extension_allowed"
+      ],
+      "properties": {
+        "source_label": {
+          "$ref": "#/$defs/source_label"
+        },
+        "source_label_policy": {
+          "const": "stable_local_media_asset_id_only"
+        },
+        "sample_media_class": {
+          "type": "string",
+          "enum": [
+            "local_sample_audio",
+            "synthetic_audio_fixture",
+            "unknown_audio_sample"
+          ]
+        },
+        "sample_origin_class": {
+          "type": "string",
+          "enum": [
+            "local_media_index",
+            "synthetic_fixture_index",
+            "source_static_fixture"
+          ]
+        },
+        "raw_audio_allowed": {
+          "const": false
+        },
+        "private_path_allowed": {
+          "const": false
+        },
+        "filename_or_extension_allowed": {
+          "const": false
+        }
+      }
+    },
+    "adapter_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redaction_before_artifact_required",
+        "shared_output_policy",
+        "fail_closed_on_unredactable_output",
+        "raw_output_may_be_logged",
+        "transcript_oriented_output_allowed",
+        "provider_or_network_stt_allowed",
+        "browser_stt_allowed",
+        "playback_or_capture_allowed",
+        "model_download_allowed"
+      ],
+      "properties": {
+        "redaction_before_artifact_required": {
+          "const": true
+        },
+        "shared_output_policy": {
+          "const": "class_bucket_opaque_ref_only"
+        },
+        "fail_closed_on_unredactable_output": {
+          "const": true
+        },
+        "raw_output_may_be_logged": {
+          "const": false
+        },
+        "transcript_oriented_output_allowed": {
+          "const": false
+        },
+        "provider_or_network_stt_allowed": {
+          "const": false
+        },
+        "browser_stt_allowed": {
+          "const": false
+        },
+        "playback_or_capture_allowed": {
+          "const": false
+        },
+        "model_download_allowed": {
+          "const": false
+        }
+      }
+    },
+    "recognizer_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recognizer_kind_class",
+        "runtime_availability_class",
+        "model_download_required_class",
+        "model_download_attempted",
+        "provider_or_network_stt_used",
+        "browser_stt_used",
+        "audio_playback_used",
+        "audio_capture_used",
+        "raw_transcript_emitted_to_shared_artifact"
+      ],
+      "properties": {
+        "recognizer_kind_class": {
+          "type": "string",
+          "enum": [
+            "local_offline_recognizer",
+            "not_available",
+            "blocked_missing_model",
+            "blocked_model_download_needed",
+            "blocked_transcript_oriented_output_only",
+            "blocked_raw_transcript_or_text_exposure",
+            "blocked_path_or_filename_exposure",
+            "blocked_private_metadata_exposure",
+            "blocked_provider_or_browser_stt_required",
+            "blocked_playback_or_capture_required"
+          ]
+        },
+        "runtime_availability_class": {
+          "type": "string",
+          "enum": [
+            "not_checked_source_static",
+            "source_static_available_claim",
+            "source_static_blocked"
+          ]
+        },
+        "model_download_required_class": {
+          "type": "string",
+          "enum": [
+            "none",
+            "required_blocked",
+            "not_checked"
+          ]
+        },
+        "model_download_attempted": {
+          "const": false
+        },
+        "provider_or_network_stt_used": {
+          "const": false
+        },
+        "browser_stt_used": {
+          "const": false
+        },
+        "audio_playback_used": {
+          "const": false
+        },
+        "audio_capture_used": {
+          "const": false
+        },
+        "raw_transcript_emitted_to_shared_artifact": {
+          "const": false
+        }
+      }
+    },
+    "recognition_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_label",
+        "recognizer_kind_class",
+        "recognized_text_class",
+        "recognized_text_length_bucket",
+        "recognized_text_hash_ref",
+        "language_bucket",
+        "confidence_bucket",
+        "recognition_window_class",
+        "audio_awareness_summary_ref",
+        "self_output_observation_ref",
+        "turn_materialization_allowed",
+        "thought_core_adoption_allowed"
+      ],
+      "properties": {
+        "source_label": {
+          "$ref": "#/$defs/source_label"
+        },
+        "recognizer_kind_class": {
+          "$ref": "#/$defs/recognizer_kind_class"
+        },
+        "recognized_text_class": {
+          "type": "string",
+          "enum": [
+            "not_checked",
+            "absent",
+            "present_redacted",
+            "recognition_failed",
+            "ambiguous",
+            "low_confidence",
+            "blocked"
+          ]
+        },
+        "recognized_text_length_bucket": {
+          "type": "string",
+          "enum": [
+            "none",
+            "short",
+            "medium",
+            "long",
+            "unknown"
+          ]
+        },
+        "recognized_text_hash_ref": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/opaque_ref"
+            }
+          ]
+        },
+        "language_bucket": {
+          "type": "string",
+          "enum": [
+            "not_checked",
+            "ja",
+            "en",
+            "mixed",
+            "unknown",
+            "other"
+          ]
+        },
+        "confidence_bucket": {
+          "type": "string",
+          "enum": [
+            "not_checked",
+            "low",
+            "medium",
+            "high",
+            "unknown"
+          ]
+        },
+        "recognition_window_class": {
+          "type": "string",
+          "enum": [
+            "not_checked_no_live",
+            "offline_file_window",
+            "outside_system_playback_window",
+            "overlaps_system_playback_or_cooldown",
+            "ambiguous"
+          ]
+        },
+        "audio_awareness_summary_ref": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/opaque_ref"
+            }
+          ]
+        },
+        "self_output_observation_ref": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/opaque_ref"
+            }
+          ]
+        },
+        "turn_materialization_allowed": {
+          "const": false
+        },
+        "thought_core_adoption_allowed": {
+          "const": false
+        }
+      }
+    },
+    "turn_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "may_start_user_turn",
+        "turn_materialization_allowed",
+        "thought_core_adoption_allowed",
+        "thought_core_turn_input_ref",
+        "redacted_turn_input_created",
+        "home_control_or_action_authority"
+      ],
+      "properties": {
+        "may_start_user_turn": {
+          "const": false
+        },
+        "turn_materialization_allowed": {
+          "const": false
+        },
+        "thought_core_adoption_allowed": {
+          "const": false
+        },
+        "thought_core_turn_input_ref": {
+          "type": "null"
+        },
+        "redacted_turn_input_created": {
+          "const": false
+        },
+        "home_control_or_action_authority": {
+          "const": false
+        }
+      }
+    },
+    "redaction_guards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_audio_shared",
+        "raw_audio_persisted",
+        "raw_transcript_shared",
+        "literal_text_shared",
+        "recognized_text_body_shared",
+        "private_path_shared",
+        "filename_or_extension_shared",
+        "provider_payload_shared",
+        "provider_or_network_stt_used",
+        "browser_storage_key_shared",
+        "device_id_shared",
+        "token_or_secret_shared",
+        "home_control_or_action_authority"
+      ],
+      "properties": {
+        "raw_audio_shared": {
+          "const": false
+        },
+        "raw_audio_persisted": {
+          "const": false
+        },
+        "raw_transcript_shared": {
+          "const": false
+        },
+        "literal_text_shared": {
+          "const": false
+        },
+        "recognized_text_body_shared": {
+          "const": false
+        },
+        "private_path_shared": {
+          "const": false
+        },
+        "filename_or_extension_shared": {
+          "const": false
+        },
+        "provider_payload_shared": {
+          "const": false
+        },
+        "provider_or_network_stt_used": {
+          "const": false
+        },
+        "browser_storage_key_shared": {
+          "const": false
+        },
+        "device_id_shared": {
+          "const": false
+        },
+        "token_or_secret_shared": {
+          "const": false
+        },
+        "home_control_or_action_authority": {
+          "const": false
+        }
+      }
+    },
+    "negative_fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is_negative_fixture",
+        "negative_case",
+        "expected_adapter_decision",
+        "blocked_reason"
+      ],
+      "properties": {
+        "is_negative_fixture": {
+          "type": "boolean"
+        },
+        "negative_case": {
+          "type": "string",
+          "enum": [
+            "none",
+            "missing_model",
+            "model_download_needed",
+            "transcript_oriented_output_only",
+            "raw_transcript_or_text_exposure",
+            "path_or_filename_exposure",
+            "private_metadata_exposure",
+            "provider_or_browser_stt_required",
+            "playback_or_capture_required",
+            "turn_materialization_attempted"
+          ]
+        },
+        "expected_adapter_decision": {
+          "type": "string",
+          "enum": [
+            "pass_candidate",
+            "blocked"
+          ]
+        },
+        "blocked_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "local_offline_recognizer_unavailable",
+            "model_download_needed",
+            "transcript_oriented_output_only",
+            "raw_transcript_or_text_exposure",
+            "path_or_filename_exposure",
+            "private_metadata_exposure",
+            "provider_or_browser_stt_required",
+            "playback_or_capture_required",
+            "turn_materialization_attempted",
+            null
+          ]
+        }
+      }
+    },
+    "non_claims": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.:-]*$",
+        "maxLength": 120
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "not_audio_playback_or_capture"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_local_recognition_execution"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_provider_or_browser_stt"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_raw_transcript_publication"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_thought_core_turn_input"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_home_control_action"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_source_git_adoption"
+          }
+        },
+        {
+          "contains": {
+            "const": "not_release_or_final_rr003"
+          }
+        }
+      ]
+    },
+    "raw_private_publication_flags": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "source_label": {
+      "type": "string",
+      "description": "Opaque stable local media id only. It must not encode transcript text, recognized text, command text, private filenames, paths, provider ids, browser storage keys, device ids, tokens, or secrets.",
+      "pattern": "^voice\\.(sample|local_sample|synthetic_sample|fixture)_[a-z0-9_:-]+$",
+      "maxLength": 120
+    },
+    "recognizer_kind_class": {
+      "type": "string",
+      "enum": [
+        "local_offline_recognizer",
+        "not_available",
+        "blocked_missing_model",
+        "blocked_model_download_needed",
+        "blocked_transcript_oriented_output_only",
+        "blocked_raw_transcript_or_text_exposure",
+        "blocked_path_or_filename_exposure",
+        "blocked_private_metadata_exposure",
+        "blocked_provider_or_browser_stt_required",
+        "blocked_playback_or_capture_required"
+      ]
+    },
+    "opaque_ref": {
+      "type": "string",
+      "pattern": "^opaque_(class|correlation|hash)_ref:[A-Za-z0-9_:-]+$",
+      "maxLength": 160
+    }
+  }
+}

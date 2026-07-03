@@ -1,0 +1,93 @@
+{
+  "schema_version": "local_offline_recognizer_redacted_adapter.v0",
+  "adapter_contract_id": "lora_missing_model_blocked_001",
+  "generated_at": "2026-07-03T00:00:00Z",
+  "proof_layer": "source_static_contract_test_only",
+  "route_id": "LOCAL-OFFLINE-RECOGNIZER-REDACTED-ADAPTER-CONTRACT-SOURCE-STATIC-01",
+  "source_label": "voice.local_sample_001",
+  "input": {
+    "source_label": "voice.local_sample_001",
+    "source_label_policy": "stable_local_media_asset_id_only",
+    "sample_media_class": "local_sample_audio",
+    "sample_origin_class": "local_media_index",
+    "raw_audio_allowed": false,
+    "private_path_allowed": false,
+    "filename_or_extension_allowed": false
+  },
+  "adapter_policy": {
+    "redaction_before_artifact_required": true,
+    "shared_output_policy": "class_bucket_opaque_ref_only",
+    "fail_closed_on_unredactable_output": true,
+    "raw_output_may_be_logged": false,
+    "transcript_oriented_output_allowed": false,
+    "provider_or_network_stt_allowed": false,
+    "browser_stt_allowed": false,
+    "playback_or_capture_allowed": false,
+    "model_download_allowed": false
+  },
+  "recognizer_runtime": {
+    "recognizer_kind_class": "blocked_missing_model",
+    "runtime_availability_class": "source_static_blocked",
+    "model_download_required_class": "not_checked",
+    "model_download_attempted": false,
+    "provider_or_network_stt_used": false,
+    "browser_stt_used": false,
+    "audio_playback_used": false,
+    "audio_capture_used": false,
+    "raw_transcript_emitted_to_shared_artifact": false
+  },
+  "recognition_summary": {
+    "source_label": "voice.local_sample_001",
+    "recognizer_kind_class": "blocked_missing_model",
+    "recognized_text_class": "blocked",
+    "recognized_text_length_bucket": "none",
+    "recognized_text_hash_ref": null,
+    "language_bucket": "not_checked",
+    "confidence_bucket": "not_checked",
+    "recognition_window_class": "not_checked_no_live",
+    "audio_awareness_summary_ref": null,
+    "self_output_observation_ref": null,
+    "turn_materialization_allowed": false,
+    "thought_core_adoption_allowed": false
+  },
+  "turn_boundary": {
+    "may_start_user_turn": false,
+    "turn_materialization_allowed": false,
+    "thought_core_adoption_allowed": false,
+    "thought_core_turn_input_ref": null,
+    "redacted_turn_input_created": false,
+    "home_control_or_action_authority": false
+  },
+  "redaction_guards": {
+    "raw_audio_shared": false,
+    "raw_audio_persisted": false,
+    "raw_transcript_shared": false,
+    "literal_text_shared": false,
+    "recognized_text_body_shared": false,
+    "private_path_shared": false,
+    "filename_or_extension_shared": false,
+    "provider_payload_shared": false,
+    "provider_or_network_stt_used": false,
+    "browser_storage_key_shared": false,
+    "device_id_shared": false,
+    "token_or_secret_shared": false,
+    "home_control_or_action_authority": false
+  },
+  "negative_fixture": {
+    "is_negative_fixture": true,
+    "negative_case": "missing_model",
+    "expected_adapter_decision": "blocked",
+    "blocked_reason": "local_offline_recognizer_unavailable"
+  },
+  "non_claims": [
+    "not_audio_playback_or_capture",
+    "not_local_recognition_execution",
+    "not_provider_or_browser_stt",
+    "not_raw_transcript_publication",
+    "not_thought_core_turn_input",
+    "not_home_control_action",
+    "not_source_git_adoption",
+    "not_release_or_final_rr003"
+  ],
+  "raw_private_publication_flags": false
+}
