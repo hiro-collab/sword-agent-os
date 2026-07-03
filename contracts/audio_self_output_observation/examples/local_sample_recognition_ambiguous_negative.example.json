@@ -1,36 +1,36 @@
 {
   "schema_version": "audio_self_output_observation.v0",
-  "observation_id": "aso_source_static_self_output_blocked_001",
-  "generated_at": "2026-06-25T00:00:00Z",
-  "source_mode": "source_static",
-  "route_id": "AUDIO-SELF-OUTPUT-OBSERVATION-CONTRACT-ROUTE-A-01",
+  "observation_id": "aso_local_sample_recognition_ambiguous_negative_001",
+  "generated_at": "2026-07-02T00:00:00Z",
+  "source_mode": "synthetic_fixture",
+  "route_id": "LOCAL-AUDIO-SAMPLE-SELF-OUTPUT-GATE-SOURCE-STATIC-01",
   "proof_ceiling": "source_docs_contract_test_only",
   "speaker_role": "system_self_output",
   "route": "self_output_observation",
-  "classification": "system_self_output_candidate",
+  "classification": "blocked_ambiguous",
   "adoption_decision_owner": "ai_talk_core",
   "may_start_user_turn": false,
   "turn_adoption_authority": false,
-  "turn_adoption_status": "blocked_self_output",
+  "turn_adoption_status": "blocked_ambiguous",
   "pre_turn_result": {
     "decision_owner": "ai_talk_core",
     "turn_input_materialized": false,
     "normal_turn_adoption_blocked": true,
-    "normal_turn_block_reason": "self_output_observation",
+    "normal_turn_block_reason": "mixed_or_ambiguous_audio",
     "thought_core_turn_input_ref": null
   },
   "system_speech": {
-    "system_speech_session_id": "speech_session:self_output_001",
+    "system_speech_session_id": "speech_session:ambiguous_negative_001",
     "speech_session_generation": 1,
-    "speaking_state": "system_speaking_playing",
-    "tts_intended_text_ref": "opaque_class_ref:tts_intended_text_bucket_001",
-    "playback_event_ref": "opaque_correlation_ref:playback_event_001"
+    "speaking_state": "system_speaking_cooldown",
+    "tts_intended_text_ref": "opaque_class_ref:tts_intended_text_bucket_ambiguous_001",
+    "playback_event_ref": "opaque_correlation_ref:playback_event_ambiguous_001"
   },
   "input_gate": {
-    "input_gate_latch_id": "latch:self_output_001",
-    "latched_by_system_speech_session_id": "speech_session:self_output_001",
+    "input_gate_latch_id": "latch:ambiguous_negative_001",
+    "latched_by_system_speech_session_id": "speech_session:ambiguous_negative_001",
     "latch_generation": 1,
-    "latch_state": "closed_self_output",
+    "latch_state": "held_ambiguous",
     "latch_acquired_at_ms": 0,
     "latch_release_not_before_ms": 1800,
     "latch_release_reason": null,
@@ -45,7 +45,7 @@
     "release_rejected_status": null
   },
   "refs": {
-    "audio_awareness_summary_ref": "opaque_correlation_ref:audio_awareness_summary_001",
+    "audio_awareness_summary_ref": "opaque_correlation_ref:audio_awareness_summary_ambiguous_001",
     "heard_text_observation_ref": null,
     "microphone_summary_ref": null
   },
@@ -55,28 +55,28 @@
     "playback_started_at_ms": 0,
     "playback_ended_at_ms": 1000,
     "cooldown_ended_at_ms": 1800,
-    "stt_window_start_ms": 0,
-    "stt_window_end_ms": 1200
+    "stt_window_start_ms": 700,
+    "stt_window_end_ms": 1300
   },
   "confidence": {
-    "stt_confidence": 0.91,
-    "session_join_confidence": 0.95,
-    "source_correlation_confidence": 0.88,
-    "intended_vs_heard_similarity": 0.84
+    "stt_confidence": 0.31,
+    "session_join_confidence": 0.52,
+    "source_correlation_confidence": 0.44,
+    "intended_vs_heard_similarity": null
   },
   "local_sample_recognition_summary": {
-    "source_label": "voice.source_static_self_output_fixture",
+    "source_label": "voice.local_sample_ambiguous_negative_fixture",
     "source_label_policy": "stable_local_media_asset_id_only",
     "sample_media_class": "local_sample_audio",
     "sample_origin_class": "source_static_fixture",
-    "recognition_evidence_mode": "not_checked_no_live",
-    "recognizer_kind_class": "not_checked",
-    "recognized_text_class": "not_checked",
-    "recognized_text_length_bucket": "none",
+    "recognition_evidence_mode": "synthetic_fixture_summary",
+    "recognizer_kind_class": "fixture_mapping_only",
+    "recognized_text_class": "ambiguous",
+    "recognized_text_length_bucket": "unknown",
     "recognized_text_hash_ref": null,
-    "language_bucket": "not_checked",
-    "confidence_bucket": "not_checked",
-    "stt_window_class": "not_checked_no_live",
+    "language_bucket": "unknown",
+    "confidence_bucket": "low",
+    "stt_window_class": "overlaps_system_playback_or_cooldown",
     "turn_materialization_allowed": false,
     "thought_core_adoption_allowed": false,
     "redaction_guards": {
@@ -102,9 +102,9 @@
     "provider_payload_shared": false
   },
   "loop_breakers": {
-    "recent_self_output_fingerprint_ref": "opaque_hash_ref:self_output_fingerprint_001",
-    "cooldown_dedupe_matched": false,
-    "overlapping_session_hold": false
+    "recent_self_output_fingerprint_ref": "opaque_hash_ref:self_output_fingerprint_ambiguous_001",
+    "cooldown_dedupe_matched": true,
+    "overlapping_session_hold": true
   },
   "system_ref_policy": {
     "system_refs_are_opaque_non_dereferenceable": true,

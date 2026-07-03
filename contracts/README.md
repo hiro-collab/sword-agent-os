@@ -46,7 +46,11 @@ against these shapes at the boundary.
   materialize a normal Thought Core `TurnInput`, carries no shared transcript
   refs, and keeps runtime audio capture, provider STT, raw audio/transcripts,
   user intent, command authority, source adoption, and release/readiness proof
-  out of scope.
+  out of scope. Local-sample recognition summaries are class/bucket-only:
+  source labels, recognized-text class, confidence/language buckets, and STT
+  window class may be recorded, but raw transcript text, private paths, media
+  filenames, browser storage keys, provider payloads, and command authority are
+  not part of the shared shape.
   - Example:
     `audio_self_output_observation/examples/source_static_self_output_blocked.example.json`
 - `audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json`:

@@ -956,14 +956,22 @@ function Test-AudioSelfOutputObservationContractStatic {
 
   $schemaPath = Join-Path $RepoRoot "contracts\audio_self_output_observation\audio_self_output_observation.v0.schema.json"
   $examplePath = Join-Path $RepoRoot "contracts\audio_self_output_observation\examples\source_static_self_output_blocked.example.json"
+  $negativeExamplePath = Join-Path $RepoRoot "contracts\audio_self_output_observation\examples\local_sample_recognition_ambiguous_negative.example.json"
+  $lowConfidenceExamplePath = Join-Path $RepoRoot "contracts\audio_self_output_observation\examples\local_sample_recognition_low_confidence_negative.example.json"
   Assert-PathPresent -Path $schemaPath
   Assert-PathPresent -Path $examplePath
+  Assert-PathPresent -Path $negativeExamplePath
+  Assert-PathPresent -Path $lowConfidenceExamplePath
 
   $schema = Get-Content -Raw -LiteralPath $schemaPath
   $exampleText = Get-Content -Raw -LiteralPath $examplePath
+  $negativeExampleText = Get-Content -Raw -LiteralPath $negativeExamplePath
+  $lowConfidenceExampleText = Get-Content -Raw -LiteralPath $lowConfidenceExamplePath
   $contractsReadme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "contracts\README.md")
   $schemaJson = $schema | ConvertFrom-Json
   $example = $exampleText | ConvertFrom-Json
+  $negativeExample = $negativeExampleText | ConvertFrom-Json
+  $lowConfidenceExample = $lowConfidenceExampleText | ConvertFrom-Json
 
   if ([string]$schemaJson.properties.schema_version.const -ne "audio_self_output_observation.v0") {
     throw "audio self-output schema should lock schema_version"
@@ -997,19 +1005,63 @@ function Test-AudioSelfOutputObservationContractStatic {
       [string]$example.transcript_ref_policy.retention_class -ne "none_shared") {
     throw "audio self-output transcript ref policy should keep v0 transcript refs unshared"
   }
+  foreach ($recognitionExample in @($example, $negativeExample, $lowConfidenceExample)) {
+    if (-not ([string]$recognitionExample.local_sample_recognition_summary.source_label).StartsWith("voice.")) {
+      throw "local sample recognition summary source_label should be a redacted voice asset label"
+    }
+    if ([string]$recognitionExample.local_sample_recognition_summary.source_label_policy -ne "stable_local_media_asset_id_only") {
+      throw "local sample recognition summary should use stable local media asset labels only"
+    }
+    if ($recognitionExample.local_sample_recognition_summary.turn_materialization_allowed -ne $false -or
+        $recognitionExample.local_sample_recognition_summary.thought_core_adoption_allowed -ne $false) {
+      throw "local sample recognition summary should not materialize or adopt a Thought Core turn"
+    }
+    foreach ($field in @(
+      "raw_audio_shared",
+      "raw_audio_persisted",
+      "raw_transcript_shared",
+      "literal_text_shared",
+      "private_path_shared",
+      "provider_payload_shared",
+      "provider_or_network_stt_used",
+      "filename_or_extension_shared",
+      "browser_storage_key_shared",
+      "home_control_or_action_authority"
+    )) {
+      if ($recognitionExample.local_sample_recognition_summary.redaction_guards.$field -ne $false) {
+        throw "local sample recognition summary redaction guard should keep $field false"
+      }
+    }
+  }
+  if ([string]$negativeExample.local_sample_recognition_summary.recognized_text_class -ne "ambiguous" -or
+      [string]$negativeExample.local_sample_recognition_summary.confidence_bucket -ne "low" -or
+      [string]$negativeExample.local_sample_recognition_summary.stt_window_class -ne "overlaps_system_playback_or_cooldown") {
+    throw "local sample negative fixture should keep ambiguous low-confidence overlap as a held diagnostic"
+  }
+  if ([string]$lowConfidenceExample.local_sample_recognition_summary.recognized_text_class -ne "low_confidence" -or
+      [string]$lowConfidenceExample.local_sample_recognition_summary.confidence_bucket -ne "low" -or
+      [string]$lowConfidenceExample.local_sample_recognition_summary.stt_window_class -ne "outside_system_playback_window") {
+    throw "local sample negative fixture should keep low-confidence recognition as a held diagnostic"
+  }
 
-  foreach ($field in @(
-    "build_handoff_payload_reached",
-    "save_handoff_bundle_reached",
-    "runner_handoff_payload_created",
-    "redacted_turn_input_created",
-    "thought_core_turn_input_created",
-    "older_session_releases_newer_latch",
-    "newer_session_releases_older_cooling_latch",
-    "transcript_like_ref_materialized"
-  )) {
-    if ($example.no_live_fixture_guards.$field -ne $false) {
-      throw "audio self-output no-live fixture guard should keep $field false"
+  foreach ($guardExample in @($example, $negativeExample, $lowConfidenceExample)) {
+    foreach ($field in @(
+      "build_handoff_payload_reached",
+      "save_handoff_bundle_reached",
+      "runner_handoff_payload_created",
+      "redacted_turn_input_created",
+      "thought_core_turn_input_created",
+      "older_session_releases_newer_latch",
+      "newer_session_releases_older_cooling_latch",
+      "transcript_like_ref_materialized",
+      "recognizer_raw_transcript_materialized",
+      "recognizer_private_path_materialized",
+      "recognizer_provider_payload_materialized",
+      "recognizer_browser_storage_key_materialized"
+    )) {
+      if ($guardExample.no_live_fixture_guards.$field -ne $false) {
+        throw "audio self-output no-live fixture guard should keep $field false"
+      }
     }
   }
 
@@ -1026,6 +1078,15 @@ function Test-AudioSelfOutputObservationContractStatic {
   Assert-TextMatch -Text $schema -Pattern '"thought_core_turn_input_created"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should guard Thought Core TurnInput leakage"
   Assert-TextMatch -Text $schema -Pattern '"older_session_releases_newer_latch"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should guard old-session/new-latch release"
   Assert-TextMatch -Text $schema -Pattern '"newer_session_releases_older_cooling_latch"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should guard new-session/old-cooling release"
+  Assert-TextMatch -Text $schema -Pattern '"local_sample_recognition_summary"' -Message "audio self-output schema should define local sample recognition summaries"
+  Assert-TextMatch -Text $schema -Pattern '"recognized_text_class"[\s\S]{0,260}"present_redacted"' -Message "local sample summary should use recognized text classes, not transcript bodies"
+  Assert-TextMatch -Text $schema -Pattern '"language_bucket"[\s\S]{0,240}"ja"[\s\S]{0,80}"en"' -Message "local sample summary should carry language buckets"
+  Assert-TextMatch -Text $schema -Pattern '"confidence_bucket"[\s\S]{0,260}"low"[\s\S]{0,80}"medium"[\s\S]{0,80}"high"' -Message "local sample summary should carry confidence buckets"
+  Assert-TextMatch -Text $schema -Pattern '"turn_materialization_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local sample summary should not materialize turns"
+  Assert-TextMatch -Text $schema -Pattern '"thought_core_adoption_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local sample summary should not authorize Thought Core adoption"
+  Assert-TextMatch -Text $schema -Pattern '"literal_text_shared"[\s\S]{0,80}"const"\s*:\s*false' -Message "local sample summary should reject literal text sharing"
+  Assert-TextMatch -Text $schema -Pattern '"provider_or_network_stt_used"[\s\S]{0,80}"const"\s*:\s*false' -Message "local sample summary should reject provider/network STT"
+  Assert-TextMatch -Text $schema -Pattern '"filename_or_extension_shared"[\s\S]{0,80}"const"\s*:\s*false' -Message "local sample summary should reject filenames and extensions"
   Assert-TextMatch -Text $schema -Pattern '"heard_text_observation_ref"[\s\S]{0,80}"type"\s*:\s*"null"' -Message "audio self-output schema should force heard text refs to null"
   Assert-TextMatch -Text $schema -Pattern '"transcript_ref_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should reject shared transcript refs"
   Assert-TextMatch -Text $schema -Pattern '"transcript_ref_policy"[\s\S]{0,80}"const"\s*:\s*"no_shared_transcript_ref"' -Message "audio self-output schema should name no_shared_transcript_ref"
@@ -1036,9 +1097,10 @@ function Test-AudioSelfOutputObservationContractStatic {
   Assert-TextMatch -Text $schema -Pattern '"system_refs_may_contain_paths"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should forbid paths in refs"
   Assert-TextMatch -Text $schema -Pattern '"system_refs_may_contain_browser_storage_keys"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should forbid browser storage keys in refs"
   Assert-TextMatch -Text $schema -Pattern '"system_refs_may_contain_audio_or_media_paths"[\s\S]{0,80}"const"\s*:\s*false' -Message "audio self-output schema should forbid audio/media paths in refs"
-  Assert-TextNotMatch -Text $exampleText -Pattern 'C:\\|\\\\|/Users/|localStorage|sessionStorage|provider:[A-Za-z0-9_-]+|provider_payload_(id|ref|body)|"provider_id"\s*:|\.wav|\.mp3|\.mp4|"transcript_body"\s*:' -Message "audio self-output example should not contain private paths, browser keys, media filenames, provider ids, provider payloads, or transcript bodies"
+  Assert-TextNotMatch -Text ($exampleText + $negativeExampleText + $lowConfidenceExampleText) -Pattern 'C:\\|\\\\|/Users/|localStorage|sessionStorage|provider:[A-Za-z0-9_-]+|provider_payload_(id|ref|body)|"provider_id"\s*:|\.wav|\.mp3|\.mp4|"transcript_body"\s*:|"recognized_text_body"\s*:|"raw_transcript_text"\s*:|"audio_file_path"\s*:' -Message "audio self-output examples should not contain private paths, browser keys, media filenames, provider ids, provider payloads, transcript bodies, recognized text bodies, or audio file paths"
   Assert-TextMatch -Text $contractsReadme -Pattern "audio_self_output_observation/audio_self_output_observation\.v0\.schema\.json" -Message "Contracts README should list audio self-output observation"
   Assert-TextMatch -Text $contractsReadme -Pattern 'cannot\s+materialize\s+a\s+normal\s+Thought Core `TurnInput`|cannot[\s\S]{0,120}Thought Core `TurnInput`' -Message "Contracts README should state self-output cannot materialize a Thought Core turn"
+  Assert-TextMatch -Text $contractsReadme -Pattern "local-sample recognition summaries|local sample recognition summaries" -Message "Contracts README should mention local-sample recognition summary boundaries"
 
   Write-Host "Audio self-output observation contract static ok"
 }

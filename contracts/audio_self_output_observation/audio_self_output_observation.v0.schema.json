@@ -24,6 +24,7 @@
     "refs",
     "timing",
     "confidence",
+    "local_sample_recognition_summary",
     "transcript_ref_policy",
     "loop_breakers",
     "system_ref_policy",
@@ -378,6 +379,185 @@
         }
       }
     },
+    "local_sample_recognition_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_label",
+        "source_label_policy",
+        "sample_media_class",
+        "sample_origin_class",
+        "recognition_evidence_mode",
+        "recognizer_kind_class",
+        "recognized_text_class",
+        "recognized_text_length_bucket",
+        "recognized_text_hash_ref",
+        "language_bucket",
+        "confidence_bucket",
+        "stt_window_class",
+        "turn_materialization_allowed",
+        "thought_core_adoption_allowed",
+        "redaction_guards"
+      ],
+      "properties": {
+        "source_label": {
+          "type": "string",
+          "pattern": "^voice\\.[a-z0-9_:-]+$",
+          "maxLength": 120
+        },
+        "source_label_policy": {
+          "const": "stable_local_media_asset_id_only"
+        },
+        "sample_media_class": {
+          "type": "string",
+          "enum": [
+            "local_sample_audio",
+            "synthetic_audio_fixture",
+            "unknown_audio_sample"
+          ]
+        },
+        "sample_origin_class": {
+          "type": "string",
+          "enum": [
+            "local_media_index",
+            "synthetic_fixture_index",
+            "source_static_fixture"
+          ]
+        },
+        "recognition_evidence_mode": {
+          "type": "string",
+          "enum": [
+            "not_checked_no_live",
+            "local_sample_summary",
+            "synthetic_fixture_summary"
+          ]
+        },
+        "recognizer_kind_class": {
+          "type": "string",
+          "enum": [
+            "not_checked",
+            "local_offline_stt",
+            "source_static_preview",
+            "fixture_mapping_only"
+          ]
+        },
+        "recognized_text_class": {
+          "type": "string",
+          "enum": [
+            "not_checked",
+            "absent",
+            "present_redacted",
+            "recognition_failed",
+            "ambiguous",
+            "low_confidence"
+          ]
+        },
+        "recognized_text_length_bucket": {
+          "type": "string",
+          "enum": [
+            "none",
+            "short",
+            "medium",
+            "long",
+            "unknown"
+          ]
+        },
+        "recognized_text_hash_ref": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/opaque_ref"
+            }
+          ]
+        },
+        "language_bucket": {
+          "type": "string",
+          "enum": [
+            "not_checked",
+            "ja",
+            "en",
+            "mixed",
+            "unknown",
+            "other"
+          ]
+        },
+        "confidence_bucket": {
+          "type": "string",
+          "enum": [
+            "not_checked",
+            "low",
+            "medium",
+            "high",
+            "unknown"
+          ]
+        },
+        "stt_window_class": {
+          "type": "string",
+          "enum": [
+            "not_checked_no_live",
+            "outside_system_playback_window",
+            "overlaps_system_playback_or_cooldown",
+            "ambiguous"
+          ]
+        },
+        "turn_materialization_allowed": {
+          "const": false
+        },
+        "thought_core_adoption_allowed": {
+          "const": false
+        },
+        "redaction_guards": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "raw_audio_shared",
+            "raw_audio_persisted",
+            "raw_transcript_shared",
+            "literal_text_shared",
+            "private_path_shared",
+            "provider_payload_shared",
+            "provider_or_network_stt_used",
+            "filename_or_extension_shared",
+            "browser_storage_key_shared",
+            "home_control_or_action_authority"
+          ],
+          "properties": {
+            "raw_audio_shared": {
+              "const": false
+            },
+            "raw_audio_persisted": {
+              "const": false
+            },
+            "raw_transcript_shared": {
+              "const": false
+            },
+            "literal_text_shared": {
+              "const": false
+            },
+            "private_path_shared": {
+              "const": false
+            },
+            "provider_payload_shared": {
+              "const": false
+            },
+            "provider_or_network_stt_used": {
+              "const": false
+            },
+            "filename_or_extension_shared": {
+              "const": false
+            },
+            "browser_storage_key_shared": {
+              "const": false
+            },
+            "home_control_or_action_authority": {
+              "const": false
+            }
+          }
+        }
+      }
+    },
     "transcript_ref_policy": {
       "type": "object",
       "additionalProperties": false,
@@ -477,7 +657,11 @@
         "thought_core_turn_input_created",
         "older_session_releases_newer_latch",
         "newer_session_releases_older_cooling_latch",
-        "transcript_like_ref_materialized"
+        "transcript_like_ref_materialized",
+        "recognizer_raw_transcript_materialized",
+        "recognizer_private_path_materialized",
+        "recognizer_provider_payload_materialized",
+        "recognizer_browser_storage_key_materialized"
       ],
       "properties": {
         "build_handoff_payload_reached": {
@@ -502,6 +686,18 @@
           "const": false
         },
         "transcript_like_ref_materialized": {
+          "const": false
+        },
+        "recognizer_raw_transcript_materialized": {
+          "const": false
+        },
+        "recognizer_private_path_materialized": {
+          "const": false
+        },
+        "recognizer_provider_payload_materialized": {
+          "const": false
+        },
+        "recognizer_browser_storage_key_materialized": {
           "const": false
         }
       }
