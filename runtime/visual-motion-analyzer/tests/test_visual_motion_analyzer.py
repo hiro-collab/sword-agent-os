@@ -1254,6 +1254,20 @@ class VisualMotionAnalyzerTest(unittest.TestCase):
         self.assertIn('planned_runtime_result_id: plannedRuntimeResultId', capture_source)
         self.assertNotIn('runtime_result_id: args.driverResultId,', capture_source)
 
+    def test_browser_helper_normalizes_lifecycle_absolute_timestamps_to_relative_anchors(self) -> None:
+        repo_root = Path(__file__).resolve().parents[3]
+        capture_source = (repo_root / "scripts" / "capture-self-mirror-frames.mjs").read_text(encoding="utf-8")
+
+        self.assertIn("lifecycleTraceRequestIssuedAbsoluteMs(trace)", capture_source)
+        self.assertIn('item.state === "request_issued"', capture_source)
+        self.assertIn("rawAtMs - baseAbsoluteMs", capture_source)
+        self.assertIn("safeBaseRelativeMs + (rawAtMs - baseAbsoluteMs)", capture_source)
+        self.assertIn("motion_requested_at_ms: lifecycleTraceAnchorMs(", capture_source)
+        self.assertIn('"request_issued"', capture_source)
+        self.assertIn('"runtime_accepted"', capture_source)
+        self.assertIn('"runtime_started"', capture_source)
+        self.assertIn('"result"', capture_source)
+
     def test_browser_helper_records_capture_target_identity_as_helper_page(self) -> None:
         repo_root = Path(__file__).resolve().parents[3]
         capture_source = (repo_root / "scripts" / "capture-self-mirror-frames.mjs").read_text(encoding="utf-8")

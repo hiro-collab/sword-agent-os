@@ -935,19 +935,45 @@ async function readProjectionVisualDiagnostics(page) {
     .catch(() => null);
 }
 
-function lifecycleTraceAnchorMs(motionStimulusResult, state, durationMs) {
+function lifecycleTraceRequestIssuedAbsoluteMs(trace) {
+  const entry = trace.find(
+    (item) =>
+      item &&
+      item.state === "request_issued" &&
+      Number.isFinite(item.at_ms),
+  );
+  return entry ? Math.max(0, Math.round(entry.at_ms)) : null;
+}
+
+function lifecycleTraceAnchorMs(
+  motionStimulusResult,
+  state,
+  durationMs,
+  baseRelativeMs = 0,
+) {
   const trace = Array.isArray(motionStimulusResult?.lifecycle_trace)
     ? motionStimulusResult.lifecycle_trace
     : [];
   const entry = trace.find(
     (item) => item && item.state === state && Number.isFinite(item.at_ms),
   );
-  return entry
-    ? safeCaptureRelativeMsNumber(
-        entry.at_ms,
-        Math.max(600000, Math.round(durationMs)),
-      )
-    : null;
+  if (!entry) return null;
+  const relativeLimitMs = Math.max(600000, Math.round(durationMs));
+  const rawAtMs = Math.max(0, Math.round(entry.at_ms));
+  const alreadyRelativeMs = safeCaptureRelativeMsNumber(
+    rawAtMs,
+    relativeLimitMs,
+  );
+  if (alreadyRelativeMs !== null) return alreadyRelativeMs;
+
+  const baseAbsoluteMs = lifecycleTraceRequestIssuedAbsoluteMs(trace);
+  const safeBaseRelativeMs =
+    safeCaptureRelativeMsNumber(baseRelativeMs, relativeLimitMs) ?? 0;
+  if (baseAbsoluteMs === null) return null;
+  return safeCaptureRelativeMsNumber(
+    safeBaseRelativeMs + (rawAtMs - baseAbsoluteMs),
+    relativeLimitMs,
+  );
 }
 
 function buildEventTimeline({
@@ -956,27 +982,37 @@ function buildEventTimeline({
   projectionVisualDiagnostics,
   durationMs,
 }) {
+  const bridgeDispatchedAtMs =
+    Number.isFinite(triggerResult.dispatched_at_ms) && triggerResult.dispatched
+      ? Math.max(0, Math.round(triggerResult.dispatched_at_ms))
+      : null;
+  const lifecycleBaseRelativeMs = bridgeDispatchedAtMs ?? 0;
   const timeline = {
     capture_started_at_ms: 0,
-    bridge_dispatched_at_ms:
-      Number.isFinite(triggerResult.dispatched_at_ms) &&
-      triggerResult.dispatched
-        ? Math.max(0, Math.round(triggerResult.dispatched_at_ms))
-        : null,
+    bridge_dispatched_at_ms: bridgeDispatchedAtMs,
+    motion_requested_at_ms: lifecycleTraceAnchorMs(
+      motionStimulusResult,
+      "request_issued",
+      durationMs,
+      lifecycleBaseRelativeMs,
+    ),
     runtime_accepted_at_ms: lifecycleTraceAnchorMs(
       motionStimulusResult,
       "runtime_accepted",
       durationMs,
+      lifecycleBaseRelativeMs,
     ),
     runtime_started_at_ms: lifecycleTraceAnchorMs(
       motionStimulusResult,
       "runtime_started",
       durationMs,
+      lifecycleBaseRelativeMs,
     ),
     runtime_result_at_ms: lifecycleTraceAnchorMs(
       motionStimulusResult,
       "result",
       durationMs,
+      lifecycleBaseRelativeMs,
     ),
     capture_ended_at_ms: Math.max(0, Math.round(durationMs)),
   };
