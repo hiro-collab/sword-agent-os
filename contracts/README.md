@@ -73,6 +73,20 @@ against these shapes at the boundary.
   decision.
   - Example:
     `local_offline_recognizer_redacted_adapter/examples/source_static_pass_candidate.example.json`
+- `local_offline_recognizer_execution_wrapper/local_offline_recognizer_execution_wrapper.v0.schema.json`:
+  source/static execution-wrapper boundary for a future local/offline recognizer
+  runner. It exists one layer before any recognition dry-run and proves, by
+  classed fixtures only, that transcript-like runner output, literal handoff
+  text, private paths/filenames, provider/cloud/browser STT, model downloads,
+  microphone or PC-output capture, playback, and direct Thought Core turn
+  materialization are blocked before runner invocation. The wrapper may only
+  hand class/bucket/opaque-ref summaries to
+  `local_offline_recognizer_redacted_adapter.v0`; it performs no audio decoding,
+  recognition, playback, capture, model download, provider/browser/cloud STT,
+  Thought Core `TurnInput` creation, Home Control action, source/Git adoption,
+  or readiness proof.
+  - Example:
+    `local_offline_recognizer_execution_wrapper/examples/source_static_cases.example.json`
 - `audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json`:
   machine-readable route map for source/static audio-awareness consumers. It
   points readers to the hearing organ scaffold, runtime helper, result

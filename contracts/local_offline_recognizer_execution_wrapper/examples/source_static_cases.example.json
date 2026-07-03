@@ -1,0 +1,479 @@
+{
+  "schema_version": "local_offline_recognizer_execution_wrapper.v0",
+  "wrapper_contract_id": "lorew_source_static_cases_001",
+  "generated_at": "2026-07-03T00:00:00Z",
+  "proof_layer": "source_static_contract_test_only",
+  "route_id": "OVERALL-TEST-LADDER-AUDIO-REDACTED-RECOGNIZER-EXECUTION-WRAPPER-SOURCE-STATIC-01",
+  "cases": [
+    {
+      "case_id": "case_pass_candidate_001",
+      "source_label": "voice.local_sample_001",
+      "runner_candidate": {
+        "runner_class": "local_offline_candidate",
+        "model_availability_class": "present_candidate",
+        "normal_output_surface_class": "metadata_only",
+        "runner_invoked": false,
+        "audio_decoded": false,
+        "recognition_performed": false,
+        "model_download_attempted": false
+      },
+      "wrapper_policy": {
+        "redaction_before_artifact_required": true,
+        "fail_closed_on_unredactable_output": true,
+        "shared_output_policy": "class_bucket_opaque_ref_only",
+        "raw_output_may_be_logged": false,
+        "transcript_oriented_runner_output_allowed": false,
+        "direct_thought_core_turninput_allowed": false
+      },
+      "output_channel_guards": {
+        "stdout_raw_text_allowed": false,
+        "stderr_raw_text_allowed": false,
+        "file_raw_text_allowed": false,
+        "log_raw_text_allowed": false,
+        "shared_artifact_raw_text_allowed": false,
+        "handoff_file_raw_text_allowed": false,
+        "audio_awareness_raw_text_ref_allowed": false,
+        "thought_core_turninput_materialization_allowed": false,
+        "provider_payload_allowed": false,
+        "path_or_filename_allowed": false
+      },
+      "wrapper_decision": {
+        "status_class": "pass_candidate_source_static",
+        "result_class": "wrapper_preflight_candidate",
+        "blocker_class": null,
+        "redacted_adapter_contract_ref": "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json",
+        "audio_awareness_summary_ref_class": "classed_summary_only_no_raw_text",
+        "thought_core_turninput_ref": null
+      },
+      "negative_fixture": {
+        "is_negative_fixture": false,
+        "negative_case": "none",
+        "expected_wrapper_decision": "pass_candidate"
+      },
+      "non_claims": [
+        "not_audio_decoding_or_recognition",
+        "not_raw_transcript_publication",
+        "not_thought_core_turninput",
+        "not_source_git_adoption",
+        "not_release_or_final_rr003"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "case_id": "case_transcript_like_output_blocked_001",
+      "source_label": "voice.local_sample_001",
+      "runner_candidate": {
+        "runner_class": "local_offline_candidate",
+        "model_availability_class": "present_candidate",
+        "normal_output_surface_class": "transcript_like_output",
+        "runner_invoked": false,
+        "audio_decoded": false,
+        "recognition_performed": false,
+        "model_download_attempted": false
+      },
+      "wrapper_policy": {
+        "redaction_before_artifact_required": true,
+        "fail_closed_on_unredactable_output": true,
+        "shared_output_policy": "class_bucket_opaque_ref_only",
+        "raw_output_may_be_logged": false,
+        "transcript_oriented_runner_output_allowed": false,
+        "direct_thought_core_turninput_allowed": false
+      },
+      "output_channel_guards": {
+        "stdout_raw_text_allowed": false,
+        "stderr_raw_text_allowed": false,
+        "file_raw_text_allowed": false,
+        "log_raw_text_allowed": false,
+        "shared_artifact_raw_text_allowed": false,
+        "handoff_file_raw_text_allowed": false,
+        "audio_awareness_raw_text_ref_allowed": false,
+        "thought_core_turninput_materialization_allowed": false,
+        "provider_payload_allowed": false,
+        "path_or_filename_allowed": false
+      },
+      "wrapper_decision": {
+        "status_class": "blocked_source_static",
+        "result_class": "blocked_before_runner_invocation",
+        "blocker_class": "transcript_like_output",
+        "redacted_adapter_contract_ref": "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json",
+        "audio_awareness_summary_ref_class": "classed_summary_only_no_raw_text",
+        "thought_core_turninput_ref": null
+      },
+      "negative_fixture": {
+        "is_negative_fixture": true,
+        "negative_case": "transcript_like_output",
+        "expected_wrapper_decision": "blocked"
+      },
+      "non_claims": [
+        "not_audio_decoding_or_recognition",
+        "not_raw_transcript_publication",
+        "not_thought_core_turninput"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "case_id": "case_literal_handoff_text_blocked_001",
+      "source_label": "voice.local_sample_001",
+      "runner_candidate": {
+        "runner_class": "local_offline_candidate",
+        "model_availability_class": "present_candidate",
+        "normal_output_surface_class": "literal_handoff_file",
+        "runner_invoked": false,
+        "audio_decoded": false,
+        "recognition_performed": false,
+        "model_download_attempted": false
+      },
+      "wrapper_policy": {
+        "redaction_before_artifact_required": true,
+        "fail_closed_on_unredactable_output": true,
+        "shared_output_policy": "class_bucket_opaque_ref_only",
+        "raw_output_may_be_logged": false,
+        "transcript_oriented_runner_output_allowed": false,
+        "direct_thought_core_turninput_allowed": false
+      },
+      "output_channel_guards": {
+        "stdout_raw_text_allowed": false,
+        "stderr_raw_text_allowed": false,
+        "file_raw_text_allowed": false,
+        "log_raw_text_allowed": false,
+        "shared_artifact_raw_text_allowed": false,
+        "handoff_file_raw_text_allowed": false,
+        "audio_awareness_raw_text_ref_allowed": false,
+        "thought_core_turninput_materialization_allowed": false,
+        "provider_payload_allowed": false,
+        "path_or_filename_allowed": false
+      },
+      "wrapper_decision": {
+        "status_class": "blocked_source_static",
+        "result_class": "blocked_before_runner_invocation",
+        "blocker_class": "literal_handoff_text",
+        "redacted_adapter_contract_ref": "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json",
+        "audio_awareness_summary_ref_class": "classed_summary_only_no_raw_text",
+        "thought_core_turninput_ref": null
+      },
+      "negative_fixture": {
+        "is_negative_fixture": true,
+        "negative_case": "literal_handoff_text",
+        "expected_wrapper_decision": "blocked"
+      },
+      "non_claims": [
+        "not_audio_decoding_or_recognition",
+        "not_raw_transcript_publication",
+        "not_thought_core_turninput"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "case_id": "case_path_or_filename_leakage_blocked_001",
+      "source_label": "voice.local_sample_001",
+      "runner_candidate": {
+        "runner_class": "local_offline_candidate",
+        "model_availability_class": "present_candidate",
+        "normal_output_surface_class": "path_or_filename_exposure",
+        "runner_invoked": false,
+        "audio_decoded": false,
+        "recognition_performed": false,
+        "model_download_attempted": false
+      },
+      "wrapper_policy": {
+        "redaction_before_artifact_required": true,
+        "fail_closed_on_unredactable_output": true,
+        "shared_output_policy": "class_bucket_opaque_ref_only",
+        "raw_output_may_be_logged": false,
+        "transcript_oriented_runner_output_allowed": false,
+        "direct_thought_core_turninput_allowed": false
+      },
+      "output_channel_guards": {
+        "stdout_raw_text_allowed": false,
+        "stderr_raw_text_allowed": false,
+        "file_raw_text_allowed": false,
+        "log_raw_text_allowed": false,
+        "shared_artifact_raw_text_allowed": false,
+        "handoff_file_raw_text_allowed": false,
+        "audio_awareness_raw_text_ref_allowed": false,
+        "thought_core_turninput_materialization_allowed": false,
+        "provider_payload_allowed": false,
+        "path_or_filename_allowed": false
+      },
+      "wrapper_decision": {
+        "status_class": "blocked_source_static",
+        "result_class": "blocked_before_runner_invocation",
+        "blocker_class": "path_or_filename_leakage",
+        "redacted_adapter_contract_ref": "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json",
+        "audio_awareness_summary_ref_class": "classed_summary_only_no_raw_text",
+        "thought_core_turninput_ref": null
+      },
+      "negative_fixture": {
+        "is_negative_fixture": true,
+        "negative_case": "path_or_filename_leakage",
+        "expected_wrapper_decision": "blocked"
+      },
+      "non_claims": [
+        "not_audio_decoding_or_recognition",
+        "not_raw_transcript_publication",
+        "not_thought_core_turninput"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "case_id": "case_provider_cloud_browser_stt_required_blocked_001",
+      "source_label": "voice.local_sample_001",
+      "runner_candidate": {
+        "runner_class": "provider_cloud_browser_required",
+        "model_availability_class": "not_checked",
+        "normal_output_surface_class": "provider_cloud_browser_required",
+        "runner_invoked": false,
+        "audio_decoded": false,
+        "recognition_performed": false,
+        "model_download_attempted": false
+      },
+      "wrapper_policy": {
+        "redaction_before_artifact_required": true,
+        "fail_closed_on_unredactable_output": true,
+        "shared_output_policy": "class_bucket_opaque_ref_only",
+        "raw_output_may_be_logged": false,
+        "transcript_oriented_runner_output_allowed": false,
+        "direct_thought_core_turninput_allowed": false
+      },
+      "output_channel_guards": {
+        "stdout_raw_text_allowed": false,
+        "stderr_raw_text_allowed": false,
+        "file_raw_text_allowed": false,
+        "log_raw_text_allowed": false,
+        "shared_artifact_raw_text_allowed": false,
+        "handoff_file_raw_text_allowed": false,
+        "audio_awareness_raw_text_ref_allowed": false,
+        "thought_core_turninput_materialization_allowed": false,
+        "provider_payload_allowed": false,
+        "path_or_filename_allowed": false
+      },
+      "wrapper_decision": {
+        "status_class": "blocked_source_static",
+        "result_class": "blocked_before_runner_invocation",
+        "blocker_class": "provider_cloud_browser_stt_required",
+        "redacted_adapter_contract_ref": "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json",
+        "audio_awareness_summary_ref_class": "classed_summary_only_no_raw_text",
+        "thought_core_turninput_ref": null
+      },
+      "negative_fixture": {
+        "is_negative_fixture": true,
+        "negative_case": "provider_cloud_browser_stt_required",
+        "expected_wrapper_decision": "blocked"
+      },
+      "non_claims": [
+        "not_audio_decoding_or_recognition",
+        "not_raw_transcript_publication",
+        "not_thought_core_turninput"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "case_id": "case_model_download_required_blocked_001",
+      "source_label": "voice.local_sample_001",
+      "runner_candidate": {
+        "runner_class": "local_offline_candidate",
+        "model_availability_class": "download_required",
+        "normal_output_surface_class": "model_download_required",
+        "runner_invoked": false,
+        "audio_decoded": false,
+        "recognition_performed": false,
+        "model_download_attempted": false
+      },
+      "wrapper_policy": {
+        "redaction_before_artifact_required": true,
+        "fail_closed_on_unredactable_output": true,
+        "shared_output_policy": "class_bucket_opaque_ref_only",
+        "raw_output_may_be_logged": false,
+        "transcript_oriented_runner_output_allowed": false,
+        "direct_thought_core_turninput_allowed": false
+      },
+      "output_channel_guards": {
+        "stdout_raw_text_allowed": false,
+        "stderr_raw_text_allowed": false,
+        "file_raw_text_allowed": false,
+        "log_raw_text_allowed": false,
+        "shared_artifact_raw_text_allowed": false,
+        "handoff_file_raw_text_allowed": false,
+        "audio_awareness_raw_text_ref_allowed": false,
+        "thought_core_turninput_materialization_allowed": false,
+        "provider_payload_allowed": false,
+        "path_or_filename_allowed": false
+      },
+      "wrapper_decision": {
+        "status_class": "blocked_source_static",
+        "result_class": "blocked_before_runner_invocation",
+        "blocker_class": "model_download_required",
+        "redacted_adapter_contract_ref": "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json",
+        "audio_awareness_summary_ref_class": "classed_summary_only_no_raw_text",
+        "thought_core_turninput_ref": null
+      },
+      "negative_fixture": {
+        "is_negative_fixture": true,
+        "negative_case": "model_download_required",
+        "expected_wrapper_decision": "blocked"
+      },
+      "non_claims": [
+        "not_audio_decoding_or_recognition",
+        "not_raw_transcript_publication",
+        "not_thought_core_turninput"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "case_id": "case_microphone_or_pc_output_capture_required_blocked_001",
+      "source_label": "voice.local_sample_001",
+      "runner_candidate": {
+        "runner_class": "playback_or_capture_required",
+        "model_availability_class": "not_checked",
+        "normal_output_surface_class": "capture_required",
+        "runner_invoked": false,
+        "audio_decoded": false,
+        "recognition_performed": false,
+        "model_download_attempted": false
+      },
+      "wrapper_policy": {
+        "redaction_before_artifact_required": true,
+        "fail_closed_on_unredactable_output": true,
+        "shared_output_policy": "class_bucket_opaque_ref_only",
+        "raw_output_may_be_logged": false,
+        "transcript_oriented_runner_output_allowed": false,
+        "direct_thought_core_turninput_allowed": false
+      },
+      "output_channel_guards": {
+        "stdout_raw_text_allowed": false,
+        "stderr_raw_text_allowed": false,
+        "file_raw_text_allowed": false,
+        "log_raw_text_allowed": false,
+        "shared_artifact_raw_text_allowed": false,
+        "handoff_file_raw_text_allowed": false,
+        "audio_awareness_raw_text_ref_allowed": false,
+        "thought_core_turninput_materialization_allowed": false,
+        "provider_payload_allowed": false,
+        "path_or_filename_allowed": false
+      },
+      "wrapper_decision": {
+        "status_class": "blocked_source_static",
+        "result_class": "blocked_before_runner_invocation",
+        "blocker_class": "microphone_or_pc_output_capture_required",
+        "redacted_adapter_contract_ref": "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json",
+        "audio_awareness_summary_ref_class": "classed_summary_only_no_raw_text",
+        "thought_core_turninput_ref": null
+      },
+      "negative_fixture": {
+        "is_negative_fixture": true,
+        "negative_case": "microphone_or_pc_output_capture_required",
+        "expected_wrapper_decision": "blocked"
+      },
+      "non_claims": [
+        "not_audio_decoding_or_recognition",
+        "not_raw_transcript_publication",
+        "not_thought_core_turninput"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "case_id": "case_playback_required_blocked_001",
+      "source_label": "voice.local_sample_001",
+      "runner_candidate": {
+        "runner_class": "playback_or_capture_required",
+        "model_availability_class": "not_checked",
+        "normal_output_surface_class": "playback_required",
+        "runner_invoked": false,
+        "audio_decoded": false,
+        "recognition_performed": false,
+        "model_download_attempted": false
+      },
+      "wrapper_policy": {
+        "redaction_before_artifact_required": true,
+        "fail_closed_on_unredactable_output": true,
+        "shared_output_policy": "class_bucket_opaque_ref_only",
+        "raw_output_may_be_logged": false,
+        "transcript_oriented_runner_output_allowed": false,
+        "direct_thought_core_turninput_allowed": false
+      },
+      "output_channel_guards": {
+        "stdout_raw_text_allowed": false,
+        "stderr_raw_text_allowed": false,
+        "file_raw_text_allowed": false,
+        "log_raw_text_allowed": false,
+        "shared_artifact_raw_text_allowed": false,
+        "handoff_file_raw_text_allowed": false,
+        "audio_awareness_raw_text_ref_allowed": false,
+        "thought_core_turninput_materialization_allowed": false,
+        "provider_payload_allowed": false,
+        "path_or_filename_allowed": false
+      },
+      "wrapper_decision": {
+        "status_class": "blocked_source_static",
+        "result_class": "blocked_before_runner_invocation",
+        "blocker_class": "playback_required",
+        "redacted_adapter_contract_ref": "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json",
+        "audio_awareness_summary_ref_class": "classed_summary_only_no_raw_text",
+        "thought_core_turninput_ref": null
+      },
+      "negative_fixture": {
+        "is_negative_fixture": true,
+        "negative_case": "playback_required",
+        "expected_wrapper_decision": "blocked"
+      },
+      "non_claims": [
+        "not_audio_decoding_or_recognition",
+        "not_raw_transcript_publication",
+        "not_thought_core_turninput"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "case_id": "case_adapter_direct_turn_materialization_blocked_001",
+      "source_label": "voice.local_sample_001",
+      "runner_candidate": {
+        "runner_class": "local_offline_candidate",
+        "model_availability_class": "present_candidate",
+        "normal_output_surface_class": "direct_turn_materialization_attempt",
+        "runner_invoked": false,
+        "audio_decoded": false,
+        "recognition_performed": false,
+        "model_download_attempted": false
+      },
+      "wrapper_policy": {
+        "redaction_before_artifact_required": true,
+        "fail_closed_on_unredactable_output": true,
+        "shared_output_policy": "class_bucket_opaque_ref_only",
+        "raw_output_may_be_logged": false,
+        "transcript_oriented_runner_output_allowed": false,
+        "direct_thought_core_turninput_allowed": false
+      },
+      "output_channel_guards": {
+        "stdout_raw_text_allowed": false,
+        "stderr_raw_text_allowed": false,
+        "file_raw_text_allowed": false,
+        "log_raw_text_allowed": false,
+        "shared_artifact_raw_text_allowed": false,
+        "handoff_file_raw_text_allowed": false,
+        "audio_awareness_raw_text_ref_allowed": false,
+        "thought_core_turninput_materialization_allowed": false,
+        "provider_payload_allowed": false,
+        "path_or_filename_allowed": false
+      },
+      "wrapper_decision": {
+        "status_class": "blocked_source_static",
+        "result_class": "blocked_before_runner_invocation",
+        "blocker_class": "adapter_direct_turn_materialization_attempted",
+        "redacted_adapter_contract_ref": "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json",
+        "audio_awareness_summary_ref_class": "classed_summary_only_no_raw_text",
+        "thought_core_turninput_ref": null
+      },
+      "negative_fixture": {
+        "is_negative_fixture": true,
+        "negative_case": "adapter_direct_turn_materialization_attempted",
+        "expected_wrapper_decision": "blocked"
+      },
+      "non_claims": [
+        "not_audio_decoding_or_recognition",
+        "not_raw_transcript_publication",
+        "not_thought_core_turninput"
+      ],
+      "raw_private_publication_flags": false
+    }
+  ]
+}

@@ -1290,6 +1290,149 @@ function Test-LocalOfflineRecognizerRedactedAdapterContractStatic {
   Write-Host "Local offline recognizer redacted adapter contract static ok"
 }
 
+function Test-LocalOfflineRecognizerExecutionWrapperContractStatic {
+  Write-TestStep "Local offline recognizer execution wrapper contract static checks"
+
+  $contractDir = Join-Path $RepoRoot "contracts\local_offline_recognizer_execution_wrapper"
+  $schemaPath = Join-Path $contractDir "local_offline_recognizer_execution_wrapper.v0.schema.json"
+  $examplePath = Join-Path $contractDir "examples\source_static_cases.example.json"
+  $contractsReadmePath = Join-Path $RepoRoot "contracts\README.md"
+
+  Assert-PathPresent -Path $schemaPath
+  Assert-PathPresent -Path $examplePath
+
+  $schemaText = Get-Content -Raw -LiteralPath $schemaPath
+  $schema = $schemaText | ConvertFrom-Json
+  $exampleText = Get-Content -Raw -LiteralPath $examplePath
+  $example = $exampleText | ConvertFrom-Json
+  $contractsReadme = Get-Content -Raw -LiteralPath $contractsReadmePath
+
+  if ([string]$schema.properties.schema_version.const -ne "local_offline_recognizer_execution_wrapper.v0") {
+    throw "local offline recognizer execution wrapper schema should lock schema_version"
+  }
+  if ([string]$schema.properties.route_id.const -ne "OVERALL-TEST-LADDER-AUDIO-REDACTED-RECOGNIZER-EXECUTION-WRAPPER-SOURCE-STATIC-01") {
+    throw "local offline recognizer execution wrapper schema should lock the owner route id"
+  }
+  if ([string]$example.schema_version -ne "local_offline_recognizer_execution_wrapper.v0") {
+    throw "local offline recognizer execution wrapper example should use v0 schema"
+  }
+
+  Assert-TextMatch -Text $schemaText -Pattern '"redaction_before_artifact_required"[\s\S]{0,80}"const"\s*:\s*true' -Message "local offline recognizer execution wrapper should require redaction before artifact"
+  Assert-TextMatch -Text $schemaText -Pattern '"fail_closed_on_unredactable_output"[\s\S]{0,80}"const"\s*:\s*true' -Message "local offline recognizer execution wrapper should fail closed on unredactable output"
+  Assert-TextMatch -Text $schemaText -Pattern '"shared_output_policy"[\s\S]{0,80}"const"\s*:\s*"class_bucket_opaque_ref_only"' -Message "local offline recognizer execution wrapper should only share class/bucket/opaque refs"
+  Assert-TextMatch -Text $schemaText -Pattern '"raw_output_may_be_logged"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer execution wrapper should not log raw runner output"
+  Assert-TextMatch -Text $schemaText -Pattern '"transcript_oriented_runner_output_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer execution wrapper should reject transcript-oriented output"
+  Assert-TextMatch -Text $schemaText -Pattern '"direct_thought_core_turninput_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer execution wrapper should not create Thought Core TurnInput"
+
+  foreach ($guard in @(
+    "stdout_raw_text_allowed",
+    "stderr_raw_text_allowed",
+    "file_raw_text_allowed",
+    "log_raw_text_allowed",
+    "shared_artifact_raw_text_allowed",
+    "handoff_file_raw_text_allowed",
+    "audio_awareness_raw_text_ref_allowed",
+    "thought_core_turninput_materialization_allowed",
+    "provider_payload_allowed",
+    "path_or_filename_allowed"
+  )) {
+    Assert-TextMatch -Text $schemaText -Pattern ('"{0}"[\s\S]{{0,80}}"const"\s*:\s*false' -f [regex]::Escape($guard)) -Message "local offline recognizer execution wrapper should force $guard false"
+  }
+
+  $requiredNegativeCases = @(
+    "transcript_like_output",
+    "literal_handoff_text",
+    "path_or_filename_leakage",
+    "provider_cloud_browser_stt_required",
+    "model_download_required",
+    "microphone_or_pc_output_capture_required",
+    "playback_required",
+    "adapter_direct_turn_materialization_attempted"
+  )
+  $seenNegativeCases = @{}
+  $opaqueSourceLabelPattern = '^voice\.(sample|local_sample|synthetic_sample|fixture)_[a-z0-9_:-]+$'
+  $transcriptLikeSourceLabelPattern = '(?i)(dance|please|smile|clean|cleaner|cleaning|aircon|cool|heat|dry|stop|return|set|back|hello|phrase|command|transcript|utterance|recognized|text)'
+
+  if (@($example.cases).Count -lt 9) {
+    throw "local offline recognizer execution wrapper should include pass plus required negative cases"
+  }
+
+  foreach ($case in @($example.cases)) {
+    $sourceLabel = [string]$case.source_label
+    if ($sourceLabel -notmatch $opaqueSourceLabelPattern) {
+      throw "local offline recognizer execution wrapper cases should use opaque non-semantic sample labels"
+    }
+    if ($sourceLabel -match $transcriptLikeSourceLabelPattern) {
+      throw "local offline recognizer execution wrapper source labels should not encode transcript-like or command-like text"
+    }
+    if ($case.runner_candidate.runner_invoked -ne $false -or
+        $case.runner_candidate.audio_decoded -ne $false -or
+        $case.runner_candidate.recognition_performed -ne $false -or
+        $case.runner_candidate.model_download_attempted -ne $false) {
+      throw "local offline recognizer execution wrapper examples should not run recognition, decode audio, or download models"
+    }
+    if ($case.wrapper_policy.redaction_before_artifact_required -ne $true -or
+        $case.wrapper_policy.fail_closed_on_unredactable_output -ne $true -or
+        [string]$case.wrapper_policy.shared_output_policy -ne "class_bucket_opaque_ref_only" -or
+        $case.wrapper_policy.raw_output_may_be_logged -ne $false -or
+        $case.wrapper_policy.transcript_oriented_runner_output_allowed -ne $false -or
+        $case.wrapper_policy.direct_thought_core_turninput_allowed -ne $false) {
+      throw "local offline recognizer execution wrapper policy should stay redaction-first and fail-closed"
+    }
+    foreach ($field in @(
+      "stdout_raw_text_allowed",
+      "stderr_raw_text_allowed",
+      "file_raw_text_allowed",
+      "log_raw_text_allowed",
+      "shared_artifact_raw_text_allowed",
+      "handoff_file_raw_text_allowed",
+      "audio_awareness_raw_text_ref_allowed",
+      "thought_core_turninput_materialization_allowed",
+      "provider_payload_allowed",
+      "path_or_filename_allowed"
+    )) {
+      if ($case.output_channel_guards.$field -ne $false) {
+        throw "local offline recognizer execution wrapper output channel guard should keep $field false"
+      }
+    }
+    if ([string]$case.wrapper_decision.redacted_adapter_contract_ref -ne "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json" -or
+        [string]$case.wrapper_decision.audio_awareness_summary_ref_class -ne "classed_summary_only_no_raw_text" -or
+        $null -ne $case.wrapper_decision.thought_core_turninput_ref) {
+      throw "local offline recognizer execution wrapper decisions should only point to redacted adapter summaries and null Thought Core refs"
+    }
+    if ([bool]$case.negative_fixture.is_negative_fixture) {
+      $seenNegativeCases[[string]$case.negative_fixture.negative_case] = $true
+      if ([string]$case.negative_fixture.expected_wrapper_decision -ne "blocked" -or
+          [string]$case.wrapper_decision.status_class -ne "blocked_source_static") {
+        throw "local offline recognizer execution wrapper negative fixtures should be blocked"
+      }
+      if ([string]$case.wrapper_decision.blocker_class -ne [string]$case.negative_fixture.negative_case) {
+        throw "local offline recognizer execution wrapper negative fixture blocker should match negative case"
+      }
+    }
+    if ($case.raw_private_publication_flags -ne $false) {
+      throw "local offline recognizer execution wrapper examples should keep raw private publication false"
+    }
+    foreach ($claim in @("not_audio_decoding_or_recognition", "not_raw_transcript_publication", "not_thought_core_turninput")) {
+      if (@($case.non_claims) -notcontains $claim) {
+        throw "local offline recognizer execution wrapper examples should preserve non-claim: $claim"
+      }
+    }
+  }
+  foreach ($requiredCase in $requiredNegativeCases) {
+    if (-not $seenNegativeCases.ContainsKey($requiredCase)) {
+      throw "local offline recognizer execution wrapper should include negative fixture case: $requiredCase"
+    }
+  }
+
+  Assert-TextNotMatch -Text $exampleText -Pattern 'C:\\|\\\\|/Users/|localStorage|sessionStorage|provider:[A-Za-z0-9_-]+|provider_payload_(id|ref|body)|"provider_id"\s*:|\.wav|\.mp3|\.m4a|\.mp4|"transcript_body"\s*:|"recognized_text_body"\s*:|"raw_transcript_text"\s*:|"recognized_text"\s*:|"audio_file_path"\s*:|"filename"\s*:|"private_path"\s*:|"device_id"\s*:|"token"\s*:|"secret"\s*:' -Message "local offline recognizer execution wrapper examples should not contain private paths, media filenames, provider ids, transcript bodies, raw text, device ids, tokens, or secrets"
+  Assert-TextMatch -Text $contractsReadme -Pattern "local_offline_recognizer_execution_wrapper/local_offline_recognizer_execution_wrapper\.v0\.schema\.json" -Message "Contracts README should list local offline recognizer execution wrapper"
+  Assert-TextMatch -Text $contractsReadme -Pattern "one layer before any recognition dry-run" -Message "Contracts README should keep wrapper before recognition dry-run"
+  Assert-TextMatch -Text $contractsReadme -Pattern "stdout|stderr|files|logs|shared artifacts|Audio Awareness summary refs|Thought Core TurnInput" -Message "Contracts README should name protected output channels"
+
+  Write-Host "Local offline recognizer execution wrapper contract static ok"
+}
+
 function Test-AudioAwarenessRefPolicyStatic {
   Write-TestStep "Audio Awareness self-output ref policy static checks"
 
@@ -2444,6 +2587,7 @@ Test-TestLayoutPolicy
 Test-ReadmeFirstRunGuidance
 Test-AudioSelfOutputObservationContractStatic
 Test-LocalOfflineRecognizerRedactedAdapterContractStatic
+Test-LocalOfflineRecognizerExecutionWrapperContractStatic
 Test-AudioAwarenessRefPolicyStatic
 Test-RouteAParentNoLiveUxStatic
 Test-HomeControlTrackingHelperFixtures

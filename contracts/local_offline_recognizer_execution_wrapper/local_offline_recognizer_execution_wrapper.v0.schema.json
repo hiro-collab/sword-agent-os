@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/local_offline_recognizer_execution_wrapper/local_offline_recognizer_execution_wrapper.v0.schema.json",
+  "title": "Agent OS local_offline_recognizer_execution_wrapper.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "wrapper_contract_id",
+    "generated_at",
+    "proof_layer",
+    "route_id",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "local_offline_recognizer_execution_wrapper.v0"
+    },
+    "wrapper_contract_id": {
+      "type": "string",
+      "pattern": "^lorew_[A-Za-z0-9_:-]+$",
+      "maxLength": 120
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proof_layer": {
+      "const": "source_static_contract_test_only"
+    },
+    "route_id": {
+      "const": "OVERALL-TEST-LADDER-AUDIO-REDACTED-RECOGNIZER-EXECUTION-WRAPPER-SOURCE-STATIC-01"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 9,
+      "items": {
+        "$ref": "#/$defs/wrapper_case"
+      }
+    }
+  },
+  "$defs": {
+    "wrapper_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "source_label",
+        "runner_candidate",
+        "wrapper_policy",
+        "output_channel_guards",
+        "wrapper_decision",
+        "negative_fixture",
+        "non_claims",
+        "raw_private_publication_flags"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^case_[a-z0-9_:-]+$",
+          "maxLength": 120
+        },
+        "source_label": {
+          "$ref": "#/$defs/source_label"
+        },
+        "runner_candidate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "runner_class",
+            "model_availability_class",
+            "normal_output_surface_class",
+            "runner_invoked",
+            "audio_decoded",
+            "recognition_performed",
+            "model_download_attempted"
+          ],
+          "properties": {
+            "runner_class": {
+              "type": "string",
+              "enum": [
+                "local_offline_candidate",
+                "not_available",
+                "provider_cloud_browser_required",
+                "playback_or_capture_required"
+              ]
+            },
+            "model_availability_class": {
+              "type": "string",
+              "enum": [
+                "present_candidate",
+                "missing",
+                "download_required",
+                "not_checked"
+              ]
+            },
+            "normal_output_surface_class": {
+              "type": "string",
+              "enum": [
+                "metadata_only",
+                "transcript_like_output",
+                "literal_handoff_file",
+                "path_or_filename_exposure",
+                "provider_cloud_browser_required",
+                "model_download_required",
+                "capture_required",
+                "playback_required",
+                "direct_turn_materialization_attempt"
+              ]
+            },
+            "runner_invoked": {
+              "const": false
+            },
+            "audio_decoded": {
+              "const": false
+            },
+            "recognition_performed": {
+              "const": false
+            },
+            "model_download_attempted": {
+              "const": false
+            }
+          }
+        },
+        "wrapper_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "redaction_before_artifact_required",
+            "fail_closed_on_unredactable_output",
+            "shared_output_policy",
+            "raw_output_may_be_logged",
+            "transcript_oriented_runner_output_allowed",
+            "direct_thought_core_turninput_allowed"
+          ],
+          "properties": {
+            "redaction_before_artifact_required": {
+              "const": true
+            },
+            "fail_closed_on_unredactable_output": {
+              "const": true
+            },
+            "shared_output_policy": {
+              "const": "class_bucket_opaque_ref_only"
+            },
+            "raw_output_may_be_logged": {
+              "const": false
+            },
+            "transcript_oriented_runner_output_allowed": {
+              "const": false
+            },
+            "direct_thought_core_turninput_allowed": {
+              "const": false
+            }
+          }
+        },
+        "output_channel_guards": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "stdout_raw_text_allowed",
+            "stderr_raw_text_allowed",
+            "file_raw_text_allowed",
+            "log_raw_text_allowed",
+            "shared_artifact_raw_text_allowed",
+            "handoff_file_raw_text_allowed",
+            "audio_awareness_raw_text_ref_allowed",
+            "thought_core_turninput_materialization_allowed",
+            "provider_payload_allowed",
+            "path_or_filename_allowed"
+          ],
+          "properties": {
+            "stdout_raw_text_allowed": {
+              "const": false
+            },
+            "stderr_raw_text_allowed": {
+              "const": false
+            },
+            "file_raw_text_allowed": {
+              "const": false
+            },
+            "log_raw_text_allowed": {
+              "const": false
+            },
+            "shared_artifact_raw_text_allowed": {
+              "const": false
+            },
+            "handoff_file_raw_text_allowed": {
+              "const": false
+            },
+            "audio_awareness_raw_text_ref_allowed": {
+              "const": false
+            },
+            "thought_core_turninput_materialization_allowed": {
+              "const": false
+            },
+            "provider_payload_allowed": {
+              "const": false
+            },
+            "path_or_filename_allowed": {
+              "const": false
+            }
+          }
+        },
+        "wrapper_decision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status_class",
+            "result_class",
+            "blocker_class",
+            "redacted_adapter_contract_ref",
+            "audio_awareness_summary_ref_class",
+            "thought_core_turninput_ref"
+          ],
+          "properties": {
+            "status_class": {
+              "type": "string",
+              "enum": [
+                "pass_candidate_source_static",
+                "blocked_source_static"
+              ]
+            },
+            "result_class": {
+              "type": "string",
+              "enum": [
+                "wrapper_preflight_candidate",
+                "blocked_before_runner_invocation"
+              ]
+            },
+            "blocker_class": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "transcript_like_output",
+                "literal_handoff_text",
+                "path_or_filename_leakage",
+                "provider_cloud_browser_stt_required",
+                "model_download_required",
+                "microphone_or_pc_output_capture_required",
+                "playback_required",
+                "adapter_direct_turn_materialization_attempted",
+                null
+              ]
+            },
+            "redacted_adapter_contract_ref": {
+              "const": "contracts/local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json"
+            },
+            "audio_awareness_summary_ref_class": {
+              "const": "classed_summary_only_no_raw_text"
+            },
+            "thought_core_turninput_ref": {
+              "type": "null"
+            }
+          }
+        },
+        "negative_fixture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "is_negative_fixture",
+            "negative_case",
+            "expected_wrapper_decision"
+          ],
+          "properties": {
+            "is_negative_fixture": {
+              "type": "boolean"
+            },
+            "negative_case": {
+              "type": "string",
+              "enum": [
+                "none",
+                "transcript_like_output",
+                "literal_handoff_text",
+                "path_or_filename_leakage",
+                "provider_cloud_browser_stt_required",
+                "model_download_required",
+                "microphone_or_pc_output_capture_required",
+                "playback_required",
+                "adapter_direct_turn_materialization_attempted"
+              ]
+            },
+            "expected_wrapper_decision": {
+              "type": "string",
+              "enum": [
+                "pass_candidate",
+                "blocked"
+              ]
+            }
+          }
+        },
+        "non_claims": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]*$",
+            "maxLength": 120
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": "not_audio_decoding_or_recognition"
+              }
+            },
+            {
+              "contains": {
+                "const": "not_raw_transcript_publication"
+              }
+            },
+            {
+              "contains": {
+                "const": "not_thought_core_turninput"
+              }
+            }
+          ]
+        },
+        "raw_private_publication_flags": {
+          "const": false
+        }
+      }
+    },
+    "source_label": {
+      "type": "string",
+      "description": "Opaque stable local media id only. It must not encode transcript text, recognized text, command text, private filenames, paths, provider ids, browser storage keys, device ids, tokens, or secrets.",
+      "pattern": "^voice\\.(sample|local_sample|synthetic_sample|fixture)_[a-z0-9_:-]+$",
+      "maxLength": 120
+    }
+  }
+}
