@@ -47,15 +47,18 @@
     "recognition_window_class": "not_checked_no_live",
     "audio_awareness_summary_ref": "opaque_correlation_ref:audio_awareness_no_live_selector_001",
     "self_output_observation_ref": null,
-    "turn_materialization_allowed": false,
-    "thought_core_adoption_allowed": false
+    "adapter_direct_turn_materialization_allowed": false,
+    "adapter_direct_thought_core_turn_input_allowed": false
   },
-  "turn_boundary": {
-    "may_start_user_turn": false,
-    "turn_materialization_allowed": false,
-    "thought_core_adoption_allowed": false,
-    "thought_core_turn_input_ref": null,
-    "redacted_turn_input_created": false,
+  "adapter_boundary": {
+    "adapter_direct_user_turn_start_allowed": false,
+    "adapter_direct_turn_materialization_allowed": false,
+    "adapter_direct_thought_core_turn_input_allowed": false,
+    "adapter_direct_thought_core_turn_input_ref": null,
+    "adapter_direct_redacted_turn_input_created": false,
+    "semantic_user_intent_judgment": "not_performed_by_adapter",
+    "command_or_action_judgment": "not_performed_by_adapter",
+    "speech_observation_delivery_boundary": "separate_input_gate_or_thought_core_route_only",
     "home_control_or_action_authority": false
   },
   "redaction_guards": {
@@ -84,8 +87,8 @@
     "not_local_recognition_execution",
     "not_provider_or_browser_stt",
     "not_raw_transcript_publication",
-    "not_thought_core_turn_input",
-    "not_home_control_action",
+    "not_adapter_direct_thought_core_turn_input",
+    "not_adapter_direct_home_control_action",
     "not_source_git_adoption",
     "not_release_or_final_rr003"
   ],

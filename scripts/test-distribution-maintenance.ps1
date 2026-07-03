@@ -1121,7 +1121,7 @@ function Test-LocalOfflineRecognizerRedactedAdapterContractStatic {
     Join-Path $examplesDir "source_static_private_metadata_exposure_blocked.example.json"
     Join-Path $examplesDir "source_static_provider_or_browser_required_blocked.example.json"
     Join-Path $examplesDir "source_static_playback_or_capture_required_blocked.example.json"
-    Join-Path $examplesDir "source_static_turn_materialization_attempt_blocked.example.json"
+    Join-Path $examplesDir "source_static_adapter_direct_turn_attempt_blocked.example.json"
   )
 
   Assert-PathPresent -Path $schemaPath
@@ -1156,11 +1156,17 @@ function Test-LocalOfflineRecognizerRedactedAdapterContractStatic {
   if ([string]$schema.'$defs'.source_label.pattern -ne '^voice\.(sample|local_sample|synthetic_sample|fixture)_[a-z0-9_:-]+$') {
     throw "local offline recognizer adapter source_label should be constrained to opaque sample-style ids"
   }
-  Assert-TextMatch -Text $schemaText -Pattern '"turn_materialization_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not materialize turns"
-  Assert-TextMatch -Text $schemaText -Pattern '"thought_core_adoption_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not authorize Thought Core adoption"
-  Assert-TextMatch -Text $schemaText -Pattern '"may_start_user_turn"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not start user turns"
-  Assert-TextMatch -Text $schemaText -Pattern '"thought_core_turn_input_ref"[\s\S]{0,80}"type"\s*:\s*"null"' -Message "local offline recognizer adapter should force Thought Core turn refs to null"
-  Assert-TextMatch -Text $schemaText -Pattern '"redacted_turn_input_created"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not create redacted_turn_input"
+  Assert-TextNotMatch -Text $schemaText -Pattern '"turn_boundary"|"turn_materialization_allowed"|"thought_core_adoption_allowed"|"may_start_user_turn"|"turn_materialization_attempted"' -Message "local offline recognizer adapter should not use broad Thought Core adoption or turn materialization fields"
+  Assert-TextNotMatch -Text $combinedExampleText -Pattern '"turn_boundary"|"turn_materialization_allowed"|"thought_core_adoption_allowed"|"may_start_user_turn"|"turn_materialization_attempted"|"not_thought_core_turn_input"|"not_home_control_action"' -Message "local offline recognizer examples should not use broad Thought Core adoption, turn materialization, or action non-claim names"
+  Assert-TextMatch -Text $schemaText -Pattern '"adapter_boundary"[\s\S]{0,260}Adapter-local boundary only' -Message "local offline recognizer adapter should describe an adapter-local boundary"
+  Assert-TextMatch -Text $schemaText -Pattern '"adapter_direct_turn_materialization_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not directly materialize turns"
+  Assert-TextMatch -Text $schemaText -Pattern '"adapter_direct_thought_core_turn_input_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not directly create Thought Core TurnInput"
+  Assert-TextMatch -Text $schemaText -Pattern '"adapter_direct_user_turn_start_allowed"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not directly start user turns"
+  Assert-TextMatch -Text $schemaText -Pattern '"adapter_direct_thought_core_turn_input_ref"[\s\S]{0,80}"type"\s*:\s*"null"' -Message "local offline recognizer adapter should force direct Thought Core turn refs to null"
+  Assert-TextMatch -Text $schemaText -Pattern '"adapter_direct_redacted_turn_input_created"[\s\S]{0,80}"const"\s*:\s*false' -Message "local offline recognizer adapter should not directly create redacted_turn_input"
+  Assert-TextMatch -Text $schemaText -Pattern '"semantic_user_intent_judgment"[\s\S]{0,80}"const"\s*:\s*"not_performed_by_adapter"' -Message "local offline recognizer adapter should not judge user intent"
+  Assert-TextMatch -Text $schemaText -Pattern '"command_or_action_judgment"[\s\S]{0,80}"const"\s*:\s*"not_performed_by_adapter"' -Message "local offline recognizer adapter should not judge commands or actions"
+  Assert-TextMatch -Text $schemaText -Pattern '"speech_observation_delivery_boundary"[\s\S]{0,80}"const"\s*:\s*"separate_input_gate_or_thought_core_route_only"' -Message "local offline recognizer adapter should leave speech observation delivery to a separate route"
   Assert-TextMatch -Text $schemaText -Pattern '"recognized_text_hash_ref"[\s\S]{0,220}opaque_ref' -Message "local offline recognizer adapter should allow only opaque recognized-text refs"
 
   $requiredNegativeCases = @(
@@ -1172,7 +1178,7 @@ function Test-LocalOfflineRecognizerRedactedAdapterContractStatic {
     "private_metadata_exposure",
     "provider_or_browser_stt_required",
     "playback_or_capture_required",
-    "turn_materialization_attempted"
+    "adapter_direct_turn_materialization_attempted"
   )
   $seenNegativeCases = @{}
   $opaqueSourceLabelPattern = '^voice\.(sample|local_sample|synthetic_sample|fixture)_[a-z0-9_:-]+$'
@@ -1222,17 +1228,20 @@ function Test-LocalOfflineRecognizerRedactedAdapterContractStatic {
         $example.recognizer_runtime.raw_transcript_emitted_to_shared_artifact -ne $false) {
       throw "local offline recognizer adapter examples should not execute download, provider/browser STT, playback/capture, or raw transcript sharing"
     }
-    if ($example.recognition_summary.turn_materialization_allowed -ne $false -or
-        $example.recognition_summary.thought_core_adoption_allowed -ne $false) {
-      throw "local offline recognizer recognition summaries should not materialize or adopt Thought Core turns"
+    if ($example.recognition_summary.adapter_direct_turn_materialization_allowed -ne $false -or
+        $example.recognition_summary.adapter_direct_thought_core_turn_input_allowed -ne $false) {
+      throw "local offline recognizer recognition summaries should not directly materialize or create Thought Core turns"
     }
-    if ($example.turn_boundary.may_start_user_turn -ne $false -or
-        $example.turn_boundary.turn_materialization_allowed -ne $false -or
-        $example.turn_boundary.thought_core_adoption_allowed -ne $false -or
-        $null -ne $example.turn_boundary.thought_core_turn_input_ref -or
-        $example.turn_boundary.redacted_turn_input_created -ne $false -or
-        $example.turn_boundary.home_control_or_action_authority -ne $false) {
-      throw "local offline recognizer adapter examples should keep turn and action boundaries closed"
+    if ($example.adapter_boundary.adapter_direct_user_turn_start_allowed -ne $false -or
+        $example.adapter_boundary.adapter_direct_turn_materialization_allowed -ne $false -or
+        $example.adapter_boundary.adapter_direct_thought_core_turn_input_allowed -ne $false -or
+        $null -ne $example.adapter_boundary.adapter_direct_thought_core_turn_input_ref -or
+        $example.adapter_boundary.adapter_direct_redacted_turn_input_created -ne $false -or
+        [string]$example.adapter_boundary.semantic_user_intent_judgment -ne "not_performed_by_adapter" -or
+        [string]$example.adapter_boundary.command_or_action_judgment -ne "not_performed_by_adapter" -or
+        [string]$example.adapter_boundary.speech_observation_delivery_boundary -ne "separate_input_gate_or_thought_core_route_only" -or
+        $example.adapter_boundary.home_control_or_action_authority -ne $false) {
+      throw "local offline recognizer adapter examples should keep adapter-direct turn/action boundaries closed without semantic judgment"
     }
     foreach ($field in @(
       "raw_audio_shared",
@@ -1273,7 +1282,10 @@ function Test-LocalOfflineRecognizerRedactedAdapterContractStatic {
   Assert-TextMatch -Text $contractsReadme -Pattern "local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter\.v0\.schema\.json" -Message "Contracts README should list local offline recognizer redacted adapter"
   Assert-TextMatch -Text $contractsReadme -Pattern "redaction[\s\S]{0,80}before shared artifacts|redaction[\s\S]{0,120}shared artifacts" -Message "Contracts README should state redaction-before-artifact boundary"
   Assert-TextMatch -Text $contractsReadme -Pattern "performs no[\s\S]{0,80}recognition|does not run[\s\S]{0,80}recognition|no recognition" -Message "Contracts README should not claim recognition execution"
-  Assert-TextMatch -Text $contractsReadme -Pattern 'Thought Core `TurnInput`' -Message "Contracts README should state no Thought Core TurnInput authority"
+  Assert-TextMatch -Text $contractsReadme -Pattern "mechanical filter/redaction contract" -Message "Contracts README should narrow the adapter to mechanical filtering and redaction"
+  Assert-TextMatch -Text $contractsReadme -Pattern "not a user[\s\S]{0,80}intent[\s\S]{0,80}Thought Core adoption[\s\S]{0,80}Home Control authority" -Message "Contracts README should state the adapter is not a semantic or action authority layer"
+  Assert-TextMatch -Text $contractsReadme -Pattern 'creates no normal Thought Core `TurnInput` by\s+itself' -Message "Contracts README should state only adapter-direct TurnInput creation is forbidden"
+  Assert-TextMatch -Text $contractsReadme -Pattern "redacted speech observation[\s\S]{0,120}separate input-gate / Thought Core route" -Message "Contracts README should preserve later speech observation delivery to Thought Core as a separate route"
 
   Write-Host "Local offline recognizer redacted adapter contract static ok"
 }

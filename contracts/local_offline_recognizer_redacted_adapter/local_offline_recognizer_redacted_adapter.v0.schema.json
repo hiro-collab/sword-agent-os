@@ -15,7 +15,7 @@
     "adapter_policy",
     "recognizer_runtime",
     "recognition_summary",
-    "turn_boundary",
+    "adapter_boundary",
     "redaction_guards",
     "negative_fixture",
     "non_claims",
@@ -215,8 +215,8 @@
         "recognition_window_class",
         "audio_awareness_summary_ref",
         "self_output_observation_ref",
-        "turn_materialization_allowed",
-        "thought_core_adoption_allowed"
+        "adapter_direct_turn_materialization_allowed",
+        "adapter_direct_thought_core_turn_input_allowed"
       ],
       "properties": {
         "source_label": {
@@ -308,40 +308,53 @@
             }
           ]
         },
-        "turn_materialization_allowed": {
+        "adapter_direct_turn_materialization_allowed": {
           "const": false
         },
-        "thought_core_adoption_allowed": {
+        "adapter_direct_thought_core_turn_input_allowed": {
           "const": false
         }
       }
     },
-    "turn_boundary": {
+    "adapter_boundary": {
       "type": "object",
+      "description": "Adapter-local boundary only. It prevents direct user-turn, Thought Core TurnInput, semantic intent, command, and Home Control authority from this adapter while allowing later separate speech-observation and Thought Core routes.",
       "additionalProperties": false,
       "required": [
-        "may_start_user_turn",
-        "turn_materialization_allowed",
-        "thought_core_adoption_allowed",
-        "thought_core_turn_input_ref",
-        "redacted_turn_input_created",
+        "adapter_direct_user_turn_start_allowed",
+        "adapter_direct_turn_materialization_allowed",
+        "adapter_direct_thought_core_turn_input_allowed",
+        "adapter_direct_thought_core_turn_input_ref",
+        "adapter_direct_redacted_turn_input_created",
+        "semantic_user_intent_judgment",
+        "command_or_action_judgment",
+        "speech_observation_delivery_boundary",
         "home_control_or_action_authority"
       ],
       "properties": {
-        "may_start_user_turn": {
+        "adapter_direct_user_turn_start_allowed": {
           "const": false
         },
-        "turn_materialization_allowed": {
+        "adapter_direct_turn_materialization_allowed": {
           "const": false
         },
-        "thought_core_adoption_allowed": {
+        "adapter_direct_thought_core_turn_input_allowed": {
           "const": false
         },
-        "thought_core_turn_input_ref": {
+        "adapter_direct_thought_core_turn_input_ref": {
           "type": "null"
         },
-        "redacted_turn_input_created": {
+        "adapter_direct_redacted_turn_input_created": {
           "const": false
+        },
+        "semantic_user_intent_judgment": {
+          "const": "not_performed_by_adapter"
+        },
+        "command_or_action_judgment": {
+          "const": "not_performed_by_adapter"
+        },
+        "speech_observation_delivery_boundary": {
+          "const": "separate_input_gate_or_thought_core_route_only"
         },
         "home_control_or_action_authority": {
           "const": false
@@ -433,7 +446,7 @@
             "private_metadata_exposure",
             "provider_or_browser_stt_required",
             "playback_or_capture_required",
-            "turn_materialization_attempted"
+            "adapter_direct_turn_materialization_attempted"
           ]
         },
         "expected_adapter_decision": {
@@ -457,7 +470,7 @@
             "private_metadata_exposure",
             "provider_or_browser_stt_required",
             "playback_or_capture_required",
-            "turn_materialization_attempted",
+            "adapter_direct_turn_materialization_attempted",
             null
           ]
         }
@@ -495,12 +508,12 @@
         },
         {
           "contains": {
-            "const": "not_thought_core_turn_input"
+            "const": "not_adapter_direct_thought_core_turn_input"
           }
         },
         {
           "contains": {
-            "const": "not_home_control_action"
+            "const": "not_adapter_direct_home_control_action"
           }
         },
         {

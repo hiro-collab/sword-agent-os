@@ -55,17 +55,22 @@ against these shapes at the boundary.
     `audio_self_output_observation/examples/source_static_self_output_blocked.example.json`
 - `local_offline_recognizer_redacted_adapter/local_offline_recognizer_redacted_adapter.v0.schema.json`:
   source/static preflight and refusal boundary for any future local/offline
-  recognizer adapter. It accepts opaque stable local media ids only, such as
-  non-semantic `voice.local_sample_001` labels; shared `source_label` values
-  must not encode transcript text, recognized text, command text, private
-  filenames, paths, provider ids, browser storage keys, device ids, tokens, or
-  secrets. The adapter requires redaction before shared artifacts, fails closed
-  when a recognizer needs model download, provider/cloud/browser STT,
-  playback/capture, transcript-oriented output, raw text exposure, private
-  metadata exposure, or Thought Core turn materialization, and limits
-  pass-candidate output to class/bucket/opaque-ref summaries. It performs no recognition,
-  publishes no raw transcripts/audio/paths, and authorizes no Thought Core
-  `TurnInput`, Home Control, source/Git adoption, or RR003 readiness.
+  recognizer adapter. It is a mechanical filter/redaction contract, not a user
+  intent, command, Thought Core adoption, or Home Control authority contract.
+  It accepts opaque stable local media ids only, such as non-semantic
+  `voice.local_sample_001` labels; shared `source_label` values must not encode
+  transcript text, recognized text, command text, private filenames, paths,
+  provider ids, browser storage keys, device ids, tokens, or secrets. The
+  adapter requires redaction before shared artifacts, fails closed when a
+  recognizer needs model download, provider/cloud/browser STT, playback/capture,
+  transcript-oriented output, raw text exposure, private metadata exposure, or
+  direct turn creation by the adapter, and limits pass-candidate output to
+  class/bucket/opaque-ref summaries. It performs no recognition, publishes no
+  raw transcripts/audio/paths, creates no normal Thought Core `TurnInput` by
+  itself, and authorizes no Home Control, source/Git adoption, or RR003
+  readiness. Later delivery of a redacted speech observation to Thought Core is
+  a separate input-gate / Thought Core route, not this adapter's semantic
+  decision.
   - Example:
     `local_offline_recognizer_redacted_adapter/examples/source_static_pass_candidate.example.json`
 - `audio_awareness_consumer_routes/audio_awareness_consumer_routes.v0.schema.json`:
