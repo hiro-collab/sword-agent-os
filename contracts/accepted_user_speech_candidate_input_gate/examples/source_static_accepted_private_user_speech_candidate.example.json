@@ -1,0 +1,71 @@
+{
+  "schema_version": "accepted_user_speech_candidate_input_gate.v0",
+  "candidate_id": "ausc_source_static_private_user_speech_001",
+  "generated_at": "2026-07-05T00:00:00Z",
+  "proof_layer": "source_static_contract_test_only",
+  "route_id": "ACCEPTED-USER-SPEECH-CANDIDATE-INPUT-GATE-THOUGHT-CORE-CONTRACT-RR00301-SOURCE-STATIC-02",
+  "candidate_route": "private_user_speech_input_gate",
+  "source_kind": "user_speech_candidate",
+  "speaker_role": "user_candidate",
+  "recognition_summary": {
+    "source_label": "speech.user_candidate_001",
+    "recognition_summary_ref": "event:private_user_speech_candidate_001",
+    "recognition_summary_class": "redacted_local_offline_candidate",
+    "recognized_text_class": "present_redacted",
+    "recognized_text_length_bucket": "short",
+    "language_bucket": "ja",
+    "confidence_bucket": "high",
+    "raw_text_in_shared_artifact": false
+  },
+  "text_publication": {
+    "text_publication_policy": "text_redacted_or_absent",
+    "text_provenance_class": "redacted_or_absent",
+    "expected_sample_text": null,
+    "recognized_text": null,
+    "content_match_text": null,
+    "non_sample_or_live_text_policy": "protected_or_redacted"
+  },
+  "self_output_context": {
+    "self_output_correlation_class": "not_self_output",
+    "session_join_class": "same_session_not_self_output",
+    "bubble_tts_parity_class": "not_authority_for_user_speech",
+    "bubble_or_tts_as_user_speech_authority": false
+  },
+  "input_gate": {
+    "input_gate_decision_owner": "ai_talk_core_input_gate",
+    "input_gate_decision_class": "accepted_user_speech_candidate",
+    "normal_turn_block_reason": null
+  },
+  "acceptance_decision": {
+    "acceptance_status": "accepted_user_speech_candidate",
+    "may_materialize_thought_core_turninput": true,
+    "private_text_handoff_required": true,
+    "shared_artifact_contains_text": false,
+    "thought_core_turninput_materialized": false,
+    "thought_core_turninput_count": 0,
+    "thought_core_turninput_ref": null,
+    "turn_materialization_route": "separate_private_runtime_handoff_required"
+  },
+  "redaction_guards": {
+    "raw_audio_included": false,
+    "raw_media_included": false,
+    "raw_transcript_included": false,
+    "raw_recognized_text_included": false,
+    "private_path_included": false,
+    "provider_payload_included": false,
+    "browser_storage_included": false,
+    "token_or_secret_included": false,
+    "home_control_action_authority_included": false
+  },
+  "non_claims": [
+    "not_runtime_turn",
+    "not_audio_capture",
+    "not_stt_execution",
+    "not_user_heard_proof",
+    "not_home_control_action",
+    "not_touchdesigner_action",
+    "not_source_git_adoption",
+    "not_readiness_or_rr003_pass"
+  ],
+  "raw_private_publication_flags": false
+}

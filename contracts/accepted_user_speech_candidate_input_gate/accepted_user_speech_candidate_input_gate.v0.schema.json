@@ -1,0 +1,526 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/accepted_user_speech_candidate_input_gate/accepted_user_speech_candidate_input_gate.v0.schema.json",
+  "title": "Agent OS accepted_user_speech_candidate_input_gate.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "generated_at",
+    "proof_layer",
+    "route_id",
+    "candidate_route",
+    "source_kind",
+    "speaker_role",
+    "recognition_summary",
+    "text_publication",
+    "self_output_context",
+    "input_gate",
+    "acceptance_decision",
+    "redaction_guards",
+    "non_claims",
+    "raw_private_publication_flags"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "accepted_user_speech_candidate_input_gate.v0"
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^ausc_[A-Za-z0-9_.:-]+$",
+      "maxLength": 120
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proof_layer": {
+      "const": "source_static_contract_test_only"
+    },
+    "route_id": {
+      "const": "ACCEPTED-USER-SPEECH-CANDIDATE-INPUT-GATE-THOUGHT-CORE-CONTRACT-RR00301-SOURCE-STATIC-02"
+    },
+    "candidate_route": {
+      "type": "string",
+      "enum": [
+        "prepared_sample_browser_stt",
+        "local_offline_recognizer_redacted_summary",
+        "private_user_speech_input_gate",
+        "manual_reviewed_sample_candidate",
+        "self_output_observation",
+        "ambiguous_audio_observation",
+        "redaction_only_summary"
+      ]
+    },
+    "source_kind": {
+      "type": "string",
+      "enum": [
+        "prepared_local_audio_sample",
+        "user_speech_candidate",
+        "system_self_output_observation",
+        "ambiguous_audio",
+        "redaction_only_summary"
+      ]
+    },
+    "speaker_role": {
+      "type": "string",
+      "enum": [
+        "user_candidate",
+        "system_self_output",
+        "ambiguous",
+        "unknown"
+      ]
+    },
+    "recognition_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_label",
+        "recognition_summary_ref",
+        "recognition_summary_class",
+        "recognized_text_class",
+        "recognized_text_length_bucket",
+        "language_bucket",
+        "confidence_bucket",
+        "raw_text_in_shared_artifact"
+      ],
+      "properties": {
+        "source_label": {
+          "$ref": "#/$defs/source_label"
+        },
+        "recognition_summary_ref": {
+          "$ref": "#/$defs/opaque_ref"
+        },
+        "recognition_summary_class": {
+          "type": "string",
+          "enum": [
+            "stable_browser_stt_prepared_sample",
+            "redacted_local_offline_candidate",
+            "self_output_candidate",
+            "ambiguous",
+            "low_confidence",
+            "redaction_only_summary"
+          ]
+        },
+        "recognized_text_class": {
+          "type": "string",
+          "enum": [
+            "present_curated_prepared_sample",
+            "present_redacted",
+            "absent",
+            "ambiguous",
+            "low_confidence",
+            "blocked"
+          ]
+        },
+        "recognized_text_length_bucket": {
+          "type": "string",
+          "enum": [
+            "none",
+            "short",
+            "medium",
+            "long",
+            "unknown"
+          ]
+        },
+        "language_bucket": {
+          "type": "string",
+          "enum": [
+            "ja",
+            "en",
+            "mixed",
+            "unknown"
+          ]
+        },
+        "confidence_bucket": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low",
+            "unknown"
+          ]
+        },
+        "raw_text_in_shared_artifact": {
+          "const": false
+        }
+      }
+    },
+    "self_output_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "self_output_correlation_class",
+        "session_join_class",
+        "bubble_tts_parity_class",
+        "bubble_or_tts_as_user_speech_authority"
+      ],
+      "properties": {
+        "self_output_correlation_class": {
+          "type": "string",
+          "enum": [
+            "not_self_output",
+            "possible_self_output",
+            "self_output_candidate",
+            "not_checked"
+          ]
+        },
+        "session_join_class": {
+          "type": "string",
+          "enum": [
+            "same_session_not_self_output",
+            "possible_same_session_self_output",
+            "not_checked"
+          ]
+        },
+        "bubble_tts_parity_class": {
+          "type": "string",
+          "enum": [
+            "not_observed",
+            "not_authority_for_user_speech",
+            "possible_self_output_signal"
+          ]
+        },
+        "bubble_or_tts_as_user_speech_authority": {
+          "const": false
+        }
+      }
+    },
+    "text_publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text_publication_policy",
+        "text_provenance_class",
+        "expected_sample_text",
+        "recognized_text",
+        "content_match_text",
+        "non_sample_or_live_text_policy"
+      ],
+      "properties": {
+        "text_publication_policy": {
+          "type": "string",
+          "enum": [
+            "prepared_sample_text_allowed",
+            "text_redacted_or_absent"
+          ]
+        },
+        "text_provenance_class": {
+          "type": "string",
+          "enum": [
+            "prepared_local_sample_set",
+            "redacted_or_absent"
+          ]
+        },
+        "expected_sample_text": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "recognized_text": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "content_match_text": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "non_sample_or_live_text_policy": {
+          "const": "protected_or_redacted"
+        }
+      }
+    },
+    "input_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_gate_decision_owner",
+        "input_gate_decision_class",
+        "normal_turn_block_reason"
+      ],
+      "properties": {
+        "input_gate_decision_owner": {
+          "const": "ai_talk_core_input_gate"
+        },
+        "input_gate_decision_class": {
+          "type": "string",
+          "enum": [
+            "accepted_user_speech_candidate",
+            "blocked_self_output",
+            "blocked_ambiguous",
+            "blocked_low_confidence",
+            "blocked_redaction_only"
+          ]
+        },
+        "normal_turn_block_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "self_output",
+            "ambiguous_speaker_or_route",
+            "low_confidence",
+            "redaction_only_summary",
+            null
+          ]
+        }
+      }
+    },
+    "acceptance_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acceptance_status",
+        "may_materialize_thought_core_turninput",
+        "private_text_handoff_required",
+        "shared_artifact_contains_text",
+        "thought_core_turninput_materialized",
+        "thought_core_turninput_count",
+        "thought_core_turninput_ref",
+        "turn_materialization_route"
+      ],
+      "properties": {
+        "acceptance_status": {
+          "type": "string",
+          "enum": [
+            "accepted_user_speech_candidate",
+            "blocked_self_output",
+            "blocked_ambiguous",
+            "blocked_low_confidence",
+            "blocked_redaction_only"
+          ]
+        },
+        "may_materialize_thought_core_turninput": {
+          "type": "boolean"
+        },
+        "private_text_handoff_required": {
+          "type": "boolean"
+        },
+        "shared_artifact_contains_text": {
+          "type": "boolean"
+        },
+        "thought_core_turninput_materialized": {
+          "const": false
+        },
+        "thought_core_turninput_count": {
+          "const": 0
+        },
+        "thought_core_turninput_ref": {
+          "type": "null"
+        },
+        "turn_materialization_route": {
+          "type": "string",
+          "enum": [
+            "separate_private_runtime_handoff_required",
+            "blocked_non_materializing_summary"
+          ]
+        }
+      }
+    },
+    "redaction_guards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_audio_included",
+        "raw_media_included",
+        "raw_transcript_included",
+        "raw_recognized_text_included",
+        "private_path_included",
+        "provider_payload_included",
+        "browser_storage_included",
+        "token_or_secret_included",
+        "home_control_action_authority_included"
+      ],
+      "properties": {
+        "raw_audio_included": {
+          "const": false
+        },
+        "raw_media_included": {
+          "const": false
+        },
+        "raw_transcript_included": {
+          "const": false
+        },
+        "raw_recognized_text_included": {
+          "const": false
+        },
+        "private_path_included": {
+          "const": false
+        },
+        "provider_payload_included": {
+          "const": false
+        },
+        "browser_storage_included": {
+          "const": false
+        },
+        "token_or_secret_included": {
+          "const": false
+        },
+        "home_control_action_authority_included": {
+          "const": false
+        }
+      }
+    },
+    "non_claims": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "not_runtime_turn",
+          "not_audio_capture",
+          "not_stt_execution",
+          "not_user_heard_proof",
+          "not_home_control_action",
+          "not_touchdesigner_action",
+          "not_source_git_adoption",
+          "not_readiness_or_rr003_pass"
+        ]
+      }
+    },
+    "raw_private_publication_flags": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "acceptance_decision": {
+            "properties": {
+              "acceptance_status": {
+                "const": "accepted_user_speech_candidate"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "speaker_role": {
+            "const": "user_candidate"
+          },
+          "source_kind": {
+            "enum": [
+              "prepared_local_audio_sample",
+              "user_speech_candidate"
+            ]
+          },
+          "candidate_route": {
+            "enum": [
+              "prepared_sample_browser_stt",
+              "local_offline_recognizer_redacted_summary",
+              "private_user_speech_input_gate",
+              "manual_reviewed_sample_candidate"
+            ]
+          },
+          "input_gate": {
+            "properties": {
+              "input_gate_decision_owner": {
+                "const": "ai_talk_core_input_gate"
+              },
+              "input_gate_decision_class": {
+                "const": "accepted_user_speech_candidate"
+              },
+              "normal_turn_block_reason": {
+                "type": "null"
+              }
+            }
+          },
+          "acceptance_decision": {
+            "properties": {
+              "may_materialize_thought_core_turninput": {
+                "const": true
+              },
+              "private_text_handoff_required": {
+                "const": true
+              },
+              "turn_materialization_route": {
+                "const": "separate_private_runtime_handoff_required"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "acceptance_decision": {
+            "properties": {
+              "acceptance_status": {
+                "enum": [
+                  "blocked_self_output",
+                  "blocked_ambiguous",
+                  "blocked_low_confidence",
+                  "blocked_redaction_only"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "acceptance_decision": {
+            "properties": {
+              "may_materialize_thought_core_turninput": {
+                "const": false
+              },
+              "private_text_handoff_required": {
+                "const": false
+              },
+              "shared_artifact_contains_text": {
+                "const": false
+              },
+              "turn_materialization_route": {
+                "const": "blocked_non_materializing_summary"
+              }
+            }
+          },
+          "text_publication": {
+            "properties": {
+              "text_publication_policy": {
+                "const": "text_redacted_or_absent"
+              },
+              "text_provenance_class": {
+                "const": "redacted_or_absent"
+              },
+              "expected_sample_text": {
+                "type": "null"
+              },
+              "recognized_text": {
+                "type": "null"
+              },
+              "content_match_text": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "source_label": {
+      "type": "string",
+      "pattern": "^(voice\\.local_sample_[0-9]{3}|speech\\.user_candidate_[0-9]{3})$",
+      "maxLength": 80
+    },
+    "opaque_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]*:[A-Za-z0-9_.:-]+$",
+      "maxLength": 160
+    }
+  }
+}
