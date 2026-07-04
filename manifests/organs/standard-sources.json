@@ -2,7 +2,7 @@
   "schema_version": "organs.sources.v0",
   "id": "standard-sources",
   "description": "GitHub-backed organ implementation sources selected for the standard Sword Agent OS distribution. These are checkout source pins, not vendored source files.",
-  "checked_at": "2026-07-02",
+  "checked_at": "2026-07-04",
   "sources": [
     {
       "organ_id": "ai-talk-core",
@@ -107,7 +107,7 @@
       "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
       "repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "branch": "main",
-      "commit": "1482808b2946a5934addc6419fa91126f13e6969",
+      "commit": "1f44e3d4b88ae8aaa84fc5f353c31661f65f3cf9",
       "sword_adapter_version": "0.1.3",
       "patchset_id": "sword-aituberkit",
       "patchset_version": "0.1.3",
