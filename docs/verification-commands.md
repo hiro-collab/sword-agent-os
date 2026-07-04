@@ -46,6 +46,33 @@ content, provider payloads, Home Assistant raw payloads, entity/device ids,
 private paths/filenames/URLs, exact env values, stdout/stderr, stack traces,
 tokens, or secrets, block the shared report publication instead.
 
+### Overall Test Ladder V2 Front Door
+
+Use the thin front door when you want a daily confidence smoke report in the
+reviewed v2 shape:
+
+```powershell
+.\sword.ps1 ladder
+.\sword.ps1 ladder -Json
+```
+
+The default target is `daily_confidence_smoke`, and the default safety remains
+`no-live/no-device`. The command assembles source/static and held rows for the
+v2 report contract; it does not start browser/runtime work, audio recognition,
+Home Control, TouchDesigner/MCP, provider calls, model downloads, playback, or
+capture.
+
+`.\sword.ps1 ladder -Run` fails closed with path-free classed blocker output.
+It is not an execution override; runtime and device layers need separate exact
+routes.
+
+Existing helpers remain leaf or wrapped helpers. The front door may count and
+classify helper availability, but live/browser/audio/Home Control/TouchDesigner
+layers stay held until a later exact route grants target, count, stop condition,
+cleanup, owner boundary, and redacted output shape. A `local_artifact_hold`
+condition should appear as a held row, not as a hidden failure or a strict green
+claim.
+
 ## Optional / Local-Media Replay Preview
 
 When local `local/media/README.md` and `local/media/media-index.json` exist,

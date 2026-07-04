@@ -1,14 +1,17 @@
 param(
   [Parameter(Position = 0)]
-  [ValidateSet("status", "verify", "doctor", "start", "stop", "hold-live")]
+  [ValidateSet("status", "verify", "doctor", "start", "stop", "hold-live", "ladder")]
   [string]$Command = "status",
   [string]$Profile = "standard",
   [ValidateSet("manifest_default", "isolated_override")]
   [string]$PortMode = "manifest_default",
+  [ValidateSet("daily-confidence-smoke")]
+  [string]$LadderMode = "daily-confidence-smoke",
   [int]$TimeoutMs = 1200,
   [switch]$NoLive,
   [switch]$Run,
   [switch]$DryRun,
+  [switch]$Json,
   [switch]$Force
 )
 
@@ -80,6 +83,37 @@ function Write-HoldLiveState {
   }
 
   $hold | ConvertTo-Json -Depth 4
+}
+
+function Write-LadderRunBlockedOutput {
+  $block = [ordered]@{
+    route_id = "OVERALL-TEST-LADDER-FRONT-DOOR-INVENTORY-V2-SOURCE-STATIC-01"
+    status_class = "blocked"
+    result_class = "runtime_or_device_layers_require_exact_route"
+    blocker_class = "separate_exact_route_required"
+    proof_ceiling = "source_static_front_door_inventory_only"
+    next_action_class = "open_exact_runtime_or_device_route_if_selected"
+    raw_private_publication_flags = $false
+    non_claims = @(
+      "not_rr003_or_final_readiness",
+      "not_runtime_or_device_operation",
+      "not_broad_runner_implementation"
+    )
+  }
+
+  if ($Json) {
+    $block | ConvertTo-Json -Depth 4
+    return
+  }
+
+  Write-Output "Sword Agent OS overall test ladder v2"
+  Write-Output "status_class=blocked"
+  Write-Output "result_class=runtime_or_device_layers_require_exact_route"
+  Write-Output "blocker_class=separate_exact_route_required"
+  Write-Output "proof_ceiling=source_static_front_door_inventory_only"
+  Write-Output "next_action_class=open_exact_runtime_or_device_route_if_selected"
+  Write-Output "raw_private_publication_flags=false"
+  Write-Output "non_claims=not_rr003_or_final_readiness,not_runtime_or_device_operation,not_broad_runner_implementation"
 }
 
 function Write-LauncherCommandPreview {
@@ -156,5 +190,17 @@ switch ($Command) {
   "hold-live" {
     Write-FrontDoorHeader -ProofLayer "safe-local-control-hold"
     Write-HoldLiveState
+  }
+  "ladder" {
+    if ($Run) {
+      Write-LadderRunBlockedOutput
+      exit 2
+    }
+
+    $ladderArgs = @("-Mode", $LadderMode)
+    if ($Json) {
+      $ladderArgs += "-Json"
+    }
+    Invoke-RepoScript -RelativeScript "scripts\run-overall-test-ladder-v2.ps1" -Arguments $ladderArgs
   }
 }

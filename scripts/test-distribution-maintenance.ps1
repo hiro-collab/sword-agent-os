@@ -1606,6 +1606,99 @@ function Test-OverallTestLadderReportContractStatic {
   Write-Host "Overall test ladder report v2 contract static ok"
 }
 
+function Test-OverallTestLadderFrontDoorV2Static {
+  Write-TestStep "Overall test ladder front door v2 static checks"
+
+  $frontDoorPath = Join-Path $RepoRoot "sword.ps1"
+  $coordinatorPath = Join-Path $RepoRoot "scripts\run-overall-test-ladder-v2.ps1"
+  $verificationCommandsPath = Join-Path $RepoRoot "docs\verification-commands.md"
+
+  Assert-PathPresent -Path $frontDoorPath
+  Assert-PathPresent -Path $coordinatorPath
+  Assert-PathPresent -Path $verificationCommandsPath
+
+  $frontDoor = Get-Content -Raw -LiteralPath $frontDoorPath
+  $coordinator = Get-Content -Raw -LiteralPath $coordinatorPath
+  $verificationCommands = Get-Content -Raw -LiteralPath $verificationCommandsPath
+
+  Assert-TextMatch -Text $frontDoor -Pattern '"ladder"' -Message "sword.ps1 should expose the ladder front-door command"
+  Assert-TextMatch -Text $frontDoor -Pattern "run-overall-test-ladder-v2\.ps1" -Message "sword.ps1 ladder should delegate to the v2 coordinator"
+  Assert-TextMatch -Text $frontDoor -Pattern "Write-LadderRunBlockedOutput" -Message "sword.ps1 ladder -Run should use classed block output"
+  Assert-TextMatch -Text $frontDoor -Pattern "runtime_or_device_layers_require_exact_route" -Message "sword.ps1 ladder -Run should emit a result class"
+  Assert-TextMatch -Text $frontDoor -Pattern "separate_exact_route_required" -Message "sword.ps1 ladder -Run should emit a blocker class"
+  Assert-TextMatch -Text $frontDoor -Pattern "no-live/no-device" -Message "sword.ps1 ladder should keep no-live/no-device wording"
+  Assert-TextMatch -Text $coordinator -Pattern "default_safety=no-live/no-device" -Message "v2 coordinator should print the default safety"
+  Assert-TextMatch -Text $coordinator -Pattern "local_artifact_hold" -Message "v2 coordinator should preserve local artifact hold handling"
+  Assert-TextMatch -Text $coordinator -Pattern "not_broad_runner_implementation" -Message "v2 coordinator should avoid broad runner claims"
+  Assert-TextMatch -Text $coordinator -Pattern "not_runtime_or_device_operation" -Message "v2 coordinator should avoid runtime/device operation claims"
+  Assert-TextMatch -Text $coordinator -Pattern "raw_private_publication_flags" -Message "v2 coordinator should emit raw-private publication flags"
+  Assert-TextNotMatch -Text $coordinator -Pattern 'Invoke-VerificationCommand|Invoke-WebRequest|Start-Process|&\s*\$PowerShellCommand|&\s*\$powerShellExe' -Message "v2 coordinator should not call live/browser/runtime helpers by default"
+  Assert-TextMatch -Text $verificationCommands -Pattern "\.\\sword\.ps1 ladder" -Message "verification docs should document the ladder front door"
+  Assert-TextMatch -Text $verificationCommands -Pattern "\.\\sword\.ps1 ladder -Run[\s\S]{0,120}fails closed" -Message "verification docs should document classed -Run blocking"
+  Assert-TextMatch -Text $verificationCommands -Pattern "local_artifact_hold[\s\S]{0,160}held row" -Message "verification docs should keep local artifact holds as held rows"
+
+  $runBlockOutput = Invoke-ExpectFailure -Command @($PowerShellCommand, "-NoProfile", "-File", $frontDoorPath, "ladder", "-Run")
+  $runBlockText = $runBlockOutput -join "`n"
+  Assert-TextMatch -Text $runBlockText -Pattern "status_class=blocked" -Message "ladder -Run should emit blocked status"
+  Assert-TextMatch -Text $runBlockText -Pattern "result_class=runtime_or_device_layers_require_exact_route" -Message "ladder -Run should emit result class"
+  Assert-TextMatch -Text $runBlockText -Pattern "blocker_class=separate_exact_route_required" -Message "ladder -Run should emit blocker class"
+  Assert-TextMatch -Text $runBlockText -Pattern "raw_private_publication_flags=false" -Message "ladder -Run should emit raw-private guard"
+  Assert-TextNotMatch -Text $runBlockText -Pattern 'C:\\|\\\\|/Users/|\.ps1:\d+|Line\s*\||at\s+.*\.ps1|Exception:|InvalidOperation|throw|CategoryInfo|FullyQualifiedErrorId|StackTrace' -Message "ladder -Run block output should be path-free and stack-free"
+
+  $jsonOutput = Invoke-Checked -Command @($PowerShellCommand, "-NoProfile", "-File", $coordinatorPath, "-Json")
+  $report = ($jsonOutput -join "`n") | ConvertFrom-Json
+  if ([string]$report.schema_version -ne "overall_test_ladder_report.v2") {
+    throw "v2 front-door JSON should use the report schema"
+  }
+  if ([string]$report.report_class -ne "daily_confidence_smoke") {
+    throw "v2 front-door default should be daily_confidence_smoke"
+  }
+  if ([string]$report.overall_status_class -ne "completed_with_holds") {
+    throw "v2 front-door default should complete with held rows"
+  }
+  if ($report.raw_private_publication_flags -ne $false) {
+    throw "v2 front-door report should keep raw_private_publication_flags false"
+  }
+  if (@($report.non_claims) -notcontains "not_rr003_or_final_readiness") {
+    throw "v2 front-door report should preserve readiness non-claim"
+  }
+  if ([int]$report.summary_counts.rows_total -ne @($report.rows).Count) {
+    throw "v2 front-door rows_total should match row count"
+  }
+  if ([int]$report.summary_counts.held_rows -lt 1) {
+    throw "v2 front-door default should hold gated runtime/device layers"
+  }
+
+  foreach ($row in @($report.rows)) {
+    if (-not [string]$row.proof_ceiling) {
+      throw "v2 front-door rows should carry proof_ceiling"
+    }
+    if (-not [string]$row.evidence_summary.summary_class -or
+        -not [string]$row.evidence_summary.count_bucket -or
+        -not [string]$row.evidence_summary.evidence_bucket) {
+      throw "v2 front-door rows should carry class/count/bucket evidence summaries"
+    }
+    if ($row.raw_private_publication_flags -ne $false) {
+      throw "v2 front-door rows should keep raw_private_publication_flags false"
+    }
+    if (@($row.non_claims) -notcontains "not_rr003_or_final_readiness") {
+      throw "v2 front-door rows should preserve readiness non-claim"
+    }
+    if ($row.claim_guards.rr003_pass_claimed -ne $false -or
+        $row.claim_guards.final_readiness_claimed -ne $false -or
+        $row.claim_guards.release_readiness_claimed -ne $false -or
+        $row.claim_guards.proof_upgrade_claimed -ne $false -or
+        $row.claim_guards.physical_device_proof_claimed -ne $false) {
+      throw "v2 front-door rows should not claim readiness or proof upgrade"
+    }
+    if ($row.publication_boundary.raw_private_publication_required -ne $false) {
+      throw "v2 front-door rows should block raw-private publication needs"
+    }
+  }
+
+  Write-Host "Overall test ladder front door v2 static ok"
+}
+
 function Test-AudioAwarenessRefPolicyStatic {
   Write-TestStep "Audio Awareness self-output ref policy static checks"
 
@@ -1652,7 +1745,7 @@ function Test-RouteAParentNoLiveUxStatic {
   $swordPath = Join-Path $RepoRoot "sword.ps1"
   Assert-PathPresent -Path $swordPath
   $sword = Get-Content -Raw -LiteralPath $swordPath
-  Assert-TextMatch -Text $sword -Pattern 'ValidateSet\("status", "verify", "doctor", "start", "stop", "hold-live"\)' -Message "sword.ps1 should expose the approved front-door commands"
+  Assert-TextMatch -Text $sword -Pattern 'ValidateSet\("status", "verify", "doctor", "start", "stop", "hold-live", "ladder"\)' -Message "sword.ps1 should expose the approved front-door commands"
   Assert-TextMatch -Text $sword -Pattern "default_safety=no-live/no-device" -Message "sword.ps1 should advertise no-live/no-device default safety"
   Assert-TextMatch -Text $sword -Pattern "source-static-command-preview" -Message "sword.ps1 start/stop should default to command preview"
   Assert-TextMatch -Text $sword -Pattern 'live_home_assistant_actions_allowed = \$false' -Message "hold-live should not authorize Home Assistant actions"
@@ -2762,6 +2855,7 @@ Test-AudioSelfOutputObservationContractStatic
 Test-LocalOfflineRecognizerRedactedAdapterContractStatic
 Test-LocalOfflineRecognizerExecutionWrapperContractStatic
 Test-OverallTestLadderReportContractStatic
+Test-OverallTestLadderFrontDoorV2Static
 Test-AudioAwarenessRefPolicyStatic
 Test-RouteAParentNoLiveUxStatic
 Test-HomeControlTrackingHelperFixtures
