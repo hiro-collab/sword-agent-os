@@ -1,0 +1,199 @@
+{
+  "schema_version": "overall_test_ladder_report.v2",
+  "report_schema_version": "overall_test_ladder_report.v2",
+  "report_contract_id": "otlr_local_operator_readiness_001",
+  "route_id": "OVERALL-TEST-LADDER-REPORT-SCHEMA-V2-SOURCE-STATIC-01",
+  "report_class": "local_operator_readiness",
+  "generated_at_class": "source_static_example_timestamp",
+  "overall_status_class": "blocked",
+  "report_policy": {
+    "shared_output_policy": "class_count_bucket_only",
+    "evidence_summary_policy": "class_count_bucket_only_no_raw_material",
+    "pass_candidate_readiness_policy": "pass_candidate_is_not_rr003_final_or_release_ready",
+    "raw_private_publication_policy": "block_shared_report_if_raw_private_required",
+    "blocked_or_held_row_policy": "valid_safety_outcome_not_global_failure",
+    "home_control_live_policy": "optional_exact_route_with_manager_user_gate_only",
+    "front_door_runner_policy": "thin_front_door_after_schema_no_broad_runner_here"
+  },
+  "summary_counts": {
+    "rows_total": 3,
+    "pass_candidate_rows": 0,
+    "held_rows": 1,
+    "blocked_rows": 2,
+    "raw_private_rows": 0
+  },
+  "rows": [
+    {
+      "row_id": "row_runtime_status_blocked_001",
+      "layer": "runtime_status",
+      "purpose": "selected_runtime_reachability_layer",
+      "user_value_question": "can_operator_reach_runtime_without_manual_guessing",
+      "status_class": "blocked",
+      "result_class": "runtime_status_route_not_opened",
+      "blocker_class": "exact_runtime_reachability_route_required",
+      "proof_ceiling": "source_static_route_shape_only",
+      "evidence_summary": {
+        "summary_class": "runtime_operation_not_authorized_in_schema_route",
+        "count_bucket": "runtime_start_count_zero",
+        "evidence_bucket": "class_count_bucket_only"
+      },
+      "bounded_counts": {
+        "runtime_start": 0,
+        "browser_checks": 0,
+        "raw_private_publications": 0
+      },
+      "safe_refs": [],
+      "next_action_class": "open_exact_runtime_reachability_route",
+      "publication_boundary": {
+        "raw_transcript_allowed": false,
+        "raw_audio_allowed": false,
+        "raw_media_allowed": false,
+        "raw_screenshot_allowed": false,
+        "raw_browser_frame_allowed": false,
+        "touchdesigner_content_allowed": false,
+        "provider_payload_allowed": false,
+        "home_assistant_raw_payload_allowed": false,
+        "entity_or_device_id_allowed": false,
+        "private_path_or_filename_allowed": false,
+        "private_url_allowed": false,
+        "exact_env_value_allowed": false,
+        "stdout_stderr_or_stack_trace_allowed": false,
+        "token_or_secret_allowed": false,
+        "raw_private_publication_required": false
+      },
+      "claim_guards": {
+        "rr003_pass_claimed": false,
+        "final_readiness_claimed": false,
+        "release_readiness_claimed": false,
+        "proof_upgrade_claimed": false,
+        "physical_device_proof_claimed": false
+      },
+      "non_claims": [
+        "not_rr003_or_final_readiness",
+        "not_runtime_status_proof",
+        "not_browser_display_proof"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "row_id": "row_home_assistant_execute_blocked_001",
+      "layer": "home_assistant_execute",
+      "purpose": "live_appliance_action_layer",
+      "user_value_question": "can_home_action_be_executed_with_explicit_gate",
+      "status_class": "blocked",
+      "result_class": "live_action_requires_exact_route_gate",
+      "blocker_class": "manager_user_live_gate_missing",
+      "proof_ceiling": "source_static_route_shape_only",
+      "evidence_summary": {
+        "summary_class": "live_action_not_submitted",
+        "count_bucket": "submission_count_zero",
+        "evidence_bucket": "class_count_bucket_only"
+      },
+      "bounded_counts": {
+        "command_submission": 0,
+        "live_execute": 0,
+        "direct_bypass": 0
+      },
+      "safe_refs": [],
+      "next_action_class": "open_exact_home_control_live_route_if_selected",
+      "publication_boundary": {
+        "raw_transcript_allowed": false,
+        "raw_audio_allowed": false,
+        "raw_media_allowed": false,
+        "raw_screenshot_allowed": false,
+        "raw_browser_frame_allowed": false,
+        "touchdesigner_content_allowed": false,
+        "provider_payload_allowed": false,
+        "home_assistant_raw_payload_allowed": false,
+        "entity_or_device_id_allowed": false,
+        "private_path_or_filename_allowed": false,
+        "private_url_allowed": false,
+        "exact_env_value_allowed": false,
+        "stdout_stderr_or_stack_trace_allowed": false,
+        "token_or_secret_allowed": false,
+        "raw_private_publication_required": false
+      },
+      "claim_guards": {
+        "rr003_pass_claimed": false,
+        "final_readiness_claimed": false,
+        "release_readiness_claimed": false,
+        "proof_upgrade_claimed": false,
+        "physical_device_proof_claimed": false
+      },
+      "non_claims": [
+        "not_rr003_or_final_readiness",
+        "not_home_control_action",
+        "not_physical_device_proof"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "row_id": "row_front_door_inventory_hold_001",
+      "layer": "front_door_inventory",
+      "purpose": "thin_front_door_design_layer",
+      "user_value_question": "can_operator_run_one_daily_command_later",
+      "status_class": "held",
+      "result_class": "front_door_implementation_held_until_schema_review",
+      "blocker_class": "report_schema_review_not_complete",
+      "proof_ceiling": "source_static_front_door_inventory_design_only",
+      "evidence_summary": {
+        "summary_class": "front_door_design_available_no_runner_implementation",
+        "count_bucket": "implementation_count_zero",
+        "evidence_bucket": "class_count_bucket_only"
+      },
+      "bounded_counts": {
+        "front_door_edits": 0,
+        "runner_implementations": 0,
+        "runtime_operations": 0
+      },
+      "safe_refs": [
+        "safe_ref_front_door_inventory_design"
+      ],
+      "next_action_class": "wait_for_report_schema_review",
+      "publication_boundary": {
+        "raw_transcript_allowed": false,
+        "raw_audio_allowed": false,
+        "raw_media_allowed": false,
+        "raw_screenshot_allowed": false,
+        "raw_browser_frame_allowed": false,
+        "touchdesigner_content_allowed": false,
+        "provider_payload_allowed": false,
+        "home_assistant_raw_payload_allowed": false,
+        "entity_or_device_id_allowed": false,
+        "private_path_or_filename_allowed": false,
+        "private_url_allowed": false,
+        "exact_env_value_allowed": false,
+        "stdout_stderr_or_stack_trace_allowed": false,
+        "token_or_secret_allowed": false,
+        "raw_private_publication_required": false
+      },
+      "claim_guards": {
+        "rr003_pass_claimed": false,
+        "final_readiness_claimed": false,
+        "release_readiness_claimed": false,
+        "proof_upgrade_claimed": false,
+        "physical_device_proof_claimed": false
+      },
+      "non_claims": [
+        "not_rr003_or_final_readiness",
+        "not_broad_runner_implementation",
+        "not_runtime_or_device_operation"
+      ],
+      "raw_private_publication_flags": false
+    }
+  ],
+  "claim_guards": {
+    "rr003_pass_claimed": false,
+    "final_readiness_claimed": false,
+    "release_readiness_claimed": false,
+    "proof_upgrade_claimed": false,
+    "physical_device_proof_claimed": false
+  },
+  "non_claims": [
+    "not_rr003_or_final_readiness",
+    "not_release_readiness",
+    "not_raw_private_publication",
+    "not_broad_runner_implementation"
+  ],
+  "raw_private_publication_flags": false
+}

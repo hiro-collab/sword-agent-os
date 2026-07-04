@@ -1,0 +1,398 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sword-agent-os.local/contracts/overall_test_ladder_report/overall_test_ladder_report.v2.schema.json",
+  "title": "Agent OS overall_test_ladder_report.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_schema_version",
+    "report_contract_id",
+    "route_id",
+    "report_class",
+    "generated_at_class",
+    "overall_status_class",
+    "report_policy",
+    "summary_counts",
+    "rows",
+    "claim_guards",
+    "non_claims",
+    "raw_private_publication_flags"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "overall_test_ladder_report.v2"
+    },
+    "report_schema_version": {
+      "const": "overall_test_ladder_report.v2"
+    },
+    "report_contract_id": {
+      "type": "string",
+      "pattern": "^otlr_[A-Za-z0-9_:-]+$",
+      "maxLength": 120
+    },
+    "route_id": {
+      "const": "OVERALL-TEST-LADDER-REPORT-SCHEMA-V2-SOURCE-STATIC-01"
+    },
+    "report_class": {
+      "type": "string",
+      "enum": [
+        "daily_confidence_smoke",
+        "local_operator_readiness",
+        "rr003_readiness_candidate",
+        "final_readiness_not_claimed"
+      ]
+    },
+    "generated_at_class": {
+      "type": "string",
+      "enum": [
+        "source_static_example_timestamp",
+        "runtime_generated_timestamp_redacted"
+      ]
+    },
+    "overall_status_class": {
+      "$ref": "#/$defs/status_class"
+    },
+    "report_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shared_output_policy",
+        "evidence_summary_policy",
+        "pass_candidate_readiness_policy",
+        "raw_private_publication_policy",
+        "blocked_or_held_row_policy",
+        "home_control_live_policy",
+        "front_door_runner_policy"
+      ],
+      "properties": {
+        "shared_output_policy": {
+          "const": "class_count_bucket_only"
+        },
+        "evidence_summary_policy": {
+          "const": "class_count_bucket_only_no_raw_material"
+        },
+        "pass_candidate_readiness_policy": {
+          "const": "pass_candidate_is_not_rr003_final_or_release_ready"
+        },
+        "raw_private_publication_policy": {
+          "const": "block_shared_report_if_raw_private_required"
+        },
+        "blocked_or_held_row_policy": {
+          "const": "valid_safety_outcome_not_global_failure"
+        },
+        "home_control_live_policy": {
+          "const": "optional_exact_route_with_manager_user_gate_only"
+        },
+        "front_door_runner_policy": {
+          "const": "thin_front_door_after_schema_no_broad_runner_here"
+        }
+      }
+    },
+    "summary_counts": {
+      "$ref": "#/$defs/bounded_counts"
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "items": {
+        "$ref": "#/$defs/ladder_row"
+      }
+    },
+    "claim_guards": {
+      "$ref": "#/$defs/claim_guards"
+    },
+    "non_claims": {
+      "$ref": "#/$defs/non_claims"
+    },
+    "raw_private_publication_flags": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "class_code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_:-]{0,119}$"
+    },
+    "nullable_class_code": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/class_code"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status_class": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "pass_candidate",
+        "accepted_with_limitations",
+        "completed_with_holds",
+        "warning",
+        "held",
+        "blocked",
+        "failed",
+        "skipped",
+        "not_run",
+        "not_authorized",
+        "not_claimed"
+      ]
+    },
+    "layer_class": {
+      "type": "string",
+      "enum": [
+        "source_static",
+        "install_env_render",
+        "manifest_pin",
+        "readiness_no_live",
+        "local_media_preparation",
+        "local_media_replay",
+        "runtime_status",
+        "runtime_model_telemetry",
+        "browser_display",
+        "browser_visible_avatar_motion",
+        "audio_redaction_wrapper",
+        "audio_recognizer_readiness",
+        "audio_recognizer_execution",
+        "audio_display_tts_recognized_parity",
+        "home_assistant_preview",
+        "home_assistant_dry_run",
+        "home_assistant_execute",
+        "ha_state_match",
+        "external_observation",
+        "physical_device_proof",
+        "touchdesigner_toe_mcp",
+        "touchdesigner_runtime",
+        "front_door_inventory"
+      ]
+    },
+    "evidence_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary_class",
+        "count_bucket",
+        "evidence_bucket"
+      ],
+      "properties": {
+        "summary_class": {
+          "$ref": "#/$defs/class_code"
+        },
+        "count_bucket": {
+          "$ref": "#/$defs/class_code"
+        },
+        "evidence_bucket": {
+          "$ref": "#/$defs/class_code"
+        },
+        "timing_bucket": {
+          "$ref": "#/$defs/class_code"
+        }
+      }
+    },
+    "bounded_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]{0,80}$"
+      },
+      "maxProperties": 40
+    },
+    "safe_refs": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^safe_ref_[a-z0-9_:-]{1,100}$"
+      }
+    },
+    "publication_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_transcript_allowed",
+        "raw_audio_allowed",
+        "raw_media_allowed",
+        "raw_screenshot_allowed",
+        "raw_browser_frame_allowed",
+        "touchdesigner_content_allowed",
+        "provider_payload_allowed",
+        "home_assistant_raw_payload_allowed",
+        "entity_or_device_id_allowed",
+        "private_path_or_filename_allowed",
+        "private_url_allowed",
+        "exact_env_value_allowed",
+        "stdout_stderr_or_stack_trace_allowed",
+        "token_or_secret_allowed",
+        "raw_private_publication_required"
+      ],
+      "properties": {
+        "raw_transcript_allowed": {
+          "const": false
+        },
+        "raw_audio_allowed": {
+          "const": false
+        },
+        "raw_media_allowed": {
+          "const": false
+        },
+        "raw_screenshot_allowed": {
+          "const": false
+        },
+        "raw_browser_frame_allowed": {
+          "const": false
+        },
+        "touchdesigner_content_allowed": {
+          "const": false
+        },
+        "provider_payload_allowed": {
+          "const": false
+        },
+        "home_assistant_raw_payload_allowed": {
+          "const": false
+        },
+        "entity_or_device_id_allowed": {
+          "const": false
+        },
+        "private_path_or_filename_allowed": {
+          "const": false
+        },
+        "private_url_allowed": {
+          "const": false
+        },
+        "exact_env_value_allowed": {
+          "const": false
+        },
+        "stdout_stderr_or_stack_trace_allowed": {
+          "const": false
+        },
+        "token_or_secret_allowed": {
+          "const": false
+        },
+        "raw_private_publication_required": {
+          "const": false
+        }
+      }
+    },
+    "claim_guards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rr003_pass_claimed",
+        "final_readiness_claimed",
+        "release_readiness_claimed",
+        "proof_upgrade_claimed",
+        "physical_device_proof_claimed"
+      ],
+      "properties": {
+        "rr003_pass_claimed": {
+          "const": false
+        },
+        "final_readiness_claimed": {
+          "const": false
+        },
+        "release_readiness_claimed": {
+          "const": false
+        },
+        "proof_upgrade_claimed": {
+          "const": false
+        },
+        "physical_device_proof_claimed": {
+          "const": false
+        }
+      }
+    },
+    "non_claims": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 30,
+      "items": {
+        "$ref": "#/$defs/class_code"
+      },
+      "contains": {
+        "const": "not_rr003_or_final_readiness"
+      }
+    },
+    "ladder_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "row_id",
+        "layer",
+        "purpose",
+        "user_value_question",
+        "status_class",
+        "result_class",
+        "blocker_class",
+        "proof_ceiling",
+        "evidence_summary",
+        "bounded_counts",
+        "safe_refs",
+        "next_action_class",
+        "publication_boundary",
+        "claim_guards",
+        "non_claims",
+        "raw_private_publication_flags"
+      ],
+      "properties": {
+        "row_id": {
+          "type": "string",
+          "pattern": "^row_[a-z0-9_:-]+$",
+          "maxLength": 120
+        },
+        "layer": {
+          "$ref": "#/$defs/layer_class"
+        },
+        "purpose": {
+          "$ref": "#/$defs/class_code"
+        },
+        "user_value_question": {
+          "$ref": "#/$defs/class_code"
+        },
+        "status_class": {
+          "$ref": "#/$defs/status_class"
+        },
+        "result_class": {
+          "$ref": "#/$defs/class_code"
+        },
+        "blocker_class": {
+          "$ref": "#/$defs/nullable_class_code"
+        },
+        "proof_ceiling": {
+          "$ref": "#/$defs/class_code"
+        },
+        "evidence_summary": {
+          "$ref": "#/$defs/evidence_summary"
+        },
+        "bounded_counts": {
+          "$ref": "#/$defs/bounded_counts"
+        },
+        "safe_refs": {
+          "$ref": "#/$defs/safe_refs"
+        },
+        "next_action_class": {
+          "$ref": "#/$defs/class_code"
+        },
+        "publication_boundary": {
+          "$ref": "#/$defs/publication_boundary"
+        },
+        "claim_guards": {
+          "$ref": "#/$defs/claim_guards"
+        },
+        "non_claims": {
+          "$ref": "#/$defs/non_claims"
+        },
+        "raw_private_publication_flags": {
+          "const": false
+        }
+      }
+    }
+  }
+}

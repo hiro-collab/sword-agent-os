@@ -1433,6 +1433,179 @@ function Test-LocalOfflineRecognizerExecutionWrapperContractStatic {
   Write-Host "Local offline recognizer execution wrapper contract static ok"
 }
 
+function Test-OverallTestLadderReportContractStatic {
+  Write-TestStep "Overall test ladder report v2 contract static checks"
+
+  $contractDir = Join-Path $RepoRoot "contracts\overall_test_ladder_report"
+  $schemaPath = Join-Path $contractDir "overall_test_ladder_report.v2.schema.json"
+  $exampleDir = Join-Path $contractDir "examples"
+  $contractsReadmePath = Join-Path $RepoRoot "contracts\README.md"
+  $verificationCommandsPath = Join-Path $RepoRoot "docs\verification-commands.md"
+
+  Assert-PathPresent -Path $schemaPath
+  Assert-PathPresent -Path (Join-Path $exampleDir "daily_confidence_smoke.held.example.json")
+  Assert-PathPresent -Path (Join-Path $exampleDir "local_operator_readiness.blocked.example.json")
+  Assert-PathPresent -Path (Join-Path $exampleDir "rr003_readiness_candidate.not_claimed.example.json")
+
+  $schemaText = Get-Content -Raw -LiteralPath $schemaPath
+  $schema = $schemaText | ConvertFrom-Json
+  $contractsReadme = Get-Content -Raw -LiteralPath $contractsReadmePath
+  $verificationCommands = Get-Content -Raw -LiteralPath $verificationCommandsPath
+  $exampleFiles = @(Get-ChildItem -LiteralPath $exampleDir -Filter "*.json" | Sort-Object Name)
+  $exampleTexts = @()
+  $examples = @()
+  foreach ($exampleFile in $exampleFiles) {
+    $text = Get-Content -Raw -LiteralPath $exampleFile.FullName
+    $exampleTexts += $text
+    $examples += @($text | ConvertFrom-Json)
+  }
+  $combinedExampleText = $exampleTexts -join "`n"
+
+  if ([string]$schema.properties.schema_version.const -ne "overall_test_ladder_report.v2") {
+    throw "overall test ladder report schema should lock schema_version"
+  }
+  if ([string]$schema.properties.report_schema_version.const -ne "overall_test_ladder_report.v2") {
+    throw "overall test ladder report schema should lock report_schema_version"
+  }
+  if ([string]$schema.properties.route_id.const -ne "OVERALL-TEST-LADDER-REPORT-SCHEMA-V2-SOURCE-STATIC-01") {
+    throw "overall test ladder report schema should lock the owner route id"
+  }
+
+  Assert-TextMatch -Text $schemaText -Pattern '"shared_output_policy"[\s\S]{0,80}"const"\s*:\s*"class_count_bucket_only"' -Message "overall test ladder report should force class/count/bucket shared output"
+  Assert-TextMatch -Text $schemaText -Pattern '"evidence_summary_policy"[\s\S]{0,80}"const"\s*:\s*"class_count_bucket_only_no_raw_material"' -Message "overall test ladder report should keep evidence summaries raw-free"
+  Assert-TextMatch -Text $schemaText -Pattern '"pass_candidate_readiness_policy"[\s\S]{0,80}"const"\s*:\s*"pass_candidate_is_not_rr003_final_or_release_ready"' -Message "overall test ladder report should keep pass_candidate below readiness"
+  Assert-TextMatch -Text $schemaText -Pattern '"raw_private_publication_policy"[\s\S]{0,80}"const"\s*:\s*"block_shared_report_if_raw_private_required"' -Message "overall test ladder report should block raw/private-only proof"
+  Assert-TextMatch -Text $schemaText -Pattern '"proof_ceiling"' -Message "overall test ladder report rows should carry proof_ceiling"
+  Assert-TextMatch -Text $schemaText -Pattern '"non_claims"' -Message "overall test ladder report rows should carry non_claims"
+  Assert-TextMatch -Text $schemaText -Pattern '"raw_private_publication_flags"[\s\S]{0,80}"const"\s*:\s*false' -Message "overall test ladder report should keep raw_private_publication_flags false"
+
+  foreach ($guard in @(
+    "raw_transcript_allowed",
+    "raw_audio_allowed",
+    "raw_media_allowed",
+    "raw_screenshot_allowed",
+    "raw_browser_frame_allowed",
+    "touchdesigner_content_allowed",
+    "provider_payload_allowed",
+    "home_assistant_raw_payload_allowed",
+    "entity_or_device_id_allowed",
+    "private_path_or_filename_allowed",
+    "private_url_allowed",
+    "exact_env_value_allowed",
+    "stdout_stderr_or_stack_trace_allowed",
+    "token_or_secret_allowed",
+    "raw_private_publication_required"
+  )) {
+    Assert-TextMatch -Text $schemaText -Pattern ('"{0}"[\s\S]{{0,80}}"const"\s*:\s*false' -f [regex]::Escape($guard)) -Message "overall test ladder report should force $guard false"
+  }
+
+  $seenReportClasses = @{}
+  foreach ($example in $examples) {
+    if ([string]$example.schema_version -ne "overall_test_ladder_report.v2") {
+      throw "overall test ladder report examples should use v2 schema"
+    }
+    if ([string]$example.report_schema_version -ne "overall_test_ladder_report.v2") {
+      throw "overall test ladder report examples should use report_schema_version"
+    }
+    if ([string]$example.route_id -ne "OVERALL-TEST-LADDER-REPORT-SCHEMA-V2-SOURCE-STATIC-01") {
+      throw "overall test ladder report examples should use the schema route"
+    }
+    $seenReportClasses[[string]$example.report_class] = $true
+    if ($example.raw_private_publication_flags -ne $false) {
+      throw "overall test ladder report examples should keep raw_private_publication_flags false"
+    }
+    if (@($example.non_claims) -notcontains "not_rr003_or_final_readiness") {
+      throw "overall test ladder report examples should preserve readiness non-claim"
+    }
+    if ([string]$example.report_policy.shared_output_policy -ne "class_count_bucket_only" -or
+        [string]$example.report_policy.evidence_summary_policy -ne "class_count_bucket_only_no_raw_material" -or
+        [string]$example.report_policy.pass_candidate_readiness_policy -ne "pass_candidate_is_not_rr003_final_or_release_ready" -or
+        [string]$example.report_policy.raw_private_publication_policy -ne "block_shared_report_if_raw_private_required") {
+      throw "overall test ladder report examples should keep report policy redacted and below readiness"
+    }
+    foreach ($claimGuard in @(
+      "rr003_pass_claimed",
+      "final_readiness_claimed",
+      "release_readiness_claimed",
+      "proof_upgrade_claimed",
+      "physical_device_proof_claimed"
+    )) {
+      if ($example.claim_guards.$claimGuard -ne $false) {
+        throw "overall test ladder report examples should keep top-level claim guard $claimGuard false"
+      }
+    }
+    if ([int]$example.summary_counts.rows_total -ne @($example.rows).Count) {
+      throw "overall test ladder report rows_total should match row count"
+    }
+    foreach ($row in @($example.rows)) {
+      if (-not [string]$row.proof_ceiling) {
+        throw "overall test ladder report rows should carry a proof_ceiling"
+      }
+      if (-not [string]$row.purpose -or -not [string]$row.user_value_question) {
+        throw "overall test ladder report rows should carry purpose and user_value_question"
+      }
+      if ($row.raw_private_publication_flags -ne $false) {
+        throw "overall test ladder report rows should keep raw_private_publication_flags false"
+      }
+      if (@($row.non_claims) -notcontains "not_rr003_or_final_readiness") {
+        throw "overall test ladder report rows should preserve readiness non-claim"
+      }
+      if ($row.status_class -eq "pass_candidate" -and (
+          $row.claim_guards.rr003_pass_claimed -ne $false -or
+          $row.claim_guards.final_readiness_claimed -ne $false -or
+          $row.claim_guards.release_readiness_claimed -ne $false -or
+          $row.claim_guards.proof_upgrade_claimed -ne $false)) {
+        throw "overall test ladder pass_candidate rows should not claim readiness or proof upgrade"
+      }
+      if (-not [string]$row.evidence_summary.summary_class -or
+          -not [string]$row.evidence_summary.count_bucket -or
+          -not [string]$row.evidence_summary.evidence_bucket) {
+        throw "overall test ladder evidence_summary should be class/count/bucket only"
+      }
+      foreach ($ref in @($row.safe_refs)) {
+        if ([string]$ref -notmatch '^safe_ref_[a-z0-9_:-]+$') {
+          throw "overall test ladder safe_refs should be opaque safe refs"
+        }
+      }
+      foreach ($guard in @(
+        "raw_transcript_allowed",
+        "raw_audio_allowed",
+        "raw_media_allowed",
+        "raw_screenshot_allowed",
+        "raw_browser_frame_allowed",
+        "touchdesigner_content_allowed",
+        "provider_payload_allowed",
+        "home_assistant_raw_payload_allowed",
+        "entity_or_device_id_allowed",
+        "private_path_or_filename_allowed",
+        "private_url_allowed",
+        "exact_env_value_allowed",
+        "stdout_stderr_or_stack_trace_allowed",
+        "token_or_secret_allowed",
+        "raw_private_publication_required"
+      )) {
+        if ($row.publication_boundary.$guard -ne $false) {
+          throw "overall test ladder publication boundary should keep $guard false"
+        }
+      }
+    }
+  }
+
+  foreach ($requiredClass in @("daily_confidence_smoke", "local_operator_readiness", "rr003_readiness_candidate")) {
+    if (-not $seenReportClasses.ContainsKey($requiredClass)) {
+      throw "overall test ladder report examples should include report_class: $requiredClass"
+    }
+  }
+
+  Assert-TextNotMatch -Text $combinedExampleText -Pattern 'C:\\|\\\\|/Users/|localStorage|sessionStorage|provider:[A-Za-z0-9_-]+|provider_payload_(id|ref|body)|"provider_id"\s*:|\.wav|\.mp3|\.m4a|\.mp4|\.png|\.jpg|\.jpeg|"transcript_body"\s*:|"recognized_text_body"\s*:|"raw_transcript_text"\s*:|"recognized_text"\s*:|"audio_file_path"\s*:|"filename"\s*:|"private_path"\s*:|"device_id"\s*:|"entity_id"\s*:|"token"\s*:|"secret"\s*:' -Message "overall test ladder report examples should not contain private paths, media filenames, provider ids, transcript bodies, raw text, entity/device ids, tokens, or secrets"
+  Assert-TextMatch -Text $contractsReadme -Pattern "overall_test_ladder_report/overall_test_ladder_report\.v2\.schema\.json" -Message "Contracts README should list overall test ladder report v2"
+  Assert-TextMatch -Text $contractsReadme -Pattern "pass_candidate[\s\S]{0,120}not[\s\S]{0,120}RR003 pass" -Message "Contracts README should keep pass_candidate below RR003 pass"
+  Assert-TextMatch -Text $verificationCommands -Pattern "overall_test_ladder_report/overall_test_ladder_report\.v2\.schema\.json" -Message "verification commands should point to overall test ladder report v2"
+  Assert-TextMatch -Text $verificationCommands -Pattern "pass_candidate.*must not mean RR003 pass" -Message "verification commands should preserve pass_candidate non-readiness wording"
+
+  Write-Host "Overall test ladder report v2 contract static ok"
+}
+
 function Test-AudioAwarenessRefPolicyStatic {
   Write-TestStep "Audio Awareness self-output ref policy static checks"
 
@@ -2588,6 +2761,7 @@ Test-ReadmeFirstRunGuidance
 Test-AudioSelfOutputObservationContractStatic
 Test-LocalOfflineRecognizerRedactedAdapterContractStatic
 Test-LocalOfflineRecognizerExecutionWrapperContractStatic
+Test-OverallTestLadderReportContractStatic
 Test-AudioAwarenessRefPolicyStatic
 Test-RouteAParentNoLiveUxStatic
 Test-HomeControlTrackingHelperFixtures

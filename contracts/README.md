@@ -7,6 +7,26 @@ services, adapters, drivers, and display clients. Implementations may be
 Python, TypeScript, Go, Rust, C#, or another language, but they should validate
 against these shapes at the boundary.
 
+## v2 Contracts
+
+- `overall_test_ladder_report/overall_test_ladder_report.v2.schema.json`:
+  source/static shared report shape for the overall test ladder v2 daily
+  confidence smoke and related local readiness summaries. It is a report
+  contract, not a broad runner implementation or readiness verdict. Each row
+  carries its layer, proof ceiling, class/count/bucket-only evidence summary,
+  bounded counts, opaque safe refs, next action class, non-claims, and
+  `raw_private_publication_flags=false`. `pass_candidate` is explicitly not an
+  RR003 pass, final readiness, release readiness, or proof upgrade. If a layer
+  can only prove itself by publishing raw transcripts, raw audio/media,
+  screenshots/browser frames, TouchDesigner content, provider payloads, Home
+  Assistant raw payloads, entity/device ids, private paths/filenames/URLs,
+  exact env values, stdout/stderr/stack traces, tokens, or secrets, the shared
+  report must be blocked instead of published.
+  - Examples:
+    `overall_test_ladder_report/examples/daily_confidence_smoke.held.example.json`,
+    `overall_test_ladder_report/examples/local_operator_readiness.blocked.example.json`,
+    `overall_test_ladder_report/examples/rr003_readiness_candidate.not_claimed.example.json`
+
 ## v0 Contracts
 
 - `action_request/action_request.v0.schema.json`: unified request shape for

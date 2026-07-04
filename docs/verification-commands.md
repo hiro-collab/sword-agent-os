@@ -28,6 +28,24 @@ pwsh -NoProfile -File .\scripts\run-organ-test-packs.ps1
 when source pins match but a local runtime artifact still blocks strict release
 or fresh-install readiness.
 
+### Overall Test Ladder V2 Report Shape
+
+The overall test ladder v2 daily confidence smoke should publish only the
+`contracts/overall_test_ladder_report/overall_test_ladder_report.v2.schema.json`
+shape until a later front-door runner route is selected. Treat this as a
+classed report contract: every row must carry `proof_ceiling`, `non_claims`,
+and `raw_private_publication_flags=false`; `evidence_summary` must be
+class/count/bucket-only; `pass_candidate` must not mean RR003 pass, final
+readiness, release readiness, or a proof upgrade.
+
+Do not use this schema route to start runtime/browser/audio/Home Control or
+TouchDesigner work. Those layers remain separate exact routes with their own
+stop conditions and proof ceilings. If a layer can only be explained by sharing
+raw transcripts, audio/media, screenshots/browser frames, TouchDesigner
+content, provider payloads, Home Assistant raw payloads, entity/device ids,
+private paths/filenames/URLs, exact env values, stdout/stderr, stack traces,
+tokens, or secrets, block the shared report publication instead.
+
 ## Optional / Local-Media Replay Preview
 
 When local `local/media/README.md` and `local/media/media-index.json` exist,

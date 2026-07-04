@@ -1,0 +1,253 @@
+{
+  "schema_version": "overall_test_ladder_report.v2",
+  "report_schema_version": "overall_test_ladder_report.v2",
+  "report_contract_id": "otlr_rr003_readiness_candidate_001",
+  "route_id": "OVERALL-TEST-LADDER-REPORT-SCHEMA-V2-SOURCE-STATIC-01",
+  "report_class": "rr003_readiness_candidate",
+  "generated_at_class": "source_static_example_timestamp",
+  "overall_status_class": "not_claimed",
+  "report_policy": {
+    "shared_output_policy": "class_count_bucket_only",
+    "evidence_summary_policy": "class_count_bucket_only_no_raw_material",
+    "pass_candidate_readiness_policy": "pass_candidate_is_not_rr003_final_or_release_ready",
+    "raw_private_publication_policy": "block_shared_report_if_raw_private_required",
+    "blocked_or_held_row_policy": "valid_safety_outcome_not_global_failure",
+    "home_control_live_policy": "optional_exact_route_with_manager_user_gate_only",
+    "front_door_runner_policy": "thin_front_door_after_schema_no_broad_runner_here"
+  },
+  "summary_counts": {
+    "rows_total": 4,
+    "pass_candidate_rows": 1,
+    "held_rows": 2,
+    "blocked_rows": 1,
+    "raw_private_rows": 0
+  },
+  "rows": [
+    {
+      "row_id": "row_motion_anchor_summary_001",
+      "layer": "browser_visible_avatar_motion",
+      "purpose": "projection_avatar_motion_anchor_summary",
+      "user_value_question": "can_avatar_motion_chain_be_class_summarized",
+      "status_class": "pass_candidate",
+      "result_class": "stimulus_chain_anchor_summary_available",
+      "blocker_class": null,
+      "proof_ceiling": "browser_runtime_self_mirror_visible_motion_and_stimulus_chain_anchor_summary_only",
+      "evidence_summary": {
+        "summary_class": "anchor_summary_available_without_physical_display_claim",
+        "count_bucket": "bounded_anchor_count_bucket",
+        "evidence_bucket": "class_count_bucket_only"
+      },
+      "bounded_counts": {
+        "anchor_classes_present": 6,
+        "expected_roi_motion": 4,
+        "raw_frames_shared": 0
+      },
+      "safe_refs": [
+        "safe_ref_projection_anchor_summary"
+      ],
+      "next_action_class": "hold_until_separate_rr003_readiness_review",
+      "publication_boundary": {
+        "raw_transcript_allowed": false,
+        "raw_audio_allowed": false,
+        "raw_media_allowed": false,
+        "raw_screenshot_allowed": false,
+        "raw_browser_frame_allowed": false,
+        "touchdesigner_content_allowed": false,
+        "provider_payload_allowed": false,
+        "home_assistant_raw_payload_allowed": false,
+        "entity_or_device_id_allowed": false,
+        "private_path_or_filename_allowed": false,
+        "private_url_allowed": false,
+        "exact_env_value_allowed": false,
+        "stdout_stderr_or_stack_trace_allowed": false,
+        "token_or_secret_allowed": false,
+        "raw_private_publication_required": false
+      },
+      "claim_guards": {
+        "rr003_pass_claimed": false,
+        "final_readiness_claimed": false,
+        "release_readiness_claimed": false,
+        "proof_upgrade_claimed": false,
+        "physical_device_proof_claimed": false
+      },
+      "non_claims": [
+        "not_rr003_or_final_readiness",
+        "not_physical_projector_proof",
+        "not_semantic_motion_quality"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "row_id": "row_audio_execution_blocked_001",
+      "layer": "audio_recognizer_execution",
+      "purpose": "accepted_speech_path_execution_layer",
+      "user_value_question": "can_local_speech_candidate_be_recognized_safely",
+      "status_class": "blocked",
+      "result_class": "recognition_execution_not_opened",
+      "blocker_class": "local_offline_runner_selection_or_redaction_wrapper_not_adopted",
+      "proof_ceiling": "source_static_redaction_wrapper_only",
+      "evidence_summary": {
+        "summary_class": "no_recognition_execution_authority",
+        "count_bucket": "recognition_count_zero",
+        "evidence_bucket": "class_count_bucket_only"
+      },
+      "bounded_counts": {
+        "recognition_runs": 0,
+        "audio_decode_runs": 0,
+        "thought_core_turninputs": 0
+      },
+      "safe_refs": [
+        "safe_ref_audio_wrapper_review"
+      ],
+      "next_action_class": "open_exact_recognizer_runner_selection_route",
+      "publication_boundary": {
+        "raw_transcript_allowed": false,
+        "raw_audio_allowed": false,
+        "raw_media_allowed": false,
+        "raw_screenshot_allowed": false,
+        "raw_browser_frame_allowed": false,
+        "touchdesigner_content_allowed": false,
+        "provider_payload_allowed": false,
+        "home_assistant_raw_payload_allowed": false,
+        "entity_or_device_id_allowed": false,
+        "private_path_or_filename_allowed": false,
+        "private_url_allowed": false,
+        "exact_env_value_allowed": false,
+        "stdout_stderr_or_stack_trace_allowed": false,
+        "token_or_secret_allowed": false,
+        "raw_private_publication_required": false
+      },
+      "claim_guards": {
+        "rr003_pass_claimed": false,
+        "final_readiness_claimed": false,
+        "release_readiness_claimed": false,
+        "proof_upgrade_claimed": false,
+        "physical_device_proof_claimed": false
+      },
+      "non_claims": [
+        "not_rr003_or_final_readiness",
+        "not_audio_recognition",
+        "not_thought_core_turninput"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "row_id": "row_touchdesigner_hold_001",
+      "layer": "touchdesigner_toe_mcp",
+      "purpose": "projection_environment_visual_layer",
+      "user_value_question": "can_touchdesigner_artifact_be_checked_without_writeback",
+      "status_class": "held",
+      "result_class": "touchdesigner_no_save_validation_route_not_opened",
+      "blocker_class": "touchdesigner_exact_nosave_route_required",
+      "proof_ceiling": "held_no_touchdesigner_runtime_proof",
+      "evidence_summary": {
+        "summary_class": "touchdesigner_content_not_published",
+        "count_bucket": "writeback_count_zero",
+        "evidence_bucket": "class_count_bucket_only"
+      },
+      "bounded_counts": {
+        "toe_content_reads": 0,
+        "toe_writebacks": 0,
+        "touchdesigner_runtime_operations": 0
+      },
+      "safe_refs": [],
+      "next_action_class": "open_exact_touchdesigner_nosave_route_if_selected",
+      "publication_boundary": {
+        "raw_transcript_allowed": false,
+        "raw_audio_allowed": false,
+        "raw_media_allowed": false,
+        "raw_screenshot_allowed": false,
+        "raw_browser_frame_allowed": false,
+        "touchdesigner_content_allowed": false,
+        "provider_payload_allowed": false,
+        "home_assistant_raw_payload_allowed": false,
+        "entity_or_device_id_allowed": false,
+        "private_path_or_filename_allowed": false,
+        "private_url_allowed": false,
+        "exact_env_value_allowed": false,
+        "stdout_stderr_or_stack_trace_allowed": false,
+        "token_or_secret_allowed": false,
+        "raw_private_publication_required": false
+      },
+      "claim_guards": {
+        "rr003_pass_claimed": false,
+        "final_readiness_claimed": false,
+        "release_readiness_claimed": false,
+        "proof_upgrade_claimed": false,
+        "physical_device_proof_claimed": false
+      },
+      "non_claims": [
+        "not_rr003_or_final_readiness",
+        "not_touchdesigner_runtime_proof",
+        "not_toe_content_publication"
+      ],
+      "raw_private_publication_flags": false
+    },
+    {
+      "row_id": "row_physical_device_not_claimed_001",
+      "layer": "physical_device_proof",
+      "purpose": "physical_environment_confirmation_layer",
+      "user_value_question": "can_real_world_effect_be_observed",
+      "status_class": "not_claimed",
+      "result_class": "physical_device_proof_not_requested_in_report",
+      "blocker_class": "separate_physical_proof_route_required",
+      "proof_ceiling": "not_ready_no_physical_device_proof",
+      "evidence_summary": {
+        "summary_class": "physical_layer_not_observed",
+        "count_bucket": "physical_observation_count_zero",
+        "evidence_bucket": "class_count_bucket_only"
+      },
+      "bounded_counts": {
+        "physical_observations": 0,
+        "external_observations": 0,
+        "raw_media_shared": 0
+      },
+      "safe_refs": [],
+      "next_action_class": "hold_until_separate_physical_proof_route",
+      "publication_boundary": {
+        "raw_transcript_allowed": false,
+        "raw_audio_allowed": false,
+        "raw_media_allowed": false,
+        "raw_screenshot_allowed": false,
+        "raw_browser_frame_allowed": false,
+        "touchdesigner_content_allowed": false,
+        "provider_payload_allowed": false,
+        "home_assistant_raw_payload_allowed": false,
+        "entity_or_device_id_allowed": false,
+        "private_path_or_filename_allowed": false,
+        "private_url_allowed": false,
+        "exact_env_value_allowed": false,
+        "stdout_stderr_or_stack_trace_allowed": false,
+        "token_or_secret_allowed": false,
+        "raw_private_publication_required": false
+      },
+      "claim_guards": {
+        "rr003_pass_claimed": false,
+        "final_readiness_claimed": false,
+        "release_readiness_claimed": false,
+        "proof_upgrade_claimed": false,
+        "physical_device_proof_claimed": false
+      },
+      "non_claims": [
+        "not_rr003_or_final_readiness",
+        "not_physical_device_proof",
+        "not_release_readiness"
+      ],
+      "raw_private_publication_flags": false
+    }
+  ],
+  "claim_guards": {
+    "rr003_pass_claimed": false,
+    "final_readiness_claimed": false,
+    "release_readiness_claimed": false,
+    "proof_upgrade_claimed": false,
+    "physical_device_proof_claimed": false
+  },
+  "non_claims": [
+    "not_rr003_or_final_readiness",
+    "not_release_readiness",
+    "not_raw_private_publication",
+    "not_broad_runner_implementation"
+  ],
+  "raw_private_publication_flags": false
+}
