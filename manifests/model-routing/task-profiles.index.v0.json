@@ -6,7 +6,7 @@
   "entries": [
     {
       "owner_module": "thought_core",
-      "profile_path": "control-plane/sword-voice-agent/services/thought-core/model-routing.task-profiles.v0.json",
+      "profile_path": "control-plane/core/services/thought-core/model-routing.task-profiles.v0.json",
       "task_classes": [
         "ordinary_conversation_response",
         "audio_status_check",

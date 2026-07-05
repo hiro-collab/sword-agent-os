@@ -896,7 +896,7 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
       -ObservedStatus "blocked" `
       -CauseKind "action-not-in-catalog" `
       -Evidence ("actions_count={0}; expected_action=missing" -f $actionRows.Count) `
-      -NextProbe "fix live ticket action id or Home Control mapping"
+      -NextProbe "fix exact route action id or Home Control mapping"
     throw "Expected action was not returned by /actions; stop before preview/execute"
   }
 
@@ -933,7 +933,7 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
       -ObservedStatus "ok" `
       -CauseKind "none" `
       -Evidence ("action_id={0}; control_type={1}; state_authority={2}; verification_mode={3}; state_tracking=tracked; expected_state={4}; expected_states={5}; expected_position={6}; settle_seconds={7}; timeout_seconds={8}; proof_ceiling={9}; live_test_readiness={10}; live_test_blockers={11}; restore_action={12}; stop_action={13}; terminal_action={14}; safety_requirements={15}" -f $trackingProbe.ActionId, $trackingProbe.ControlType, $trackingProbe.StateAuthority, $trackingProbe.VerificationMode, $trackingProbe.ExpectedState, $trackingProbe.ExpectedStates, $trackingProbe.ExpectedPosition, $trackingProbe.SettleSeconds, $trackingProbe.TimeoutSeconds, $trackingProbe.ProofCeiling, $trackingProbe.LiveTestReadiness, $trackingProbe.LiveTestBlockers, $trackingProbe.RestoreActionId, $trackingProbe.StopActionId, $trackingProbe.TerminalAction, $trackingProbe.SafetyRequirements) `
-      -NextProbe "proceed only to ticketed preview/dry-run; use -CheckState only after execute/wait or restore/wait" `
+      -NextProbe "proceed to route-owned preview/dry-run if selected; use -CheckState only after execute/wait or restore/wait" `
       -SafeStop "yes"
     return
   }
@@ -992,9 +992,9 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
       } elseif ($stateStatus -eq "unsupported") {
         "fix action verification metadata or use another proof layer"
       } elseif ($stateStatus -eq "position_unavailable") {
-        "check that the target HA entity exposes current_position and rerun after the ticketed wait"
+        "check that the target HA entity exposes current_position and rerun after the route wait"
       } else {
-        "wait the ticket interval, verify the ticketed action, or run a ticketed restore"
+        "wait the route interval, verify the action, or run the route-owned restore"
       }
       Write-RootCauseTrace `
         -ProofLayer "live-ha-state" `
@@ -1023,7 +1023,7 @@ if ($CheckOnly -or $CheckState -or $CheckTracking) {
     -ObservedStatus "ok" `
     -CauseKind "none" `
     -Evidence ("actions_count={0}; expected_action={1}" -f $actionRows.Count, $expectedStatus) `
-    -NextProbe "proceed only to ticketed preview under live guardrails" `
+    -NextProbe "proceed to route-owned preview if selected" `
     -SafeStop "yes"
   return
 }

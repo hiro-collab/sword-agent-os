@@ -115,7 +115,7 @@ running services do not prove they picked up the new env/config.
 `organs\action\home-assistant-server\config\home-control.yaml`. If you maintain
 a live-specific config separately, reapply that config after the last `-Force`,
 then use the bridge helper `-CheckOnly` and `-CheckTracking` before execution.
-Use `-CheckState` only after a ticketed execute/wait or restore/wait step.
+Use `-CheckState` only after an exact execute/wait or route-owned restore/wait step.
 
 ## Home Assistant Config Context
 
@@ -138,7 +138,7 @@ Use this order:
 5. Run `start-home-control-bridge.ps1 -CheckOnly` and `-CheckTracking` from the
    same workspace that will run the route.
 6. Treat `-CheckState` as a read of current Home Assistant state. It proves a
-   live action result only after the ticketed execute/wait or restore/wait step.
+   live action result only after the exact execute/wait or route-owned restore/wait step.
 
 Do not use a short/minimal action-only override as a tracked-state proof
 context. It can be useful for command shape, preview, or command-ack checks, but
@@ -171,8 +171,8 @@ are still present, treat it as demo configuration.
 `render-env-files.ps1` generates or updates these main outputs:
 
 ```text
-control-plane\sword-voice-agent\.env
-control-plane\sword-voice-agent\services\thought-core\.env
+control-plane\core\.env
+control-plane\core\services\thought-core\.env
 organs\action\home-assistant-server\.env
 organs\expression\tts-service\.env
 organs\expression\aituber-kit\.env
@@ -187,8 +187,8 @@ Template references:
 
 ```text
 templates\env\sword-agent-os.env.example
-control-plane\sword-voice-agent\.env.example
-control-plane\sword-voice-agent\services\thought-core\.env.example
+control-plane\core\.env.example
+control-plane\core\services\thought-core\.env.example
 organs\action\home-assistant-server\.env.example
 organs\expression\tts-service\.env.example
 organs\expression\aituber-kit\.env.example

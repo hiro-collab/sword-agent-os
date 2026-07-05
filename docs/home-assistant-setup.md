@@ -2,7 +2,7 @@
 
 This page is the first-read checklist for using Sword Agent OS with an
 external Home Assistant environment. It is product setup guidance, not a Codex
-thread prompt and not live execution approval.
+thread prompt and not live execution authority.
 
 Use this page when:
 
@@ -172,7 +172,7 @@ pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckOnly -Expect
 pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckTracking -ActionId <allowed-action-id>
 ```
 
-Only after a reviewed live ticket executes should `CheckState` be used as
+Only after a selected exact live route executes should `CheckState` be used as
 post-action proof:
 
 ```powershell
@@ -185,18 +185,18 @@ current-state gate, not action-result proof.
 
 ## Live Route Boundary
 
-Live Home Assistant work still needs a bounded ticket. The ticket should name:
+Live Home Assistant work uses a bounded exact route. The route should name:
 
 - action id and action count;
 - preview / dry-run / execute counts;
-- confirmation-token behavior when confirmation is required;
+- bridge confirmation-token behavior when the bridge issues a challenge;
 - settle and timeout windows;
-- restore or terminal-state rule;
+- optional restore or terminal-state rule;
 - stop conditions;
 - proof ceiling;
 - whether external or physical observation is in scope.
 
-Use `docs/live-home-control-proof.md` for the ticket ladder and proof wording.
+Use `docs/live-home-control-proof.md` for the exact-route ladder and proof wording.
 
 ## Troubleshooting Quick Map
 
@@ -206,7 +206,7 @@ Use `docs/live-home-control-proof.md` for the ticket ladder and proof wording.
 | Script binding exists but state proof is blocked | `expected_effect` target is missing or not readable | Fix private config; do not guess target |
 | Fresh clone sees demo actions | `render-env-files.ps1 -Force` regenerated demo/default config | Reapply private full-schema config after render |
 | Worktree route sees `state_unavailable` | Wrong config context, stale bridge, or unavailable HA state surface | Confirm workspace, selected config, and bridge health |
-| Dry-run consumes confirmation path | Confirmation token is one-time | Use a reviewed route shape with fresh preview before live or dry-run count 0 |
+| Dry-run consumes confirmation token | Bridge token is one-time | Use a route shape with fresh preview before live or dry-run count 0 |
 | HA-visible state matched but device proof is requested | HA-visible proof is not physical proof | Add a separate external/physical observation route |
 
 ## What To Report

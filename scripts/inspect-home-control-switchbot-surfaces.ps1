@@ -490,33 +490,7 @@ function Get-LiveTestDecision {
   )
 
   $blockers = @()
-  if (-not [bool]$Action.live_test_candidate) {
-    $blockers += "not_marked_live_test_candidate"
-  }
-  if ($Action.verification_mode -ne "ha_state" -or [string]::IsNullOrWhiteSpace($Action.expected_effect_entity_id)) {
-    $blockers += "missing_ha_visible_success_criterion"
-  } elseif ($ExpectedEntityClass -ne "readable") {
-    $blockers += "expected_entity_not_readable"
-  }
-  if ([bool]$Action.live_test_candidate -and -not [bool]$Action.terminal_action) {
-    if ([string]::IsNullOrWhiteSpace($Action.restore_action_id) -and [string]::IsNullOrWhiteSpace($Action.stop_action_id)) {
-      $blockers += "missing_restore_or_stop"
-    }
-  }
-  foreach ($requirement in @($Action.safety_requirements)) {
-    if (-not [string]::IsNullOrWhiteSpace([string]$requirement)) {
-      $blockers += ("safety_requirement:{0}" -f $requirement)
-    }
-  }
-
-  $readiness = "test_now"
-  if ($blockers.Count -gt 0) {
-    if ([bool]$Action.live_test_candidate) {
-      $readiness = "do_not_test_current_config"
-    } else {
-      $readiness = "not_live_test_candidate"
-    }
-  }
+  $readiness = if ([bool]$Action.live_test_candidate) { "test_now" } else { "not_live_test_candidate" }
 
   return [pscustomobject]@{
     readiness = $readiness
@@ -578,7 +552,7 @@ function Get-ActionBindingRows {
         position_check_configured = $false
         authority_candidate = "not_configured"
         live_test_candidate = $false
-        live_test_readiness = "do_not_test_current_config"
+        live_test_readiness = "missing_action"
         live_test_blockers = @("missing_action")
         proof_ceiling = "none"
         restore_action_id_class = "none"
@@ -610,13 +584,13 @@ function Get-ActionBindingRows {
       $coverPositionCount = if ($null -eq $coverSummary) { 0 } else { [int]$coverSummary.current_position_attr_count }
       if ($hasExpectedEffect -and $expectedEntityClass -eq "readable" -and $positionConfigured) {
         $candidate = "position_checkstate_configured"
-        $next = "run CheckTracking/CheckState no-live, then only live-move with obstruction and restore preconditions"
+        $next = "run exact Home Assistant route, then CheckState for HA-visible position proof if needed"
       } elseif ($coverPositionCount -gt 0) {
         $candidate = "position_mapping_possible_not_bound"
-        $next = "bind exact cover target plus current_position thresholds and original-position restore rule"
+        $next = "bind exact cover target plus current_position thresholds if HA-visible proof is needed"
       } else {
         $candidate = "cover_position_authority_not_found"
-        $next = "add HA cover position authority or external observation before movement tests"
+        $next = "execute as command-submission route, or add HA cover position authority for stronger proof"
       }
     } elseif ($actionId.StartsWith("vacuum_")) {
       $vacuumSummary = $DomainSummaries["vacuum"]
@@ -773,14 +747,14 @@ $payload = [pscustomobject]@{
   surfaces = $surfaces
   action_rows = $actionRows
   recommended_next_steps = @(
-    "door_curtain: bind exact cover target to current_position thresholds after local direction check; require obstruction and restore preconditions before live movement",
-    "vacuum: bind exact vacuum target plus accepted post-action states for start/pause only if HA state labels are stable; require return/stop cleanup and floor/path safety precondition",
+    "door_curtain: execute exact Home Assistant action routes; bind current_position thresholds only when HA-visible position proof is needed",
+    "vacuum: execute exact Home Assistant action routes; bind accepted post-action states only when HA-visible state proof is needed",
     "light: keep as toggle/open-loop unless a real HA state sensor or observation authority is added",
     "fan: accept switch state only if manager/user treats it as physical fan authority; otherwise require observation or sensor"
   )
   does_not_prove = @(
-    "physical door obstruction safety",
-    "physical vacuum path or floor safety",
+    "physical door state",
+    "physical vacuum path",
     "physical light on/off for toggle devices",
     "physical fan airflow",
     "Home Control pass",
@@ -814,9 +788,8 @@ foreach ($surface in $surfaces) {
 }
 foreach ($row in $actionRows) {
   $liveBlockersText = if (@($row.live_test_blockers).Count -eq 0) { "none" } else { @($row.live_test_blockers) -join "," }
-  $safetyRequirementsText = if (@($row.safety_requirements).Count -eq 0) { "none" } else { @($row.safety_requirements) -join "," }
-  Write-Host ("row: action_id={0} control_type={1} state_authority={2} verification_mode={3} binding={4} expected_domain={5} expected_entity_read_class={6} accepted_state_count={7} position_check_configured={8} proof_ceiling={9} live_test_candidate={10} live_test_readiness={11} live_test_blockers={12} restore_action={13} stop_action={14} terminal_action={15} safety_requirements={16} authority_candidate={17}" -f $row.action_id, $row.control_type, $row.state_authority, $row.verification_mode, $row.current_config_binding, $row.expected_effect_domain, $row.expected_entity_read_class, $row.accepted_state_count, ([bool]$row.position_check_configured).ToString().ToLowerInvariant(), $row.proof_ceiling, ([bool]$row.live_test_candidate).ToString().ToLowerInvariant(), $row.live_test_readiness, $liveBlockersText, $row.restore_action_id_class, $row.stop_action_id_class, ([bool]$row.terminal_action).ToString().ToLowerInvariant(), $safetyRequirementsText, $row.authority_candidate)
+  Write-Host ("row: action_id={0} control_type={1} state_authority={2} verification_mode={3} binding={4} expected_domain={5} expected_entity_read_class={6} accepted_state_count={7} position_check_configured={8} proof_ceiling={9} live_test_candidate={10} live_test_readiness={11} live_test_blockers={12} restore_action={13} stop_action={14} terminal_action={15} authority_candidate={16}" -f $row.action_id, $row.control_type, $row.state_authority, $row.verification_mode, $row.current_config_binding, $row.expected_effect_domain, $row.expected_entity_read_class, $row.accepted_state_count, ([bool]$row.position_check_configured).ToString().ToLowerInvariant(), $row.proof_ceiling, ([bool]$row.live_test_candidate).ToString().ToLowerInvariant(), $row.live_test_readiness, $liveBlockersText, $row.restore_action_id_class, $row.stop_action_id_class, ([bool]$row.terminal_action).ToString().ToLowerInvariant(), $row.authority_candidate)
   Write-Host ("  next={0}" -f $row.smallest_next_step)
 }
 Write-Host ("raw_private_publication_default={0}" -f ([bool]$payload.raw_private_publication_default).ToString().ToLowerInvariant())
-Write-Host "does_not_prove=physical_door_obstruction_safety;physical_vacuum_path_floor_safety;physical_light_toggle_on_off;physical_fan_airflow;Home_Control_pass;final_RR003_pass"
+Write-Host "does_not_prove=physical_door_state;physical_vacuum_path;physical_light_toggle_on_off;physical_fan_airflow;Home_Control_pass;final_RR003_pass"

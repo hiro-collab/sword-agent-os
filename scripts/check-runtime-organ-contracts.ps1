@@ -237,9 +237,9 @@ function Invoke-ThoughtCoreChecks {
   $apiBehavior = Get-OptionalProperty -Object $api -Name "behavior" -Default ([PSCustomObject]@{})
   $watcherBehavior = Get-OptionalProperty -Object $watcher -Name "behavior" -Default ([PSCustomObject]@{})
 
-  Require-Path -ScopeName $scopeName -Id "thought_core.loop_source" -Path "control-plane/sword-voice-agent/services/thought-core/src/thought_core/loop.py"
-  Require-Path -ScopeName $scopeName -Id "thought_core.tools_source" -Path "control-plane/sword-voice-agent/services/thought-core/src/thought_core/tools.py"
-  Require-Path -ScopeName $scopeName -Id "thought_core.readiness_source" -Path "control-plane/sword-voice-agent/services/thought-core/src/thought_core/readiness.py"
+  Require-Path -ScopeName $scopeName -Id "thought_core.loop_source" -Path "control-plane/core/services/thought-core/src/thought_core/loop.py"
+  Require-Path -ScopeName $scopeName -Id "thought_core.tools_source" -Path "control-plane/core/services/thought-core/src/thought_core/tools.py"
+  Require-Path -ScopeName $scopeName -Id "thought_core.readiness_source" -Path "control-plane/core/services/thought-core/src/thought_core/readiness.py"
   Require-Condition -ScopeName $scopeName -Id "thought_core.api_service_contracts" -Condition (
     $null -ne $api -and
     (Test-ArrayContainsAll -Value (Get-OptionalProperty -Object $api -Name "contracts" -Default @()) -Expected @("turn", "events", "tools", "environment", "home-control", "memory", "access-control"))
@@ -479,9 +479,9 @@ function Invoke-EventCorrelationChecks {
 $script:serviceManifest = Read-JsonFile -Path $ServiceManifestPath
 $script:diagnosticPolicy = Read-JsonFile -Path $DiagnosticPolicyPath
 $script:testPack = Read-JsonFile -Path $TestPackPath
-$script:readinessText = Read-TextFile -Path "control-plane/sword-voice-agent/services/thought-core/src/thought_core/readiness.py"
-$script:loopText = Read-TextFile -Path "control-plane/sword-voice-agent/services/thought-core/src/thought_core/loop.py"
-$script:toolsText = Read-TextFile -Path "control-plane/sword-voice-agent/services/thought-core/src/thought_core/tools.py"
+$script:readinessText = Read-TextFile -Path "control-plane/core/services/thought-core/src/thought_core/readiness.py"
+$script:loopText = Read-TextFile -Path "control-plane/core/services/thought-core/src/thought_core/loop.py"
+$script:toolsText = Read-TextFile -Path "control-plane/core/services/thought-core/src/thought_core/tools.py"
 $script:metricDocText = Read-TextFile -Path "runtime/status-store/metric-records.v0.md"
 $script:correlationText = Read-TextFile -Path "runtime/event-journal/correlation-spine.v0.md"
 $script:actionBoundaryText = Read-TextFile -Path "runtime/action-boundary/README.md"

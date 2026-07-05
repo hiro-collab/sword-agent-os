@@ -13,7 +13,7 @@ SELECTION_SCHEMA = ROOT / "contracts/model_routing/model_route_selection.v0.sche
 INDEX = ROOT / "manifests/model-routing/task-profiles.index.v0.json"
 
 PROFILE_FILES = (
-    ROOT / "control-plane/sword-voice-agent/services/thought-core/model-routing.task-profiles.v0.json",
+    ROOT / "control-plane/core/services/thought-core/model-routing.task-profiles.v0.json",
     ROOT / "runtime/memory-core/model-routing.task-profiles.v0.json",
 )
 

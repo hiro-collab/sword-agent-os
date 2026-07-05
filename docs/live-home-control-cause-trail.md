@@ -26,7 +26,7 @@ HOME_ASSISTANT_TOKEN: present|missing|placeholder|too-short (value hidden)
 config: yaml_loaded=True action_count=<n> config_error_kind=<name|none>
 health: status=<ok|degraded|config_error> ok=<bool> actions_count=<n>
 actions: status=ok count=<n> expected_action=<present|missing|not-requested>
-tracking: action_id=<id> control_type=<type> state_authority=<authority> verification_mode=<mode> state_tracking=<tracked|external_required|ack_only|manual_required|unsupported|untracked> expected_state=<state|none> expected_states=<states|none> expected_position=<threshold|none> settle_seconds=<s> timeout_seconds=<s> proof_ceiling=<class> live_test_candidate=<true|false> live_test_readiness=<test_now|do_not_test_current_config|not_live_test_candidate> live_test_blockers=<classes|none> restore_action=<id|none> stop_action=<id|none> terminal_action=<true|false> safety_requirements=<classes|none> status=<same>
+tracking: action_id=<id> control_type=<type> state_authority=<authority> verification_mode=<mode> state_tracking=<tracked|external_required|ack_only|manual_required|unsupported|untracked> expected_state=<state|none> expected_states=<states|none> expected_position=<threshold|none> settle_seconds=<s> timeout_seconds=<s> proof_ceiling=<class> live_test_candidate=<true|false> live_test_readiness=<test_now|not_live_test_candidate|missing_action> live_test_blockers=<classes|none> restore_action=<id|none> stop_action=<id|none> terminal_action=<true|false> status=<same>
 state: action_id=<id> expected_state=<state|none> expected_states=<states|none> actual_state=<state|none> expected_position=<threshold|none> actual_position=<number|none> position_status=<matched|mismatch|unavailable|none> status=<matched|mismatch|position_unavailable|external_required|ack_only|manual_required|unsupported|untracked|unavailable>
 cause_code=<code>
 ```
@@ -41,10 +41,10 @@ post-restore HA-visible state. A pre-command read can support a JIT gate, but it
 does not prove that the next command changed anything. A post-action match is
 still not physical or external observation proof.
 
-`live_test_readiness` is the execution decision class. `test_now` only means the
-row can enter a separately authorized bounded route. `do_not_test_current_config`
-and `not_live_test_candidate` are holds until the named metadata, restore, stop,
-or safety gate is fixed.
+`live_test_readiness` is metadata, not a separate approval gate. `test_now` only
+means the row can enter a bounded exact Home Assistant route. `missing_action`
+is the concrete technical blocker; `not_live_test_candidate` is only legacy
+metadata and must not stop a user-selected exact action route by itself.
 
 For cover/door actions with readable position attributes, state alone is not
 enough. A matched row must satisfy the configured `verification.position`
@@ -81,7 +81,7 @@ threshold as well as the accepted state.
 | `live_home_control.bridge.state_manual_required` | The action needs manual confirmation instead of HA-visible state | Get that proof layer separately |
 | `live_home_control.bridge.state_unsupported` | The action cannot produce HA-visible state with current metadata | Fix metadata or use another proof layer |
 | `live_home_control.bridge.state_untracked` | The action has no configured expected-effect check | Add/verify metadata before claiming HA-visible state |
-| `live_home_control.bridge.state_mismatch` | Home Assistant state was read but did not match configured expected states | Wait the route interval, verify the action, or run a ticketed restore |
+| `live_home_control.bridge.state_mismatch` | Home Assistant state was read but did not match configured expected states | Wait the route interval, verify the action, or run the route-owned restore if selected |
 | `none` | Startup and action catalog checks passed | Continue only under a separately authorized route |
 
 ## Report Shape
@@ -100,7 +100,7 @@ evidence: short redacted facts only
 next_probe: one concrete next check
 safe_stop: yes/no
 physical_action_executed: yes/no
-action_execution_scope: this_helper_invocation | prior_ticketed_execute | not_applicable
+action_execution_scope: this_helper_invocation | prior_exact_execute | not_applicable
 ```
 
 Keep source/static, no-live readiness, runtime/browser, preview, dry-run,

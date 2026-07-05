@@ -317,7 +317,7 @@
           "id": "thought_core_api.checkout",
           "mode": "auto",
           "type": "path_exists",
-          "path": "control-plane/sword-voice-agent",
+          "path": "control-plane/core",
           "expect": "exists"
         },
         {

@@ -595,8 +595,8 @@ function ConvertTo-OverallStatus {
 }
 
 $centralEnvPath = Resolve-RepoPath "local/env/sword-agent-os.env"
-$controlPlaneEnvPath = Resolve-RepoPath "control-plane/sword-voice-agent/.env"
-$thoughtCoreEnvPath = Resolve-RepoPath "control-plane/sword-voice-agent/services/thought-core/.env"
+$controlPlaneEnvPath = Resolve-RepoPath "control-plane/core/.env"
+$thoughtCoreEnvPath = Resolve-RepoPath "control-plane/core/services/thought-core/.env"
 $homeAssistantEnvPath = Resolve-RepoPath "organs/action/home-assistant-server/.env"
 $centralEnv = Read-DotEnvMap -Path $centralEnvPath
 $controlPlaneEnv = Read-DotEnvMap -Path $controlPlaneEnvPath

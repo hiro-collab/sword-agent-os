@@ -1,5 +1,5 @@
 param(
-  [string]$ControlPlaneRoot = "control-plane/sword-voice-agent",
+  [string]$ControlPlaneRoot = "control-plane/core",
   [string]$TurnId = "turn_conscious_ready_probe",
   [string]$SessionId = "agent_os_readiness",
   [switch]$IncludeEvents

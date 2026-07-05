@@ -119,7 +119,7 @@ explicit switches:
 
 Those switches are operator assertions for the demo preflight. They are not
 Home Control `/actions` proof, physical device proof, user-heard audio proof
-for another route, or release/readiness approval.
+for another route, or release/readiness claim.
 
 ## 止める前に見る
 
@@ -147,7 +147,7 @@ Use this only for launcher-owned runtime children in the selected profile. Use
 
 This writes the local hold marker `.cache\agent-os\control\hold-live.json`.
 It is a safe-local control marker only. It does not execute Home Assistant,
-providers, browser, camera, or device routes, and it is not an approval bypass.
+providers, browser, camera, or device routes, and it is not a live-authority bypass.
 See `runtime/control/README.md` for the control vocabulary.
 
 ## Home Assistant を外部環境につなぐ

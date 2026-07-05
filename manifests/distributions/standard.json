@@ -59,13 +59,13 @@
     "targets": [
       {
         "id": "control-plane",
-        "template_path": "control-plane/sword-voice-agent/.env.example",
-        "target_path": "control-plane/sword-voice-agent/.env"
+        "template_path": "control-plane/core/.env.example",
+        "target_path": "control-plane/core/.env"
       },
       {
         "id": "thought-core",
-        "template_path": "control-plane/sword-voice-agent/services/thought-core/.env.example",
-        "target_path": "control-plane/sword-voice-agent/services/thought-core/.env"
+        "template_path": "control-plane/core/services/thought-core/.env.example",
+        "target_path": "control-plane/core/services/thought-core/.env"
       },
       {
         "id": "home-assistant-server",
@@ -94,7 +94,7 @@
   "dependencies": [
     {
       "id": "control-plane",
-      "path": "control-plane/sword-voice-agent",
+      "path": "control-plane/core",
       "command": ["uv", "sync"]
     },
     {

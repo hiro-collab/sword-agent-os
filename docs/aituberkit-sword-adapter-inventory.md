@@ -22,7 +22,7 @@ serving this source.
 | --- | --- | --- |
 | Ordinary runtime user | use the prepared runtime install/start path and simple local configuration notes | `_codex`, `coordination`, `worktrees`, fork comparison, patch scripts, DOM/proof jargon, live hardware checks |
 | OS operator / integrator | configure local runtime pieces, `.env.example` rendering, Thought Core endpoint, avatar/display/camera/Home Assistant readiness, bounded sanitized proof | publishing raw captures, raw logs, private paths, `.env` values, or calling optional live checks public proof |
-| OS developer / module developer | maintain upstream delta inventory, adapter/patchset versioning, contract tests, exact source slices, and dry-run patch planning after approval | treating developer workspace, patch commands, or coordination outputs as ordinary runtime setup |
+| OS developer / module developer | maintain upstream delta inventory, adapter/patchset versioning, contract tests, exact source slices, and dry-run patch planning after exact route selection | treating developer workspace, patch commands, or coordination outputs as ordinary runtime setup |
 
 ## Proof Levels
 

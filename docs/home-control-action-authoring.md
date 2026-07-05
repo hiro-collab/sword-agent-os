@@ -1,7 +1,7 @@
 # Home Control Action Authoring
 
 This page describes how to author Home Control rows. It is configuration
-guidance, not live execution approval.
+guidance, not live execution authority.
 
 Each action row should state:
 
@@ -11,7 +11,7 @@ Each action row should state:
 | `state_authority` | Which source can read current state, if any |
 | `verification.mode` | `ha_state`, `external_observation`, `command_ack_only`, or another explicit proof mode |
 | `proof_ceiling` | The highest claim this row can support |
-| `live_test_candidate` / `live_test_readiness` | Whether this row can enter a bounded live ticket |
+| `live_test_candidate` / `live_test_readiness` | Route metadata for bounded Home Assistant execution |
 | `restore_action_id`, `stop_action_id`, or `terminal_action` | How the target returns to a safe/original state |
 | `live_test_blockers` | Exact setup, restore, stop, or safety gaps |
 

@@ -67,4 +67,4 @@ screenshots/media, provider payloads, tokens, or device secrets.
 Use `audio_awareness_summary.json` only as a compact summary authority packet.
 It is observation context, not command authority, action authority,
 browser-visible playback proof, user-heard proof, physical/device proof,
-release readiness, or final RR003 approval.
+release readiness, or final RR003 claim.

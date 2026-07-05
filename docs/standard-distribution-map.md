@@ -204,7 +204,7 @@ camera / browser / microphone / local input
 
 | Organ | Role | Local target |
 | --- | --- | --- |
-| control plane | Thought Core / system control | `control-plane/sword-voice-agent/` |
+| control plane | Thought Core / system control | `control-plane/core/` |
 | `ai-talk-core` | speech input | `organs/speech-input/ai-talk-core/` |
 | `mediapipe-sword-sign` | reflex / gesture | `organs/reflex/mediapipe-sword-sign/` |
 | `environment-state-server` | environment state | `organs/environment/environment-state-server/` |

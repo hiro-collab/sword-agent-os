@@ -156,8 +156,8 @@ function New-NoProviderChildProvenanceDiagnostics {
   )
   $processClasses = Read-ProcessEnvClassMap -Names $trackedNames
   $centralEnvClasses = Read-DotEnvClassMap -Path (Join-Path $Workspace "local\env\sword-agent-os.env") -Names $trackedNames
-  $controlPlaneEnvClasses = Read-DotEnvClassMap -Path (Join-Path $Workspace "control-plane\sword-voice-agent\.env") -Names $trackedNames
-  $thoughtCoreServiceEnvClasses = Read-DotEnvClassMap -Path (Join-Path $Workspace "control-plane\sword-voice-agent\services\thought-core\.env") -Names $trackedNames
+  $controlPlaneEnvClasses = Read-DotEnvClassMap -Path (Join-Path $Workspace "control-plane\core\.env") -Names $trackedNames
+  $thoughtCoreServiceEnvClasses = Read-DotEnvClassMap -Path (Join-Path $Workspace "control-plane\core\services\thought-core\.env") -Names $trackedNames
 
   $launchManagerClasses = [ordered]@{}
   $startScriptClasses = [ordered]@{}
@@ -218,7 +218,7 @@ function New-NoProviderChildProvenanceDiagnostics {
     "same_class_or_single_source"
   }
 
-  $sourceRoot = Join-Path $Workspace "control-plane\sword-voice-agent\services\thought-core\src\thought_core"
+  $sourceRoot = Join-Path $Workspace "control-plane\core\services\thought-core\src\thought_core"
   $inputUnderstandingPath = Join-Path $sourceRoot "input_understanding.py"
   $loopPath = Join-Path $sourceRoot "loop.py"
   $serverPath = Join-Path $sourceRoot "server.py"

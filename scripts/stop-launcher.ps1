@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$target = Join-Path $RepoRoot "control-plane\sword-voice-agent\ops\scripts\home-control-stack\stop-home-control-launcher.ps1"
+$target = Join-Path $RepoRoot "control-plane\core\ops\scripts\home-control-stack\stop-home-control-launcher.ps1"
 
 if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
   throw "Launcher stop delegate not found: $target"

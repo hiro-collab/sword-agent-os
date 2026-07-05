@@ -25,7 +25,7 @@ Use these terms consistently:
 | --- | --- | --- |
 | `runtime/` | Agent OS substrate responsibilities and authorities used by ordinary operation: memory, event journal, status, process registry, routers, action boundary, action catalog, organ drivers, organ test packs | `runtime/memory-core/`, `runtime/event-journal/`, `runtime/action-boundary/` |
 | `organs/` | Concrete capability modules or external organs. Many are runnable servers/apps, but their primary category is capability responsibility | `organs/action/home-assistant-server/`, `organs/environment/vision-snapshot-processor/`, `organs/expression/aituber-kit/` |
-| `services` | Execution/process shape: an independently launched server, worker, UI, bridge, or adapter. A service can live under `organs/` or `control-plane/`; do not add a top-level `services/` directory just to satisfy the name | Thought Core under `control-plane/sword-voice-agent/services/thought-core`; Home Control bridge under `organs/action/home-assistant-server/` |
+| `services` | Execution/process shape: an independently launched server, worker, UI, bridge, or adapter. A service can live under `organs/` or `control-plane/`; do not add a top-level `services/` directory just to satisfy the name | Thought Core under `control-plane/core/services/thought-core`; Home Control bridge under `organs/action/home-assistant-server/` |
 | `manifests/services/` | Data describing selected runnable/observable services for a profile | `manifests/services/standard.json` |
 
 Therefore, an organ can be a service, but not every service lives under a
@@ -45,7 +45,7 @@ See also:
 
 | Path | Owner / module | Classification |
 | --- | --- | --- |
-| `control-plane/sword-voice-agent/tests/` | Control plane / Thought Core | Module-local Python tests. Keep Thought Core trace/candidate helper tests here unless the Thought Core service test root is intentionally moved. |
+| `control-plane/core/tests/` | Control plane / Thought Core | Module-local Python tests. Keep Thought Core trace/candidate helper tests here unless the Thought Core service test root is intentionally moved. |
 | `manifests/tests/` | Agent OS manifests | Cross-module test manifest index and organ test pack declarations. |
 | `manifests/tests/organ-test-packs/standard.json` | Agent OS manifests / Test-QA / integration | Standard black-box organ capability pack. |
 | `organs/action/home-assistant-server/tests/` | Home Control action organ | Module-local bridge/config/API tests. |
@@ -59,7 +59,6 @@ See also:
 | `organs/expression/tts-service/tests/` | TTS expression organ | Module-local TTS tests. |
 | `organs/reflex/mediapipe-sword-sign/tests/` | Camera/Gesture reflex organ | Module-local camera/gesture tests. |
 | `organs/speech-input/ai-talk-core/smoke_test.py` | Speech input organ | Module-local smoke script. Accept as existing style; if this organ becomes project-owned, consider wrapping or moving under a local `tests/` directory. |
-| `organs/voice/ai-talk-core/smoke_test.py` | Voice/input legacy organ | Module-local smoke script. Accept as existing style; if this organ becomes project-owned, consider wrapping or moving under a local `tests/` directory. |
 
 Raw filesystem searches may also find tests under `.venv`, `.uv-cache`,
 `.cache`, `node_modules`, or other generated dependency trees. Those are not
@@ -137,7 +136,7 @@ module-local ignore rule for `*.db`, `*.sqlite`, `*.sqlite3`, `*.db-wal`,
 `*.db-shm`, and generated evidence directories.
 
 Thought Core trace and memory-candidate helper tests remain under
-`control-plane/sword-voice-agent/tests/` because they test Thought Core service
+`control-plane/core/tests/` because they test Thought Core service
 artifact shapes such as `thought_core_turn_trace.v0` and proposal-only
 `memory_candidate.v0`. Durable commit, protected/deletable classes, forgetting,
 retrieval indexes, and SQLite persistence belong to Memory Core tests.

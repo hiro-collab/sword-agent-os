@@ -21,7 +21,7 @@ local machine paths in tracked files.
 | アバターの visible-motion を見たい | Projection Visual / Self Mirror starter profile | `examples/starter-profiles/projection-visual/README.md` |
 | Home Assistant を外部環境につなぎたい | `HOME_ASSISTANT_TOKEN`, `HOME_CONTROL_API_TOKEN`, `HOME_CONTROL_CONFIG`, full-schema action row | `docs/home-assistant-setup.md` |
 | 操作できる家電動作を増やしたい | local input から生成される `home-control.yaml` の action row | `docs/add-home-device.md`、`docs/home-control-action-authoring.md` |
-| 実際の家電が動いた証拠を取りたい | 範囲を決めた live ticket と route result | `docs/live-home-control-proof.md` |
+| 実際の家電が動いた証拠を取りたい | 範囲を決めた exact live route と route result | `docs/live-home-control-proof.md` |
 | 家電操作を止めておきたい | `.\sword.ps1 hold-live` local marker | `runtime/control/README.md` |
 | 起動状態を見たい | `.\sword.ps1 status` | `docs/operate.md` |
 | 壊れていないか確認したい | `.\sword.ps1 verify` | `docs/operate.md` |

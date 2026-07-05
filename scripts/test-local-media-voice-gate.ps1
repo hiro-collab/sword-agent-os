@@ -26,7 +26,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$VoiceAgentRoot = Join-Path $RepoRoot "control-plane\sword-voice-agent"
+$VoiceAgentRoot = Join-Path $RepoRoot "control-plane\core"
 
 function Get-OptionalProperty {
   param(

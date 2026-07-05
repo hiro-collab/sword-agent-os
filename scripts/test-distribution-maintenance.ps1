@@ -376,7 +376,7 @@ function Get-TestLayoutSourceFiles {
   }
 
   $excludedRelativeRoots = @(
-    "control-plane\sword-voice-agent",
+    "control-plane\core",
     "organs\speech-input\ai-talk-core",
     "organs\reflex\mediapipe-sword-sign",
     "organs\environment\environment-state-server",
@@ -444,9 +444,8 @@ function Test-TestLayoutPolicy {
 
   $testNamePattern = "^(test_.+\.py|.+_test\.py|smoke_test\.py|.+\.(test|spec)\.(ts|tsx|js|jsx|mjs))$"
   $allowedSegments = @("tests", "__tests__", "test")
-  $legacyExceptions = @(
-    "organs\speech-input\ai-talk-core\smoke_test.py",
-    "organs\voice\ai-talk-core\smoke_test.py"
+  $layoutExceptions = @(
+    "organs\speech-input\ai-talk-core\smoke_test.py"
   )
   $violations = @()
   $warnings = @()
@@ -458,8 +457,8 @@ function Test-TestLayoutPolicy {
       [System.IO.Path]::DirectorySeparatorChar,
       [System.IO.Path]::AltDirectorySeparatorChar
     )
-    if ($legacyExceptions -contains $relativePath) {
-      $warnings += "legacy test-layout exception: $relativePath"
+    if ($layoutExceptions -contains $relativePath) {
+      $warnings += "test-layout exception: $relativePath"
       continue
     }
     $segments = $relativePath -split "[\\/]"
@@ -532,7 +531,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $frontDoorSurface -Pattern "health_config_error" -Message "front-door docs should define live Home Control health config-error behavior"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "actions_unavailable" -Message "front-door docs should define live Home Control action-unavailable safe stop behavior"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "preview\s*/\s*dry-run\s*/\s*execute|preview, dry-run, execute" -Message "front-door docs should require preview before live execute"
-  Assert-TextMatch -Text $frontDoorSurface -Pattern "Use this ladder|live ticket|Live Home Control proof" -Message "front-door docs should provide a canonical live proof ladder without requiring OpenAPI discovery"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "Use this ladder|exact live route|Live Home Control proof" -Message "front-door docs should provide a canonical live proof ladder without requiring OpenAPI discovery"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "-Force[\s\S]{0,260}home-control\.yaml|home-control\.yaml[\s\S]{0,260}-Force" -Message "front-door docs should warn that render-env-files -Force regenerates home-control.yaml"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "/actions/<allowed-action-id>/preview" -Message "front-door docs should show a concrete preview route shape"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "dry-run execute only when the route shape explicitly includes it" -Message "front-door docs should constrain dry-run execute behavior"
@@ -552,9 +551,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $bridgeHelper -Pattern "HOME_ASSISTANT_TOKEN" -Message "Home Control bridge helper should classify Home Assistant token readiness"
   Assert-TextMatch -Text $bridgeHelper -Pattern "CheckTracking" -Message "Home Control bridge helper should provide a redacted state-tracking metadata mode"
   Assert-TextMatch -Text $bridgeHelper -Pattern "live_test_readiness" -Message "Home Control bridge helper should report live-test readiness"
-  Assert-TextMatch -Text $bridgeHelper -Pattern "live_test_blockers" -Message "Home Control bridge helper should report exact live-test blockers"
+  Assert-TextMatch -Text $bridgeHelper -Pattern "live_test_blockers" -Message "Home Control bridge helper should report live-test blocker classes"
   Assert-TextMatch -Text $bridgeHelper -Pattern "restore_action" -Message "Home Control bridge helper should report restore action classes"
-  Assert-TextMatch -Text $bridgeHelper -Pattern "safety_requirements" -Message "Home Control bridge helper should report safety requirement classes"
+  Assert-TextNotMatch -Text $bridgeHelper -Pattern "safety_requirement:" -Message "Home Control bridge helper should not turn legacy appliance requirements into blockers"
   Assert-TextMatch -Text $bridgeHelper -Pattern "CheckState" -Message "Home Control bridge helper should provide a redacted state-check mode"
   Assert-TextMatch -Text $bridgeHelper -Pattern "bridge_start: status=starting" -Message "Home Control bridge helper should print startup status"
   Assert-TextMatch -Text $bridgeHelper -Pattern "UV_CACHE_DIR" -Message "Home Control bridge helper should use a local uv cache without changing persistent environment"
@@ -628,11 +627,11 @@ function Test-ReadmeFirstRunGuidance {
   $cameraBrightnessHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\measure-camera-brightness.py")
   Assert-TextMatch -Text $switchBotInspectHelper -Pattern 'ha_service_call = "no"' -Message "SwitchBot read-only helper should not perform HA service calls"
   Assert-TextMatch -Text $switchBotInspectHelper -Pattern "live_test_readiness" -Message "SwitchBot read-only helper should report live-test readiness"
-  Assert-TextMatch -Text $switchBotInspectHelper -Pattern "safety_requirement" -Message "SwitchBot read-only helper should report safety requirement blockers"
+  Assert-TextNotMatch -Text $switchBotInspectHelper -Pattern "safety_requirement:" -Message "SwitchBot read-only helper should not report legacy appliance requirement blockers"
   Assert-TextMatch -Text $cameraBrightnessHelper -Pattern "raw_media_saved" -Message "camera brightness helper should report raw media is not saved"
   Assert-TextMatch -Text $cameraBrightnessHelper -Pattern "cv2\.VideoCapture" -Message "camera brightness helper should use OpenCV without writing frames"
   Assert-TextMatch -Text $verificationSurface -Pattern "default_safety=no-live/no-device" -Message "public verification docs should state the full verification helper default safety"
-  Assert-TextMatch -Text $frontDoorSurface -Pattern "RequestLiveHomeAssistant[\s\S]{0,320}ConfirmHomeAssistantTicket|ConfirmHomeAssistantTicket[\s\S]{0,320}RequestLiveHomeAssistant" -Message "front-door docs should require explicit live HA request and ticket confirmation"
+  Assert-TextMatch -Text $frontDoorSurface -Pattern "RequestLiveHomeAssistant[\s\S]{0,320}AllowedActionId|AllowedActionId[\s\S]{0,320}RequestLiveHomeAssistant" -Message "front-door docs should require explicit live HA request and action id"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "local-media replay" -Message "front-door docs should name local-media replay as a separate proof layer"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "gesture\.sword\.20260603" -Message "front-door docs should show the sword-sign positive local media asset id"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "vision\.room_light\.on\.20260603" -Message "front-door docs should show the room-light local media asset id"
@@ -818,7 +817,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $fullInstallHelper -Pattern "SecretInputsRoot" -Message "full install helper should forward a separate secret inputs root"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "<secret-inputs>" -Message "full install helper should redact separate secret inputs root paths"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestLiveHomeAssistant" -Message "full install helper should require explicit live HA request"
-  Assert-TextMatch -Text $fullInstallHelper -Pattern "ConfirmHomeAssistantTicket" -Message "full install helper should require live HA ticket confirmation"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern "AllowedActionId" -Message "full install helper should require live HA action id"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "git_unreadable" -Message "full install helper should separate git_unreadable from true pin mismatch"
   Assert-TextMatch -Text $fullInstallHelper -Pattern 'raw_audio_shared = \$false' -Message "full install helper should keep raw audio unshared"
   Assert-TextMatch -Text $fullInstallHelper -Pattern 'live_action_executed = \$false' -Message "full install helper should not execute live actions"
@@ -834,9 +833,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $voicevoxHelper -Pattern "StartIfNeeded" -Message "VOICEVOX helper should require explicit startup request"
   Assert-TextMatch -Text $voicevoxHelper -Pattern "installed_or_updated_voicevox" -Message "VOICEVOX helper should report that it did not install or update VOICEVOX"
   Assert-TextMatch -Text $voicevoxHelper -Pattern "global_audio_changed_by_script" -Message "VOICEVOX helper should report that it did not change global audio"
-  Assert-PathPresent -Path (Join-Path $RepoRoot "control-plane\sword-voice-agent\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
+  Assert-PathPresent -Path (Join-Path $RepoRoot "control-plane\core\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\test-local-media-voice-gate.ps1")
-  $voiceGateHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "control-plane\sword-voice-agent\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
+  $voiceGateHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "control-plane\core\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
   $voiceGateWrapper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\test-local-media-voice-gate.ps1")
   Assert-TextMatch -Text $voiceGateHelper -Pattern "FORBIDDEN_OUTPUT_KEYS" -Message "voice-gate proof helper should maintain a blocked output key list"
   Assert-TextMatch -Text $voiceGateHelper -Pattern "transcript_bucket" -Message "voice-gate proof helper should bucket transcript length instead of printing text"
@@ -1745,11 +1744,11 @@ function Test-RouteAParentNoLiveUxStatic {
   $swordPath = Join-Path $RepoRoot "sword.ps1"
   Assert-PathPresent -Path $swordPath
   $sword = Get-Content -Raw -LiteralPath $swordPath
-  Assert-TextMatch -Text $sword -Pattern 'ValidateSet\("status", "verify", "doctor", "start", "stop", "hold-live", "ladder"\)' -Message "sword.ps1 should expose the approved front-door commands"
+  Assert-TextMatch -Text $sword -Pattern 'ValidateSet\("status", "verify", "doctor", "start", "stop", "hold-live", "ladder"\)' -Message "sword.ps1 should expose the supported front-door commands"
   Assert-TextMatch -Text $sword -Pattern "default_safety=no-live/no-device" -Message "sword.ps1 should advertise no-live/no-device default safety"
   Assert-TextMatch -Text $sword -Pattern "source-static-command-preview" -Message "sword.ps1 start/stop should default to command preview"
   Assert-TextMatch -Text $sword -Pattern 'live_home_assistant_actions_allowed = \$false' -Message "hold-live should not authorize Home Assistant actions"
-  Assert-TextMatch -Text $sword -Pattern 'approval_bypass_allowed = \$false' -Message "hold-live should not create an approval bypass"
+  Assert-TextMatch -Text $sword -Pattern 'approval_bypass_allowed = \$false' -Message "hold-live should not create a live-authority bypass"
 
   $install = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\install-distribution.ps1")
   Assert-TextMatch -Text $install -Pattern "Dry run: planning only" -Message "install dry-run should say it is planning only"
@@ -2524,9 +2523,9 @@ function New-NativeLaunchWorkspaceFixture {
     "organs\reflex\mediapipe-sword-sign\scripts",
     "organs\display\touchdesigner-ai-controller\tools",
     "organs\speech-input\ai-talk-core",
-    "control-plane\sword-voice-agent\scripts",
-    "control-plane\sword-voice-agent\src\sword_voice_agent\apps",
-    "control-plane\sword-voice-agent\services\thought-core"
+    "control-plane\core\scripts",
+    "control-plane\core\src\sword_voice_agent\apps",
+    "control-plane\core\services\thought-core"
   )
   foreach ($relativePath in $paths) {
     New-Item -ItemType Directory -Force -Path (Join-Path $Root $relativePath) | Out-Null
@@ -2537,7 +2536,7 @@ function New-NativeLaunchWorkspaceFixture {
     "HOME_CONTROL_API_TOKEN=",
     "ENVIRONMENT_API_TOKEN="
   ) -Encoding utf8
-  Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\.env") -Value @(
+  Set-Content -LiteralPath (Join-Path $Root "control-plane\core\.env") -Value @(
     "THOUGHT_CORE_LLM_MODE=off",
     "THOUGHT_CORE_TOOLS_ADAPTER=mock # no-live fixture"
   ) -Encoding utf8
@@ -2551,9 +2550,9 @@ function New-NativeLaunchWorkspaceFixture {
   Set-Content -LiteralPath (Join-Path $Root "organs\environment\vision-snapshot-processor\src\vision_snapshot_processor\main.py") -Value "" -Encoding utf8
   Set-Content -LiteralPath (Join-Path $Root "organs\display\touchdesigner-ai-controller\tools\server.js") -Value "" -Encoding utf8
   Set-Content -LiteralPath (Join-Path $Root "organs\expression\aituber-kit\public\vrm\fixture.vrm") -Value "fixture" -Encoding utf8
-  Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\scripts\start-thought-core.ps1") -Value "" -Encoding utf8
-  Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\scripts\start-thought-core-watch.ps1") -Value "" -Encoding utf8
-  Set-Content -LiteralPath (Join-Path $Root "control-plane\sword-voice-agent\src\sword_voice_agent\apps\watch_handoff_to_thought_core.py") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "control-plane\core\scripts\start-thought-core.ps1") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "control-plane\core\scripts\start-thought-core-watch.ps1") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "control-plane\core\src\sword_voice_agent\apps\watch_handoff_to_thought_core.py") -Value "" -Encoding utf8
 }
 
 function Remove-FixtureSubtree {
@@ -2693,7 +2692,7 @@ function Test-NativeLaunchLayoutFixtures {
 
     $partialControlWorkspace = Join-Path $root "partial-control-plane"
     New-NativeLaunchWorkspaceFixture -Root $partialControlWorkspace
-    Remove-FixtureSubtree -Workspace $partialControlWorkspace -RelativePath "control-plane\sword-voice-agent"
+    Remove-FixtureSubtree -Workspace $partialControlWorkspace -RelativePath "control-plane\core"
     $partialControlOutput = Invoke-Checked -Command @(
       $PowerShellCommand,
       "-NoProfile",

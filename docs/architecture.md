@@ -20,8 +20,8 @@ recently failed. It should be organized around six stable planes:
 | --- | --- | --- | --- |
 | Front Door | Safe first commands and user entry points | `README.md`, `docs/operate.md`, `sword.ps1` | Internal proof ladders, private config values, broad script reference |
 | Configuration | Local inputs, selected profiles, provider/model choices, Home Assistant config selection | `docs/local-configuration.md`, `docs/home-assistant-setup.md`, templates under `templates/` and organ `.env.example` files | Live permission, proof claims, raw secrets in tracked files |
-| Runtime Control | Stop/hold/pause/approval vocabulary and marker semantics | `runtime/control/README.md`, `sword.ps1 hold-live` | Complete service-level enforcement until readers exist and are tested |
-| Proof And Verification | What each check proves and does not prove | `docs/proof-layers.md`, `docs/live-home-control-proof.md`, verification reports | Physical proof from HA state alone, release/readiness approval |
+| Runtime Control | Stop/hold/pause/live-authority vocabulary and marker semantics | `runtime/control/README.md`, `sword.ps1 hold-live` | Complete service-level enforcement until readers exist and are tested |
+| Proof And Verification | What each check proves and does not prove | `docs/proof-layers.md`, `docs/live-home-control-proof.md`, verification reports | Physical proof from HA state alone, release/readiness claim |
 | Module / Organ Architecture | Where code belongs, how nested organs are selected/pinned, and how system-readable reference surfaces are contracted | `docs/module-usage-index.md`, `docs/reference-surfaces.md`, `manifests/`, `contracts/`, `runtime/` | User-facing quick-start or private coordination history |
 | Coordination / Governance | Review routing, role messages, temporary decisions, handoffs | workspace-level `coordination/shared`, `governance/` for durable product decisions | Product source behavior unless adopted through exact product diff |
 

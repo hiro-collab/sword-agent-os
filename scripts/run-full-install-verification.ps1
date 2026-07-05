@@ -16,7 +16,6 @@ param(
   [switch]$RequestVirtualAudio,
   [switch]$RequestGestureGate,
   [switch]$RequestLiveHomeAssistant,
-  [switch]$ConfirmHomeAssistantTicket,
   [string]$AllowedActionId = "",
   [string]$RestoreActionId = "",
   [string]$ExpectedStateAfterAllowed = "",
@@ -226,13 +225,9 @@ function Add-HeldLayer {
   Add-Layer -Id $Id -Name $Name -Status "held" -ProofLayer $ProofLayer -Detail $Detail -KnownGaps $KnownGaps
 }
 
-function Test-TicketComplete {
+function Test-LiveHomeAssistantRouteFields {
   $missing = @()
-  if (-not $ConfirmHomeAssistantTicket) { $missing += "ConfirmHomeAssistantTicket" }
   if ([string]::IsNullOrWhiteSpace($AllowedActionId)) { $missing += "AllowedActionId" }
-  if ([string]::IsNullOrWhiteSpace($RestoreActionId)) { $missing += "RestoreActionId" }
-  if ([string]::IsNullOrWhiteSpace($ExpectedStateAfterAllowed)) { $missing += "ExpectedStateAfterAllowed" }
-  if ([string]::IsNullOrWhiteSpace($ExpectedStateAfterRestore)) { $missing += "ExpectedStateAfterRestore" }
   if ($MaxPhysicalActions -gt 2) { $missing += "MaxPhysicalActions<=2" }
   return [PSCustomObject]@{
     complete = ($missing.Count -eq 0)
@@ -475,8 +470,8 @@ else {
 Add-HeldLayer -Id "FIV-11" -Name "STT heard sample vs Thought Core interpreted sample" -ProofLayer "runtime/thought-core-boundary" -Detail "held by default; feed redacted STT and Thought Core diagnostics through the voice-gate collector"
 
 if ($RequestLiveHomeAssistant) {
-  $ticket = Test-TicketComplete
-  if ($ticket.complete) {
+  $routeFields = Test-LiveHomeAssistantRouteFields
+  if ($routeFields.complete) {
     Add-CommandLayer `
       -Id "FIV-12a" `
       -Name "Home Assistant bridge preflight" `
@@ -487,23 +482,23 @@ if ($RequestLiveHomeAssistant) {
       -FailureDetail "Home Assistant bridge preflight failed" | Out-Null
     Add-CommandLayer `
       -Id "FIV-12b" `
-      -Name "Home Assistant allowed action state tracking / live-readiness metadata" `
+      -Name "Home Assistant allowed action state tracking metadata" `
       -ProofLayer "home-assistant/state-tracking" `
       -ScriptName "start-home-control-bridge.ps1" `
       -Arguments @("-CheckTracking", "-ActionId", $AllowedActionId) `
-      -PassDetail "allowed action state-tracking and live-readiness metadata check completed; no physical action executed" `
-      -FailureDetail "allowed action state-tracking/live-readiness metadata check failed" | Out-Null
-    Add-HeldLayer -Id "FIV-12c" -Name "Post-action Home Assistant state confirmation" -ProofLayer "home-assistant/post-action-state-check" -Detail "held until a ticketed execute/wait or restore/wait has occurred"
-    Add-Layer -Id "FIV-13" -Name "Ticketed physical action plus restore" -Status "blocked" -ProofLayer "home-assistant/live-ticketed" -Detail "ticket fields are complete, but this helper intentionally does not execute physical actions; use the documented preview/dry-run/execute ladder under a single live owner"
+      -PassDetail "allowed action state-tracking metadata check completed; no physical action executed" `
+      -FailureDetail "allowed action state-tracking metadata check failed" | Out-Null
+    Add-HeldLayer -Id "FIV-12c" -Name "Post-action Home Assistant state check" -ProofLayer "home-assistant/post-action-state-check" -Detail "held until an exact execute/wait route has occurred"
+    Add-Layer -Id "FIV-13" -Name "Home Assistant exact action execution" -Status "held" -ProofLayer "home-assistant/exact-live-route" -Detail "this install helper intentionally does not execute appliance actions; use a selected exact Home Assistant route for live command submission"
   }
   else {
-    Add-Layer -Id "FIV-12" -Name "Home Assistant health / preview / dry-run" -Status "blocked" -ProofLayer "home-assistant/dry-run-preflight" -Detail ("live HA requested but ticket fields are incomplete: {0}" -f ($ticket.missing -join ", "))
-    Add-Layer -Id "FIV-13" -Name "Ticketed physical action plus restore" -Status "held" -ProofLayer "home-assistant/live-ticketed" -Detail "physical action held until action/restore ids, expected states, max count, and stop conditions are supplied"
+    Add-Layer -Id "FIV-12" -Name "Home Assistant health / metadata preflight" -Status "blocked" -ProofLayer "home-assistant/preflight" -Detail ("live HA requested but route fields are incomplete: {0}" -f ($routeFields.missing -join ", "))
+    Add-Layer -Id "FIV-13" -Name "Home Assistant exact action execution" -Status "held" -ProofLayer "home-assistant/exact-live-route" -Detail "execution is handled by a selected exact Home Assistant route, not by this install helper"
   }
 }
 else {
   Add-HeldLayer -Id "FIV-12" -Name "Home Assistant health / preview / dry-run" -ProofLayer "home-assistant/dry-run" -Detail "held by default; request with -RequestLiveHomeAssistant for preflight only"
-  Add-HeldLayer -Id "FIV-13" -Name "Ticketed physical action plus restore" -ProofLayer "home-assistant/live-ticketed" -Detail "held by default; physical action is never executed without a complete ticket"
+  Add-HeldLayer -Id "FIV-13" -Name "Home Assistant exact action execution" -ProofLayer "home-assistant/exact-live-route" -Detail "held by default; live command submission belongs to a selected exact Home Assistant route"
 }
 
 Add-HeldLayer -Id "FIV-14" -Name "Physical/state confirmation" -ProofLayer "physical-state-confirmation" -Detail "held until a specific confirmation method is opened"

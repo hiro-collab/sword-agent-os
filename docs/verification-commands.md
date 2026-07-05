@@ -133,7 +133,7 @@ When replaying local media, do not share raw media, frames, audio, transcripts,
 or private absolute paths. Gesture positive replay, gesture contrast
 false-positive checks, and room-light on/off replay are local-media replay
 proof. Gesture-to-voice gate, STT/input, Thought Core turn, real camera, real
-mic, browser runtime, and ticketed live appliance action are separate proof
+mic, browser runtime, and exact live appliance action are separate proof
 layers and should be reported separately.
 
 ## Optional / Full Install Verification Helper
@@ -160,16 +160,14 @@ pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestRealCa
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestVoicevoxStartup
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestVirtualAudio
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestGestureGate
+pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -RequestLiveHomeAssistant -AllowedActionId <allowed-action-id>
 pwsh -NoProfile -File .\scripts\run-full-install-verification.ps1 -WorkspaceRoot <fresh-clone-root> -SecretInputsRoot <private-secret-inputs-root>
 ```
 
-`-RequestLiveHomeAssistant` is not permission for physical action. Physical
-action requires explicit ticket confirmation such as
-`-ConfirmHomeAssistantTicket`, plus action id, restore id, expected state, max
-count, and stop conditions. If those inputs are missing, the helper holds the
-lane. Even when they are present, this helper does not directly execute physical
-appliance action. It reports Home Assistant preflight and state-check readiness,
-then points to the separate live-owner ladder for actual execution.
+`-RequestLiveHomeAssistant` opens the Home Assistant proof layer. Use an exact
+action id, max count, and stop condition for the route. The helper keeps command
+submission, HA-visible state, and physical/device proof as separate outputs; it
+does not add an extra safety approval loop before ordinary appliance commands.
 
 `git_unreadable` is not the same as a true source pin mismatch. Recheck in the
 normal user context before treating it as source drift.
@@ -233,7 +231,7 @@ missing, keep that row `held` instead of weakening the test.
 ## Optional / Home Control Live Proof
 
 Do not keep live or physical proof recipes in this general command reference.
-Use `docs/live-home-control-proof.md` for the ticketed ladder, and keep command
+Use `docs/live-home-control-proof.md` for the exact-route ladder, and keep command
 submission, HA-visible state, external observation, and physical proof as
 separate rows.
 
@@ -253,10 +251,10 @@ pwsh -NoProfile -File .\scripts\inspect-home-control-switchbot-surfaces.ps1 -Jso
 Default output hides raw entity ids and current state values. Use it to classify
 whether a SwitchBot curtain-style door can be mapped to
 `verification.position.current_position`, and whether a SwitchBot vacuum can be
-mapped to HA-visible start/pause/return states. The helper also reports the
-configured `live_test_readiness`, restore/stop classes, safety blockers, and
-proof ceiling for each target row. Do not treat these read-only surface checks
-as physical obstruction, floor/path safety, or physical device success proof.
+mapped to HA-visible start/pause/return states. The helper reports
+`live_test_readiness`, restore/stop classes, and proof ceiling as route metadata,
+not as appliance-operation gates. Do not treat these read-only surface
+checks as physical device success proof.
 
 ## Optional / Runtime-Browser
 
@@ -272,5 +270,5 @@ camera images, screenshots, and audio are local-only.
 ## Live Caution
 
 For any live action that can affect real appliances, define the target, number
-of executions, interval, stop condition, and restore path before executing. Do
-not start with broad appliance fuzzing or long-running appliance operation.
+of executions, interval, and stop condition before executing. Do not start with
+broad appliance fuzzing or long-running appliance operation.

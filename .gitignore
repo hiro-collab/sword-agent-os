@@ -4,9 +4,7 @@
 /sword-agent-os/
 
 # Nested organ implementation checkouts
-/sword-control-plane/
-/control-plane/sword-voice-agent/
-/organs/voice/
+/control-plane/core/
 /organs/speech-input/ai-talk-core/
 /organs/reflex/mediapipe-sword-sign/
 /organs/environment/environment-state-server/
