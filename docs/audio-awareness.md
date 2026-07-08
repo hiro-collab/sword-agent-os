@@ -38,6 +38,19 @@ source/static `self_output_event_ref`, `playback_event_ref`, and
 `transcript_summary_ref` null unless a later reviewed route changes that
 contract.
 
+## User Speech Handoff
+
+When speech is classified as user speech, Audio Awareness must not block it
+before Thought Core because of what the user said. Command-like, appliance-like,
+emotional, offensive, risky, or otherwise meaningful content belongs to Thought
+Core / Soft Core for meaning and response handling.
+
+Valid pre-Thought-Core holds are source/provenance and contract boundaries:
+system self-output, not-user source, ambiguous source, recognizer failure or
+unusable confidence, missing required candidate/session fields, and shared
+publication risks. Shared artifacts may still redact live/private text while a
+private Thought Core handoff carries accepted user speech.
+
 ## Proof Layers
 
 Keep these layers separate in reports and preflight output:

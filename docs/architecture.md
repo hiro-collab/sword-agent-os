@@ -8,8 +8,16 @@ proof reports. It names which file owns each concern so a fresh operator,
 developer, or review thread does not need private chat history to understand
 the system.
 
-This is not a release-readiness claim, live Home Assistant authorization, or
+This is not a release-readiness claim, live Home Assistant operation proof, or
 physical-device proof. It is an information architecture and maintenance guide.
+
+Sword Agent OS is an AI-agent execution basis for a local PC and surrounding
+real-world services. Its stable loop is: perceive human input and environment
+state, route accepted input to Thought Core / Soft Core, produce response and
+operation requests, project state and intention through avatar/display/TTS,
+observe results, feed the result back into later judgment, inspect its own
+configuration/state, and preserve memory. It is not organized as only a
+chatbot, appliance tool, avatar app, MCP server, or script collection.
 
 ## Design Verdict
 
@@ -19,7 +27,7 @@ recently failed. It should be organized around six stable planes:
 | Plane | Owns | Primary source of truth | Must not own |
 | --- | --- | --- | --- |
 | Front Door | Safe first commands and user entry points | `README.md`, `docs/operate.md`, `sword.ps1` | Internal proof ladders, private config values, broad script reference |
-| Configuration | Local inputs, selected profiles, provider/model choices, Home Assistant config selection | `docs/local-configuration.md`, `docs/home-assistant-setup.md`, templates under `templates/` and organ `.env.example` files | Live permission, proof claims, raw secrets in tracked files |
+| Configuration | Local inputs, selected profiles, provider/model choices, Home Assistant config selection | `docs/local-configuration.md`, `docs/home-assistant-setup.md`, templates under `templates/` and organ `.env.example` files | Live operation scope, proof claims, raw secrets in tracked files |
 | Runtime Control | Stop/hold/pause/live-authority vocabulary and marker semantics | `runtime/control/README.md`, `sword.ps1 hold-live` | Complete service-level enforcement until readers exist and are tested |
 | Proof And Verification | What each check proves and does not prove | `docs/proof-layers.md`, `docs/live-home-control-proof.md`, verification reports | Physical proof from HA state alone, release/readiness claim |
 | Module / Organ Architecture | Where code belongs, how nested organs are selected/pinned, and how system-readable reference surfaces are contracted | `docs/module-usage-index.md`, `docs/reference-surfaces.md`, `manifests/`, `contracts/`, `runtime/` | User-facing quick-start or private coordination history |
@@ -27,6 +35,20 @@ recently failed. It should be organized around six stable planes:
 
 If a new document or script crosses more than two planes, it is a design smell.
 Either split it or make the cross-plane handoff explicit.
+
+## Route Roles
+
+Keep these route roles separate:
+
+| Route role | Purpose | Must not imply |
+| --- | --- | --- |
+| Human operator route | A person installs, starts, stops, observes, or selects a bounded live action. | Runtime-required ChatGPT/Codex, release readiness, or broad physical proof. |
+| AI-agent runtime route | The running system handles accepted input, state, response, action request, feedback, and memory. | Maintainer authority, source/Git adoption, or public artifact publication. |
+| Maintainer / Codex inspection route | A developer or reviewer inspects, repairs, tests, or writes source/static evidence. | Runtime user intent, live device proof, or final readiness. |
+
+ChatGPT/Codex belong to the maintainer/inspection role unless an exact future
+route explicitly makes a product runtime integration. Product docs should not
+require private coordination history to distinguish these roles.
 
 <!-- architecture:front-door-thinning-rule -->
 ## Front Door Thinning Rule
@@ -108,9 +130,9 @@ proof-layer requirements that typical web-app patterns do not cover.
 | --- | --- | --- |
 | Front door | The small safe entry surface for first operators: `status`, `verify`, `doctor`, `start`, `stop`, `hold-live` | `README.md`, `docs/operate.md`, `sword.ps1` |
 | no-live | A mode or route that does not submit provider calls, Home Assistant actions, browser/camera operations, or physical-device mutations | `docs/operate.md`, `docs/proof-layers.md` |
-| live | A scoped route that can submit a mutation or external operation after explicit review/ticket bounds | `docs/live-home-control-proof.md` |
+| live | A scoped route that can submit a mutation or external operation under exact target/action/count/evidence bounds | `docs/live-home-control-proof.md` |
 | selected config context | The actual env/profile/config path selected by the current workspace or worktree after render | `docs/home-assistant-setup.md` |
-| full-schema config | Home Control action rows with command binding plus verification metadata: expected effect, verification mode, proof ceiling, timing, restore/stop/safety metadata | `docs/home-control-action-authoring.md`, `docs/home-assistant-setup.md` |
+| full-schema config | Home Control action rows with command binding plus verification metadata: expected effect, verification mode, proof ceiling, timing, restore, stop, and observation metadata | `docs/home-control-action-authoring.md`, `docs/home-assistant-setup.md` |
 | short/minimal action-only override | A config useful for command-shape or ack-only checks, not for HA-visible CheckState proof | `docs/home-assistant-setup.md` |
 | reviewed clone-local equivalent | A redacted, clone-local full-schema config package or equivalent approved for that exact fresh clone/worktree context | `docs/home-assistant-setup.md` |
 | CheckTracking | Pre-execution metadata check: whether an action row is tracked and testable for a later proof layer | `docs/proof-layers.md`, `docs/home-control-action-authoring.md` |
@@ -118,7 +140,7 @@ proof-layer requirements that typical web-app patterns do not cover.
 | proof layer | A named evidence ceiling such as source/static, no-live readiness, preview, dry-run, command submission, HA-visible CheckState, external observation, or physical/device proof | `docs/proof-layers.md` |
 | route | A bounded task packet with target, allowed actions, counts, stop conditions, evidence fields, and non-claims | `docs/live-home-control-proof.md` |
 | reference surface | A contracted machine-readable value, packet, or map that Thought Core, diagnostics, review tools, or source code can read without private chat history | `docs/reference-surfaces.md`, `contracts/` |
-| ticket | Explicit live-route authority for one bounded target/action scope. It is not inferred from config, docs, or readiness | `docs/live-home-control-proof.md` |
+| ticket | Explicit live-route scope for one bounded target/action/evidence packet. It is not inferred from config, docs, or readiness | `docs/live-home-control-proof.md` |
 | HOLD_LIVE | A local marker and route gate that keeps live work out of scope until a later exact route opens it | `runtime/control/README.md` |
 | release-ready | A final product/readiness classification after required evidence and reviews, not a synonym for install/pass/local smoke | future release/readiness docs plus review packets |
 
@@ -208,5 +230,5 @@ These references informed the structure above:
 - Microsoft command-line design guidance: https://learn.microsoft.com/en-us/dotnet/standard/commandline/design-guidance
 
 Use these as pressure tests. Do not import a pattern when it would collapse
-Sword-specific proof layers, local-device safety, or private Home Assistant
+Sword-specific proof layers, local-device evidence boundaries, or private Home Assistant
 boundaries.

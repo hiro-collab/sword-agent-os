@@ -205,7 +205,9 @@ against these shapes at the boundary.
   should follow `docs/reference-surfaces.md`: schema in `contracts/`, concrete
   owner-local surface with `schema_version` and `contract_ref`, then code
   reader.
-- Legacy names belong in compatibility aliases, not in primary ids.
+- Legacy names should be migrated, forbidden, or deleted from current primary
+  ids. If a temporary compatibility alias is unavoidable, it must be explicitly
+  marked as such and must not become the current source of truth.
 - Contracts should avoid local paths, secrets, raw logs, raw prompts, raw media,
   or unredacted user content.
 - Environment evidence packet `subject` values must be stable redacted labels
@@ -214,6 +216,10 @@ against these shapes at the boundary.
   backslash separators in `subject` or `scope.subjects`.
 - Thought Core should consume compact environment evidence packets instead of
   raw Home Assistant/camera dumps when reasoning about current state.
+- Thought Core / Soft Core response content is the canonical source for both
+  conversation bubble text and TTS provider input. Contracts that describe
+  display or speech output should preserve that shared authority instead of
+  letting each surface independently choose response text.
 - Policy switches that choose between conflicting source layers must be explicit
   and traceable through an operation/event reference.
 - Confirmation loops for home actions must not silently re-operate. The RR-001

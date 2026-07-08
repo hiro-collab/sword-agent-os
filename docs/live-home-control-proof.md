@@ -2,6 +2,12 @@
 
 Live Home Control proof requires a bounded exact route. Do not infer proof from
 README examples, local config, or a successful no-live readiness check.
+When an exact route has selected target, action, count, command path, and
+evidence rows, ordinary Home Assistant appliance operation does not need a
+separate manager confirmation loop. Block only on concrete technical failure,
+unclear target/action, unavailable bridge/tool/config/credential, raw/private
+publication risk, non-route persistent mutation, or false
+readiness/final/proof-upgrade claims.
 
 A live route should name:
 
@@ -45,6 +51,12 @@ regenerate tokens, or perform a second live submit outside the selected route.
 For lights or fans that do not expose trustworthy current state, do not claim
 HA-state proof. Use command acknowledgement and an opened external/physical
 observation route if needed.
+
+Toggle-only devices should not be rewritten as deterministic `turn_on` or
+`turn_off` proof. Report the submitted command class and the opened observation
+layer. For example, a light can use camera-derived brightness movement if that
+observation route is selected; a fan can remain command-submission-only when no
+reliable observation method exists.
 
 For climate, cover/door, and vacuum targets with readable HA state, report the
 state class, freshness class, and proof ceiling. State visibility is still not

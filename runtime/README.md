@@ -1,8 +1,14 @@
 # Runtime
 
-Runtime contains Agent OS orchestration pieces such as routers, status store,
-process registry, event journal, communication governance, memory core, and
-approval queue.
+Runtime contains Agent OS orchestration pieces for the running AI-agent loop:
+routers, status store, process registry, event journal, communication
+governance, memory core, and review-state queues.
+
+The runtime path is distinct from human operator setup and maintainer/Codex
+inspection. It carries accepted input, state, response content, action requests,
+feedback, and memory through contracted boundaries. It should not depend on
+private coordination messages, and it should not treat maintainer review
+language as normal runtime permission logic.
 
 ## Standard Components
 
@@ -31,7 +37,10 @@ approval queue.
 - `communication-governance/`: observes and controls organ-to-organ
   communication boundaries.
 - `memory-core/`: owns durable memory semantics and forgetting.
-- `approval-queue/`: owns review-required approval state.
+- `approval-queue/`: owns review-required approval state where a selected
+  route or policy really requires review; it is not a routine permission loop
+  for ordinary Home Assistant actions that already have an exact technical
+  route.
 
 Initial runtime work is documentation-first. Implementations should grow from
 these boundaries and from the standard profile.

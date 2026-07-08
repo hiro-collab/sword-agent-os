@@ -1,24 +1,34 @@
 # Sword Agent OS
 
-Sword Agent OS は、PC上でエージェントを動かすためのローカルシステムです。
-会話、音声入力、アバター表示、状態確認、Home Assistant 経由の家電操作を
-ひとつの流れとして扱います。
+Sword Agent OS は、PC上でAIエージェントを動かすためのローカル実行基盤です。
+会話、音声入力、アバター表示、状態確認、Home Assistant 経由の家電操作、
+結果フィードバック、自己状態の点検、記憶をひとつの流れとして扱います。
 
 <!-- front-door:system-at-a-glance -->
 ## 何のシステムか
 
 Sword Agent OS は、ローカルPCを中心にした「声、身振り、思考、表示、環境状態、
-家電操作」をつなぐエージェント実行基盤です。クラウドサービス単体ではなく、
-PC上の control-plane と複数の organ を組み合わせて、人間の入力、エージェントの
-判断、アバターやHUDへの表示、Home Assistant 連携、確認レポートを安全に分けて扱います。
+家電操作、結果フィードバック、自己点検、記憶」をつなぐAIエージェント実行基盤です。
+クラウドサービス単体、チャットボット単体、家電操作ツール単体、アバター画面単体、
+MCPサーバー単体、スクリプト集ではありません。PC上の control-plane と複数の organ を
+組み合わせて、人間の入力、エージェントの判断、アバターやHUDへの表示、Home Assistant
+連携、確認レポートを層ごとに分けて扱います。
 
 ![Projection Visual のアバター表示、状態HUD、会話バブル、入力欄](docs/assets/readme/projection-visual-example-1.png)
 
 上の画面が、人に見える代表的な姿です。中央のアバター、左右の状態HUD、
 会話バブル、下部の入力欄を同じ Projection Visual 上で扱います。
 
-内側では、人間の声、身振り、UI入力を Thought Core / control-plane が受け、
-Expression organ がアバター、Projection Visual、TTSに返します。環境状態や
+内側では、人間の声、身振り、UI入力を recognizer / input gate が受け、
+Thought Core / Soft Core が会話内容や判断を決め、Expression organ が
+アバター、Projection Visual、会話バブル、TTSに返します。Thought Core /
+Soft Core が決めた応答文が、バブルとTTSの正本です。両者がずれる場合は、
+どちらか一方を正しい表示として選ぶのではなく、表示面が別の権威を読んでいる
+不具合として扱います。
+
+人間が操作する導入/確認ルート、AIエージェントが実行中に使う runtime ルート、
+Codex などの保守者が点検/修復する inspection ルートは別です。ChatGPT/Codex は
+保守と検査の例であり、runtime が動くための必須部品ではありません。環境状態や
 Home Control / Home Assistant 連携は別の境界として扱い、確認レポートや
 proof layer は「何を確認したか」を分けて残します。
 
@@ -70,7 +80,8 @@ Home Assistant、実家電操作は勝手に動きません。
   画像、動画、文字起こし全文は Git に入れないでください。
 - Home Assistant の状態が一致していることと、実物が物理的に動いたことは
   別の確認です。
-- 家電操作は、対象、回数、確認方法を決めた上で、必要な時だけ実行します。
+- 家電操作は、対象、回数、確認方法を決めた exact route で実行し、命令送信、
+  HA上の状態、外部観測、物理的な動きは分けて記録します。
 - 公開版として使えるかどうかは、別途レビューが必要です。
 - 制限付き環境で clone や dependency download が止まる場合は、必要な
   install command だけ network permission を許可して再実行します。
@@ -171,7 +182,7 @@ operator-confirmed switch、proof boundary は `docs/operate.md` と
 
 ## Home Control
 
-Home Control は、誤操作を避けるために範囲を決めて扱います。設定は
+Home Control は、対象と確認範囲を決めた exact route として扱います。設定は
 `docs/home-assistant-setup.md`、操作追加は `docs/add-home-device.md`、
 live route と proof wording は `docs/live-home-control-proof.md` を見てください。
 Home Assistant の状態一致だけを、物理的に動いた証拠へ変換しないでください。
