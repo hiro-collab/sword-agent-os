@@ -230,7 +230,7 @@ against these shapes at the boundary.
   expression weights or bucketed rig-track changes. It must not be used as Self
   Mirror pass, expression-visible pass, semantic expression correctness,
   physical/projector proof, ROI/threshold authority, command authority, or
-  release/readiness/final RR003 approval.
+  release/readiness/final RR003 claim.
 - VRM bone/basis telemetry must stay opt-in, off by default, bounded,
   summary-first, and based on relative monotonic elapsed timing. Shared output
   should use normalized/shared pose or bucket classes, not raw BVH, full
