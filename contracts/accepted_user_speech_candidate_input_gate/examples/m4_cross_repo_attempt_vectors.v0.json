@@ -1,0 +1,144 @@
+{
+  "schema_version": "m4_cross_repo_attempt_vectors.v0",
+  "fixture_kind": "non_schema_test_vectors",
+  "fixture_scope": "parent_cross_repo_attempt_join_harness_only",
+  "canonical_conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef",
+  "invalid_conversation_attempt_refs": {
+    "colonless": "m4.prepared_sample_attempt0123456789abcdef0123456789abcdef",
+    "uppercase": "m4.prepared_sample_attempt:0123456789ABCDEF0123456789abcdef",
+    "wrong_prefix": "m4.other_attempt:0123456789abcdef0123456789abcdef",
+    "short": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcde",
+    "long": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef0",
+    "unsafe": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef/",
+    "whitespace": " m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef"
+  },
+  "accepted_user_speech_candidate": {
+    "schema_version": "accepted_user_speech_candidate_input_gate.v0",
+    "candidate_id": "ausc_m4_prepared_sample_vector_001",
+    "proof_layer": "source_static_contract_test_only",
+    "candidate_route": "prepared_sample_browser_stt",
+    "source_kind": "prepared_local_audio_sample",
+    "speaker_role": "user_candidate",
+    "recognition_summary": {
+      "source_label": "voice.local_sample_001",
+      "recognition_summary_ref": "event:prepared_sample_recognition_summary_001",
+      "recognition_summary_class": "stable_browser_stt_prepared_sample",
+      "recognized_text_class": "present_curated_prepared_sample",
+      "recognized_text_length_bucket": "short",
+      "language_bucket": "ja",
+      "confidence_bucket": "high",
+      "raw_text_in_shared_artifact": false
+    },
+    "text_publication": {
+      "text_publication_policy": "prepared_sample_text_allowed",
+      "text_provenance_class": "prepared_local_sample_set",
+      "expected_sample_text": "こんにちは",
+      "recognized_text": "こんにちは",
+      "content_match_text": "こんにちは",
+      "non_sample_or_live_text_policy": "protected_or_redacted"
+    },
+    "input_gate": {
+      "input_gate_decision_owner": "ai_talk_core_input_gate",
+      "input_gate_decision_class": "accepted_user_speech_candidate",
+      "normal_turn_block_reason": null
+    },
+    "acceptance_decision": {
+      "acceptance_status": "accepted_user_speech_candidate",
+      "may_materialize_thought_core_turninput": true,
+      "private_text_handoff_required": true,
+      "shared_artifact_contains_text": true,
+      "thought_core_turninput_materialized": false,
+      "thought_core_turninput_count": 0,
+      "thought_core_turninput_ref": null,
+      "turn_materialization_route": "separate_private_runtime_handoff_required"
+    },
+    "raw_private_publication_flags": false
+  },
+  "private_turn": {
+    "text": null,
+    "text_representation": "legacy_no_speech_placeholder_not_publicly_representable_in_parent_fixture",
+    "turn_id": "turn_m4_vector_synthetic_001",
+    "session_id": "session_m4_vector_synthetic_001",
+    "locale": "ja-JP",
+    "context_refs": {
+      "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef"
+    }
+  },
+  "assistant_event": {
+    "type": "assistant.message",
+    "data": {
+      "speech": "synthetic assistant response",
+      "conversation_attempt_ref": "injected:not_authoritative"
+    },
+    "expected_conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef",
+    "injected_ref_must_be_stripped_or_replaced": true
+  },
+  "join_contract": {
+    "required_row_names": [
+      "recognition",
+      "input_gate",
+      "thought_core_turninput",
+      "canonical_assistant_response",
+      "bubble",
+      "tts",
+      "bubble_tts_parity",
+      "self_mirror_observation",
+      "self_output_session_correlation",
+      "user_heard"
+    ],
+    "correlation_basis": "conversation_attempt_ref_only",
+    "correlation_inference_prohibited_from": [
+      "text",
+      "message_id",
+      "turn_id",
+      "session_id"
+    ],
+    "cases": {
+      "valid_all_rows": {
+        "rows": [
+          { "row_name": "recognition", "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef" },
+          { "row_name": "input_gate", "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef" },
+          { "row_name": "thought_core_turninput", "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef" },
+          { "row_name": "canonical_assistant_response", "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef" },
+          { "row_name": "bubble", "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef" },
+          { "row_name": "tts", "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef" },
+          { "row_name": "bubble_tts_parity", "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef" },
+          { "row_name": "self_mirror_observation", "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef" },
+          { "row_name": "self_output_session_correlation", "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef" },
+          { "row_name": "user_heard", "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef" }
+        ],
+        "expected_result": "pass"
+      },
+      "missing_row": {
+        "missing_row_name": "user_heard",
+        "rows_from_case": "valid_all_rows_without_user_heard",
+        "expected_result": "fail"
+      },
+      "mismatched_ref": {
+        "row_name": "tts",
+        "conversation_attempt_ref": "m4.prepared_sample_attempt:fedcba9876543210fedcba9876543210",
+        "expected_result": "fail"
+      }
+    }
+  },
+  "ait_source_vectors": {
+    "chat": {
+      "source_kind": "chat",
+      "source_ref": "event:ait_chat_001",
+      "assistant_event_id": "evt_ait_chat_001",
+      "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef"
+    },
+    "passive": {
+      "source_kind": "passive",
+      "source_ref": "event:ait_passive_001",
+      "assistant_event_id": "evt_ait_passive_001",
+      "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef"
+    },
+    "operator": {
+      "source_kind": "operator",
+      "source_ref": "event:ait_operator_001",
+      "assistant_event_id": "evt_ait_operator_001",
+      "conversation_attempt_ref": "m4.prepared_sample_attempt:0123456789abcdef0123456789abcdef"
+    }
+  }
+}
