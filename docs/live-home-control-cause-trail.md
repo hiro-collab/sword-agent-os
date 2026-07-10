@@ -46,6 +46,12 @@ means the row can enter a bounded exact Home Assistant route. `missing_action`
 is the concrete technical blocker; `not_live_test_candidate` is only legacy
 metadata and must not stop a user-selected exact action route by itself.
 
+`live_test_blockers` reports concrete setup, restore, stop, or proof
+limitations; it is not an approval queue. The compatibility `unsafe-ticket`
+cause kind currently means a state or tracking diagnostic omitted its required
+action id. Fix that request metadata; do not wait for standing manager or
+security approval.
+
 For cover/door actions with readable position attributes, state alone is not
 enough. A matched row must satisfy the configured `verification.position`
 threshold as well as the accepted state.
@@ -70,19 +76,19 @@ threshold as well as the accepted state.
 | `live_home_control.bridge.state_action_missing` | State check was requested without an action id | Rerun with `-CheckState -ActionId <allowed-action-id>` |
 | `live_home_control.bridge.state_tracking_action_missing` | Tracking metadata check was requested without an action id | Rerun with `-CheckTracking -ActionId <allowed-action-id>` |
 | `live_home_control.bridge.state_tracking_untracked` | The action has no explicit state-check metadata | Add a proof-ready row or keep the action out of HA-visible state claims |
-| `live_home_control.bridge.state_tracking_external_required` | The action is intentionally verified outside HA-visible state | Use the separately authorized external/manual route |
+| `live_home_control.bridge.state_tracking_external_required` | The action is intentionally verified outside HA-visible state | Select the external or manual observation proof layer for this route |
 | `live_home_control.bridge.state_tracking_ack_only` | The action can only prove command acceptance/submission | Do not claim current appliance state |
 | `live_home_control.bridge.state_tracking_manual_required` | The action needs manual confirmation | Stop unless the route includes that proof layer |
 | `live_home_control.bridge.state_tracking_unsupported` | The action declares an unsupported verification mode | Fix metadata or use another proof layer |
 | `live_home_control.bridge.state_unavailable` | The bridge could not read redacted Home Assistant state | Check bridge auth/availability, then rerun `-CheckState` |
 | `live_home_control.bridge.state_position_unavailable` | State was readable, but required position was absent/non-numeric | Check target position support and route wait window |
-| `live_home_control.bridge.state_external_required` | The action needs external observation instead of HA-visible state | Use the separately authorized observation route |
+| `live_home_control.bridge.state_external_required` | The action needs external observation instead of HA-visible state | Select the external observation proof layer for this route |
 | `live_home_control.bridge.state_ack_only` | The action can only prove command acknowledgement | Do not claim appliance state |
 | `live_home_control.bridge.state_manual_required` | The action needs manual confirmation instead of HA-visible state | Get that proof layer separately |
 | `live_home_control.bridge.state_unsupported` | The action cannot produce HA-visible state with current metadata | Fix metadata or use another proof layer |
 | `live_home_control.bridge.state_untracked` | The action has no configured expected-effect check | Add/verify metadata before claiming HA-visible state |
 | `live_home_control.bridge.state_mismatch` | Home Assistant state was read but did not match configured expected states | Wait the route interval, verify the action, or run the route-owned restore if selected |
-| `none` | Startup and action catalog checks passed | Continue only under a separately authorized route |
+| `none` | Startup and action catalog checks passed | Continue within the selected bounded route and its proof ceiling |
 
 ## Report Shape
 

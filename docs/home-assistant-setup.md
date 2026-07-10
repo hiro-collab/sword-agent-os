@@ -25,7 +25,7 @@ Do not treat connection alone as proof-ready setup. A short action-only config
 can make an action visible and still be unable to prove state.
 
 For HA-visible `CheckState` proof, the selected config must be a full-schema
-private/live config or a reviewed clone-local equivalent.
+private/live config or a validated clone-local equivalent.
 
 ## First-Time Flow
 
@@ -77,17 +77,21 @@ If `-Force` regenerates the public demo/default `home-control.yaml`, reapply the
 private/live full-schema config after the render step. This is the most common
 place where fresh clones accidentally fall back to demo or minimal config.
 
-## Required Config Context
+## Config And Proof Context
 
-Before any preview, dry-run, or live submit, confirm the selected config class.
+Before command submission, confirm the selected workspace and config, bridge
+availability, credentials, and action id. Full-schema verification metadata and
+`-CheckTracking` are required only when the route claims HA-visible
+`CheckState` proof; they are not standing permission gates for preview,
+dry-run, or command submission.
 
 | Checkpoint | Must be true | Stop if |
 | --- | --- | --- |
 | Selected workspace | The bridge is running from the clone/worktree being tested | You are looking at another workspace's bridge or stale port |
 | Selected config | `HOME_CONTROL_CONFIG` points at the intended local/private config | It points at demo/default/template config |
-| Full-schema row | The action row has command binding and verification metadata | It is only a short action/script mapping |
-| Expected effect | The row names the target state surface and accepted result | The script exists but the target state is absent or guessed |
-| Tracking gate | `-CheckTracking` returns tracked/testable readiness for this action | It returns `ack_only`, `external_required`, unavailable, or a blocker |
+| Full-schema row for HA-visible proof | The action row has command binding and verification metadata | HA-visible proof is requested from only a short action/script mapping |
+| Expected effect for HA-visible proof | The row names the target state surface and accepted result | The script exists but the claimed target state is absent or guessed |
+| Tracking metadata for HA-visible proof | `-CheckTracking` returns tracked/testable readiness for this action | The result is `ack_only`, `external_required`, unavailable, or a blocker and the route still claims HA-visible state |
 | State proof | `-CheckState` is used after execute/wait or restore/wait for action-result proof | A pre-command current-state read is used as live-effect proof |
 
 ## Full-Schema Action Row
@@ -135,11 +139,13 @@ actions:
 But it is not enough for HA-visible `CheckState` proof. The bridge can submit or
 preview the action, but it cannot know which Home Assistant state should prove
 success. In that case `CheckTracking` should hold the route at an `ack_only` or
-configuration-blocked ceiling.
+configuration-blocked proof ceiling. That classification does not block
+preview, dry-run, or command submission when their technical prerequisites are
+otherwise satisfied.
 
 If a fresh clone has only this minimal private config, do not guess the target
 from Home Assistant registry contents or old coordination notes. Provide a
-private ignored full-schema override or reviewed clone-local equivalent.
+private ignored full-schema override or validated clone-local equivalent.
 
 ## Fresh Clones And Git Worktrees
 
@@ -154,12 +160,12 @@ Safe handoff pattern:
 2. Copy or generate a private full-schema config inside the clone/worktree.
 3. Select it with `HOME_CONTROL_CONFIG`.
 4. Render/reapply local config.
-5. Run read-only gates before live work.
+5. Run the read-only diagnostics needed by the selected proof scope.
 
 Never commit raw Home Assistant entity ids, script ids, tokens, private URLs,
 raw logs, screenshots, or local absolute paths.
 
-## Read-Only Gates
+## Read-Only Diagnostics
 
 Start the bridge only for the selected workspace/config and check in this order:
 
@@ -181,7 +187,8 @@ pwsh -NoProfile -File .\scripts\start-home-control-bridge.ps1 -CheckState -Actio
 
 `CheckTracking` answers whether the action row is proof-ready.
 `CheckState` reads Home Assistant state. A pre-command `CheckState` read is a
-current-state gate, not action-result proof.
+current-state check, not action-result proof. Neither helper grants or withholds
+permission to submit an otherwise valid command.
 
 ## Live Route Boundary
 
@@ -195,6 +202,13 @@ Live Home Assistant work uses a bounded exact route. The route should name:
 - stop conditions;
 - proof ceiling;
 - whether external or physical observation is in scope.
+
+Once that exact scope is selected, ordinary Home Assistant operation does not
+wait on a standing manager or security reapproval loop. Stop on concrete
+technical failure, raw/private publication risk, irreversible non-Home-
+Assistant mutation outside the selected route, or a false proof/readiness
+claim. Selecting external or physical observation changes the evidence layer;
+it is not a second command-permission gate.
 
 Use `docs/live-home-control-proof.md` for the exact-route ladder and proof wording.
 

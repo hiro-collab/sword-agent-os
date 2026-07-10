@@ -11,9 +11,9 @@ Each action row should state:
 | `state_authority` | Which source can read current state, if any |
 | `verification.mode` | `ha_state`, `external_observation`, `command_ack_only`, or another explicit proof mode |
 | `proof_ceiling` | The highest claim this row can support |
-| `live_test_candidate` / `live_test_readiness` | Route metadata for bounded Home Assistant execution |
+| `live_test_candidate` / `live_test_readiness` | Compatibility metadata describing whether a bounded Home Assistant route has the required technical shape; not permission authority |
 | `restore_action_id`, `stop_action_id`, or `terminal_action` | How the target returns to a safe/original state |
-| `live_test_blockers` | Exact setup, restore, stop, or safety gaps |
+| `live_test_blockers` | Exact technical setup, restore, stop, or proof limitations; not approval state |
 
 Use `verification.mode: ha_state` only when Home Assistant can read the target
 state. For remote-control or toggle-only devices whose state stays unknown, use
@@ -22,6 +22,11 @@ state. For remote-control or toggle-only devices whose state stays unknown, use
 
 For command-only actions, use `state_authority: submitted_only` and
 `verification.mode: command_ack_only`.
+
+The current schema may also carry `safety_requirements` for compatibility. Keep
+that field until a separate schema migration removes it, but do not treat its
+presence, absence, or prose as a standing permission blocker for ordinary
+command submission.
 
 ## Full-Schema Rows vs Minimal Overrides
 
@@ -36,15 +41,15 @@ full-schema row. A full-schema row includes:
 - `expected_effect` with the target state surface
 - `proof_ceiling`
 - `restore_action_id`, `stop_action_id`, or `terminal_action` when required
-- `live_test_candidate` and readiness metadata when the row can enter a live
-  ticket
+- `live_test_candidate` and readiness metadata when the row can enter a bounded
+  live route
 
 A short/minimal action-only override is not wrong by itself, but it is an
 ack-only or command-shape context. It must not be used to claim tracked
-Home Assistant state proof, because the bridge has no reviewed target state
-surface to compare. If a route needs a fresh clone or Git worktree to verify a
-real appliance, pass a private ignored full-schema override or a reviewed
-clone-local equivalent into that checkout and verify that the selected context
+Home Assistant state proof, because the bridge has no configured readable
+target state surface to compare. If a route needs a fresh clone or Git worktree
+to verify a real appliance, pass a private ignored full-schema override or a
+validated clone-local equivalent into that checkout and verify that the context
 is not demo/default/template.
 
 The bridge should never guess a target entity just to make `CheckState` green.
