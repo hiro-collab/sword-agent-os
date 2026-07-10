@@ -5,7 +5,7 @@ param(
   [int]$FollowupSamples = 5,
   [double]$IntervalSeconds = 1.0,
   [int]$ManualChangeWindowSeconds = 8,
-  [double]$MaterialProbabilityDelta = 0.15,
+  [double]$MaterialCueLikelihoodDelta = 0.15,
   [int]$TimeoutSeconds = 4,
   [switch]$SkipManualChange,
   [switch]$DryRun,
@@ -218,6 +218,67 @@ function ConvertTo-NullableDouble {
   }
 }
 
+function ConvertTo-NullableInt64 {
+  param([object]$Value)
+
+  if ($null -eq $Value) {
+    return $null
+  }
+  if ($Value -is [string] -and $Value -notmatch "^-?\d+$") {
+    return $null
+  }
+  try {
+    $number = [Int64]$Value
+    if ($Value -is [double] -or $Value -is [single] -or $Value -is [decimal]) {
+      if ([double]$Value -ne [double]$number) {
+        return $null
+      }
+    }
+    return $number
+  }
+  catch {
+    return $null
+  }
+}
+
+function Test-IsFiniteDouble {
+  param([object]$Value)
+
+  $number = ConvertTo-NullableDouble -Value $Value
+  if ($null -eq $number) {
+    return $false
+  }
+  return -not [double]::IsNaN($number) -and -not [double]::IsInfinity($number)
+}
+
+function Test-CanonicalJsonNumber {
+  param([object]$Value)
+
+  if ($null -eq $Value -or $Value -is [bool]) {
+    return $false
+  }
+  if ($Value -isnot [sbyte] -and $Value -isnot [byte] -and $Value -isnot [int16] -and $Value -isnot [uint16] -and $Value -isnot [int32] -and $Value -isnot [uint32] -and $Value -isnot [int64] -and $Value -isnot [uint64] -and $Value -isnot [single] -and $Value -isnot [double] -and $Value -isnot [decimal]) {
+    return $false
+  }
+  $number = [double]$Value
+  return -not [double]::IsNaN($number) -and -not [double]::IsInfinity($number)
+}
+
+function Test-CanonicalJsonInteger {
+  param([object]$Value)
+
+  if (-not (Test-CanonicalJsonNumber -Value $Value)) {
+    return $false
+  }
+  return $null -ne (ConvertTo-NullableInt64 -Value $Value)
+}
+
+function Test-CanonicalRoomLightIdentifier {
+  param([object]$Value)
+
+  return $Value -is [string] -and -not [string]::IsNullOrWhiteSpace($Value) -and $Value -match "^[\x21-\x7E]{1,160}$"
+}
+
 function Get-SourceSummary {
   param(
     [object]$Sources,
@@ -280,41 +341,154 @@ function Get-SourceSummary {
 function Get-RoomLightSummary {
   param([object]$Payload)
 
-  $stateQueries = Get-ObjectProperty -Object $Payload -Name "state_queries"
-  $roomLight = Get-ObjectProperty -Object $stateQueries -Name "room_light"
+  $vision = Get-ObjectProperty -Object $Payload -Name "vision"
+  $roomLight = Get-ObjectProperty -Object $vision -Name "room_light"
   if ($null -eq $roomLight) {
-    return [PSCustomObject]@{
-      available = $false
-      stale = $true
-      state = "unknown"
-      confidence_label = "none"
-      electric_on_probability = $null
-      daylight_present_probability = $null
-      dark_probability = $null
-      updated_at = ""
-      source_snapshot_id = ""
-      freshness_level = "stale"
-      evidence = "missing"
+    return $null
+  }
+
+  $cueLikelihoods = Get-ObjectProperty -Object $roomLight -Name "cue_likelihoods"
+  $freshness = Get-ObjectProperty -Object $roomLight -Name "freshness"
+
+  return [PSCustomObject]@{
+    type = Get-ObjectProperty -Object $roomLight -Name "type"
+    schema_version = Get-ObjectProperty -Object $roomLight -Name "schema_version"
+    observation_bucket = Get-ObjectProperty -Object $roomLight -Name "observation_bucket"
+    confidence = Get-ObjectProperty -Object $roomLight -Name "confidence"
+    daylight_ambiguity = Get-ObjectProperty -Object $roomLight -Name "daylight_ambiguity"
+    cue_likelihoods = [PSCustomObject]@{
+      warm_light = Get-ObjectProperty -Object $cueLikelihoods -Name "warm_light"
+      daylight = Get-ObjectProperty -Object $cueLikelihoods -Name "daylight"
+      darkness = Get-ObjectProperty -Object $cueLikelihoods -Name "darkness"
+    }
+    source = Get-ObjectProperty -Object $roomLight -Name "source"
+    source_class = Get-ObjectProperty -Object $roomLight -Name "source_class"
+    observed_at = Get-ObjectProperty -Object $roomLight -Name "observed_at"
+    observation_id = Get-ObjectProperty -Object $roomLight -Name "observation_id"
+    source_snapshot_id = Get-ObjectProperty -Object $roomLight -Name "source_snapshot_id"
+    sequence = Get-ObjectProperty -Object $roomLight -Name "sequence"
+    model = Get-ObjectProperty -Object $roomLight -Name "model"
+    freshness = $freshness
+    proof_ceiling = Get-ObjectProperty -Object $roomLight -Name "proof_ceiling"
+    does_not_prove = Get-ObjectProperty -Object $roomLight -Name "does_not_prove"
+  }
+}
+
+function Get-RoomLightCanonicalValidation {
+  param([object]$RoomLight)
+
+  $errors = New-Object System.Collections.Generic.List[string]
+  if ($null -eq $RoomLight) {
+    $errors.Add("missing_room_light")
+  }
+  else {
+    $type = Get-ObjectProperty -Object $RoomLight -Name "type"
+    if ($type -isnot [string] -or $type -cne "room_light_observation") {
+      $errors.Add("type")
+    }
+    $schemaVersion = Get-ObjectProperty -Object $RoomLight -Name "schema_version"
+    if (-not (Test-CanonicalJsonInteger -Value $schemaVersion) -or (ConvertTo-NullableInt64 -Value $schemaVersion) -ne 1) {
+      $errors.Add("schema_version")
+    }
+    $observationBucket = Get-ObjectProperty -Object $RoomLight -Name "observation_bucket"
+    if ($observationBucket -isnot [string] -or $observationBucket -cnotin @("dark", "dim", "balanced", "bright")) {
+      $errors.Add("observation_bucket")
+    }
+
+    foreach ($field in @("confidence")) {
+      $value = Get-ObjectProperty -Object $RoomLight -Name $field
+      if (-not (Test-CanonicalJsonNumber -Value $value) -or $value -lt 0 -or $value -gt 1) {
+        $errors.Add($field)
+      }
+    }
+    $cues = Get-ObjectProperty -Object $RoomLight -Name "cue_likelihoods"
+    foreach ($field in @("warm_light", "daylight", "darkness")) {
+      $value = Get-ObjectProperty -Object $cues -Name $field
+      if (-not (Test-CanonicalJsonNumber -Value $value) -or $value -lt 0 -or $value -gt 1) {
+        $errors.Add("cue_likelihoods_$field")
+      }
+    }
+
+    $daylightAmbiguity = Get-ObjectProperty -Object $RoomLight -Name "daylight_ambiguity"
+    if ($daylightAmbiguity -isnot [string] -or $daylightAmbiguity -cnotin @("low", "medium", "high")) {
+      $errors.Add("daylight_ambiguity")
+    }
+    $source = Get-ObjectProperty -Object $RoomLight -Name "source"
+    if ($source -isnot [string] -or $source -cnotin @("camera_hub", "vision_snapshot_processor")) {
+      $errors.Add("source")
+    }
+    $sourceClass = Get-ObjectProperty -Object $RoomLight -Name "source_class"
+    if ($sourceClass -isnot [string] -or $sourceClass -cne "camera_environment_estimate") {
+      $errors.Add("source_class")
+    }
+
+    $observedAt = Get-ObjectProperty -Object $RoomLight -Name "observed_at"
+    $parsedObservedAt = [DateTimeOffset]::MinValue
+    if ($observedAt -isnot [string] -or [string]::IsNullOrWhiteSpace($observedAt) -or -not [DateTimeOffset]::TryParse($observedAt, [ref]$parsedObservedAt)) {
+      $errors.Add("observed_at")
+    }
+    foreach ($field in @("observation_id", "source_snapshot_id")) {
+      if (-not (Test-CanonicalRoomLightIdentifier -Value (Get-ObjectProperty -Object $RoomLight -Name $field))) {
+        $errors.Add($field)
+      }
+    }
+
+    $sequence = Get-ObjectProperty -Object $RoomLight -Name "sequence"
+    $firstFrameIdValue = Get-ObjectProperty -Object $sequence -Name "first_frame_id"
+    $lastFrameIdValue = Get-ObjectProperty -Object $sequence -Name "last_frame_id"
+    $frameCountValue = Get-ObjectProperty -Object $sequence -Name "frame_count"
+    $temporalWindowMsValue = Get-ObjectProperty -Object $sequence -Name "temporal_window_ms"
+    $firstFrameId = if (Test-CanonicalJsonInteger -Value $firstFrameIdValue) { ConvertTo-NullableInt64 -Value $firstFrameIdValue } else { $null }
+    $lastFrameId = if (Test-CanonicalJsonInteger -Value $lastFrameIdValue) { ConvertTo-NullableInt64 -Value $lastFrameIdValue } else { $null }
+    $frameCount = if (Test-CanonicalJsonInteger -Value $frameCountValue) { ConvertTo-NullableInt64 -Value $frameCountValue } else { $null }
+    $temporalWindowMs = if (Test-CanonicalJsonInteger -Value $temporalWindowMsValue) { ConvertTo-NullableInt64 -Value $temporalWindowMsValue } else { $null }
+    if ($null -eq $sequence) { $errors.Add("sequence") }
+    if ($null -eq $firstFrameId -or $firstFrameId -lt 0) { $errors.Add("first_frame_id") }
+    if ($null -eq $lastFrameId -or $lastFrameId -lt 0 -or ($null -ne $firstFrameId -and $lastFrameId -lt $firstFrameId)) { $errors.Add("last_frame_id") }
+    if ($null -eq $frameCount -or $frameCount -le 0 -or ($null -ne $firstFrameId -and $null -ne $lastFrameId -and $frameCount -gt ($lastFrameId - $firstFrameId + 1))) { $errors.Add("frame_count") }
+    if ($null -eq $temporalWindowMs -or $temporalWindowMs -lt 0) { $errors.Add("temporal_window_ms") }
+
+    $model = Get-ObjectProperty -Object $RoomLight -Name "model"
+    $modelName = Get-ObjectProperty -Object $model -Name "name"
+    if ($modelName -isnot [string] -or $modelName -cne "room-light-heuristic-snapshot-v3") {
+      $errors.Add("model_name")
+    }
+    $modelKind = Get-ObjectProperty -Object $model -Name "kind"
+    if ($modelKind -isnot [string] -or $modelKind -cne "heuristic") {
+      $errors.Add("model_kind")
+    }
+    $proofCeiling = Get-ObjectProperty -Object $RoomLight -Name "proof_ceiling"
+    if ($proofCeiling -isnot [string] -or $proofCeiling -cne "camera_environment_estimate_only") {
+      $errors.Add("proof_ceiling")
+    }
+    $doesNotProve = Get-ObjectProperty -Object $RoomLight -Name "does_not_prove"
+    $requiredNonClaims = @("physical_room_light_state", "home_assistant_light_state")
+    if ($doesNotProve -isnot [System.Collections.IList] -or $doesNotProve.Count -ne $requiredNonClaims.Count) {
+      $errors.Add("does_not_prove")
+    }
+    else {
+      for ($index = 0; $index -lt $requiredNonClaims.Count; $index += 1) {
+        if ($doesNotProve[$index] -isnot [string] -or $doesNotProve[$index] -cne $requiredNonClaims[$index]) {
+          $errors.Add("does_not_prove")
+          break
+        }
+      }
+    }
+
+    $freshness = Get-ObjectProperty -Object $RoomLight -Name "freshness"
+    if ($null -ne $freshness) {
+      $freshnessLevel = Get-ObjectProperty -Object $freshness -Name "level"
+      if ($freshnessLevel -isnot [string] -or $freshnessLevel -cnotin @("fresh", "recent", "stale")) {
+        $errors.Add("freshness")
+      }
     }
   }
 
-  $evidence = Get-ObjectProperty -Object $roomLight -Name "evidence"
-  $freshness = Get-ObjectProperty -Object $roomLight -Name "freshness"
-  $state = [string](Get-ObjectProperty -Object $roomLight -Name "state" -Default "unknown")
-  $confidence = [string](Get-ObjectProperty -Object $roomLight -Name "confidence_label" -Default "none")
-
   return [PSCustomObject]@{
-    available = [bool](Get-ObjectProperty -Object $roomLight -Name "available" -Default $false)
-    stale = [bool](Get-ObjectProperty -Object $roomLight -Name "stale" -Default $true)
-    state = $state
-    confidence_label = $confidence
-    electric_on_probability = ConvertTo-NullableDouble (Get-ObjectProperty -Object $evidence -Name "electric_on_probability")
-    daylight_present_probability = ConvertTo-NullableDouble (Get-ObjectProperty -Object $evidence -Name "daylight_present_probability")
-    dark_probability = ConvertTo-NullableDouble (Get-ObjectProperty -Object $evidence -Name "dark_probability")
-    updated_at = [string](Get-ObjectProperty -Object $roomLight -Name "updated_at" -Default "")
-    source_snapshot_id = [string](Get-ObjectProperty -Object $roomLight -Name "source_snapshot_id" -Default "")
-    freshness_level = [string](Get-ObjectProperty -Object $freshness -Name "level" -Default "")
-    evidence = "summary_only"
+    valid = $errors.Count -eq 0
+    status = if ($errors.Count -eq 0) { "valid" } else { "invalid" }
+    error_count = $errors.Count
+    error_classes = @($errors | Select-Object -Unique)
   }
 }
 
@@ -335,12 +509,14 @@ function New-EnvironmentSample {
   }
   $roomLight = Get-RoomLightSummary -Payload $payload
   $sourceMarker = (@($sourceSummaries.Values | ForEach-Object { "{0}:{1}:{2}" -f $_.label, $_.updated_at, $_.age_ms }) -join "|")
+  $roomLightObservedAt = if ($null -ne $roomLight) { $roomLight.observed_at } else { "" }
+  $roomLightSourceSnapshotId = if ($null -ne $roomLight) { $roomLight.source_snapshot_id } else { "" }
   $advanceMarker = "{0}|{1}|{2}|{3}|{4}" -f `
     (Get-ObjectProperty -Object $payload -Name "sequence" -Default ""), `
     (Get-ObjectProperty -Object $payload -Name "snapshot_id" -Default ""), `
     $sourceMarker, `
-    $roomLight.updated_at, `
-    $roomLight.source_snapshot_id
+    $roomLightObservedAt, `
+    $roomLightSourceSnapshotId
 
   return [PSCustomObject]@{
     phase = $Phase
@@ -408,15 +584,22 @@ function Get-LastOkSample {
 function Get-RoomLightClaim {
   param([object]$RoomLight)
 
-  if ($null -eq $RoomLight -or -not [bool]$RoomLight.available -or [bool]$RoomLight.stale) {
+  $validation = Get-RoomLightCanonicalValidation -RoomLight $RoomLight
+  if (-not [bool]$validation.valid) {
     return "unavailable"
   }
-  $state = ([string]$RoomLight.state).ToLowerInvariant()
-  $confidence = ([string]$RoomLight.confidence_label).ToLowerInvariant()
-  if ($state -notin @("on", "off") -or $confidence -notin @("high")) {
-    return "available-but-not-decisive-camera-light-estimate"
+  $freshness = Get-ObjectProperty -Object $RoomLight -Name "freshness"
+  $freshnessLevel = ([string](Get-ObjectProperty -Object $freshness -Name "level" -Default "")).ToLowerInvariant()
+  if ($freshnessLevel -eq "stale") {
+    return "unavailable"
   }
-  return "camera-light-estimate-high-confidence"
+  $bucket = ([string](Get-ObjectProperty -Object $RoomLight -Name "observation_bucket" -Default "")).ToLowerInvariant()
+  $confidence = ConvertTo-NullableDouble (Get-ObjectProperty -Object $RoomLight -Name "confidence")
+  $daylightAmbiguity = ([string](Get-ObjectProperty -Object $RoomLight -Name "daylight_ambiguity" -Default "")).ToLowerInvariant()
+  if ($bucket -notin @("dark", "dim", "balanced", "bright") -or $null -eq $confidence -or $confidence -lt 0.7 -or $daylightAmbiguity -ne "low") {
+    return "available-but-not-decisive-camera-environment-estimate"
+  }
+  return "camera-environment-estimate-high-confidence"
 }
 
 function Get-RoomLightDelta {
@@ -425,35 +608,60 @@ function Get-RoomLightDelta {
     [object]$After
   )
 
-  if ($null -eq $Before -or $null -eq $After) {
+  $beforeValidation = Get-RoomLightCanonicalValidation -RoomLight $Before
+  $afterValidation = Get-RoomLightCanonicalValidation -RoomLight $After
+  if (-not [bool]$beforeValidation.valid -or -not [bool]$afterValidation.valid) {
     return [PSCustomObject]@{
       material = $false
-      state_changed = $false
-      probability_delta_max = $null
-      snapshot_changed = $false
-      detail = "missing_sample"
+      bucket_changed = $false
+      cue_likelihood_delta_max = $null
+      observation_changed = $false
+      canonical_before = $beforeValidation.status
+      canonical_after = $afterValidation.status
+      detail = "noncanonical_camera_environment_estimate"
     }
   }
 
-  $stateChanged = [string]$Before.state -ne [string]$After.state
-  $snapshotChanged = [string]$Before.source_snapshot_id -ne [string]$After.source_snapshot_id -or [string]$Before.updated_at -ne [string]$After.updated_at
+  $validBuckets = @("dark", "dim", "balanced", "bright")
+  $beforeBucket = ([string](Get-ObjectProperty -Object $Before -Name "observation_bucket" -Default "")).ToLowerInvariant()
+  $afterBucket = ([string](Get-ObjectProperty -Object $After -Name "observation_bucket" -Default "")).ToLowerInvariant()
+  $bucketChanged = $beforeBucket -in $validBuckets -and $afterBucket -in $validBuckets -and $beforeBucket -ne $afterBucket
+  $sourceSnapshotChanged = [string](Get-ObjectProperty -Object $Before -Name "source_snapshot_id" -Default "") -ne [string](Get-ObjectProperty -Object $After -Name "source_snapshot_id" -Default "")
+  $observationChanged = [string](Get-ObjectProperty -Object $Before -Name "observation_id" -Default "") -ne [string](Get-ObjectProperty -Object $After -Name "observation_id" -Default "")
+  $beforeCues = Get-ObjectProperty -Object $Before -Name "cue_likelihoods"
+  $afterCues = Get-ObjectProperty -Object $After -Name "cue_likelihoods"
   $deltas = @()
-  foreach ($field in @("electric_on_probability", "daylight_present_probability", "dark_probability")) {
-    $left = ConvertTo-NullableDouble (Get-ObjectProperty -Object $Before -Name $field)
-    $right = ConvertTo-NullableDouble (Get-ObjectProperty -Object $After -Name $field)
+  foreach ($field in @("warm_light", "daylight", "darkness")) {
+    $left = ConvertTo-NullableDouble (Get-ObjectProperty -Object $beforeCues -Name $field)
+    $right = ConvertTo-NullableDouble (Get-ObjectProperty -Object $afterCues -Name $field)
     if ($null -ne $left -and $null -ne $right) {
       $deltas += [Math]::Abs($right - $left)
     }
   }
   $deltaMax = if ($deltas.Count -gt 0) { [Math]::Round((($deltas | Measure-Object -Maximum).Maximum), 4) } else { $null }
-  $material = $stateChanged -or ($null -ne $deltaMax -and $deltaMax -ge $MaterialProbabilityDelta)
+  $materialEstimateChange = $bucketChanged -or ($null -ne $deltaMax -and $deltaMax -ge $MaterialCueLikelihoodDelta)
+  $material = $observationChanged -and $materialEstimateChange
 
   return [PSCustomObject]@{
     material = $material
-    state_changed = $stateChanged
-    probability_delta_max = $deltaMax
-    snapshot_changed = $snapshotChanged
-    detail = if ($material) { "material_change" } elseif ($snapshotChanged) { "snapshot_changed_without_material_light_change" } else { "no_material_change" }
+    bucket_changed = $bucketChanged
+    cue_likelihood_delta_max = $deltaMax
+    observation_changed = $observationChanged
+    source_snapshot_changed = $sourceSnapshotChanged
+    canonical_before = $beforeValidation.status
+    canonical_after = $afterValidation.status
+    detail = if ($material) {
+      "material_camera_environment_estimate_change_with_new_observation"
+    }
+    elseif ($materialEstimateChange) {
+      "material_camera_environment_estimate_change_without_new_observation"
+    }
+    elseif ($observationChanged) {
+      "new_observation_without_material_camera_environment_estimate_change"
+    }
+    else {
+      "no_material_camera_environment_estimate_change"
+    }
   }
 }
 
@@ -461,14 +669,16 @@ function Get-RoomLightResponsiveness {
   param(
     [object[]]$Baseline,
     [object[]]$Followup,
-    [string]$Claim
+    [string]$Claim,
+    [bool]$ManualChangeSkipped = $SkipManualChange
   )
 
-  if ($SkipManualChange) {
+  if ($ManualChangeSkipped) {
     return [PSCustomObject]@{
       status = "partial"
       delta = $null
-      detail = "manual_change_window_skipped"
+      detail = "camera_environment_estimate_manual_change_window_skipped"
+      proof_ceiling = "camera_environment_estimate_only"
     }
   }
 
@@ -478,7 +688,8 @@ function Get-RoomLightResponsiveness {
     return [PSCustomObject]@{
       status = "fail"
       delta = $null
-      detail = "missing_ok_sample"
+      detail = "camera_environment_estimate_missing_ok_sample"
+      proof_ceiling = "camera_environment_estimate_only"
     }
   }
 
@@ -487,20 +698,24 @@ function Get-RoomLightResponsiveness {
     return [PSCustomObject]@{
       status = "fail"
       delta = $delta
-      detail = "no_material_room_light_change"
+      detail = "no_material_camera_environment_estimate_change"
+      proof_ceiling = "camera_environment_estimate_only"
     }
   }
-  if ($Claim -eq "camera-light-estimate-high-confidence") {
+  $afterClaim = Get-RoomLightClaim -RoomLight $afterSample.room_light
+  if ($Claim -eq "camera-environment-estimate-high-confidence" -and $afterClaim -eq "camera-environment-estimate-high-confidence") {
     return [PSCustomObject]@{
       status = "pass"
       delta = $delta
-      detail = "material_change_with_high_confidence_camera_light_estimate"
+      detail = "material_change_with_high_confidence_camera_environment_estimate"
+      proof_ceiling = "camera_environment_estimate_only"
     }
   }
   return [PSCustomObject]@{
     status = "partial"
     delta = $delta
-    detail = "material_change_but_low_confidence_or_daylight"
+    detail = "material_change_but_camera_environment_estimate_not_decisive"
+    proof_ceiling = "camera_environment_estimate_only"
   }
 }
 
@@ -585,7 +800,7 @@ function ConvertTo-OverallStatus {
     $EnvironmentStatePeriodicUpdate -eq "pass" -and
     @($sourceValues | Where-Object { $_ -in @("fresh", "recent") }).Count -eq 4 -and
     $RoomLightResponsiveness -eq "pass" -and
-    $RoomLightClaim -eq "camera-light-estimate-high-confidence" -and
+    $RoomLightClaim -eq "camera-environment-estimate-high-confidence" -and
     $HomeActionMode -ne "unknown" -and
     $HudModeVisibility -eq "pass"
   ) {
@@ -633,6 +848,103 @@ $environmentCurrentUrl = ConvertTo-EnvironmentCurrentUrl `
   -EnvUrl (Get-MapValue -Map $centralEnv -Name "ENVIRONMENT_STATE_URL")
 
 if ($DryRun) {
+  $newRoomLightFixture = {
+    param([string]$Bucket, [int64]$FirstFrameId, [int64]$LastFrameId, [string]$ObservationId, [string]$SnapshotId)
+    [PSCustomObject]@{
+      type = "room_light_observation"
+      schema_version = 1
+      observation_bucket = $Bucket
+      confidence = 0.95
+      daylight_ambiguity = "low"
+      cue_likelihoods = [PSCustomObject]@{ warm_light = 0.90; daylight = 0.05; darkness = 0.05 }
+      source = "camera_hub"
+      source_class = "camera_environment_estimate"
+      observed_at = "2026-01-01T00:00:00.0000000Z"
+      observation_id = $ObservationId
+      source_snapshot_id = $SnapshotId
+      sequence = [PSCustomObject]@{ frame_count = 2; first_frame_id = $FirstFrameId; last_frame_id = $LastFrameId; temporal_window_ms = 100 }
+      model = [PSCustomObject]@{ name = "room-light-heuristic-snapshot-v3"; kind = "heuristic" }
+      freshness = [PSCustomObject]@{ level = "fresh" }
+      proof_ceiling = "camera_environment_estimate_only"
+      does_not_prove = @("physical_room_light_state", "home_assistant_light_state")
+    }
+  }
+  $newFixedCase = {
+    param([string]$Label, [string]$Class)
+    [PSCustomObject]@{
+      label = $Label
+      class = $Class
+      baseline = & $newRoomLightFixture "bright" 10 11 "dryrun-room-light-observation-001" "dryrun-room-light-snapshot-001"
+      followup = & $newRoomLightFixture "dark" 12 13 "dryrun-room-light-observation-002" "dryrun-room-light-snapshot-002"
+    }
+  }
+
+  $fixedCases = @(
+    (& $newFixedCase "wrong_type" "wrong_type"),
+    (& $newFixedCase "numeric_string_canonical_fields" "numeric_string"),
+    (& $newFixedCase "boolean_numeric_canonical_field" "boolean_numeric"),
+    (& $newFixedCase "reversed_nonclaim_order" "ordered_nonclaim_list"),
+    (& $newFixedCase "identifier_over_160" "identifier_length"),
+    (& $newFixedCase "uppercase_mixed_case_observation_bucket" "canonical_string_case_bucket"),
+    (& $newFixedCase "uppercase_mixed_case_daylight_ambiguity" "canonical_string_case_daylight_ambiguity"),
+    (& $newFixedCase "uppercase_mixed_case_freshness_level" "canonical_string_case_freshness")
+  )
+  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "wrong_type" })) {
+    $fixture.baseline.type = "room_light_observation_invalid"
+    $fixture.followup.type = "room_light_observation_invalid"
+  }
+  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "numeric_string" })) {
+    $fixture.baseline.schema_version = "1"
+    $fixture.followup.schema_version = "1"
+    $fixture.baseline.confidence = "0.95"
+    $fixture.followup.confidence = "0.95"
+    $fixture.baseline.cue_likelihoods.warm_light = "0.90"
+    $fixture.followup.cue_likelihoods.warm_light = "0.05"
+    $fixture.baseline.sequence.frame_count = "2"
+    $fixture.followup.sequence.frame_count = "2"
+  }
+  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "boolean_numeric" })) {
+    $fixture.baseline.confidence = $true
+    $fixture.followup.confidence = $true
+  }
+  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "ordered_nonclaim_list" })) {
+    $fixture.baseline.does_not_prove = @("home_assistant_light_state", "physical_room_light_state")
+    $fixture.followup.does_not_prove = @("home_assistant_light_state", "physical_room_light_state")
+  }
+  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "identifier_length" })) {
+    $fixture.baseline.observation_id = "x" * 161
+    $fixture.followup.observation_id = "x" * 161
+  }
+  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "canonical_string_case_bucket" })) {
+    $fixture.baseline.observation_bucket = "BRIGHT"
+    $fixture.followup.observation_bucket = "DaRk"
+  }
+  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "canonical_string_case_daylight_ambiguity" })) {
+    $fixture.baseline.daylight_ambiguity = "LOW"
+    $fixture.followup.daylight_ambiguity = "MeDiUm"
+  }
+  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "canonical_string_case_freshness" })) {
+    $fixture.baseline.freshness.level = "FRESH"
+    $fixture.followup.freshness.level = "ReCeNt"
+  }
+
+  $malformedCaseResults = @()
+  foreach ($fixture in $fixedCases) {
+    $validation = Get-RoomLightCanonicalValidation -RoomLight $fixture.followup
+    $claim = Get-RoomLightClaim -RoomLight $fixture.followup
+    $responsiveness = Get-RoomLightResponsiveness `
+      -Baseline @([PSCustomObject]@{ ok = $true; room_light = $fixture.baseline }) `
+      -Followup @([PSCustomObject]@{ ok = $true; room_light = $fixture.followup }) `
+      -Claim $claim `
+      -ManualChangeSkipped $false
+    $deltaFailsClosed = $null -ne $responsiveness.delta -and $responsiveness.delta.canonical_before -eq "invalid" -and $responsiveness.delta.canonical_after -eq "invalid"
+    $malformedCaseResults += [PSCustomObject]@{
+      label = $fixture.label
+      class = $fixture.class
+      status = if (-not [bool]$validation.valid -and $claim -ceq "unavailable" -and $responsiveness.status -ne "pass" -and $deltaFailsClosed) { "pass" } else { "fail" }
+    }
+  }
+  $malformedFixtureStatus = if (@($malformedCaseResults | Where-Object { $_.status -ne "pass" }).Count -eq 0) { "pass" } else { "fail" }
   $dryRunResult = [PSCustomObject]@{
     status = "dry-run"
     checked_at = (Get-Date).ToString("o")
@@ -653,6 +965,17 @@ if ($DryRun) {
     raw_media_shared = $false
     raw_secret_shared = $false
     live_appliance_action_executed = $false
+    malformed_canonical_fixture = [PSCustomObject]@{
+      status = $malformedFixtureStatus
+      case_count = $malformedCaseResults.Count
+      cases = @($malformedCaseResults | ForEach-Object {
+        [PSCustomObject]@{
+          label = $_.label
+          class = $_.class
+          status = $_.status
+        }
+      })
+    }
   }
   if ($Json) {
     $dryRunResult | ConvertTo-Json -Depth 8
@@ -663,6 +986,7 @@ if ($DryRun) {
     Write-Host "environment_current_endpoint=loopback:/environment/current"
     Write-Host "display_status_endpoint=loopback:/api/status"
     Write-Host ("home_action_mode={0}" -f $effectiveAdapter)
+    Write-Host ("malformed_canonical_fixture={0} case_count={1}" -f $malformedFixtureStatus, $malformedCaseResults.Count)
     Write-Host "raw_media_saved=false raw_secret_shared=false live_appliance_action_executed=false"
   }
   return
@@ -733,11 +1057,12 @@ $result = [PSCustomObject]@{
   }
   non_claims = @(
     "not_raw_camera_or_media_proof",
-    "not_home_assistant_physical_state_proof",
-    "not_open_loop_appliance_on_off_proof",
+    "not_electric_light_state_truth",
+    "not_physical_switch_position_truth",
+    "not_physical_room_illuminance",
     "not_live_appliance_execution",
     "bridge_ok_is_connection_only_not_live_mode",
-    "unknown_daylight_or_low_confidence_is_not_robust_electric_light_recognition",
+    "daylight_ambiguity_or_low_confidence_is_not_decisive_camera_environment_estimate",
     "not_rr003_representative_pass",
     "not_strict_distribution_release_green"
   )

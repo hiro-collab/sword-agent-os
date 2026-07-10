@@ -39,7 +39,7 @@
       "version_source": "organs/environment/environment-state-server/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/environment-state-server.git",
       "branch": "main",
-      "commit": "9ecbb49e15eaf795c5f090173854202508639e3f",
+      "commit": "ac834a5b100b096cda6ac9e101538dbbabdc7b2f",
       "adoption": "standard_candidate",
       "notes": "Environment snapshot, indicators, health aggregation, and feedback capture."
     },
@@ -52,7 +52,7 @@
       "version_source": "organs/environment/vision-snapshot-processor/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/vision-snapshot-processor.git",
       "branch": "main",
-      "commit": "64b52a8852316383db61bf8b8f5af6595d2fe296",
+      "commit": "d9e2c909c17749bf425a45cd9f378eb77c61bf04",
       "adoption": "standard_candidate",
       "notes": "Low-frequency vision snapshots such as room light state."
     },
@@ -107,7 +107,7 @@
       "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
       "repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "branch": "main",
-      "commit": "1585afd73ff3fa45feff9b94eef5156315a08158",
+      "commit": "bce6fe4b841106fa9c889fcd4e1238be0fc631f6",
       "sword_adapter_version": "0.1.3",
       "patchset_id": "sword-aituberkit",
       "patchset_version": "0.1.3",
