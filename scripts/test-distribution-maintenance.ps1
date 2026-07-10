@@ -729,7 +729,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $voiceAvatarStarter -Pattern "source/docs/no-live readiness" -Message "voice/avatar starter should name its source/docs/no-live proof ceiling"
   Assert-TextMatch -Text $voiceAvatarStarter -Pattern "provider/TTS readiness[\s\S]{0,120}audio playback[\s\S]{0,160}avatar\s+rendering|audio playback[\s\S]{0,160}avatar\s+rendering[\s\S]{0,160}provider/TTS readiness" -Message "voice/avatar starter should separate provider/TTS, audio playback, and avatar rendering"
   Assert-TextMatch -Text $voiceAvatarStarter -Pattern "check-voicevox-readiness\.ps1[\s\S]{0,220}does\s+not play audio[\s\S]{0,140}install or update VOICEVOX" -Message "voice/avatar starter should keep VOICEVOX readiness separate from playback/install"
-  Assert-TextMatch -Text $voiceAvatarStarter -Pattern "test-local-media-voice-gate\.ps1[\s\S]{0,180}Mode preview[\s\S]{0,220}source/static command preview" -Message "voice/avatar starter should keep voice-gate preview at source/static layer"
+  Assert-TextMatch -Text $voiceAvatarStarter -Pattern "start-prepared-sample-browser-stt-operator\.ps1[\s\S]{0,180}source-static operator preflight" -Message "voice/avatar starter should keep prepared-sample operator preflight at the source-static layer"
   Assert-TextMatch -Text $voiceAvatarStarter -Pattern "raw prompts[\s\S]{0,160}provider payloads[\s\S]{0,160}audio/media[\s\S]{0,160}screenshots[\s\S]{0,160}transcripts" -Message "voice/avatar starter should preserve raw/private/media boundaries"
   Assert-TextMatch -Text $voiceAvatarStarter -Pattern "real microphone or camera input[\s\S]{0,160}browser runtime reachability[\s\S]{0,160}rendered avatar visibility[\s\S]{0,160}avatar motion dispatch" -Message "voice/avatar starter should avoid overclaiming runtime/input/avatar proof"
   $projectionVisualStarter = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "examples\starter-profiles\projection-visual\README.md")
@@ -824,7 +824,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $fullInstallHelper -Pattern "<workspace>" -Message "full install helper should redact workspace paths in display commands"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "run-local-media-replay\.ps1" -Message "full install helper should call the local media preview helper"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "check-voicevox-readiness\.ps1" -Message "full install helper should call the VOICEVOX readiness helper"
-  Assert-TextMatch -Text $fullInstallHelper -Pattern "test-local-media-voice-gate\.ps1" -Message "full install helper should call the voice-gate preview helper"
+  Assert-TextNotMatch -Text $fullInstallHelper -Pattern "FIV-11a|SkipVoiceGatePreview" -Message "full install helper should not retain the retired voice preview row or flag"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "start-home-control-bridge\.ps1" -Message "full install helper should use the Home Control bridge only for preflight/tracking checks"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "CheckTracking" -Message "full install helper should use tracking metadata before live execute instead of post-state checks"
   Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\check-voicevox-readiness.ps1")
@@ -833,21 +833,64 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $voicevoxHelper -Pattern "StartIfNeeded" -Message "VOICEVOX helper should require explicit startup request"
   Assert-TextMatch -Text $voicevoxHelper -Pattern "installed_or_updated_voicevox" -Message "VOICEVOX helper should report that it did not install or update VOICEVOX"
   Assert-TextMatch -Text $voicevoxHelper -Pattern "global_audio_changed_by_script" -Message "VOICEVOX helper should report that it did not change global audio"
-  Assert-PathPresent -Path (Join-Path $RepoRoot "control-plane\core\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
-  Assert-PathPresent -Path (Join-Path $RepoRoot "scripts\test-local-media-voice-gate.ps1")
-  $voiceGateHelper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "control-plane\core\src\sword_voice_agent\apps\local_media_voice_gate_proof.py")
-  $voiceGateWrapper = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\test-local-media-voice-gate.ps1")
-  Assert-TextMatch -Text $voiceGateHelper -Pattern "FORBIDDEN_OUTPUT_KEYS" -Message "voice-gate proof helper should maintain a blocked output key list"
-  Assert-TextMatch -Text $voiceGateHelper -Pattern "transcript_bucket" -Message "voice-gate proof helper should bucket transcript length instead of printing text"
-  Assert-TextMatch -Text $voiceGateHelper -Pattern "raw_response_shared" -Message "voice-gate proof helper should emit raw response safety status"
-  Assert-TextMatch -Text $voiceGateWrapper -Pattern "source/static-command-preview" -Message "voice-gate wrapper should default to source/static preview"
-  Assert-TextMatch -Text $voiceGateWrapper -Pattern "collect-local" -Message "voice-gate wrapper should support redacted collection from existing diagnostics"
-  Assert-TextMatch -Text $voiceGateWrapper -Pattern "raw_transcript_shared=false" -Message "voice-gate wrapper should print raw_transcript_shared=false"
-  Assert-TextMatch -Text $voiceGateWrapper -Pattern "raw_prompt_shared=false" -Message "voice-gate wrapper should print raw_prompt_shared=false"
-  Assert-TextMatch -Text $voiceGateWrapper -Pattern "raw_response_shared=false" -Message "voice-gate wrapper should print raw_response_shared=false"
-  Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_media_playback=true" -Message "voice-gate wrapper should default to no media playback"
-  Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_stt_execution=true" -Message "voice-gate wrapper should default to no STT execution"
-  Assert-TextMatch -Text $voiceGateWrapper -Pattern "no_virtual_audio_route_change=true" -Message "voice-gate wrapper should avoid changing audio routes"
+  $preparedSampleRunnerPath = Join-Path $RepoRoot "scripts\start-prepared-sample-browser-stt-operator.ps1"
+  Assert-PathPresent -Path $preparedSampleRunnerPath
+  $preparedSampleRunner = Get-Content -Raw -LiteralPath $preparedSampleRunnerPath
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern "schema_version.*-ne 1" -Message "prepared-sample runner should require media index schema version 1"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern "prepared_sample_index_verified" -Message "prepared-sample runner should fix the verified preflight class"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern "bounded_attempt_count = 5[\s\S]{0,120}attempt_timeout_ms = 10000" -Message "prepared-sample runner should keep the bounded attempt contract"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'PreparedSampleIdPattern\s*=\s*"\^\[a-z\]\[a-z0-9_\.\-\]\{2,127\}\$"' -Message "prepared-sample runner should use the exact lowercase prepared-sample ID pattern"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'ConversationAttemptRefPattern\s*=\s*"\^m4\\\.prepared_sample_attempt:\[a-f0-9\]\{32\}\$"' -Message "prepared-sample runner should lock conversation_attempt_ref to the canonical M4 format"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'function New-ConversationAttemptRef\s*\{[\s\S]{0,120}m4\.prepared_sample_attempt:\$\(\[guid\]::NewGuid\(\)\.ToString\(''N''\)\)' -Message "prepared-sample runner should generate canonical colon-delimited conversation_attempt_ref values"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'ConversationAttemptRef = New-ConversationAttemptRef[\s\S]{0,120}Assert-ConversationAttemptRef -Value \$ConversationAttemptRef' -Message "prepared-sample runner should validate generated or supplied conversation_attempt_ref values"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern "browser_open_requested = \[bool\]\$OpenBrowser[\s\S]{0,100}browser_launch_executed = \$false" -Message "prepared-sample runner should distinguish requested browser opening from executed launch"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern "Start-Process \$operatorUrl[\s\S]{0,100}browser_launch_executed = \$true[\s\S]{0,160}source_static_preflight_plus_browser_launch_only" -Message "prepared-sample runner should only report launch after Start-Process returns and retain the launch-only ceiling"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern "raw_path_shared = \$false[\s\S]{0,460}browser_page_reachability_proven = \$false[\s\S]{0,120}browser_stt_runtime_executed = \$false[\s\S]{0,120}turn_input_materialized = \$false" -Message "prepared-sample runner should preserve source-static and no-reachability/no-STT boundaries"
+  $sourceStaticJoinRowNames = @(
+    "recognition",
+    "input_gate",
+    "thought_core_turninput",
+    "canonical_assistant_response",
+    "bubble",
+    "tts",
+    "bubble_tts_parity",
+    "self_mirror_observation",
+    "self_output_session_correlation",
+    "user_heard"
+  )
+  foreach ($rowName in $sourceStaticJoinRowNames) {
+    Assert-TextMatch -Text $preparedSampleRunner -Pattern ('"' + [regex]::Escape($rowName) + '"') -Message "prepared-sample runner should define fixed source-static join row: $rowName"
+  }
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'observation_status = "not_observed_source_static"[\s\S]{0,140}observation_count = \$null[\s\S]{0,140}observed_conversation_attempt_ref = \$null' -Message "prepared-sample runner source-static join rows should not claim runtime observations"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'whole_loop_pass_rule = "exact_same_valid_conversation_attempt_ref_across_every_required_row"[\s\S]{0,180}correlation_basis = "conversation_attempt_ref_only"[\s\S]{0,180}correlation_inference_prohibited_from = @\("text", "message_id", "turn_id", "session_id"\)[\s\S]{0,180}missing_or_mismatched_required_row_result = "fails_or_not_observed"' -Message "prepared-sample runner should require exact same attempt correlation without text or identifier inference"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'required_conversation_attempt_ref = \$ConversationAttemptRef[\s\S]{0,800}"conversation_attempt_ref=\$\(\[uri\]::EscapeDataString\(\$ConversationAttemptRef\)\)"[\s\S]{0,800}conversation_attempt_ref = \$ConversationAttemptRef' -Message "prepared-sample runner should carry the exact validated conversation_attempt_ref through join envelope, operator query, and result"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'new_service_or_schema_or_compatibility_route = \$false' -Message "prepared-sample runner should not add a service schema or compatibility route"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'raw_private_text_shared = \$false[\s\S]{0,600}tokens_or_secrets_shared = \$false' -Message "prepared-sample runner source-static join envelope should preserve publication boundaries"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'source_static_join_envelope = \$sourceStaticJoinEnvelope' -Message "prepared-sample runner should add the source-static join envelope to result and JSON output"
+  $retiredRuntimeFieldPattern = "(?m)^\s*(browser_runtime_" + "executed|stt_runtime_" + "executed)\s*="
+  Assert-TextNotMatch -Text $preparedSampleRunner -Pattern $retiredRuntimeFieldPattern -Message "prepared-sample runner should not retain ambiguous retired runtime fields"
+  $preparedSamplePagePath = Join-Path $RepoRoot "organs\expression\aituber-kit\src\pages\operator\prepared-sample-stt.tsx"
+  Assert-PathPresent -Path $preparedSamplePagePath
+  $preparedSamplePage = Get-Content -Raw -LiteralPath $preparedSamplePagePath
+  Assert-TextMatch -Text $preparedSamplePage -Pattern "parent_preflight_query_required[\s\S]{0,500}parent_preflight_query_invalid" -Message "prepared-sample page should fail closed without valid parent query parameters"
+  Assert-TextMatch -Text $preparedSamplePage -Pattern "latestTranscriptRef\.current" -Message "prepared-sample page should use the latest active browser STT diagnostic transcript"
+  Assert-TextNotMatch -Text $preparedSamplePage -Pattern "Selected sample selector|Sample-index preflight class|Sample-index preflight ref" -Message "prepared-sample page should not expose parent-owned preflight selectors"
+  $retiredWrapperPath = Join-Path $RepoRoot ("scripts\test-local-media-" + "voice-gate.ps1")
+  $retiredCorePath = Join-Path $RepoRoot ("control-plane\core\src\sword_voice_agent\apps\local_media_" + "voice_gate_proof.py")
+  Assert-PathAbsent -Path $retiredWrapperPath
+  Assert-PathAbsent -Path $retiredCorePath
+  $migrationSurface = @(
+    Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-overall-test-ladder-v2.ps1"),
+    $localMediaPreparationHelper,
+    $fullInstallHelper,
+    $voiceAvatarStarter
+  ) -join "`n"
+  Assert-TextMatch -Text $migrationSurface -Pattern "start-prepared-sample-browser-stt-operator\.ps1" -Message "parent consumers should point to the prepared-sample runner"
+  Assert-TextNotMatch -Text $migrationSurface -Pattern ("test-local-media-" + "voice-gate|local_media_" + "voice_gate_proof") -Message "parent consumers should not retain retired voice-gate references"
+  Assert-TextNotMatch -Text $localMediaPreparationHelper -Pattern "voice-gate replay" -Message "local media preparation output should not retain the retired voice-gate replay wording"
+  Assert-TextMatch -Text $localMediaPreparationHelper -Pattern "prepared-sample browser-STT operator preflight / exact conversation_attempt_ref correlation" -Message "local media preparation output should name prepared-sample browser-STT exact attempt correlation"
+  Assert-TextNotMatch -Text $fullInstallHelper -Pattern "voice-gate collector" -Message "FIV-11 output should not retain the retired voice-gate collector wording"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern 'FIV-11[\s\S]{0,360}Prepared-sample browser-STT / exact conversation_attempt_ref correlation[\s\S]{0,360}exact conversation_attempt_ref' -Message "FIV-11 should name prepared-sample browser-STT exact attempt correlation"
   $motionStimulusSchemaPath = Join-Path $RepoRoot "contracts\motion_stimulus\motion_stimulus.v0.schema.json"
   $motionFullRelaxedExamplePath = Join-Path $RepoRoot "contracts\motion_stimulus\examples\rr003-expression-full-relaxed-stimulus.example.json"
   Assert-PathPresent -Path $motionStimulusSchemaPath

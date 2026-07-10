@@ -134,14 +134,14 @@ function Write-PreparationResult {
         id = "local.media_index"
         status = $indexStatus
         output = "local/media/media-index.json"
-        consumers = @("scripts/run-local-media-replay.ps1", "scripts/test-local-media-voice-gate.ps1", "scripts/run-full-install-verification.ps1")
+        consumers = @("scripts/run-local-media-replay.ps1", "scripts/start-prepared-sample-browser-stt-operator.ps1")
         proof_ceiling = "local-media-index-only"
       },
       [PSCustomObject]@{
         id = "local.media_assets"
         status = $assetStatus
         output = "local/media/assets/"
-        consumers = @("gesture replay", "room-light replay", "voice-gate replay")
+        consumers = @("gesture replay", "room-light replay", "prepared-sample browser STT operator preflight")
         proof_ceiling = "local-media-preparation-only"
       }
     )
@@ -161,8 +161,8 @@ function Write-PreparationResult {
   Write-Host ("media_index={0}" -f $result.media_index)
   Write-Host ("asset_count={0}" -f $result.asset_count)
   Write-Host ("asset_ids={0}" -f (($result.asset_ids) -join ","))
-  Write-Host "consumer_map=local.media_index->run-local-media-replay.ps1,test-local-media-voice-gate.ps1,run-full-install-verification.ps1"
-  Write-Host "consumer_map=local.media_assets->gesture replay,room-light replay,voice-gate replay"
+  Write-Host "consumer_map=local.media_index->run-local-media-replay.ps1,start-prepared-sample-browser-stt-operator.ps1"
+  Write-Host "consumer_map=local.media_assets->gesture replay,room-light replay,prepared-sample browser-STT operator preflight / exact conversation_attempt_ref correlation"
   Write-Host "intentionally_not_copied=secrets,tokens,raw transcripts,live Home Assistant config,provider payloads"
   Write-Host "raw_media_shared=false"
   Write-Host "raw_paths_printed=false"

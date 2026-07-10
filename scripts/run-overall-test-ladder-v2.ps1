@@ -153,7 +153,7 @@ function New-DailyConfidenceSmokeReport {
     "scripts\check-organ-readiness.ps1",
     "scripts\run-visible-demo-preflight.ps1",
     "scripts\run-self-mirror-proof.ps1",
-    "scripts\test-local-media-voice-gate.ps1",
+    "scripts\start-prepared-sample-browser-stt-operator.ps1",
     "scripts\start-home-control-bridge.ps1"
   )
   $leafHelperPresentCount = 0

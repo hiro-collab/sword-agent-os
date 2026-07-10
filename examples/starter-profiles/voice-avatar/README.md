@@ -3,8 +3,8 @@
 <!-- starter-profile:voice-avatar -->
 
 This starter profile is the safe voice/avatar route for a new environment. It
-helps an operator understand voice readiness, local-media voice-gate preview
-shape, and avatar/display configuration boundaries before any provider call,
+helps an operator understand voice readiness, source-static prepared-sample
+browser-STT operator preflight shape, and avatar/display configuration boundaries before any provider call,
 TTS playback, browser runtime proof, camera/mic route, or physical observation
 is claimed.
 
@@ -22,7 +22,7 @@ Pack:
 - voice/TTS readiness is classified without installing or updating tools;
 - provider/TTS readiness stays separate from audio playback and avatar
   rendering;
-- local-media voice-gate proof is kept at source/static command-preview layer;
+- prepared-sample browser-STT operator preflight is kept at the source-static layer;
 - avatar configuration is located without claiming browser rendering or motion;
 - provider calls, raw prompts, raw transcripts, audio/media, screenshots,
   camera/mic input, and physical observation stay out of scope.
@@ -62,16 +62,18 @@ not play audio, change global audio devices, install or update VOICEVOX, or
 prove TTS output. `-StartIfNeeded` is outside this starter profile unless a
 separate exact route says otherwise.
 
-If a reviewed local media index and asset id are available, inspect the
-voice-gate helper shape in preview mode:
+If a reviewed local media index and audio asset id are available, run the
+prepared-sample browser-STT operator preflight:
 
 ```powershell
-pwsh -NoProfile -File .\scripts\test-local-media-voice-gate.ps1 -Mode preview -AssetId <local-media-asset-id>
+pwsh -NoProfile -File .\scripts\start-prepared-sample-browser-stt-operator.ps1 -AssetId <local-media-audio-asset-id>
 ```
 
-This is a source/static command preview. It must not be reported as STT
-execution, audio playback, browser runtime proof, Thought Core turn proof,
-avatar motion, or user-facing voice proof.
+This is a source-static operator preflight. It verifies the local index and
+builds a parent-owned operator URL with opaque refs only. It must not be
+reported as browser runtime or STT execution, audio playback, Thought Core or
+TurnInput proof, avatar motion, or user-facing voice proof. Browser runtime,
+STT, audio playback, and TurnInput each require separate proof routes.
 
 ## Report Shape
 

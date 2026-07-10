@@ -6,7 +6,6 @@ param(
   [switch]$Json,
   [switch]$SkipInstallDryRun,
   [switch]$SkipLocalMediaPreview,
-  [switch]$SkipVoiceGatePreview,
   [switch]$RequestVoicevoxStartup,
   [string]$VoicevoxExecutablePath = "",
   [switch]$RunNoLiveSmoke,
@@ -384,22 +383,6 @@ else {
   Add-HeldLayer -Id "FIV-06" -Name "Local room-light replay previews" -ProofLayer "source/static-command-preview" -Detail "skipped by flag"
 }
 
-if (-not $SkipVoiceGatePreview) {
-  Add-CommandLayer `
-    -Id "FIV-11a" `
-    -Name "Voice/gate redacted preview" `
-    -ProofLayer "source/static-command-preview" `
-    -ScriptName "test-local-media-voice-gate.ps1" `
-    -Arguments @("-Mode", "preview", "-AssetId", "voice.hello", "-WorkspaceRoot", $resolvedWorkspaceRoot, "-Json") `
-    -PassDetail "voice/gate redacted preview available; STT, browser, and virtual audio not executed" `
-    -FailureDetail "voice/gate redacted preview failed" `
-    -BlockedPattern "local media index not found|asset id not found" `
-    -BlockedDetail "voice asset/index unavailable; preview cannot prove voice/gate path" | Out-Null
-}
-else {
-  Add-HeldLayer -Id "FIV-11a" -Name "Voice/gate redacted preview" -ProofLayer "source/static-command-preview" -Detail "skipped by flag"
-}
-
 if ($RequestRealCamera) {
   $gestureModelPath = Join-Path $RepoRoot "organs\reflex\mediapipe-sword-sign\gesture_model.pkl"
   if (Test-Path -LiteralPath $gestureModelPath -PathType Leaf) {
@@ -467,7 +450,7 @@ else {
   Add-HeldLayer -Id "FIV-10" -Name "Gesture to voice input gate" -ProofLayer "gesture-gate/browser-runtime" -Detail "held by default; requires positive gesture event and speech gate transition"
 }
 
-Add-HeldLayer -Id "FIV-11" -Name "STT heard sample vs Thought Core interpreted sample" -ProofLayer "runtime/thought-core-boundary" -Detail "held by default; feed redacted STT and Thought Core diagnostics through the voice-gate collector"
+Add-HeldLayer -Id "FIV-11" -Name "Prepared-sample browser-STT / exact conversation_attempt_ref correlation" -ProofLayer "runtime/thought-core-boundary" -Detail "held by default; requires redacted prepared-sample browser-STT and Thought Core diagnostics correlated by the exact conversation_attempt_ref"
 
 if ($RequestLiveHomeAssistant) {
   $routeFields = Test-LiveHomeAssistantRouteFields
