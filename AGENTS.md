@@ -34,3 +34,20 @@ This repository is the source of truth for Sword Agent OS.
   access failures as source mismatches. Re-run the same diagnosis as the normal
   workspace user or with an exact per-command override, then report the real
   source-pin state.
+
+## Codex Model Selection
+
+- Follow `governance/development/codex-model-selection.md` for development and
+  maintenance model selection. This is separate from Agent OS runtime model
+  routing under `manifests/model-routing/`.
+- Use `gpt-5.6-terra` with `medium` reasoning as the ordinary default. Use
+  `gpt-5.6-luna` for deterministic high-volume work and `gpt-5.6-sol` for
+  difficult cross-repository reasoning, architecture, diagnosis, or final
+  synthesis.
+- Choose reasoning effort independently. Reserve `max` for unresolved
+  quality-first work and Codex `ultra` for work that divides cleanly into
+  independent subagent scopes.
+- A stronger model does not raise proof or decision authority. Source, runtime,
+  device, publication, readiness, and final-acceptance evidence remain separate.
+- If GPT-5.6 is unavailable, record the fallback and use the closest available
+  capability tier without silently changing the task's proof ceiling.

@@ -153,6 +153,7 @@ operator-confirmed switch、proof boundary は `docs/operate.md` と
 | Home Assistant の準備と家電操作の書き方 | `docs/home-assistant-setup.md`, `docs/add-home-device.md`, `docs/home-control-action-authoring.md` |
 | 家電操作で何を確認できたと言えるか | `docs/live-home-control-proof.md`, `docs/proof-layers.md` |
 | 確認コマンドと失敗時の見方 | `docs/verification-commands.md`, `docs/troubleshooting.md` |
+| Codex保守担当のスレッド分割とモデル配分 | `governance/development/codex-threading.md`, `governance/development/codex-model-selection.md` |
 
 古い一回限りの報告、起動メモ、旧索引は、現在の正本ではありません。
 残すべき内容は上の専門文書へ移し、重複した古い文書は増やさない方針です。

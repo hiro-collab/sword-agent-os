@@ -13,6 +13,26 @@ worktrees.
   repository boundaries should usually go through the central implementation
   thread.
 
+## Model And Reasoning Selection
+
+Choose the model from the task profile, not from the role name. The current
+development defaults and escalation rules are defined in
+`governance/development/codex-model-selection.md`.
+
+- Ordinary scoped work starts with `gpt-5.6-terra` and `medium` reasoning.
+- Mechanical inventory, exact searches, routine test execution, and summary
+  extraction use `gpt-5.6-luna` with `low` or `medium` reasoning.
+- Cross-repository architecture, conflicting evidence, hard diagnosis, and
+  final integration synthesis use `gpt-5.6-sol` with `high` or `xhigh`
+  reasoning.
+- Use `max` only for a difficult quality-first problem that needs more work than
+  `xhigh`. Use Codex `ultra` only when the work divides into independent,
+  non-overlapping scopes that benefit from subagents.
+
+When a task changes model or reasoning tier, record the short reason in the
+task request or handoff. The model choice is execution metadata, not proof or
+approval authority.
+
 ## Thread Start
 
 Each thread should:
@@ -21,6 +41,8 @@ Each thread should:
 2. Check active messages and blockers in the coordination repository.
 3. Check reservations for files or areas it plans to edit.
 4. Record its current worktree and area in the registry if needed.
+5. Confirm that its model and reasoning tier fit the current task, and reduce
+   or escalate them only for a concrete task reason.
 
 ## Thread Finish
 
