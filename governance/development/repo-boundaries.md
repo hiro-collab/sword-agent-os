@@ -11,6 +11,19 @@
 - development governance
 - bootstrap and setup scripts
 
+## Current Source Authority
+
+Use current evidence in this order when deciding what the system does:
+
+1. current code and tests;
+2. current README and active documentation;
+3. current policies and contracts;
+4. legacy documents and archives as reference only.
+
+Classify imported material as an Agent OS rule, module-specific guidance, a
+local exception, legacy reference, or an unresolved investigation. Legacy or
+scattered information is never authoritative without current evidence.
+
 ## Coordination Repository
 
 `sword-agent-os-coordination` owns shared development coordination:
