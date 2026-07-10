@@ -1,7 +1,9 @@
 # Proof Layers
 
-Use these labels in install, readiness, runtime, and review returns. A lower
-layer can support a higher one, but it does not replace it.
+This file is the canonical cross-system proof vocabulary. Use these labels in
+install, readiness, runtime, and review returns; other documents should point
+here instead of defining a parallel ladder. A lower layer can support a higher
+one, but it does not replace it.
 
 | Layer | Proves | Does not prove |
 | --- | --- | --- |
@@ -38,6 +40,18 @@ Visual observation, feedback/state handling, and final/readiness claims as
 separate rows. Positive lower-layer evidence supports the next layer; it does
 not silently become it.
 
-Raw media, raw audio, transcripts, screenshots, provider payloads, secrets,
-tokens, entity ids, private URLs, and private paths must stay out of shared
-reports.
+Speech classified as user speech passes to Thought Core by default. Content or
+meaning is not a pre-Thought-Core rejection reason; source/provenance,
+recognizer failure, contract validity, and publication boundaries remain valid
+holds and must be reported separately.
+
+Curated prepared local-sample expected text, recognized STT text, and
+content-match text may be used in exact development routes when
+`text_publication_policy=prepared_sample_text_allowed` and
+`text_provenance_class=prepared_local_sample_set`. This exception does not
+publish or authorize raw audio, and it does not apply to live, private,
+non-sample, or ambiguously sourced speech.
+
+Raw media, raw audio, live/private/non-sample transcript bodies, screenshots,
+browser storage, logs, provider payloads, secrets, tokens, entity ids, private
+URLs, and private paths must stay out of shared reports.

@@ -51,6 +51,10 @@ unusable confidence, missing required candidate/session fields, and shared
 publication risks. Shared artifacts may still redact live/private text while a
 private Thought Core handoff carries accepted user speech.
 
+Use `docs/proof-layers.md` as the canonical cross-system vocabulary for that
+handoff and its downstream evidence. The table below only names Audio
+Awareness-specific observations; it does not define a second proof ladder.
+
 ## Proof Layers
 
 Keep these layers separate in reports and preflight output:
@@ -74,8 +78,14 @@ audio_awareness_source_static_summary_only
 ## Raw/Private Boundary
 
 Tracked source, shared packets, and reviewer artifacts must not include raw
-audio, transcript bodies, private paths, Home Assistant identifiers, logs,
-screenshots/media, provider payloads, tokens, or device secrets.
+audio, live/private/non-sample transcript bodies, private paths, Home Assistant
+identifiers, browser storage, logs, screenshots/media, provider payloads,
+tokens, or device secrets.
+
+Curated prepared local-sample expected text, recognized STT text, and
+content-match text may be used in an exact prepared-sample development route.
+That narrow exception is defined in `docs/proof-layers.md`; it does not make the
+audio file public and does not relax protection for other speech.
 
 Use `audio_awareness_summary.json` only as a compact summary authority packet.
 It is observation context, not command authority, action authority,

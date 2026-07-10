@@ -8,6 +8,9 @@ commands to run and the proof layer each command can support. Do not treat a
 lower proof layer as proof for live hardware, real camera, real microphone, or
 physical appliance behavior.
 
+Use `docs/proof-layers.md` as the canonical cross-system vocabulary. This file
+maps commands to those layers and does not define a parallel proof ladder.
+
 ## Required / Source-Static
 
 Use these commands before or after startup when you want a quick check of
@@ -43,8 +46,12 @@ TouchDesigner work. Those layers remain separate exact routes with their own
 stop conditions and proof ceilings. If a layer can only be explained by sharing
 raw transcripts, audio/media, screenshots/browser frames, TouchDesigner
 content, provider payloads, Home Assistant raw payloads, entity/device ids,
-private paths/filenames/URLs, exact env values, stdout/stderr, stack traces,
-tokens, or secrets, block the shared report publication instead.
+browser storage, raw logs, private paths/filenames/URLs, exact env values,
+stdout/stderr, stack traces, tokens, or secrets, block the shared report
+publication instead.
+
+The prepared-sample text exception described below does not apply to this
+overall-ladder report shape. Its shared evidence remains class/count/bucket-only.
 
 ### Overall Test Ladder V2 Front Door
 
@@ -129,12 +136,19 @@ generated_output_written=false
 live_action_executed=false
 ```
 
-When replaying local media, do not share raw media, frames, audio, transcripts,
-or private absolute paths. Gesture positive replay, gesture contrast
-false-positive checks, and room-light on/off replay are local-media replay
-proof. Gesture-to-voice gate, STT/input, Thought Core turn, real camera, real
-mic, browser runtime, and exact live appliance action are separate proof
-layers and should be reported separately.
+When replaying local media, do not share raw media, frames, audio,
+live/private/non-sample transcript bodies, browser storage, or private absolute
+paths. In an exact route for the curated prepared local sample set, expected
+sample text, recognized STT text, and content-match text may be included as
+non-private development material when the route records
+`text_publication_policy=prepared_sample_text_allowed` and
+`text_provenance_class=prepared_local_sample_set`. That exception does not apply
+to arbitrary microphone or PC-output captures. Gesture positive replay,
+gesture contrast false-positive
+checks, and room-light on/off replay are local-media replay proof.
+Gesture-to-voice gate, STT/input, Thought Core turn, real camera, real mic,
+browser runtime, and exact live appliance action are separate proof layers and
+should be reported separately.
 
 ## Optional / Full Install Verification Helper
 
