@@ -78,6 +78,9 @@ function New-SmokeResult {
       confirmation_submit_count = 0
       live_execute_count = 0
       command_submission_count = 0
+      checktracking_action_count = 0
+      checktracking_tracked_count = 0
+      checktracking_unavailable_count = 0
       checkstate_attempt_count = 0
       checkstate_matched_count = 0
       checkstate_mismatch_count = 0
@@ -87,6 +90,7 @@ function New-SmokeResult {
       raw_private_count = 0
     }
     action_results = [ordered]@{}
+    tracking_results = [ordered]@{}
     state_results = [ordered]@{}
     target_results = [ordered]@{}
     camera_summary = [ordered]@{
@@ -163,18 +167,60 @@ function Get-SubmissionClass {
   return "not_submitted"
 }
 
+function Get-CheckTrackingClass {
+  param($Result, [string[]]$ActionIds)
+  $classes = @($ActionIds | ForEach-Object { [string]$Result.tracking_results[$_] })
+  if ($classes.Count -eq 0) { return "not_applicable" }
+  return ($classes -join ";")
+}
+
+function ConvertTo-BoundedExecutionResultClass {
+  param([string]$Status)
+  switch ($Status) {
+    "rejected" { return "not_submitted_rejected" }
+    "failed" { return "not_submitted_failed" }
+    "unavailable" { return "not_submitted_unavailable" }
+    "submitted" { return "not_submitted_incomplete_submission" }
+    default { return "not_submitted_unknown_status" }
+  }
+}
+
+function ConvertTo-BoundedCheckTrackingClass {
+  param([string]$Value)
+  $allowed = @("tracked", "external_required", "ack_only", "manual_required", "unsupported", "untracked")
+  if ($allowed -ccontains $Value) { return $Value }
+  return "unavailable"
+}
+
+function ConvertTo-BoundedStateStatus {
+  param([string]$Status)
+  $allowed = @("matched", "mismatch", "unavailable", "external_required", "ack_only", "manual_required", "unsupported", "position_unavailable")
+  if ($allowed -ccontains $Status) { return $Status }
+  return "unavailable"
+}
+
+function ConvertTo-BoundedCameraBackendClass {
+  param([string]$Backend, [bool]$Available)
+  if (-not $Available) { return "unavailable" }
+  $allowed = @("dshow", "msmf", "avfoundation", "v4l2", "synthetic_fixture")
+  if ($allowed -ccontains $Backend) { return $Backend }
+  return "available_unknown_backend"
+}
+
 function Set-TargetResult {
   param(
     $Result,
     [string]$TargetGroup,
     [string[]]$ActionIds,
     [string[]]$EvidenceClasses,
+    [string[]]$RestoreActionIds = @(),
     [string]$HaVisibleStateClass = "not_checked",
     [string]$CameraEnvironmentEstimateClass = "not_applicable",
     [string[]]$Limitations = @()
   )
-  $normalizedEvidenceClasses = @($EvidenceClasses + @("non_claimed_physical_proof", "readiness/final_non_claim"))
-  if ($HaVisibleStateClass -match "unavailable|failed" -or $CameraEnvironmentEstimateClass -eq "unavailable") {
+  $checkTrackingClass = Get-CheckTrackingClass -Result $Result -ActionIds $ActionIds
+  $normalizedEvidenceClasses = @($EvidenceClasses + @("checktracking_metadata", "non_claimed_physical_proof", "readiness/final_non_claim"))
+  if ($HaVisibleStateClass -match "unavailable|failed" -or $CameraEnvironmentEstimateClass -eq "unavailable" -or $checkTrackingClass -match "unavailable") {
     $normalizedEvidenceClasses += "unavailable"
   }
   $normalizedEvidenceClasses = @($normalizedEvidenceClasses | Select-Object -Unique)
@@ -182,7 +228,10 @@ function Set-TargetResult {
     target_group = $TargetGroup
     action_ids = $ActionIds
     evidence_class = $normalizedEvidenceClasses
+    checktracking_class = $checkTrackingClass
     command_submission_class = Get-SubmissionClass -Result $Result -ActionIds $ActionIds
+    restore_action_ids = $RestoreActionIds
+    restore_class = if ($RestoreActionIds.Count -eq 0) { "not_applicable" } else { Get-SubmissionClass -Result $Result -ActionIds $RestoreActionIds }
     ha_visible_state_class = $HaVisibleStateClass
     camera_environment_estimate_class = $CameraEnvironmentEstimateClass
     physical_proof_class = "not_claimed"
@@ -212,20 +261,20 @@ function Invoke-ActionExecute {
       Add-SubmissionCount -Result $Result -ActionId $ActionId
       return "submitted_after_confirmation"
     }
-    return "not_submitted_$([string]$second.status)"
+    return ConvertTo-BoundedExecutionResultClass -Status ([string]$second.status)
   }
   if ([string]$first.status -eq "submitted" -and [bool]$first.executed) {
     Add-SubmissionCount -Result $Result -ActionId $ActionId
     return "submitted_without_confirmation"
   }
-  return "not_submitted_$([string]$first.status)"
+  return ConvertTo-BoundedExecutionResultClass -Status ([string]$first.status)
 }
 
 function Get-StateClassOnce {
   param([string]$ActionId, [hashtable]$Headers, $Result)
   try {
     $state = Invoke-BridgeJson -Method Get -Path ("/actions/{0}/state" -f [uri]::EscapeDataString($ActionId)) -Headers $Headers -TimeoutSec 15
-    $class = [string]$state.status
+    $class = ConvertTo-BoundedStateStatus -Status ([string]$state.status)
     $Result.bounded_counts.checkstate_attempt_count++
     if ($class -eq "matched") { $Result.bounded_counts.checkstate_matched_count++ }
     elseif ($class -eq "mismatch") { $Result.bounded_counts.checkstate_mismatch_count++ }
@@ -357,7 +406,8 @@ try {
 
   $actionsResponse = Invoke-BridgeJson -Method Get -Path "/actions" -Headers $headers
   $result.bounded_counts.action_id_availability_check = 1
-  $actionIds = @(ConvertTo-ActionRows -Response $actionsResponse | ForEach-Object { [string]$_.action_id })
+  $actionRows = @(ConvertTo-ActionRows -Response $actionsResponse)
+  $actionIds = @($actionRows | ForEach-Object { [string]$_.action_id })
   $targetPlan = [ordered]@{
     light_stimulus = @("light_on")
     fan_command = @("fan_on")
@@ -383,10 +433,23 @@ try {
     Set-RouteBlocker -Result $result -Blocker "missing_or_ambiguous_action_id" -Summary ("planned appliance action ids missing count=" + $missing.Count + "; no batch commands submitted")
     return
   }
+  foreach ($actionId in $plannedActions) {
+    $row = @($actionRows | Where-Object { [string]$_.action_id -ceq $actionId }) | Select-Object -First 1
+    $trackingProperty = if ($null -eq $row) { $null } else { $row.PSObject.Properties["state_tracking"] }
+    $trackingClass = if ($null -eq $trackingProperty) { "unavailable" } else { ConvertTo-BoundedCheckTrackingClass -Value ([string]$trackingProperty.Value) }
+    $result.tracking_results[$actionId] = $trackingClass
+    $result.bounded_counts.checktracking_action_count++
+    if ($trackingClass -eq "tracked") {
+      $result.bounded_counts.checktracking_tracked_count++
+    }
+    if ($trackingClass -eq "unavailable") {
+      $result.bounded_counts.checktracking_unavailable_count++
+    }
+  }
 
   $camBefore = Read-CameraSummary -Result $result
   $result.camera_summary.before_ok = [bool]$camBefore.ok
-  $result.camera_summary.backend_class = [string]$camBefore.backend
+  $result.camera_summary.backend_class = ConvertTo-BoundedCameraBackendClass -Backend ([string]$camBefore.backend) -Available ([bool]$camBefore.ok)
 
   $result.action_results["light_on"] = Invoke-ActionExecute -ActionId "light_on" -Headers $headers -Result $result
   Start-Sleep -Seconds 3
@@ -470,6 +533,7 @@ try {
     -TargetGroup "aircon_cool_to_hvac_off" `
     -ActionIds $targetPlan["aircon_cool_to_hvac_off"] `
     -EvidenceClasses @("command_submission", "ha_visible_state") `
+    -RestoreActionIds @("aircon_hvac_off") `
     -HaVisibleStateClass ([string]$result.state_results["aircon_cool"] + ";" + [string]$result.state_results["aircon_hvac_off"])
 
   $result.action_results["door_open"] = Invoke-ActionExecute -ActionId "door_open" -Headers $headers -Result $result
@@ -480,6 +544,7 @@ try {
     -TargetGroup "door_open_to_close" `
     -ActionIds $targetPlan["door_open_to_close"] `
     -EvidenceClasses @("command_submission", "ha_visible_state") `
+    -RestoreActionIds @("door_close") `
     -HaVisibleStateClass ([string]$result.state_results["door_open"] + ";" + [string]$result.state_results["door_close"])
 
   $result.action_results["vacuum_start"] = Invoke-ActionExecute -ActionId "vacuum_start" -Headers $headers -Result $result
@@ -500,6 +565,7 @@ try {
     -TargetGroup "vacuum_start_to_return" `
     -ActionIds $targetPlan["vacuum_start_to_return"] `
     -EvidenceClasses @("command_submission", "ha_visible_state") `
+    -RestoreActionIds @("vacuum_return") `
     -HaVisibleStateClass ([string]$result.state_results["vacuum_start"] + ";" + [string]$result.state_results["vacuum_return"])
 
   $notSubmitted = @($result.action_results.GetEnumerator() | Where-Object { [string]$_.Value -notlike "submitted*" })
