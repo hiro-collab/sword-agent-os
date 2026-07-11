@@ -869,6 +869,50 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $preparedSampleRunner -Pattern 'source_static_join_envelope = \$sourceStaticJoinEnvelope' -Message "prepared-sample runner should add the source-static join envelope to result and JSON output"
   $retiredRuntimeFieldPattern = "(?m)^\s*(browser_runtime_" + "executed|stt_runtime_" + "executed)\s*="
   Assert-TextNotMatch -Text $preparedSampleRunner -Pattern $retiredRuntimeFieldPattern -Message "prepared-sample runner should not retain ambiguous retired runtime fields"
+  $preparedSamplePlaybackControllerPath = Join-Path $RepoRoot "scripts\run-prepared-sample-browser-stt-playback-controller.ps1"
+  $preparedSamplePlaybackControllerTestPath = Join-Path $RepoRoot "scripts\test-prepared-sample-browser-stt-playback-controller.ps1"
+  $preparedSamplePlaybackCollectorPath = Join-Path $RepoRoot "organs\expression\aituber-kit\scripts\collect-prepared-sample-browser-stt-playback.mjs"
+  $preparedSamplePlaybackCollectorTestPath = Join-Path $RepoRoot "organs\expression\aituber-kit\scripts\collect-prepared-sample-browser-stt-playback.test.mjs"
+  foreach ($path in @(
+    $preparedSamplePlaybackControllerPath,
+    $preparedSamplePlaybackControllerTestPath,
+    $preparedSamplePlaybackCollectorPath,
+    $preparedSamplePlaybackCollectorTestPath
+  )) {
+    Assert-PathPresent -Path $path
+  }
+  $preparedSamplePlaybackController = Get-Content -Raw -LiteralPath $preparedSamplePlaybackControllerPath
+  $preparedSamplePlaybackCollector = Get-Content -Raw -LiteralPath $preparedSamplePlaybackCollectorPath
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'prepared_sample_expected_text\.v1[\s\S]{0,240}prepared_sample_expected_text_authority_missing_or_invalid' -Message "prepared-sample playback controller should keep the local expected-text authority fixed and fail closed"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'SWORD_PREPARED_SAMPLE_AUDIO_PATH[\s\S]{0,300}SWORD_PREPARED_SAMPLE_EXPECTED_TEXT[\s\S]{0,300}SWORD_PREPARED_SAMPLE_LOCALE' -Message "prepared-sample playback controller should pass private runtime inputs only through the child environment"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'WaitForExit\(95000\)[\s\S]{0,220}whole_route_timeout' -Message "prepared-sample playback controller should retain the bounded 90-second route with cleanup margin"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'private_environment_shared = \$false' -Message "prepared-sample playback controller should keep private child environment values out of shared output"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'SWORD_PREPARED_SAMPLE_EXPECTED_TEXT[\s\S]{0,8000}Environment\.Remove\(\$key\)' -Message "prepared-sample playback controller should clear the private child environment in finally"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern '\$validatedAssetId = \$null[\s\S]{0,12000}selected_asset_id = \$validatedAssetId' -Message "prepared-sample playback controller should never reflect an unvalidated asset id"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'function Assert-CollectorResult[\s\S]{0,4200}raw_text_shared[\s\S]{0,4200}controller_status -ceq "completed"' -Message "prepared-sample playback controller should strictly validate collector keys, safety flags, and completed-result consistency"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern '\$collectorCompleted = [\s\S]{0,240}\$child\.ExitCode -ne 0[\s\S]{0,240}\$child\.ExitCode -eq 0' -Message "prepared-sample playback controller should couple completed/error JSON to the owned child exit status"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'function Stop-OwnedChild[\s\S]{0,900}WaitForExit\(5000\)[\s\S]{0,900}return \$child\.HasExited' -Message "prepared-sample playback controller should confirm owned child exit within a bound"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'SWORD_PREPARED_SAMPLE_TEST_LOCK_CLEANUP_FAILURE[\s\S]{0,900}Test-Path -LiteralPath \$lockPath[\s\S]{0,900}\$cleanupIncomplete' -Message "prepared-sample playback controller should verify owned lock absence"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'if \(\$cleanupIncomplete\)[\s\S]{0,180}New-FixedFailureResult -BlockerClass "cleanup_incomplete"' -Message "prepared-sample playback controller should override any prior result when cleanup convergence is unproven"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern 'ATTEMPT_COUNT = 5[\s\S]{0,100}ATTEMPT_TIMEOUT_MS = 10_000[\s\S]{0,100}ROUTE_TIMEOUT_MS = 90_000' -Message "prepared-sample playback collector should retain five attempts, 10-second attempts, and a 90-second route bound"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern 'ROUTE_CANCEL_SETTLE_MS = 2_000[\s\S]{0,5000}new AbortController\(\)[\s\S]{0,2500}waitForRouteSettlement' -Message "prepared-sample playback collector should abort at the route bound and await bounded operation settlement before cleanup"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "waitForStatus\('attempt_listening'[\s\S]{0,650}startPlayback\(\{ signal \}\)" -Message "prepared-sample playback collector should start tracked playback only after the page enters the listening state"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "waitForStatus\('attempt_listening'[\s\S]{0,180}requireRecognitionLocale\(\)[\s\S]{0,650}startPlayback\(\{ signal \}\)" -Message "prepared-sample playback collector should verify the browser recognition locale before playback"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "enumerateDevices\(\)" -Message "prepared-sample playback collector should inspect normal-browser audio input and output devices"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "browser_microphone_permission_or_device_unavailable[\s\S]{0,600}browser_audio_input_track_not_live[\s\S]{0,600}browser_audio_output_device_unavailable" -Message "prepared-sample playback collector should fail closed on missing input, non-live track, or missing output"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "clearPrivateProcessEnvironment\(\)[\s\S]{0,800}privateValues\[key\] = ''" -Message "prepared-sample playback collector should clear inherited private environment and retained values before exit"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "--use-fake-ui-for-media-stream" -Message "prepared-sample playback collector may suppress only the microphone permission prompt"
+  Assert-TextNotMatch -Text $preparedSamplePlaybackCollector -Pattern "--use-fake-device-for-media-stream" -Message "prepared-sample playback collector should not replace the real browser microphone input"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "parent_preflight_mount_pending[\s\S]{0,2200}attach_external" -Message "prepared-sample playback collector should attach only after the bounded operator surface probe succeeds"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "Get-NetTCPConnection[\s\S]{0,2600}CreationDate[\s\S]{0,1600}parseOperatorServerIdentity" -Message "prepared-sample playback collector should retain a bounded PID/start identity for external attach"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "initialIdentity = await inspectOwner\(\)[\s\S]{0,900}confirmedIdentity = await inspectOwner\(\)[\s\S]{0,500}sameOperatorServerIdentity" -Message "prepared-sample playback collector should reject an owner swap during external surface probing"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "adapter\.revalidateExternalServer\(\)[\s\S]{0,240}adapter\.fillExpectedText" -Message "prepared-sample playback collector should revalidate external owner identity before private expected-text use"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "async revalidateExternalServer\(\)[\s\S]{0,420}sameOperatorServerIdentity" -Message "prepared-sample playback collector should compare the current external owner with the retained PID/start identity"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "serverMode = resolution\.serverMode[\s\S]{0,200}externalServerIdentity = resolution\.externalServerIdentity[\s\S]{0,200}serverMode === 'attach_external'" -Message "prepared-sample playback collector should retain external owner identity while preserving an attached Next server"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "stopTrackedServer\(\{ serverMode, serverChild \}\)[\s\S]{0,200}externalServerIdentity = null" -Message "prepared-sample playback collector should clear external identity only through tracked server cleanup"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "stopOwnedProcess[\s\S]{0,600}serverChild\.kill\(\)[\s\S]{0,220}serverChild\.kill\('SIGKILL'\)" -Message "prepared-sample playback collector should clear owned Next tracking only after bounded exit confirmation"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "pipe:0" -Message "prepared-sample playback collector should stream private audio to ffplay without a file path argument"
+  Assert-TextNotMatch -Text $preparedSamplePlaybackCollector -Pattern 'spawn\([\s\S]{0,300}audioPath' -Message "prepared-sample playback collector should not place the private audio path on the ffplay command line"
   $preparedSamplePagePath = Join-Path $RepoRoot "organs\expression\aituber-kit\src\pages\operator\prepared-sample-stt.tsx"
   Assert-PathPresent -Path $preparedSamplePagePath
   $preparedSamplePage = Get-Content -Raw -LiteralPath $preparedSamplePagePath
