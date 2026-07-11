@@ -9,6 +9,7 @@ param(
   [int]$TimeoutSeconds = 4,
   [switch]$SkipManualChange,
   [switch]$DryRun,
+  [string]$RoomLightFixturePath = "tests/fixtures/room-light-shared-vectors.v1.json",
   [switch]$Json
 )
 
@@ -86,6 +87,123 @@ function Get-ObjectProperty {
     return $Default
   }
   return $property.Value
+}
+
+function Assert-FixtureCondition {
+  param(
+    [Parameter(Mandatory = $true)][bool]$Condition,
+    [Parameter(Mandatory = $true)][string]$Message
+  )
+
+  if (-not $Condition) {
+    throw "room-light shared fixture: $Message"
+  }
+}
+
+function Assert-FixtureFields {
+  param(
+    [Parameter(Mandatory = $true)][object]$Object,
+    [Parameter(Mandatory = $true)][string[]]$Required,
+    [Parameter(Mandatory = $true)][string[]]$Allowed,
+    [Parameter(Mandatory = $true)][string]$Context
+  )
+
+  Assert-FixtureCondition ($null -ne $Object) "$Context must be an object"
+  $actual = @($Object.PSObject.Properties.Name)
+  foreach ($name in $actual) {
+    Assert-FixtureCondition ($name -cin $Allowed) "$Context contains disallowed field '$name'"
+  }
+  foreach ($name in $Required) {
+    Assert-FixtureCondition ($name -cin $actual) "$Context is missing required field '$name'"
+  }
+}
+
+function Copy-FixtureValue {
+  param([Parameter(Mandatory = $true)][object]$Value)
+
+  return ($Value | ConvertTo-Json -Depth 12 -Compress | ConvertFrom-Json -DateKind String)
+}
+
+function Read-RoomLightSharedFixture {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  $resolvedPath = Resolve-RepoPath -Path $Path
+  Assert-FixtureCondition (Test-Path -LiteralPath $resolvedPath -PathType Leaf) "configured fixture is missing"
+  $expectedPath = Resolve-RepoPath -Path "tests/fixtures/room-light-shared-vectors.v1.json"
+  Assert-FixtureCondition ([string]::Equals($resolvedPath, $expectedPath, [System.StringComparison]::OrdinalIgnoreCase)) "only the owned room-light shared fixture is accepted"
+  try {
+    $fixture = Get-Content -Raw -LiteralPath $resolvedPath | ConvertFrom-Json -DateKind String
+  }
+  catch {
+    throw "room-light shared fixture: configured fixture is malformed JSON"
+  }
+
+  Assert-FixtureFields -Object $fixture -Required @("fixture_version", "fixture_kind", "unknown_field_sentinel", "cases") -Allowed @("fixture_version", "fixture_kind", "unknown_field_sentinel", "cases") -Context "root"
+  Assert-FixtureCondition ($fixture.fixture_version -is [string] -and $fixture.fixture_version -ceq "room-light-shared-vectors.v1") "fixture_version mismatch"
+  Assert-FixtureCondition ($fixture.fixture_kind -is [string] -and $fixture.fixture_kind -ceq "non_schema_test_vectors") "fixture_kind mismatch"
+  Assert-FixtureCondition ($fixture.unknown_field_sentinel -is [string] -and $fixture.unknown_field_sentinel -ceq "fixed-unknown-room-light-sentinel-7e57") "unknown sentinel mismatch"
+
+  $expectedCaseIds = @(
+    "canonical_camera_hub",
+    "canonical_vision_snapshot_processor",
+    "malformed_nested_sequence",
+    "wrong_numeric_type",
+    "nonfinite_numeric",
+    "out_of_range_numeric",
+    "wrong_case",
+    "stale_freshness",
+    "reversed_ordered_nonclaims",
+    "non_room_light",
+    "unknown_field_non_echo",
+    "wrong_proof_ceiling",
+    "responsiveness_same_identity_material_movement",
+    "responsiveness_changed_identity_no_material_movement",
+    "responsiveness_changed_identity_material_movement"
+  )
+  $cases = @($fixture.cases)
+  Assert-FixtureCondition ($cases.Count -eq $expectedCaseIds.Count) "case count mismatch"
+
+  $observationRequired = @("type", "schema_version", "observation_bucket", "confidence", "daylight_ambiguity", "cue_likelihoods", "source", "source_class", "observed_at", "observation_id", "source_snapshot_id", "sequence", "model", "freshness", "proof_ceiling", "does_not_prove")
+  $observationAllowed = @($observationRequired + "unknown_test_field")
+  for ($index = 0; $index -lt $cases.Count; $index += 1) {
+    $case = $cases[$index]
+    $context = "case[$index]"
+    Assert-FixtureFields -Object $case -Required @("case_id", "baseline", "followup", "expected") -Allowed @("case_id", "baseline", "followup", "expected", "synthetic_numeric_class") -Context $context
+    Assert-FixtureCondition ($case.case_id -is [string] -and $case.case_id -ceq $expectedCaseIds[$index]) "$context case_id/order mismatch"
+    foreach ($sampleName in @("baseline", "followup")) {
+      $sample = Get-ObjectProperty -Object $case -Name $sampleName
+      Assert-FixtureFields -Object $sample -Required $observationRequired -Allowed $observationAllowed -Context "$context.$sampleName"
+      Assert-FixtureFields -Object $sample.cue_likelihoods -Required @("warm_light", "daylight", "darkness") -Allowed @("warm_light", "daylight", "darkness") -Context "$context.$sampleName.cue_likelihoods"
+      Assert-FixtureFields -Object $sample.sequence -Required @("first_frame_id", "last_frame_id", "frame_count", "temporal_window_ms") -Allowed @("first_frame_id", "last_frame_id", "frame_count", "temporal_window_ms") -Context "$context.$sampleName.sequence"
+      Assert-FixtureFields -Object $sample.model -Required @("name", "kind") -Allowed @("name", "kind") -Context "$context.$sampleName.model"
+      Assert-FixtureFields -Object $sample.freshness -Required @("level") -Allowed @("level") -Context "$context.$sampleName.freshness"
+    }
+    $baselineUnknown = $null -ne $case.baseline.PSObject.Properties["unknown_test_field"]
+    $followupUnknown = $null -ne $case.followup.PSObject.Properties["unknown_test_field"]
+    if ($case.case_id -ceq "unknown_field_non_echo") {
+      Assert-FixtureCondition (-not $baselineUnknown) "$context baseline must not contain the unknown sentinel"
+      Assert-FixtureCondition ($followupUnknown -and $case.followup.unknown_test_field -is [string] -and $case.followup.unknown_test_field -ceq $fixture.unknown_field_sentinel) "$context followup sentinel mismatch"
+    }
+    else {
+      Assert-FixtureCondition (-not $baselineUnknown -and -not $followupUnknown) "$context must not contain the unknown sentinel field"
+    }
+    Assert-FixtureFields -Object $case.expected -Required @("validation_class", "claim_class", "responsiveness_class", "delta_class", "unknown_echo_class") -Allowed @("validation_class", "claim_class", "responsiveness_class", "delta_class", "unknown_echo_class") -Context "$context.expected"
+    Assert-FixtureCondition ($case.expected.validation_class -is [string] -and $case.expected.validation_class -cin @("valid", "invalid")) "$context expected validation class is invalid"
+    Assert-FixtureCondition ($case.expected.claim_class -is [string] -and $case.expected.claim_class -cin @("unavailable", "available-but-not-decisive-camera-environment-estimate", "camera-environment-estimate-high-confidence")) "$context expected claim class is invalid"
+    Assert-FixtureCondition ($case.expected.responsiveness_class -is [string] -and $case.expected.responsiveness_class -cin @("pass", "partial", "fail")) "$context expected responsiveness class is invalid"
+    Assert-FixtureCondition ($case.expected.delta_class -is [string] -and $case.expected.delta_class -cin @("noncanonical_camera_environment_estimate", "material_camera_environment_estimate_change_with_new_observation", "material_camera_environment_estimate_change_without_new_observation", "new_observation_without_material_camera_environment_estimate_change", "no_material_camera_environment_estimate_change")) "$context expected delta class is invalid"
+    Assert-FixtureCondition ($case.expected.unknown_echo_class -is [string] -and $case.expected.unknown_echo_class -ceq "not_echoed") "$context expected unknown echo class is invalid"
+    $syntheticNumericClass = Get-ObjectProperty -Object $case -Name "synthetic_numeric_class" -Default "none"
+    Assert-FixtureCondition ($syntheticNumericClass -is [string] -and $syntheticNumericClass -cin @("none", "followup_confidence_nan")) "$context synthetic_numeric_class is invalid"
+    if ($case.case_id -ceq "nonfinite_numeric") {
+      Assert-FixtureCondition ($null -ne $case.PSObject.Properties["synthetic_numeric_class"] -and $syntheticNumericClass -ceq "followup_confidence_nan") "$context must carry the fixed nonfinite marker"
+    }
+    else {
+      Assert-FixtureCondition ($null -eq $case.PSObject.Properties["synthetic_numeric_class"]) "$context must not carry a synthetic numeric marker"
+    }
+  }
+
+  return $fixture
 }
 
 function ConvertTo-AdapterMode {
@@ -848,103 +966,44 @@ $environmentCurrentUrl = ConvertTo-EnvironmentCurrentUrl `
   -EnvUrl (Get-MapValue -Map $centralEnv -Name "ENVIRONMENT_STATE_URL")
 
 if ($DryRun) {
-  $newRoomLightFixture = {
-    param([string]$Bucket, [int64]$FirstFrameId, [int64]$LastFrameId, [string]$ObservationId, [string]$SnapshotId)
-    [PSCustomObject]@{
-      type = "room_light_observation"
-      schema_version = 1
-      observation_bucket = $Bucket
-      confidence = 0.95
-      daylight_ambiguity = "low"
-      cue_likelihoods = [PSCustomObject]@{ warm_light = 0.90; daylight = 0.05; darkness = 0.05 }
-      source = "camera_hub"
-      source_class = "camera_environment_estimate"
-      observed_at = "2026-01-01T00:00:00.0000000Z"
-      observation_id = $ObservationId
-      source_snapshot_id = $SnapshotId
-      sequence = [PSCustomObject]@{ frame_count = 2; first_frame_id = $FirstFrameId; last_frame_id = $LastFrameId; temporal_window_ms = 100 }
-      model = [PSCustomObject]@{ name = "room-light-heuristic-snapshot-v3"; kind = "heuristic" }
-      freshness = [PSCustomObject]@{ level = "fresh" }
-      proof_ceiling = "camera_environment_estimate_only"
-      does_not_prove = @("physical_room_light_state", "home_assistant_light_state")
+  $sharedFixture = Read-RoomLightSharedFixture -Path $RoomLightFixturePath
+  $fixtureCaseResults = @()
+  foreach ($fixtureCase in @($sharedFixture.cases)) {
+    $baselineObservation = Copy-FixtureValue -Value $fixtureCase.baseline
+    $followupObservation = Copy-FixtureValue -Value $fixtureCase.followup
+    if ((Get-ObjectProperty -Object $fixtureCase -Name "synthetic_numeric_class" -Default "none") -ceq "followup_confidence_nan") {
+      $followupObservation.confidence = [double]::NaN
     }
-  }
-  $newFixedCase = {
-    param([string]$Label, [string]$Class)
-    [PSCustomObject]@{
-      label = $Label
-      class = $Class
-      baseline = & $newRoomLightFixture "bright" 10 11 "dryrun-room-light-observation-001" "dryrun-room-light-snapshot-001"
-      followup = & $newRoomLightFixture "dark" 12 13 "dryrun-room-light-observation-002" "dryrun-room-light-snapshot-002"
-    }
-  }
 
-  $fixedCases = @(
-    (& $newFixedCase "wrong_type" "wrong_type"),
-    (& $newFixedCase "numeric_string_canonical_fields" "numeric_string"),
-    (& $newFixedCase "boolean_numeric_canonical_field" "boolean_numeric"),
-    (& $newFixedCase "reversed_nonclaim_order" "ordered_nonclaim_list"),
-    (& $newFixedCase "identifier_over_160" "identifier_length"),
-    (& $newFixedCase "uppercase_mixed_case_observation_bucket" "canonical_string_case_bucket"),
-    (& $newFixedCase "uppercase_mixed_case_daylight_ambiguity" "canonical_string_case_daylight_ambiguity"),
-    (& $newFixedCase "uppercase_mixed_case_freshness_level" "canonical_string_case_freshness")
-  )
-  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "wrong_type" })) {
-    $fixture.baseline.type = "room_light_observation_invalid"
-    $fixture.followup.type = "room_light_observation_invalid"
-  }
-  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "numeric_string" })) {
-    $fixture.baseline.schema_version = "1"
-    $fixture.followup.schema_version = "1"
-    $fixture.baseline.confidence = "0.95"
-    $fixture.followup.confidence = "0.95"
-    $fixture.baseline.cue_likelihoods.warm_light = "0.90"
-    $fixture.followup.cue_likelihoods.warm_light = "0.05"
-    $fixture.baseline.sequence.frame_count = "2"
-    $fixture.followup.sequence.frame_count = "2"
-  }
-  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "boolean_numeric" })) {
-    $fixture.baseline.confidence = $true
-    $fixture.followup.confidence = $true
-  }
-  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "ordered_nonclaim_list" })) {
-    $fixture.baseline.does_not_prove = @("home_assistant_light_state", "physical_room_light_state")
-    $fixture.followup.does_not_prove = @("home_assistant_light_state", "physical_room_light_state")
-  }
-  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "identifier_length" })) {
-    $fixture.baseline.observation_id = "x" * 161
-    $fixture.followup.observation_id = "x" * 161
-  }
-  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "canonical_string_case_bucket" })) {
-    $fixture.baseline.observation_bucket = "BRIGHT"
-    $fixture.followup.observation_bucket = "DaRk"
-  }
-  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "canonical_string_case_daylight_ambiguity" })) {
-    $fixture.baseline.daylight_ambiguity = "LOW"
-    $fixture.followup.daylight_ambiguity = "MeDiUm"
-  }
-  foreach ($fixture in @($fixedCases | Where-Object { $_.class -eq "canonical_string_case_freshness" })) {
-    $fixture.baseline.freshness.level = "FRESH"
-    $fixture.followup.freshness.level = "ReCeNt"
-  }
-
-  $malformedCaseResults = @()
-  foreach ($fixture in $fixedCases) {
-    $validation = Get-RoomLightCanonicalValidation -RoomLight $fixture.followup
-    $claim = Get-RoomLightClaim -RoomLight $fixture.followup
+    $validation = Get-RoomLightCanonicalValidation -RoomLight $followupObservation
+    $claim = Get-RoomLightClaim -RoomLight $followupObservation
     $responsiveness = Get-RoomLightResponsiveness `
-      -Baseline @([PSCustomObject]@{ ok = $true; room_light = $fixture.baseline }) `
-      -Followup @([PSCustomObject]@{ ok = $true; room_light = $fixture.followup }) `
+      -Baseline @([PSCustomObject]@{ ok = $true; room_light = $baselineObservation }) `
+      -Followup @([PSCustomObject]@{ ok = $true; room_light = $followupObservation }) `
       -Claim $claim `
       -ManualChangeSkipped $false
-    $deltaFailsClosed = $null -ne $responsiveness.delta -and $responsiveness.delta.canonical_before -eq "invalid" -and $responsiveness.delta.canonical_after -eq "invalid"
-    $malformedCaseResults += [PSCustomObject]@{
-      label = $fixture.label
-      class = $fixture.class
-      status = if (-not [bool]$validation.valid -and $claim -ceq "unavailable" -and $responsiveness.status -ne "pass" -and $deltaFailsClosed) { "pass" } else { "fail" }
+    $summary = Get-RoomLightSummary -Payload ([PSCustomObject]@{ vision = [PSCustomObject]@{ room_light = $followupObservation } })
+    $summaryJson = $summary | ConvertTo-Json -Depth 8 -Compress
+    $unknownEchoClass = if ($summaryJson.Contains([string]$sharedFixture.unknown_field_sentinel, [System.StringComparison]::Ordinal)) { "echoed" } else { "not_echoed" }
+    $deltaClass = if ($null -eq $responsiveness.delta) { "none" } else { [string]$responsiveness.delta.detail }
+    $actual = [ordered]@{
+      validation_class = [string]$validation.status
+      claim_class = [string]$claim
+      responsiveness_class = [string]$responsiveness.status
+      delta_class = $deltaClass
+      unknown_echo_class = $unknownEchoClass
+    }
+    $mismatches = @($actual.Keys | Where-Object { $actual[$_] -cne [string](Get-ObjectProperty -Object $fixtureCase.expected -Name $_) })
+    $fixtureCaseResults += [PSCustomObject]@{
+      case_id = [string]$fixtureCase.case_id
+      expected_class = if ($mismatches.Count -eq 0) { "matched" } else { "mismatch" }
+      mismatch_fields = @($mismatches)
+      validation_errors = @($validation.error_classes)
+      actual_classes = [PSCustomObject]$actual
+      status = if ($mismatches.Count -eq 0) { "pass" } else { "fail" }
     }
   }
-  $malformedFixtureStatus = if (@($malformedCaseResults | Where-Object { $_.status -ne "pass" }).Count -eq 0) { "pass" } else { "fail" }
+  $sharedFixtureStatus = if (@($fixtureCaseResults | Where-Object { $_.status -ne "pass" }).Count -eq 0) { "pass" } else { "fail" }
   $dryRunResult = [PSCustomObject]@{
     status = "dry-run"
     checked_at = (Get-Date).ToString("o")
@@ -965,13 +1024,19 @@ if ($DryRun) {
     raw_media_shared = $false
     raw_secret_shared = $false
     live_appliance_action_executed = $false
-    malformed_canonical_fixture = [PSCustomObject]@{
-      status = $malformedFixtureStatus
-      case_count = $malformedCaseResults.Count
-      cases = @($malformedCaseResults | ForEach-Object {
+    room_light_shared_fixture = [PSCustomObject]@{
+      fixture_version = [string]$sharedFixture.fixture_version
+      fixture_kind = [string]$sharedFixture.fixture_kind
+      status = $sharedFixtureStatus
+      case_count = $fixtureCaseResults.Count
+      validation_count = $fixtureCaseResults.Count
+      cases = @($fixtureCaseResults | ForEach-Object {
         [PSCustomObject]@{
-          label = $_.label
-          class = $_.class
+          case_id = $_.case_id
+          expected_class = $_.expected_class
+          mismatch_fields = @($_.mismatch_fields)
+          validation_errors = @($_.validation_errors)
+          actual_classes = $_.actual_classes
           status = $_.status
         }
       })
@@ -986,8 +1051,11 @@ if ($DryRun) {
     Write-Host "environment_current_endpoint=loopback:/environment/current"
     Write-Host "display_status_endpoint=loopback:/api/status"
     Write-Host ("home_action_mode={0}" -f $effectiveAdapter)
-    Write-Host ("malformed_canonical_fixture={0} case_count={1}" -f $malformedFixtureStatus, $malformedCaseResults.Count)
+    Write-Host ("room_light_shared_fixture={0} case_count={1}" -f $sharedFixtureStatus, $fixtureCaseResults.Count)
     Write-Host "raw_media_saved=false raw_secret_shared=false live_appliance_action_executed=false"
+  }
+  if ($sharedFixtureStatus -ne "pass") {
+    exit 1
   }
   return
 }
