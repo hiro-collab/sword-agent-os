@@ -1,0 +1,130 @@
+{
+  "schema_version": "m4_dance_lifecycle_fault_vectors.v0",
+  "fixture_kind": "non_schema_test_vectors",
+  "fixture_scope": "parent_dance_lifecycle_fault_vector_harness_only",
+  "case_order": [
+    "dance_start_queued",
+    "dance_active_accept",
+    "dance_stop_before_start",
+    "dance_stop_repeated",
+    "dance_stop_active",
+    "dance_late_result_after_stop",
+    "dance_late_frame_after_stop",
+    "dance_stale_result",
+    "dance_settled_idle"
+  ],
+  "cases": [
+    {
+      "case_id": "dance_start_queued",
+      "dance_session_ref": "dance_session_m4_vector_alpha",
+      "sequence_number": 10,
+      "prior_state": "idle",
+      "candidate_event_kind": "stimulus",
+      "request_mode": "play",
+      "lifecycle_state": "queued",
+      "candidate_state": "queued",
+      "expected_receiver_result_class": "accepted_queued",
+      "expected_state": "queued",
+      "core_contract_class": "play_request_accepted"
+    },
+    {
+      "case_id": "dance_active_accept",
+      "dance_session_ref": "dance_session_m4_vector_alpha",
+      "sequence_number": 20,
+      "prior_state": "queued",
+      "candidate_event_kind": "runtime_result",
+      "lifecycle_state": "active",
+      "candidate_state": "active",
+      "expected_receiver_result_class": "accepted_active",
+      "expected_state": "active",
+      "core_contract_class": "runtime_activation_accepted"
+    },
+    {
+      "case_id": "dance_stop_before_start",
+      "dance_session_ref": "dance_session_m4_vector_beta",
+      "sequence_number": 10,
+      "prior_state": "idle",
+      "candidate_event_kind": "stimulus",
+      "request_mode": "stop",
+      "lifecycle_state": "stopped",
+      "candidate_state": "stopped",
+      "expected_receiver_result_class": "accepted_idempotent_idle",
+      "expected_state": "idle",
+      "core_contract_class": "stop_idempotent"
+    },
+    {
+      "case_id": "dance_stop_repeated",
+      "dance_session_ref": "dance_session_m4_vector_beta",
+      "sequence_number": 20,
+      "prior_state": "idle",
+      "candidate_event_kind": "stimulus",
+      "request_mode": "stop",
+      "lifecycle_state": "stopped",
+      "candidate_state": "stopped",
+      "expected_receiver_result_class": "accepted_idempotent_idle",
+      "expected_state": "idle",
+      "core_contract_class": "stop_idempotent"
+    },
+    {
+      "case_id": "dance_stop_active",
+      "dance_session_ref": "dance_session_m4_vector_alpha",
+      "sequence_number": 30,
+      "prior_state": "active",
+      "candidate_event_kind": "stimulus",
+      "request_mode": "stop",
+      "lifecycle_state": "stopped",
+      "candidate_state": "stopped",
+      "expected_receiver_result_class": "accepted_stop_to_idle",
+      "expected_state": "idle",
+      "core_contract_class": "stop_to_idle"
+    },
+    {
+      "case_id": "dance_late_result_after_stop",
+      "dance_session_ref": "dance_session_m4_vector_alpha",
+      "sequence_number": 40,
+      "prior_state": "idle",
+      "candidate_event_kind": "runtime_result",
+      "lifecycle_state": "active",
+      "candidate_state": "active",
+      "expected_receiver_result_class": "rejected_late_after_stop",
+      "expected_state": "idle",
+      "core_contract_class": "late_after_stop_rejected"
+    },
+    {
+      "case_id": "dance_late_frame_after_stop",
+      "dance_session_ref": "dance_session_m4_vector_alpha",
+      "sequence_number": 50,
+      "prior_state": "idle",
+      "candidate_event_kind": "frame",
+      "lifecycle_state": "active",
+      "candidate_state": "active",
+      "expected_receiver_result_class": "rejected_late_after_stop",
+      "expected_state": "idle",
+      "core_contract_class": "late_after_stop_rejected"
+    },
+    {
+      "case_id": "dance_stale_result",
+      "dance_session_ref": "dance_session_m4_vector_gamma",
+      "sequence_number": 10,
+      "prior_state": "active",
+      "candidate_event_kind": "runtime_result",
+      "lifecycle_state": "queued",
+      "candidate_state": "queued",
+      "expected_receiver_result_class": "rejected_stale",
+      "expected_state": "active",
+      "core_contract_class": "stale_result_rejected"
+    },
+    {
+      "case_id": "dance_settled_idle",
+      "dance_session_ref": "dance_session_m4_vector_delta",
+      "sequence_number": 10,
+      "prior_state": "stopped",
+      "candidate_event_kind": "runtime_result",
+      "lifecycle_state": "completed",
+      "candidate_state": "idle",
+      "expected_receiver_result_class": "accepted_settled_idle",
+      "expected_state": "idle",
+      "core_contract_class": "settled_idle"
+    }
+  ]
+}
