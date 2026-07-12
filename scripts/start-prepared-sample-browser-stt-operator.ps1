@@ -154,7 +154,7 @@ $query = @(
   "sample_index_preflight_class=$([uri]::EscapeDataString($sampleIndexPreflightClass))",
   "sample_index_preflight_ref=$([uri]::EscapeDataString($sampleIndexPreflightRef))"
 ) -join "&"
-$operatorUrl = "http://127.0.0.1:3000/operator/prepared-sample-stt?$query"
+$operatorUrl = "http://127.0.0.1:3000/operator/prepared-sample-stt/?$query"
 
 $result = [PSCustomObject]@{
   status = "preflight_ready"

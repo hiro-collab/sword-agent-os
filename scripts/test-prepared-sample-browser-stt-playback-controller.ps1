@@ -142,6 +142,8 @@ const required = [
   'SWORD_PREPARED_SAMPLE_LOCK_CLASS',
 ]
 if (!required.every((key) => process.env[key])) process.exit(2)
+const operatorUrl = new URL(process.env.SWORD_PREPARED_SAMPLE_OPERATOR_URL)
+if (operatorUrl.pathname !== '/operator/prepared-sample-stt/') process.exit(3)
 if (process.env.SWORD_TEST_CHILD_PID_FILE) {
   writeFileSync(process.env.SWORD_TEST_CHILD_PID_FILE, String(process.pid))
 }
