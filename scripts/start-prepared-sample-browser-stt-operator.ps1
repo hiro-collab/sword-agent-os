@@ -4,6 +4,10 @@ param(
 
   [string]$ConversationAttemptRef = "",
   [string]$WorkspaceRoot = "",
+  [int]$AttemptCount = 5,
+  [ValidateSet("system_default", "installed_virtual_cable_pair_v1")]
+  [string]$AudioRouteClass = "system_default",
+  [switch]$IntegratedPresentation,
   [switch]$OpenBrowser,
   [switch]$Json
 )
@@ -15,6 +19,17 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 $PreparedSampleIdPattern = "^[a-z][a-z0-9_.-]{2,127}$"
 $ConversationAttemptRefPattern = "^m4\.prepared_sample_attempt:[a-f0-9]{32}$"
 $OpaqueRefPattern = "^[a-z][a-z0-9_.:-]{2,127}$"
+
+if ($AttemptCount -lt 1 -or $AttemptCount -gt 5) {
+  throw "AttemptCount must be between 1 and 5"
+}
+  $integratedRouteSelected = $AudioRouteClass -ceq "installed_virtual_cable_pair_v1"
+if (
+  [bool]$IntegratedPresentation -ne $integratedRouteSelected -or
+  ($AttemptCount -eq 1) -ne $integratedRouteSelected
+) {
+  throw "AttemptCount 1, installed_virtual_cable_pair_v1, and IntegratedPresentation must be selected together"
+}
 
 function Get-WorkspaceRoot {
   if (-not [string]::IsNullOrWhiteSpace($WorkspaceRoot)) {
@@ -153,7 +168,11 @@ $query = @(
   "selected_sample_id=$([uri]::EscapeDataString($AssetId))",
   "sample_index_preflight_class=$([uri]::EscapeDataString($sampleIndexPreflightClass))",
   "sample_index_preflight_ref=$([uri]::EscapeDataString($sampleIndexPreflightRef))"
-) -join "&"
+)
+if ($IntegratedPresentation) {
+  $query += "integrated_presentation=1"
+}
+$query = $query -join "&"
 $operatorUrl = "http://127.0.0.1:3000/operator/prepared-sample-stt/?$query"
 
 $result = [PSCustomObject]@{
@@ -165,8 +184,10 @@ $result = [PSCustomObject]@{
   conversation_attempt_ref = $ConversationAttemptRef
   sample_index_preflight_class = $sampleIndexPreflightClass
   sample_index_preflight_ref = $sampleIndexPreflightRef
-  bounded_attempt_count = 5
+  bounded_attempt_count = $AttemptCount
   attempt_timeout_ms = 10000
+  audio_route_class = $AudioRouteClass
+  integrated_presentation = [bool]$IntegratedPresentation
   operator_url = $operatorUrl
   browser_open_requested = [bool]$OpenBrowser
   browser_launch_executed = $false
@@ -201,8 +222,10 @@ Write-Host ("selected_asset_id={0}" -f $result.selected_asset_id)
 Write-Host ("conversation_attempt_ref={0}" -f $result.conversation_attempt_ref)
 Write-Host ("sample_index_preflight_class={0}" -f $result.sample_index_preflight_class)
 Write-Host ("sample_index_preflight_ref={0}" -f $result.sample_index_preflight_ref)
-Write-Host "bounded_attempt_count=5"
+Write-Host ("bounded_attempt_count={0}" -f $result.bounded_attempt_count)
 Write-Host "attempt_timeout_ms=10000"
+Write-Host ("audio_route_class={0}" -f $result.audio_route_class)
+Write-Host ("integrated_presentation={0}" -f ([string]$result.integrated_presentation).ToLowerInvariant())
 Write-Host ("operator_url={0}" -f $result.operator_url)
 Write-Host ("browser_open_requested={0}" -f ([string]$result.browser_open_requested).ToLowerInvariant())
 Write-Host ("browser_launch_executed={0}" -f ([string]$result.browser_launch_executed).ToLowerInvariant())

@@ -7,6 +7,10 @@ param(
   [string]$ExpectedTextSidecar = "",
   [string]$CollectorPath = "",
   [string]$FfplayPath = "",
+  [int]$AttemptCount = 5,
+  [ValidateSet("system_default", "installed_virtual_cable_pair_v1")]
+  [string]$AudioRouteClass = "system_default",
+  [switch]$IntegratedPresentation,
   [switch]$Json
 )
 
@@ -19,6 +23,29 @@ $LocalePattern = "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
 $ExpectedTextSchema = "prepared_sample_expected_text.v1"
 $ExpectedTextFailureClass = "prepared_sample_expected_text_authority_missing_or_invalid"
 $ExpectedTextFileMaxBytes = 256 * 1024
+$SafeChildEnvironmentKeys = @(
+  "SystemRoot",
+  "WINDIR",
+  "ComSpec",
+  "TEMP",
+  "TMP",
+  "PATH",
+  "PATHEXT",
+  "PROCESSOR_ARCHITECTURE",
+  "PROCESSOR_IDENTIFIER",
+  "NUMBER_OF_PROCESSORS",
+  "OS",
+  "USERPROFILE",
+  "LOCALAPPDATA",
+  "APPDATA",
+  "ProgramData",
+  "ProgramFiles",
+  "ProgramFiles(x86)",
+  "ProgramW6432",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "PSModulePath"
+)
 $result = $null
 $validatedAssetId = $null
 $lockStream = $null
@@ -28,6 +55,17 @@ $child = $null
 $startInfo = $null
 $exitCode = 0
 $cleanupIncomplete = $false
+
+function Get-CompletionStopSignal {
+  switch ($AttemptCount) {
+    1 { return "completed_exactly_one_attempt" }
+    2 { return "completed_exactly_two_attempts" }
+    3 { return "completed_exactly_three_attempts" }
+    4 { return "completed_exactly_four_attempts" }
+    5 { return "completed_exactly_five_attempts" }
+    default { Throw-Fixed -Class "prepared_sample_playback_controller_configuration_invalid" }
+  }
+}
 
 function Throw-Fixed {
   param([Parameter(Mandatory = $true)][string]$Class)
@@ -133,16 +171,24 @@ function Assert-CollectorResult {
     "bounded_attempt_count_not_met",
     "browser_audio_input_track_not_live",
     "browser_audio_output_device_unavailable",
+    "browser_audio_output_sink_unavailable",
+    "browser_audio_output_sink_selection_failed",
+    "browser_audio_route_unavailable_or_ambiguous",
     "browser_launch_failed",
     "browser_microphone_permission_or_device_unavailable",
     "browser_stt_locale_mismatch",
     "browser_stt_no_final_result_before_timeout",
+    "accepted_candidate_request_not_completed",
     "cleanup_incomplete",
+    "duplicate_final_or_playback_rejected",
+    "explicit_audio_input_device_required",
     "operator_server_collision",
     "operator_server_start_failed",
     "playback_exit_nonzero",
     "playback_process_start_failed",
+    "prepared_sample_media_bounds_invalid",
     "prepared_sample_page_state_invalid",
+    "prepared_sample_playback_controller_configuration_invalid",
     "prepared_sample_playback_controller_failed",
     "repeat_content_match_not_stable",
     "whole_route_timeout"
@@ -155,12 +201,14 @@ function Assert-CollectorResult {
   }
 
   if ([string]$Value.controller_status -ceq "completed") {
+    $expectedStabilityClass = if ($AttemptCount -eq 5) { "stable_positive" } else { "bounded_attempt_set_positive" }
     if (
-      [string]$Value.controller_stop_signal -cne "completed_exactly_five_attempts" -or
-      [long]$Value.attempt_count -ne 5 -or
-      [long]$Value.playback_start_count -ne 5 -or
-      [long]$Value.final_result_count -ne 5 -or
-      [string]$Value.content_match_stability_class -cne "stable_positive" -or
+      [string]$Value.controller_stop_signal -cne (Get-CompletionStopSignal) -or
+      [long]$Value.attempt_count -ne $AttemptCount -or
+      [long]$Value.playback_start_count -ne $AttemptCount -or
+      [long]$Value.playback_exit_zero_count -ne $AttemptCount -or
+      [long]$Value.final_result_count -ne $AttemptCount -or
+      [string]$Value.content_match_stability_class -cne $expectedStabilityClass -or
       $null -ne $Value.blocker_class -or
       [string]$Value.cleanup_class -cne $completeCleanupClass
     ) {
@@ -294,6 +342,16 @@ function New-FixedFailureResult {
 }
 
 try {
+  if ($AttemptCount -lt 1 -or $AttemptCount -gt 5) {
+    Throw-Fixed -Class "prepared_sample_playback_controller_configuration_invalid"
+  }
+  $integratedRouteSelected = $AudioRouteClass -ceq "installed_virtual_cable_pair_v1"
+  if (
+    [bool]$IntegratedPresentation -ne $integratedRouteSelected -or
+    ($AttemptCount -eq 1) -ne $integratedRouteSelected
+  ) {
+    Throw-Fixed -Class "prepared_sample_playback_controller_configuration_invalid"
+  }
   if ($AssetId -notmatch $PreparedSampleIdPattern) {
     Throw-Fixed -Class "prepared_sample_index_or_file_mismatch"
   }
@@ -432,6 +490,9 @@ try {
       -AssetId $AssetId `
       -ConversationAttemptRef $ConversationAttemptRef `
       -WorkspaceRoot $resolvedWorkspaceRoot `
+      -AttemptCount $AttemptCount `
+      -AudioRouteClass $AudioRouteClass `
+      -IntegratedPresentation:$IntegratedPresentation `
       -Json
     $preflight = ($preflightOutput -join "`n") | ConvertFrom-Json
   } catch {
@@ -439,8 +500,10 @@ try {
   }
   if (
     $preflight.status -cne "preflight_ready" -or
-    $preflight.bounded_attempt_count -ne 5 -or
-    $preflight.attempt_timeout_ms -ne 10000
+    $preflight.bounded_attempt_count -ne $AttemptCount -or
+    $preflight.attempt_timeout_ms -ne 10000 -or
+    [string]$preflight.audio_route_class -cne $AudioRouteClass -or
+    [bool]$preflight.integrated_presentation -ne [bool]$IntegratedPresentation
   ) {
     Throw-Fixed -Class "prepared_sample_index_or_file_mismatch"
   }
@@ -458,13 +521,13 @@ try {
   if ($null -eq $node) {
     Throw-Fixed -Class "node_unavailable"
   }
-  if ([string]::IsNullOrWhiteSpace($FfplayPath)) {
+  if ($AudioRouteClass -ceq "system_default" -and [string]::IsNullOrWhiteSpace($FfplayPath)) {
     $ffplay = Get-Command ffplay -ErrorAction SilentlyContinue
     if ($null -eq $ffplay) {
       Throw-Fixed -Class "ffplay_unavailable"
     }
     $FfplayPath = $ffplay.Source
-  } elseif ($env:NODE_ENV -cne "test") {
+  } elseif ($AudioRouteClass -ceq "system_default" -and $env:NODE_ENV -cne "test") {
     Throw-Fixed -Class "prepared_sample_playback_controller_configuration_invalid"
   }
 
@@ -476,12 +539,33 @@ try {
   $startInfo.RedirectStandardOutput = $true
   $startInfo.RedirectStandardError = $true
   $startInfo.ArgumentList.Add($CollectorPath)
+  $startInfo.Environment.Clear()
+  foreach ($key in $SafeChildEnvironmentKeys) {
+    $value = [System.Environment]::GetEnvironmentVariable($key, "Process")
+    if (-not [string]::IsNullOrEmpty($value)) {
+      $startInfo.Environment[$key] = $value
+    }
+  }
+  if ($env:NODE_ENV -ceq "test") {
+    foreach ($key in @(
+      "SWORD_PREPARED_SAMPLE_TEST_COLLECTOR_MODE",
+      "SWORD_PREPARED_SAMPLE_TEST_CHILD_PID_FILE"
+    )) {
+      $value = [System.Environment]::GetEnvironmentVariable($key, "Process")
+      if (-not [string]::IsNullOrEmpty($value)) {
+        $startInfo.Environment[$key] = $value
+      }
+    }
+  }
   $startInfo.Environment["SWORD_PREPARED_SAMPLE_OPERATOR_URL"] = [string]$preflight.operator_url
   $startInfo.Environment["SWORD_PREPARED_SAMPLE_AUDIO_PATH"] = $audioPath
   $startInfo.Environment["SWORD_PREPARED_SAMPLE_EXPECTED_TEXT"] = [string]$selectedEntry.expected_text
   $startInfo.Environment["SWORD_PREPARED_SAMPLE_LOCALE"] = [string]$selectedEntry.locale
   $startInfo.Environment["SWORD_PREPARED_SAMPLE_FFPLAY_PATH"] = $FfplayPath
   $startInfo.Environment["SWORD_PREPARED_SAMPLE_LOCK_CLASS"] = "held_by_parent"
+  $startInfo.Environment["SWORD_PREPARED_SAMPLE_ATTEMPT_COUNT"] = [string]$AttemptCount
+  $startInfo.Environment["SWORD_PREPARED_SAMPLE_AUDIO_ROUTE_CLASS"] = $AudioRouteClass
+  $startInfo.Environment["SWORD_PREPARED_SAMPLE_INTEGRATED_PRESENTATION"] = ([string][bool]$IntegratedPresentation).ToLowerInvariant()
 
   $child = [System.Diagnostics.Process]::new()
   $child.StartInfo = $startInfo
@@ -585,7 +669,10 @@ try {
       "SWORD_PREPARED_SAMPLE_EXPECTED_TEXT",
       "SWORD_PREPARED_SAMPLE_LOCALE",
       "SWORD_PREPARED_SAMPLE_FFPLAY_PATH",
-      "SWORD_PREPARED_SAMPLE_LOCK_CLASS"
+      "SWORD_PREPARED_SAMPLE_LOCK_CLASS",
+      "SWORD_PREPARED_SAMPLE_ATTEMPT_COUNT",
+      "SWORD_PREPARED_SAMPLE_AUDIO_ROUTE_CLASS",
+      "SWORD_PREPARED_SAMPLE_INTEGRATED_PRESENTATION"
     )) {
       [void]$startInfo.Environment.Remove($key)
     }
