@@ -276,7 +276,14 @@ def _roi_window_metrics(
             continue
         window = windows.get(window_id, {"start_ms": 0, "end_ms": 0})
         roi_result = roi_results.get(roi_id, {})
-        movement_score = max((float(row.get("motion_score", 0.0)) for row in window_rows), default=0.0)
+        score_key = "frame_motion_score" if window_id == "settle" else "motion_score"
+        movement_score = max(
+            (
+                float(row.get(score_key, row.get("motion_score", 0.0)))
+                for row in window_rows
+            ),
+            default=0.0,
+        )
         changed_ratio = max((float(row.get("changed_pixel_ratio", 0.0)) for row in window_rows), default=0.0)
         threshold = float(visual_summary.get("thresholds", {}).get("active_motion_min_score", 0.0))
         metrics.append(

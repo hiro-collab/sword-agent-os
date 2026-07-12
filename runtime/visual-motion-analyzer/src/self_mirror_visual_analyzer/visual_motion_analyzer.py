@@ -584,6 +584,7 @@ def write_outputs(
         "bbox_delta",
         "centroid_delta",
         "ssim_to_baseline",
+        "frame_motion_score",
         "motion_score",
         "pass_label",
     ]
@@ -663,7 +664,7 @@ def _write_chart_html(summary: dict[str, Any], rows: list[dict[str, Any]], chart
             color = guard_palette[guard_index % len(guard_palette)]
             guard_index += 1
         points = [
-            f'{x_for(float(row["time_ms"])):.2f},{y_for(float(row["motion_score"])):.2f}'
+            f'{x_for(float(row["time_ms"])):.2f},{y_for(_judgment_motion_score(row)):.2f}'
             for row in sorted((row for row in rows if str(row["roi_id"]) == roi_id), key=lambda item: int(item["time_ms"]))
         ]
         if points:
@@ -1254,12 +1255,19 @@ def _measure_roi(
     flow_mean, flow_p95 = _optical_flow(prev_gray, gray)
     bbox_delta, centroid_delta = _motion_mask_stats(diff_prev > 0.06)
     ssim_to_baseline = _ssim(base_gray, gray)
-    motion_score = _clamp(
+    frame_motion_score = _clamp(
         max(
             changed_pixel_ratio,
             min(flow_p95 / 12.0, 1.0),
             bbox_delta,
             centroid_delta,
+        ),
+        0.0,
+        1.0,
+    )
+    motion_score = _clamp(
+        max(
+            frame_motion_score,
             1.0 - ssim_to_baseline if np.mean(diff_base) > 0.01 else 0.0,
         ),
         0.0,
@@ -1278,6 +1286,7 @@ def _measure_roi(
         "bbox_delta": round(bbox_delta, 6),
         "centroid_delta": round(centroid_delta, 6),
         "ssim_to_baseline": round(ssim_to_baseline, 6),
+        "frame_motion_score": round(frame_motion_score, 6),
         "motion_score": round(motion_score, 6),
         "pass_label": "",
     }
@@ -2254,11 +2263,17 @@ def _failure_sentence(result: str) -> str:
 
 def _peak(rows: list[dict[str, Any]], window_id: str, *, roi_id: str | None = None) -> float:
     values = [
-        float(row["motion_score"])
+        _judgment_motion_score(row)
         for row in rows
         if row["window_id"] == window_id and (roi_id is None or str(row.get("roi_id")) == roi_id)
     ]
     return max(values) if values else 0.0
+
+
+def _judgment_motion_score(row: dict[str, Any]) -> float:
+    if str(row.get("window_id", "")) == "settle":
+        return float(row.get("frame_motion_score", row.get("motion_score", 0.0)))
+    return float(row.get("motion_score", 0.0))
 
 
 def _max_consecutive_at_or_above(rows: list[dict[str, Any]], window_id: str, threshold: float) -> int:

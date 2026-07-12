@@ -62,6 +62,37 @@ class VisualMotionAnalyzerTest(unittest.TestCase):
         self.assertEqual(guard["pass_label"], "guard-ui-motion-excluded")
         self.assertTrue(all(not row["counts_as_avatar_motion"] for row in rows if row["roi_id"] == "speech_bubble"))
 
+    def test_static_post_motion_pose_is_settled_even_when_it_differs_from_baseline(self) -> None:
+        frames = [_frame() for _ in range(9)]
+        frames[1][10:26, 8:20] = 255
+        frames[2][10:26, 12:24] = 255
+        for frame in frames[3:]:
+            frame[10:26, 16:28] = 255
+
+        summary, rows = analyze_frames(
+            frames,
+            analysis_run_id="vismot_run_test_static_post_motion_001",
+            scenario_id="rr003.visible_motion.static_post_motion.no_live.v0",
+            motion_event_id="mot_evt_test_static_post_motion_001",
+            stimulus_instance_id="mot_inst_test_static_post_motion_001",
+            driver_result_id="mot_drv_test_static_post_motion_001",
+            sample_rate_fps=10,
+            windows=WINDOWS,
+            rois=ROIS,
+        )
+
+        avatar = _roi(summary, "avatar_face_head")
+        settle_rows = [
+            row
+            for row in rows
+            if row["roi_id"] == "avatar_face_head"
+            and row["window_id"] == "settle"
+        ]
+        self.assertEqual(summary["result"], "visual-pass")
+        self.assertEqual(avatar["settle_peak_motion_score"], 0.0)
+        self.assertTrue(any(row["motion_score"] > 0.0 for row in settle_rows))
+        self.assertTrue(all(row["frame_motion_score"] == 0.0 for row in settle_rows))
+
     def test_guard_only_motion_is_not_avatar_motion(self) -> None:
         frames = [_frame() for _ in range(6)]
         frames[1][10:26, 44:56] = 255

@@ -15,7 +15,8 @@
     "visual_motion_roi_timeseries.csv",
     "visual_motion_chart.html",
     "result.md",
-    "manifest.json"
+    "manifest.json",
+    "self_mirror_capture_manifest.json"
   ],
   "intended_readers": [
     "human_operator",
@@ -149,6 +150,36 @@
         "voice_intent_parsing",
         "provider_response_quality",
         "physical_display"
+      ]
+    },
+    {
+      "route_id": "self_mirror.browser.dance_start_stop_lifecycle",
+      "mode": "Browser",
+      "scenario_key": "dance_visible_motion",
+      "trigger": "dance",
+      "command_template": "pwsh -NoProfile -File .\\scripts\\run-self-mirror-proof.ps1 -Mode Browser -Scenario dance_visible_motion -Trigger dance -TriggerAtMs 700 -DanceStopAtMs 3900 -DurationMs 18000 -Url <selected_projection_visual_self_mirror_url>",
+      "proof_layer": "browser_visible_dance_start_stop_idle_self_mirror",
+      "preconditions": [
+        "selected workspace runtime is intentionally started",
+        "Projection Visual / AITuber route is reachable",
+        "visualTest=self-mirror-baseline route is selected",
+        "Self Mirror raw frame cleanup remains enabled"
+      ],
+      "accept_result": [
+        "dance start result is accepted and started",
+        "all expected avatar ROIs move before stop",
+        "same-page dance stop result reports motion stopped",
+        "active dance instance count is zero after the release margin and at capture end",
+        "settle window covers at least 12000ms without visible reactivation",
+        "raw_frames_shared=false",
+        "raw_paths_shared=false"
+      ],
+      "does_not_prove": [
+        "voice_intent_parsing",
+        "semantic_dance_quality",
+        "rhythm_or_choreography",
+        "TouchDesigner_output",
+        "physical_projector_output"
       ]
     }
   ],

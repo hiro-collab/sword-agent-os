@@ -20,6 +20,7 @@ param(
   [int]$SettleMs = 900,
   [int]$ReadyTimeoutMs = 15000,
   [int]$TriggerAtMs = 700,
+  [int]$DanceStopAtMs = 0,
   [string]$BrowserExecutable = "",
 
   [string]$AnalysisRunId = "vismot_run_rr003_self_mirror_light_001",
@@ -99,7 +100,8 @@ function Write-OutputPackageLocation {
     "visual_motion_roi_timeseries.csv",
     "visual_motion_chart.html",
     "result.md",
-    "manifest.json"
+    "manifest.json",
+    "self_mirror_capture_manifest.json"
   )
   $vrmTelemetrySummaryPath = Join-Path $ResolvedOutputDir "vrm_model_telemetry_summary.json"
   if (Test-Path -LiteralPath $vrmTelemetrySummaryPath -PathType Leaf) {
@@ -114,23 +116,29 @@ function New-SelfMirrorWindows {
   param(
     [Parameter(Mandatory = $true)][object]$ScenarioDefinition,
     [int]$TriggerStartMs = 700,
-    [int]$TotalDurationMs = 6000
+    [int]$TotalDurationMs = 6000,
+    [int]$DanceStopMs = 0
   )
   $duration = [Math]::Max(1, $TotalDurationMs)
   $triggerStart = [Math]::Max(1, [Math]::Min($TriggerStartMs, $duration - 1))
   $windowTemplate = Get-ObjectProperty -Value $ScenarioDefinition -Name "window_template" -Default ([pscustomobject]@{})
   $activeDuration = [int](Get-ObjectProperty -Value $windowTemplate -Name "active_duration_ms" -Default 2100)
   $releaseDuration = [int](Get-ObjectProperty -Value $windowTemplate -Name "release_duration_ms" -Default 1400)
+  $postReleaseMargin = if ($DanceStopMs -gt 0) { 500 } else { 0 }
   $lateWatchDuration = [int](Get-ObjectProperty -Value $windowTemplate -Name "late_watch_duration_ms" -Default 0)
-  $activeEnd = [Math]::Max($triggerStart + 1, [Math]::Min($duration, $triggerStart + $activeDuration))
-  $releaseEnd = [Math]::Max($activeEnd + 1, [Math]::Min($duration, $activeEnd + $releaseDuration))
+  $activeEnd = if ($DanceStopMs -gt 0) {
+    [Math]::Max($triggerStart + 1, [Math]::Min($duration, $DanceStopMs))
+  } else {
+    [Math]::Max($triggerStart + 1, [Math]::Min($duration, $triggerStart + $activeDuration))
+  }
+  $releaseEnd = [Math]::Max($activeEnd + 1, [Math]::Min($duration, $activeEnd + $releaseDuration + $postReleaseMargin))
   $windows = @(
     @{ window_id = "pretrigger"; start_ms = 0; end_ms = $triggerStart },
     @{ window_id = "active"; start_ms = $triggerStart; end_ms = $activeEnd },
     @{ window_id = "release"; start_ms = $activeEnd; end_ms = $releaseEnd }
   )
   $settleStart = $releaseEnd
-  if ($lateWatchDuration -gt 0 -and $releaseEnd -lt $duration) {
+  if ($DanceStopMs -le 0 -and $lateWatchDuration -gt 0 -and $releaseEnd -lt $duration) {
     $lateEnd = [Math]::Max($releaseEnd + 1, [Math]::Min($duration, $releaseEnd + $lateWatchDuration))
     $windows += @{ window_id = "late_watch"; start_ms = $releaseEnd; end_ms = $lateEnd }
     $settleStart = $lateEnd
@@ -192,7 +200,7 @@ function New-SyntheticConfig {
       guard_motion_roi_ids = @(Get-ObjectProperty -Value $fixtureTemplate -Name "guard_motion_roi_ids" -Default @())
       motion_amplitude_px = [Math]::Max($minimumAmplitude, [int]($ViewportWidth / 96))
     }
-    windows = @(New-SelfMirrorWindows -ScenarioDefinition $ScenarioDefinition -TriggerStartMs $TriggerAtMs -TotalDurationMs $DurationMs)
+    windows = @(New-SelfMirrorWindows -ScenarioDefinition $ScenarioDefinition -TriggerStartMs $TriggerAtMs -TotalDurationMs $DurationMs -DanceStopMs $DanceStopAtMs)
     rois = @(New-SelfMirrorRois -ScenarioDefinition $ScenarioDefinition)
     thresholds = New-SelfMirrorThresholds -ScenarioDefinition $ScenarioDefinition
     raw_frames_retained = $false
@@ -263,7 +271,7 @@ function Update-BrowserAnalyzerConfig {
   $config = Get-Content -Raw -LiteralPath $BrowserConfigPath | ConvertFrom-Json
   Set-JsonObjectProperty -Object $config -Name "scenario_id" -Value $ScenarioId
   Set-JsonObjectProperty -Object $config -Name "trigger" -Value $TriggerValue
-  Set-JsonObjectProperty -Object $config -Name "windows" -Value @(New-SelfMirrorWindows -ScenarioDefinition $ScenarioDefinition -TriggerStartMs $TriggerAtMs -TotalDurationMs $DurationMs)
+  Set-JsonObjectProperty -Object $config -Name "windows" -Value @(New-SelfMirrorWindows -ScenarioDefinition $ScenarioDefinition -TriggerStartMs $TriggerAtMs -TotalDurationMs $DurationMs -DanceStopMs $DanceStopAtMs)
   Set-JsonObjectProperty -Object $config -Name "rois" -Value @(New-SelfMirrorRois -ScenarioDefinition $ScenarioDefinition)
   Set-JsonObjectProperty -Object $config -Name "thresholds" -Value (New-SelfMirrorThresholds -ScenarioDefinition $ScenarioDefinition)
   Set-JsonObjectProperty -Object $config -Name "activation_sampling" -Value "event_driven"
@@ -323,6 +331,18 @@ if ($Trigger -eq "auto") {
 }
 if ($Mode -eq "Browser" -and $triggerValue -notin @("none", "context-nod", "dance", "expression-visible")) {
   throw "Scenario '$Scenario' resolved to unsupported Browser trigger '$triggerValue'"
+}
+if ($DanceStopAtMs -gt 0) {
+  if ($Mode -ne "Browser" -or $triggerValue -ne "dance") {
+    throw "-DanceStopAtMs is allowed only for Browser dance capture"
+  }
+  $windowTemplate = Get-ObjectProperty -Value $scenarioDefinition -Name "window_template" -Default ([pscustomobject]@{})
+  $releaseDuration = [int](Get-ObjectProperty -Value $windowTemplate -Name "release_duration_ms" -Default 1500)
+  $postReleaseMargin = 500
+  $lateWatchDuration = [int](Get-ObjectProperty -Value $windowTemplate -Name "late_watch_duration_ms" -Default 0)
+  if ($DanceStopAtMs -le $TriggerAtMs -or ($DurationMs - ($DanceStopAtMs + $releaseDuration + $postReleaseMargin)) -lt $lateWatchDuration) {
+    throw "Dance stop timing does not preserve the required post-stop observation window"
+  }
 }
 
 $modeSlug = "synthetic"
@@ -432,6 +452,10 @@ if ($Headed) {
 }
 if ($SkipSelfMirrorReady) {
   $captureArgs += "--skip-self-mirror-ready"
+}
+if ($DanceStopAtMs -gt 0) {
+  $captureArgs += @("--dance-stop-at-ms", [string]$DanceStopAtMs)
+  $captureArgs += @("--dance-settle-at-ms", [string]($DanceStopAtMs + $releaseDuration + $postReleaseMargin))
 }
 
 $browserConfigPath = Join-Path $resolvedOutputDir "self_mirror_browser_config.json"

@@ -4,17 +4,14 @@ import { createRequire } from "node:module";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   buildVrmModelTelemetrySummary,
   validateVrmModelTelemetrySummary,
 } from "../runtime/vrm-model-telemetry/vrm-model-telemetry.mjs";
 
-const scriptPath = new URL(import.meta.url).pathname;
-const scriptDir = path.dirname(
-  process.platform === "win32" && scriptPath.startsWith("/")
-    ? scriptPath.slice(1)
-    : scriptPath,
-);
+const scriptPath = fileURLToPath(import.meta.url);
+const scriptDir = path.dirname(scriptPath);
 const repoRoot = path.resolve(scriptDir, "..");
 const aituberPackageJson = path.join(
   repoRoot,
@@ -46,6 +43,8 @@ function parseArgs(argv) {
     browserExecutable: "",
     trigger: "none",
     triggerAtMs: 700,
+    danceStopAtMs: 0,
+    danceSettleAtMs: 0,
     expressionProfile: "default",
     dancePayloadShape: "auto",
     analysisRunId: "vismot_run_rr003_self_mirror_browser_001",
@@ -85,6 +84,10 @@ function parseArgs(argv) {
       args.browserExecutable = readValue();
     else if (arg === "--trigger") args.trigger = readValue();
     else if (arg === "--trigger-at-ms") args.triggerAtMs = Number(readValue());
+    else if (arg === "--dance-stop-at-ms")
+      args.danceStopAtMs = Number(readValue());
+    else if (arg === "--dance-settle-at-ms")
+      args.danceSettleAtMs = Number(readValue());
     else if (arg === "--expression-profile")
       args.expressionProfile = normalizeExpressionProfile(readValue());
     else if (arg === "--dance-payload-shape")
@@ -122,6 +125,10 @@ Options:
   --browser-executable <path> Optional Chrome/Edge executable fallback.
   --trigger none|context-nod|dance|expression-visible
   --trigger-at-ms <number>    Default: 700
+  --dance-stop-at-ms <number> Optional same-session dance stop time.
+  --dance-settle-at-ms <number>
+                              Required with dance stop; sample active-count only
+                              after the release window and safety margin.
   --expression-profile default|full-relaxed
                               Expression-visible safe profile. Default keeps
                               relaxed/Fun at the product default; full-relaxed
@@ -143,6 +150,19 @@ Security:
 function timestampSlug(now = new Date()) {
   const pad = (value, size = 2) => String(value).padStart(size, "0");
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+export function releaseCountEligibleAtMs(args, danceStopResult) {
+  if (
+    !danceStopResult?.dispatched ||
+    !Number.isFinite(danceStopResult.dispatched_at_ms)
+  ) {
+    return null;
+  }
+  return (
+    danceStopResult.dispatched_at_ms +
+    (args.danceSettleAtMs - args.danceStopAtMs)
+  );
 }
 
 function defaultWindows(args) {
@@ -457,6 +477,91 @@ async function dispatchTrigger(page, args) {
         ? expressionProfileId(args)
         : undefined,
   };
+}
+
+function buildDanceStopStimulus(args) {
+  return {
+    schema_version: "motion_stimulus.v0",
+    motion_event_id: `${args.motionEventId}_stop`,
+    stimulus_id: "mot_stim_controlled_chrome_voice_stop_dance",
+    stimulus_instance_id: `${args.stimulusInstanceId}_stop`,
+    source_class: "thought_core",
+    source_origin: "motion.requested",
+    requested_at: new Date().toISOString(),
+    kind: "stop",
+    request_mode: "stop",
+    phase: "requested",
+    lifecycle_state: "request_issued",
+    safe_visible_state: "neutral_idle_requested",
+    target_model_type: "vrm",
+    payload_ref: "motion.thought_core.stop.v0",
+    duration_ms: 0,
+    loop: false,
+    interrupt_policy: "stop",
+    fallback_state: "stop_to_idle",
+    stop_reason: "user_requested",
+    track_mask: { scope: "full_body" },
+    requirements: {
+      stop_target: "dance.sequence",
+      fallback_state: "stop_to_idle",
+    },
+    trace: {
+      motion_event_id: `${args.motionEventId}_stop`,
+      stimulus_id: "mot_stim_controlled_chrome_voice_stop_dance",
+      stimulus_instance_id: `${args.stimulusInstanceId}_stop`,
+      runtime_result_id: `${args.driverResultId}_stop`,
+      driver_result_id: `${args.driverResultId}_stop`,
+      request_id: "self_mirror_browser_capture_stop",
+    },
+    redaction: {
+      shared_summary_only: true,
+      safe_ref_transport: true,
+    },
+  };
+}
+
+export async function dispatchDanceStop(
+  page,
+  args,
+  dispatchClass = "scheduled",
+  nowMs = Date.now,
+) {
+  const detail = buildDanceStopStimulus(args);
+  await page.evaluate((payload) => {
+    window.dispatchEvent(
+      new CustomEvent("projection-visual-motion-stimulus", { detail: payload }),
+    );
+  }, detail);
+  const dispatchedAtMs = Number.isFinite(args.captureStartedAtEpochMs)
+    ? Math.max(0, nowMs() - args.captureStartedAtEpochMs)
+    : null;
+  return {
+    trigger: "dance-stop",
+    dispatched: true,
+    dispatch_class: dispatchClass,
+    dispatched_at_ms: dispatchedAtMs,
+    stimulus_id: detail.stimulus_id,
+    kind: detail.kind,
+    request_mode: detail.request_mode,
+    payload_ref: detail.payload_ref,
+    source_origin: detail.source_origin,
+  };
+}
+
+async function readActiveDanceInstanceCount(page) {
+  return await page
+    .evaluate(() => {
+      const snapshot = window.__projectionVisualMotionRuntimeDebugSnapshot;
+      const instances = Array.isArray(snapshot?.session?.instances)
+        ? snapshot.session.instances
+        : [];
+      return instances.filter(
+        (instance) =>
+          instance?.groupKey === "dance.sequence" &&
+          ["active", "suppressed", "releasing"].includes(instance?.phase),
+      ).length;
+    })
+    .catch(() => null);
 }
 
 async function readTriggerResult(page) {
@@ -938,9 +1043,7 @@ async function readProjectionVisualDiagnostics(page) {
 function lifecycleTraceRequestIssuedAbsoluteMs(trace) {
   const entry = trace.find(
     (item) =>
-      item &&
-      item.state === "request_issued" &&
-      Number.isFinite(item.at_ms),
+      item && item.state === "request_issued" && Number.isFinite(item.at_ms),
   );
   return entry ? Math.max(0, Math.round(entry.at_ms)) : null;
 }
@@ -1078,6 +1181,19 @@ function captureTargetIdentity(args) {
     capture_surface_kind: "helper_playwright_page",
     capture_target_url: safeUrl,
     trigger_target_url: safeUrl,
+    same_page_or_target: true,
+    page_target_id: null,
+    browser_process_kind: "helper_launched",
+    proof_ceiling: "helper_browser_runtime_only",
+  };
+}
+
+function retainedCaptureTargetIdentity() {
+  return {
+    schema_version: "self_mirror_capture_target_identity.v0",
+    capture_surface_kind: "helper_playwright_page",
+    capture_target_class: "projection_visual_local_route",
+    trigger_target_class: "same_projection_visual_page",
     same_page_or_target: true,
     page_target_id: null,
     browser_process_kind: "helper_launched",
@@ -1229,43 +1345,126 @@ async function captureFrames(page, frameDir, args) {
   const framePaths = [];
   const startedAtMs = Date.now();
   let triggerResult = { trigger: args.trigger, dispatched: false };
+  let motionStimulusResult = null;
+  let startProjectionVisualDiagnostics = null;
+  let danceStopResult = { trigger: "dance-stop", dispatched: false };
+  let danceStopMotionStimulusResult = null;
+  let danceInstancesAfterRelease = null;
+  let danceInstancesAfterReleaseSampledAtMs = null;
 
-  for (let index = 0; index < frameCount; index += 1) {
-    const targetElapsedMs = Math.round(index * intervalMs);
-    const elapsedMs = Date.now() - startedAtMs;
-    if (
-      !triggerResult.dispatched &&
-      args.trigger !== "none" &&
-      elapsedMs >= args.triggerAtMs
-    ) {
+  try {
+    for (let index = 0; index < frameCount; index += 1) {
+      const targetElapsedMs = Math.round(index * intervalMs);
+      const elapsedMs = Date.now() - startedAtMs;
+      if (
+        !triggerResult.dispatched &&
+        args.trigger !== "none" &&
+        elapsedMs >= args.triggerAtMs
+      ) {
+        triggerResult = await dispatchTrigger(page, {
+          ...args,
+          dispatchedAtMs: elapsedMs,
+        });
+      }
+
+      if (triggerResult.dispatched && !motionStimulusResult) {
+        const candidate = await readTriggerResult(page);
+        if (candidate?.stimulus_id === triggerResult.stimulus_id) {
+          motionStimulusResult = candidate;
+          startProjectionVisualDiagnostics =
+            await readProjectionVisualDiagnostics(page);
+        }
+      }
+
+      if (
+        args.danceStopAtMs > 0 &&
+        triggerResult.dispatched &&
+        !danceStopResult.dispatched &&
+        elapsedMs >= args.danceStopAtMs
+      ) {
+        danceStopResult = await dispatchDanceStop(page, {
+          ...args,
+          captureStartedAtEpochMs: startedAtMs,
+        });
+      }
+
+      if (danceStopResult.dispatched && !danceStopMotionStimulusResult) {
+        const candidate = await readTriggerResult(page);
+        if (candidate?.stimulus_id === danceStopResult.stimulus_id) {
+          danceStopMotionStimulusResult = candidate;
+        }
+      }
+
+      if (
+        danceStopResult.dispatched &&
+        danceInstancesAfterRelease === null &&
+        releaseCountEligibleAtMs(args, danceStopResult) !== null &&
+        elapsedMs >= releaseCountEligibleAtMs(args, danceStopResult)
+      ) {
+        danceInstancesAfterRelease = await readActiveDanceInstanceCount(page);
+        danceInstancesAfterReleaseSampledAtMs = elapsedMs;
+      }
+
+      const framePath = path.join(
+        frameDir,
+        `frame_${String(index).padStart(4, "0")}.png`,
+      );
+      await page.screenshot({ path: framePath, fullPage: false });
+      framePaths.push(framePath);
+
+      const nextTargetMs = Math.round((index + 1) * intervalMs);
+      const waitMs = Math.max(0, nextTargetMs - (Date.now() - startedAtMs));
+      if (waitMs > 0 && targetElapsedMs < args.durationMs) {
+        await sleep(waitMs);
+      }
+    }
+
+    if (!triggerResult.dispatched && args.trigger !== "none") {
       triggerResult = await dispatchTrigger(page, {
         ...args,
-        dispatchedAtMs: elapsedMs,
+        dispatchedAtMs: Date.now() - startedAtMs,
       });
     }
-
-    const framePath = path.join(
-      frameDir,
-      `frame_${String(index).padStart(4, "0")}.png`,
-    );
-    await page.screenshot({ path: framePath, fullPage: false });
-    framePaths.push(framePath);
-
-    const nextTargetMs = Math.round((index + 1) * intervalMs);
-    const waitMs = Math.max(0, nextTargetMs - (Date.now() - startedAtMs));
-    if (waitMs > 0 && targetElapsedMs < args.durationMs) {
-      await sleep(waitMs);
+  } finally {
+    if (
+      args.danceStopAtMs > 0 &&
+      triggerResult.dispatched &&
+      !danceStopResult.dispatched
+    ) {
+      danceStopResult = await dispatchDanceStop(
+        page,
+        { ...args, captureStartedAtEpochMs: startedAtMs },
+        "fail_safe",
+      );
     }
   }
 
-  if (!triggerResult.dispatched && args.trigger !== "none") {
-    triggerResult = await dispatchTrigger(page, {
-      ...args,
-      dispatchedAtMs: Date.now() - startedAtMs,
-    });
+  if (!motionStimulusResult && triggerResult.dispatched) {
+    const candidate = await readTriggerResult(page);
+    if (candidate?.stimulus_id === triggerResult.stimulus_id) {
+      motionStimulusResult = candidate;
+    }
+  }
+  if (!danceStopMotionStimulusResult && danceStopResult.dispatched) {
+    const candidate = await readTriggerResult(page);
+    if (candidate?.stimulus_id === danceStopResult.stimulus_id) {
+      danceStopMotionStimulusResult = candidate;
+    }
   }
 
-  return { framePaths, triggerResult };
+  return {
+    framePaths,
+    triggerResult,
+    motionStimulusResult,
+    startProjectionVisualDiagnostics,
+    danceStopResult,
+    danceStopMotionStimulusResult,
+    danceRuntimeCounts: {
+      after_release_active_instance_count: danceInstancesAfterRelease,
+      after_release_sampled_at_ms: danceInstancesAfterReleaseSampledAtMs,
+      final_active_instance_count: await readActiveDanceInstanceCount(page),
+    },
+  };
 }
 
 async function main() {
@@ -1281,6 +1480,18 @@ async function main() {
   ) {
     throw new Error("--sample-rate-fps must be between 1 and 30");
   }
+  if (
+    !Number.isFinite(args.danceSettleAtMs) ||
+    args.danceSettleAtMs < 0 ||
+    (args.danceStopAtMs > 0 &&
+      (args.danceSettleAtMs <= args.danceStopAtMs ||
+        args.danceSettleAtMs >= args.durationMs)) ||
+    (args.danceStopAtMs === 0 && args.danceSettleAtMs !== 0)
+  ) {
+    throw new Error(
+      "--dance-settle-at-ms requires dance stop and must be after stop and before duration",
+    );
+  }
   if (!Number.isFinite(args.durationMs) || args.durationMs < 500) {
     throw new Error("--duration-ms must be at least 500");
   }
@@ -1295,6 +1506,18 @@ async function main() {
       "--trigger-at-ms must be less than --duration-ms when a trigger is enabled",
     );
   }
+  if (
+    !Number.isFinite(args.danceStopAtMs) ||
+    args.danceStopAtMs < 0 ||
+    (args.danceStopAtMs > 0 &&
+      (args.trigger !== "dance" ||
+        args.danceStopAtMs <= args.triggerAtMs ||
+        args.danceStopAtMs >= args.durationMs))
+  ) {
+    throw new Error(
+      "--dance-stop-at-ms requires dance and must be after trigger and before duration",
+    );
+  }
 
   const { chromium } = requireFromAituber("playwright");
   const outDir = path.resolve(args.out);
@@ -1305,6 +1528,10 @@ async function main() {
   let triggerResult = { trigger: args.trigger, dispatched: false };
   let motionStimulusResult = null;
   let projectionVisualDiagnostics = null;
+  let postStopProjectionVisualDiagnostics = null;
+  let danceStopResult = { trigger: "dance-stop", dispatched: false };
+  let danceStopMotionStimulusResult = null;
+  let danceRuntimeCounts = null;
   let selfMirrorReady = null;
   let framePaths = [];
   try {
@@ -1326,8 +1553,18 @@ async function main() {
     const capture = await captureFrames(page, frameDir, args);
     framePaths = capture.framePaths;
     triggerResult = capture.triggerResult;
-    motionStimulusResult = await readTriggerResult(page);
-    projectionVisualDiagnostics = await readProjectionVisualDiagnostics(page);
+    motionStimulusResult =
+      capture.motionStimulusResult ?? (await readTriggerResult(page));
+    projectionVisualDiagnostics =
+      capture.startProjectionVisualDiagnostics ??
+      (await readProjectionVisualDiagnostics(page));
+    danceStopResult = capture.danceStopResult;
+    danceStopMotionStimulusResult = capture.danceStopMotionStimulusResult;
+    danceRuntimeCounts = capture.danceRuntimeCounts;
+    if (danceStopResult.dispatched) {
+      postStopProjectionVisualDiagnostics =
+        await readProjectionVisualDiagnostics(page);
+    }
     await page.close().catch(() => {});
   } finally {
     await browser.close().catch(() => {});
@@ -1441,11 +1678,16 @@ async function main() {
     sample_rate_fps: args.sampleRateFps,
     duration_ms: args.durationMs,
     frame_count: framePaths.length,
-    target_identity: captureTargetIdentity(args),
+    target_identity: retainedCaptureTargetIdentity(),
     self_mirror_ready: selfMirrorReady,
     trigger: triggerResult,
     motion_stimulus_result: motionStimulusResult,
+    dance_stop: danceStopResult,
+    dance_stop_motion_stimulus_result: danceStopMotionStimulusResult,
+    dance_runtime_counts: danceRuntimeCounts,
     projection_visual_diagnostics: projectionVisualDiagnostics,
+    post_stop_projection_visual_diagnostics:
+      postStopProjectionVisualDiagnostics,
     vrm_model_telemetry: vrmModelTelemetryStatus,
     event_timeline: eventTimeline,
     runtime_join: runtimeJoin,
@@ -1488,7 +1730,12 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error?.stack ?? error}\n`);
-  process.exitCode = 1;
-});
+if (
+  process.argv[1] &&
+  pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url
+) {
+  main().catch((error) => {
+    process.stderr.write(`${error?.stack ?? error}\n`);
+    process.exitCode = 1;
+  });
+}
