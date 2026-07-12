@@ -128,7 +128,7 @@
       "version_source": "agent-os release manifest",
       "repo_url": "https://github.com/hiro-collab/touchdesigner-ai-controller.git",
       "branch": "codex/projection-visual-docs",
-      "commit": "a38f568a99307f8aef928aeb31165fd88455b869",
+      "commit": "506fa7d218eb24a8a1df84e6261a8f35cb835c83",
       "adoption": "standard_candidate",
       "notes": "Display runtime GUI, TouchDesigner UDP visual trigger, and display bridge."
     },
