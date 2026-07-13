@@ -83,13 +83,15 @@ namespace SwordAgentOS.AudioAwareness
             string nonce,
             int serverProcessId,
             long serverCreationUtcTicks,
-            long expiresUtcTicks)
+            long expiresUtcTicks,
+            string processingModeClass)
         {
             PipeName = pipeName;
             Nonce = nonce;
             ServerProcessId = serverProcessId;
             ServerCreationUtcTicks = serverCreationUtcTicks;
             ExpiresUtcTicks = expiresUtcTicks;
+            ProcessingModeClass = processingModeClass;
         }
 
         internal string PipeName { get; private set; }
@@ -97,6 +99,7 @@ namespace SwordAgentOS.AudioAwareness
         internal int ServerProcessId { get; private set; }
         internal long ServerCreationUtcTicks { get; private set; }
         internal long ExpiresUtcTicks { get; private set; }
+        internal string ProcessingModeClass { get; private set; }
     }
 
     internal interface IServerProcessIdentity
@@ -134,6 +137,10 @@ namespace SwordAgentOS.AudioAwareness
     {
         public const string WindowsVoiceCaptureDspOwnerClass =
             "windows_voice_capture_dsp";
+        public const string AecProcessingModeClass =
+            "windows_voice_capture_dsp_aec";
+        public const string NsAgcProcessingModeClass =
+            "windows_voice_capture_dsp_ns_agc";
         public const int SampleRate = 16000;
         public const int ChannelCount = 1;
         public const int BitsPerSample = 16;
@@ -150,6 +157,7 @@ namespace SwordAgentOS.AudioAwareness
         internal const int PidNoiseSuppression = 8;
         internal const int PidAutomaticGainControl = 9;
         internal const int SingleChannelAec = 0;
+        internal const int SingleChannelNsAgc = 5;
         private static readonly Regex PipeNamePattern = new Regex(
             @"^sword-aec-[a-f0-9]{32}$",
             RegexOptions.CultureInvariant);
@@ -214,6 +222,28 @@ namespace SwordAgentOS.AudioAwareness
                 expiresUtcTicks,
                 selectionClass,
                 selectedOwnerClass,
+                AecProcessingModeClass);
+        }
+
+        public static ProcessedPcmPipeLease AcquirePipeLease(
+            string pipeName,
+            string nonce,
+            int serverProcessId,
+            long serverCreationUtcTicks,
+            long expiresUtcTicks,
+            string selectionClass,
+            string selectedOwnerClass,
+            string processingModeClass)
+        {
+            return AcquirePipeLease(
+                pipeName,
+                nonce,
+                serverProcessId,
+                serverCreationUtcTicks,
+                expiresUtcTicks,
+                selectionClass,
+                selectedOwnerClass,
+                processingModeClass,
                 new ServerProcessIdentity(),
                 DateTime.UtcNow.Ticks);
         }
@@ -229,6 +259,31 @@ namespace SwordAgentOS.AudioAwareness
             IServerProcessIdentity identity,
             long nowUtcTicks)
         {
+            return AcquirePipeLease(
+                pipeName,
+                nonce,
+                serverProcessId,
+                serverCreationUtcTicks,
+                expiresUtcTicks,
+                selectionClass,
+                selectedOwnerClass,
+                AecProcessingModeClass,
+                identity,
+                nowUtcTicks);
+        }
+
+        internal static ProcessedPcmPipeLease AcquirePipeLease(
+            string pipeName,
+            string nonce,
+            int serverProcessId,
+            long serverCreationUtcTicks,
+            long expiresUtcTicks,
+            string selectionClass,
+            string selectedOwnerClass,
+            string processingModeClass,
+            IServerProcessIdentity identity,
+            long nowUtcTicks)
+        {
             if (string.IsNullOrWhiteSpace(pipeName) ||
                 !PipeNamePattern.IsMatch(pipeName) ||
                 string.IsNullOrWhiteSpace(nonce) ||
@@ -238,7 +293,9 @@ namespace SwordAgentOS.AudioAwareness
                 expiresUtcTicks <= nowUtcTicks ||
                 expiresUtcTicks > checked(nowUtcTicks + TimeSpan.FromSeconds(15).Ticks) ||
                 selectionClass != "synthetic_aec_owner_selected" ||
-                selectedOwnerClass != WindowsVoiceCaptureDspOwnerClass)
+                selectedOwnerClass != WindowsVoiceCaptureDspOwnerClass ||
+                (processingModeClass != AecProcessingModeClass &&
+                 processingModeClass != NsAgcProcessingModeClass))
             {
                 throw new VoiceCaptureDspException(
                     "processed_pcm_pipe_lease_invalid");
@@ -262,7 +319,8 @@ namespace SwordAgentOS.AudioAwareness
                 nonce,
                 serverProcessId,
                 serverCreationUtcTicks,
-                expiresUtcTicks);
+                expiresUtcTicks,
+                processingModeClass);
         }
 
         public static Task<VoiceCaptureDspObservation> ObserveAsync(
@@ -272,7 +330,8 @@ namespace SwordAgentOS.AudioAwareness
             CancellationToken cancellationToken)
         {
             return ObserveWithBackendAsync(
-                new WindowsVoiceCaptureDspBackend(),
+                new WindowsVoiceCaptureDspBackend(
+                    pipeLease.ProcessingModeClass),
                 new NamedPipePcmSink(pipeLease, deadlineMs),
                 pipeLease,
                 new ServerProcessIdentity(),
@@ -772,6 +831,7 @@ namespace SwordAgentOS.AudioAwareness
 
     public sealed class WindowsVoiceCaptureDspBackend : IVoiceCaptureDspBackend
     {
+        private readonly string _processingModeClass;
         private object _dspObject;
         private IMediaObject _mediaObject;
         private ManagedMediaBuffer _outputBuffer;
@@ -784,6 +844,11 @@ namespace SwordAgentOS.AudioAwareness
         public int CaptureStopAttemptCount { get; private set; }
         public int CaptureStopCount { get; private set; }
         public int ResourceReleaseCount { get; private set; }
+
+        internal WindowsVoiceCaptureDspBackend(string processingModeClass)
+        {
+            _processingModeClass = processingModeClass;
+        }
 
         public Task ActivateAsync(CancellationToken cancellationToken)
         {
@@ -917,12 +982,14 @@ namespace SwordAgentOS.AudioAwareness
             }
         }
 
-        private static void ConfigureProperties(IPropertyStore properties)
+        private void ConfigureProperties(IPropertyStore properties)
         {
             SetIntProperty(
                 properties,
                 VoiceCaptureDspAec.PidSystemMode,
-                VoiceCaptureDspAec.SingleChannelAec);
+                _processingModeClass == VoiceCaptureDspAec.NsAgcProcessingModeClass
+                    ? VoiceCaptureDspAec.SingleChannelNsAgc
+                    : VoiceCaptureDspAec.SingleChannelAec);
             SetBoolProperty(properties, VoiceCaptureDspAec.PidSourceMode, true);
             SetBoolProperty(properties, VoiceCaptureDspAec.PidFeatureMode, true);
             SetIntProperty(

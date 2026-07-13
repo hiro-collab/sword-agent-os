@@ -69,6 +69,7 @@ $AllowedEndpointResultClasses = @(
   "processed_pcm_pipe_write_failed",
   "live_aec_backend_or_sink_missing",
   "live_aec_bounds_invalid",
+  "live_aec_processing_mode_invalid",
   "live_aec_processed_packet_invalid",
   "live_aec_deadline_exceeded",
   "live_aec_cleanup_failed",

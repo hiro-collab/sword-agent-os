@@ -590,12 +590,41 @@ namespace SwordAgentOS.AudioAwareness.Tests
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.PidNoiseSuppression,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.PidAutomaticGainControl,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.SingleChannelAec,
+                SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.SingleChannelNsAgc,
+                SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.AecProcessingModeClass,
+                SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.NsAgcProcessingModeClass,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.SampleRate,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.ChannelCount,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.BitsPerSample,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.FrameDurationMs
                 ,SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.FrameBytes
             };
+        }
+
+        public static string LeaseProcessingMode(string processingModeClass)
+        {
+            var identity = new FakeServerProcessIdentity();
+            try
+            {
+                var lease = SwordAgentOS.AudioAwareness.VoiceCaptureDspAec
+                    .AcquirePipeLease(
+                        "sword-aec-0123456789abcdef0123456789abcdef",
+                        "0123456789abcdef0123456789abcdef" +
+                            "0123456789abcdef0123456789abcdef",
+                        123,
+                        identity.CreationUtcTicks,
+                        System.TimeSpan.FromSeconds(1).Ticks,
+                        "synthetic_aec_owner_selected",
+                        "windows_voice_capture_dsp",
+                        processingModeClass,
+                        identity,
+                        0);
+                return lease.ProcessingModeClass;
+            }
+            catch (SwordAgentOS.AudioAwareness.VoiceCaptureDspException error)
+            {
+                return error.FailureClass;
+            }
         }
 
         public static string ValidateConnectedServer(
@@ -1007,11 +1036,30 @@ Assert-Equal $shape[4] 5 "feature mode property id"
 Assert-Equal $shape[5] 8 "noise suppression property id"
 Assert-Equal $shape[6] 9 "automatic gain control property id"
 Assert-Equal $shape[7] 0 "single-channel AEC system mode"
-Assert-Equal $shape[8] 16000 "output sample rate"
-Assert-Equal $shape[9] 1 "output channel count"
-Assert-Equal $shape[10] 16 "output bit depth"
-Assert-Equal $shape[11] 10 "bounded frame duration"
-Assert-Equal $shape[12] 320 "exact ten-millisecond frame bytes"
+Assert-Equal $shape[8] 5 "single-channel NS/AGC system mode"
+Assert-Equal $shape[9] "windows_voice_capture_dsp_aec" "AEC processing class"
+Assert-Equal $shape[10] "windows_voice_capture_dsp_ns_agc" "NS/AGC processing class"
+Assert-Equal $shape[11] 16000 "output sample rate"
+Assert-Equal $shape[12] 1 "output channel count"
+Assert-Equal $shape[13] 16 "output bit depth"
+Assert-Equal $shape[14] 10 "bounded frame duration"
+Assert-Equal $shape[15] 320 "exact ten-millisecond frame bytes"
+
+Assert-Equal `
+  ([SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::LeaseProcessingMode(
+      "windows_voice_capture_dsp_aec")) `
+  "windows_voice_capture_dsp_aec" `
+  "lease accepts only the AEC class for active self-output"
+Assert-Equal `
+  ([SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::LeaseProcessingMode(
+      "windows_voice_capture_dsp_ns_agc")) `
+  "windows_voice_capture_dsp_ns_agc" `
+  "lease accepts only the NS/AGC class for released input"
+Assert-Equal `
+  ([SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::LeaseProcessingMode(
+      "caller_selected_user_intent")) `
+  "processed_pcm_pipe_lease_invalid" `
+  "caller authority-shaped processing mode fails closed"
 
 $bufferShape = [SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::InternalBufferClearShape()
 Assert-True $bufferShape[0] "internal DMO buffer copy succeeds"
@@ -1024,6 +1072,8 @@ Assert-Match $sourceText 'GetNamedPipeServerProcessId' "actual pipe server PID i
 Assert-Match $sourceText 'PipeDirection\.InOut' "nonce handshake uses duplex pipe"
 Assert-Match $sourceText 'processed_pcm_pipe_handshake_failed' "nonce handshake fails closed"
 Assert-Match $sourceText 'SINGLE_CHANNEL_AEC|SingleChannelAec' "one AEC owner mode"
+Assert-Match $sourceText 'SingleChannelNsAgc' "same DSP owner supports no-render NS/AGC mode"
+Assert-Match $sourceText '_processingModeClass == VoiceCaptureDspAec\.NsAgcProcessingModeClass' "gate-owned mode selects the DSP system mode"
 Assert-Match $sourceText 'SetIntProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidNoiseSuppression,\s*1\)' "noise suppression uses the required VT_I4 value"
 Assert-NotMatch $sourceText 'SetBoolProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidNoiseSuppression' "noise suppression is never encoded as VT_BOOL"
 Assert-Match $sourceText 'SetBoolProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidAutomaticGainControl,\s*true\)' "automatic gain control retains the required VT_BOOL value"

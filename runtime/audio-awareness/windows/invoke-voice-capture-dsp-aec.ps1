@@ -207,7 +207,8 @@ try {
     "server_creation_utc_ticks",
     "expires_utc_ticks",
     "aec_owner_selection_class",
-    "selected_owner_class"
+    "selected_owner_class",
+    "processing_mode_class"
   )
   foreach ($name in $required) {
     if ($null -eq $leasePacket.PSObject.Properties[$name]) {
@@ -222,7 +223,8 @@ try {
     [long]$leasePacket.server_creation_utc_ticks,
     [long]$leasePacket.expires_utc_ticks,
     [string]$leasePacket.aec_owner_selection_class,
-    [string]$leasePacket.selected_owner_class)
+    [string]$leasePacket.selected_owner_class,
+    [string]$leasePacket.processing_mode_class)
   $result = [SwordAgentOS.AudioAwareness.VoiceCaptureDspAec]::ObserveAsync(
     $lease,
     $WindowMs,
