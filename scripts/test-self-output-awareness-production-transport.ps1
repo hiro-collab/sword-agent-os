@@ -86,11 +86,12 @@ function New-Transport {
     [Parameter(Mandatory)][string]$State,
     [Parameter(Mandatory)][int]$Ordinal,
     [int]$Generation = 7,
+    [string]$SessionId = "system-speech-session:sss_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     [string]$PlaybackRef = "playback-event:pe_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   )
   return [pscustomobject][ordered]@{
     schema_version = "ait_system_speech_lifecycle_transport.v0"
-    lifecycle = New-Lifecycle -State $State -Generation $Generation -PlaybackRef $PlaybackRef
+    lifecycle = New-Lifecycle -State $State -Generation $Generation -SessionId $SessionId -PlaybackRef $PlaybackRef
     client_timestamp_wall = "2026-07-13T07:30:00.000Z"
     client_timestamp_monotonic = [double](100 + $Ordinal)
     client_performance_now = [double](100 + $Ordinal)
@@ -188,8 +189,11 @@ function New-CoreAcknowledgement {
 }
 
 function New-FakeObserverProcess {
-  param([bool]$ExitImmediately = $true)
-  $observerJson = (New-ObserverResult) | ConvertTo-Json -Depth 8 -Compress
+  param(
+    [bool]$ExitImmediately = $true,
+    $ObserverResult = (New-ObserverResult)
+  )
+  $observerJson = $ObserverResult | ConvertTo-Json -Depth 8 -Compress
   $value = [pscustomobject]@{
     HasExited = $ExitImmediately
     ExitCode = 0
@@ -217,7 +221,7 @@ function New-FakeObserverProcess {
 
 function New-ControlledRouteHarness {
   param(
-    [ValidateSet("success", "delayed_start", "ordinal_gap", "lease_mismatch", "stale_replay", "ack_unknown", "timeout")]
+    [ValidateSet("success", "delayed_start", "superseded_generation", "superseded_generation_silent_new", "history_overflow", "ordinal_gap", "lease_mismatch", "stale_replay", "ack_unknown", "timeout")]
     [string]$Mode
   )
   $state = [pscustomobject]@{
@@ -225,7 +229,8 @@ function New-ControlledRouteHarness {
     AitQueries = [Collections.ArrayList]::new()
     CoreBodies = [Collections.ArrayList]::new()
     ObserverStartCount = 0
-    ObserverProcess = New-FakeObserverProcess -ExitImmediately ($Mode -ne "timeout")
+    ObserverProcess = $null
+    ObserverProcesses = [Collections.ArrayList]::new()
   }
   $requestInvoker = {
     param($Uri, $Method, $Body, $Token, $TimeoutMs, $FailureClass)
@@ -239,6 +244,22 @@ function New-ControlledRouteHarness {
       }
       $lifecycleIndex = $(if ($Mode -ceq "delayed_start") { $readIndex - 2 } else { $readIndex })
       if ($lifecycleIndex -le 0) { return New-AitResponse $null }
+      if ($Mode -in @("superseded_generation", "superseded_generation_silent_new")) {
+        switch ($lifecycleIndex) {
+          1 { return New-AitResponse (New-Transport "handoff_accepted" 1) }
+          2 { return New-AitResponse (New-Transport "cooldown" 2) }
+          3 { return New-AitResponse (New-Transport "handoff_accepted" 3 -Generation 8 -SessionId "system-speech-session:sss_cccccccccccccccccccccccccccccccc" -PlaybackRef "playback-event:pe_dddddddddddddddddddddddddddddddd") }
+          4 { return New-AitResponse (New-Transport "cooldown" 4 -Generation 8 -SessionId "system-speech-session:sss_cccccccccccccccccccccccccccccccc" -PlaybackRef "playback-event:pe_dddddddddddddddddddddddddddddddd") }
+          default { return New-AitResponse (New-Transport "released" 5 -Generation 8 -SessionId "system-speech-session:sss_cccccccccccccccccccccccccccccccc" -PlaybackRef "playback-event:pe_dddddddddddddddddddddddddddddddd") }
+        }
+      }
+      if ($Mode -ceq "history_overflow") {
+        $generation = [int](7 + [Math]::Floor(($lifecycleIndex - 1) / 2))
+        $stateName = $(if ($lifecycleIndex % 2 -eq 1) { "handoff_accepted" } else { "cooldown" })
+        $sessionId = "system-speech-session:sss_$('{0:x32}' -f $generation)"
+        $playbackRef = "playback-event:pe_$('{0:x32}' -f ($generation + 32))"
+        return New-AitResponse (New-Transport $stateName $lifecycleIndex -Generation $generation -SessionId $sessionId -PlaybackRef $playbackRef)
+      }
       if ($lifecycleIndex -eq 1) {
         $ordinal = $(if ($Mode -ceq "ordinal_gap") { 2 } else { 1 })
         return New-AitResponse (New-Transport "handoff_accepted" $ordinal)
@@ -264,9 +285,17 @@ function New-ControlledRouteHarness {
   $observerStarter = {
     param($ObserverPath, $TargetPid, $WindowMs, $ObserverDeadlineMs)
     $state.ObserverStartCount += 1
-    Assert-Equal $state.CoreBodies.Count 1 "observer starts after one acknowledged handoff"
-    Assert-Equal $state.CoreBodies[0].payload.lifecycle_state "handoff_accepted" "observer starts only after handoff"
-    return $state.ObserverProcess
+    Assert-Equal $state.CoreBodies[$state.CoreBodies.Count - 1].payload.lifecycle_state "handoff_accepted" "observer starts only after an acknowledged handoff"
+    $observerResult = New-ObserverResult
+    if ($Mode -ceq "superseded_generation_silent_new" -and $state.ObserverStartCount -eq 2) {
+      $observerResult.observation.non_silent_frame_count = 0
+      $observerResult.observation.silent_frame_count = 512
+      $observerResult.observation.first_non_silent_frame_offset_ms = -1
+    }
+    $observerProcess = New-FakeObserverProcess -ExitImmediately ($Mode -ne "timeout") -ObserverResult $observerResult
+    $state.ObserverProcess = $observerProcess
+    [void]$state.ObserverProcesses.Add($observerProcess)
+    return $observerProcess
   }.GetNewClosure()
   return [pscustomobject]@{
     State = $state
@@ -317,37 +346,43 @@ $coreTimingTypeMutation = New-CoreAcknowledgement -RequestBody $coreEvent
 $coreTimingTypeMutation.body.event.payload.client_timestamp_monotonic = "101"
 Assert-FixedFailure { Assert-CoreAcknowledgement -Response $coreTimingTypeMutation -ExpectedEvent "swordAgentSystemSpeechLifecycleV0" -ExpectedTurnId "web_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" -ExpectedWall "2026-07-13T07:30:00.000Z" -ExpectedMonotonic 101 -FailureClass "core_lifecycle_ingest_failed" } "core_lifecycle_ingest_failed" "Core numeric-string timing rejected"
 
-$handoff = Resolve-LifecycleStep -Transport (New-Transport "handoff_accepted" 1) -LastOrdinal 0 -ExpectedState "handoff_accepted" -Lease $null
-$lease = [pscustomobject]@{
-  system_speech_session_id = [string]$handoff.lifecycle.system_speech_session_id
-  speech_session_generation = [long]$handoff.lifecycle.speech_session_generation
-  playback_event_ref = [string]$handoff.lifecycle.playback_event_ref
-}
-$cooldown = Resolve-LifecycleStep -Transport (New-Transport "cooldown" 2) -LastOrdinal 1 -ExpectedState "cooldown" -Lease $lease
-$released = Resolve-LifecycleStep -Transport (New-Transport "released" 3) -LastOrdinal 2 -ExpectedState "released" -Lease $lease
+$handoffStep = Resolve-LifecycleStep -Transport (New-Transport "handoff_accepted" 1) -LastOrdinal 0 -Lease $null -Phase "awaiting_handoff"
+$handoff = $handoffStep.transport
+$lease = $handoffStep.lease
+$cooldownStep = Resolve-LifecycleStep -Transport (New-Transport "cooldown" 2) -LastOrdinal 1 -Lease $lease -Phase $handoffStep.phase
+$cooldown = $cooldownStep.transport
+$releasedStep = Resolve-LifecycleStep -Transport (New-Transport "released" 3) -LastOrdinal 2 -Lease $cooldownStep.lease -Phase $cooldownStep.phase
+$released = $releasedStep.transport
 Assert-Equal $handoff.lifecycle.lifecycle_state "handoff_accepted" "handoff accepted"
 Assert-Equal $cooldown.lifecycle.lifecycle_state "cooldown" "cooldown accepted"
 Assert-Equal $released.lifecycle.lifecycle_state "released" "release accepted"
+Assert-Equal $releasedStep.completed $true "release completes the active lifecycle"
 
 Assert-FixedFailure {
-  Resolve-LifecycleStep -Transport (New-Transport "cooldown" 3) -LastOrdinal 1 -ExpectedState "cooldown" -Lease $lease
+  Resolve-LifecycleStep -Transport (New-Transport "cooldown" 3) -LastOrdinal 1 -Lease $lease -Phase "handoff_accepted"
 } "lifecycle_transport_incomplete" "ordinal gap rejected"
 Assert-FixedFailure {
-  Resolve-LifecycleStep -Transport (New-Transport "released" 2) -LastOrdinal 1 -ExpectedState "cooldown" -Lease $lease
+  Resolve-LifecycleStep -Transport (New-Transport "released" 2) -LastOrdinal 1 -Lease $lease -Phase "handoff_accepted"
 } "lifecycle_transition_mismatch" "wrong state rejected"
 Assert-FixedFailure {
-  Resolve-LifecycleStep -Transport (New-Transport "cooldown" 2 -PlaybackRef "playback-event:pe_ffffffffffffffffffffffffffffffff") -LastOrdinal 1 -ExpectedState "cooldown" -Lease $lease
+  Resolve-LifecycleStep -Transport (New-Transport "cooldown" 2 -PlaybackRef "playback-event:pe_ffffffffffffffffffffffffffffffff") -LastOrdinal 1 -Lease $lease -Phase "handoff_accepted"
 } "lifecycle_lease_mismatch" "changed playback ref rejected"
+Assert-FixedFailure {
+  Resolve-LifecycleStep -Transport (New-Transport "handoff_accepted" 2 -Generation 7 -SessionId "system-speech-session:sss_cccccccccccccccccccccccccccccccc" -PlaybackRef "playback-event:pe_dddddddddddddddddddddddddddddddd") -LastOrdinal 1 -Lease $lease -Phase "handoff_accepted"
+} "lifecycle_stale_generation_replay" "equal-generation replacement rejected"
+Assert-FixedFailure {
+  Resolve-LifecycleStep -Transport (New-Transport "handoff_accepted" 2 -Generation 6 -SessionId "system-speech-session:sss_cccccccccccccccccccccccccccccccc" -PlaybackRef "playback-event:pe_dddddddddddddddddddddddddddddddd") -LastOrdinal 1 -Lease $lease -Phase "handoff_accepted"
+} "lifecycle_stale_generation_replay" "lower-generation replacement rejected"
 
 $authorityMutation = New-Transport "handoff_accepted" 1
 $authorityMutation.lifecycle.may_start_user_turn = $true
 Assert-FixedFailure {
-  Resolve-LifecycleStep -Transport $authorityMutation -LastOrdinal 0 -ExpectedState "handoff_accepted" -Lease $null
+  Resolve-LifecycleStep -Transport $authorityMutation -LastOrdinal 0 -Lease $null -Phase "awaiting_handoff"
 } "lifecycle_transport_invalid" "authority mutation rejected"
 $extraFieldMutation = New-Transport "handoff_accepted" 1
 $extraFieldMutation | Add-Member -NotePropertyName transcript -NotePropertyValue "private transcript marker"
 Assert-FixedFailure {
-  Resolve-LifecycleStep -Transport $extraFieldMutation -LastOrdinal 0 -ExpectedState "handoff_accepted" -Lease $null
+  Resolve-LifecycleStep -Transport $extraFieldMutation -LastOrdinal 0 -Lease $null -Phase "awaiting_handoff"
 } "lifecycle_transport_invalid" "extra private field rejected"
 
 $observationPayload = New-SelfOutputObservationPayload -Lease $lease
@@ -533,6 +568,40 @@ Assert-Equal $delayedHarness.State.AitReadCount 6 "delayed lifecycle consumes ba
 Assert-Equal $delayedHarness.State.CoreBodies.Count 4 "delayed lifecycle sends one ordered event set"
 Assert-Equal $delayedRoute.Value.final_lifecycle_state "released" "delayed lifecycle still reaches released"
 Assert-Equal ($delayedHarness.State.AitQueries -join ",") ",?after_ordinal=0,?after_ordinal=0,?after_ordinal=0,?after_ordinal=1,?after_ordinal=2" "empty cursor reads do not advance the retained ordinal"
+
+$supersededHarness = New-ControlledRouteHarness -Mode "superseded_generation"
+$supersededRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $supersededHarness.RequestInvoker -ObserverStarter $supersededHarness.ObserverStarter -SleepInvoker $supersededHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $supersededRoute.ExitCode 0 "newer handoff supersedes an unreleased older generation"
+Assert-Equal $supersededRoute.Value.lifecycle_ingest_count 5 "superseded sequence ingests every retained lifecycle"
+Assert-Equal $supersededRoute.Value.final_lifecycle_state "released" "superseded sequence closes only on current generation release"
+Assert-Equal $supersededHarness.State.ObserverStartCount 2 "superseded sequence starts one observer per owned generation window"
+Assert-Equal $supersededHarness.State.ObserverProcesses[0].DisposeCount 1 "superseded sequence discards the old generation observer"
+Assert-Equal $supersededHarness.State.ObserverProcesses[1].DisposeCount 1 "superseded sequence disposes the final generation observer"
+Assert-Equal $supersededHarness.State.CoreBodies.Count 6 "superseded sequence sends five lifecycle events plus one observation"
+$supersededLifecycleBodies = @($supersededHarness.State.CoreBodies | Select-Object -First 5)
+Assert-Equal (@($supersededLifecycleBodies | ForEach-Object { $_.payload.lifecycle_state }) -join ",") "handoff_accepted,cooldown,handoff_accepted,cooldown,released" "superseded sequence preserves exact lifecycle order"
+Assert-Equal (@($supersededLifecycleBodies | ForEach-Object { $_.payload.speech_session_generation }) -join ",") "7,7,8,8,8" "superseded sequence preserves generation ownership"
+Assert-Equal $supersededHarness.State.CoreBodies[5].payload.speech_session_generation 8 "final observation uses the superseding generation"
+Assert-Equal $supersededHarness.State.CoreBodies[5].payload.system_speech_session_id "system-speech-session:sss_cccccccccccccccccccccccccccccccc" "final observation uses the superseding session"
+Assert-Equal $supersededHarness.State.CoreBodies[5].payload.playback_event_ref "playback-event:pe_dddddddddddddddddddddddddddddddd" "final observation uses the superseding playback ref"
+Assert-Equal ($supersededHarness.State.AitQueries -join ",") ",?after_ordinal=0,?after_ordinal=1,?after_ordinal=2,?after_ordinal=3,?after_ordinal=4" "superseded sequence consumes every retained ordinal once"
+
+$silentSupersededHarness = New-ControlledRouteHarness -Mode "superseded_generation_silent_new"
+$silentSupersededRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $silentSupersededHarness.RequestInvoker -ObserverStarter $silentSupersededHarness.ObserverStarter -SleepInvoker $silentSupersededHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $silentSupersededRoute.Value.blocker_class "observer_result_invalid" "old-generation-only render cannot satisfy the superseding lease"
+Assert-Equal $silentSupersededRoute.Value.observation_ingest_count 0 "silent superseding generation publishes no observation"
+Assert-Equal $silentSupersededHarness.State.CoreBodies.Count 5 "silent superseding generation sends lifecycle only"
+Assert-Equal $silentSupersededHarness.State.ObserverProcesses[0].DisposeCount 1 "silent supersession still discards old positive observer"
+Assert-Equal $silentSupersededHarness.State.ObserverProcesses[1].DisposeCount 1 "silent supersession disposes current observer"
+
+$overflowHarness = New-ControlledRouteHarness -Mode "history_overflow"
+$overflowRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $overflowHarness.RequestInvoker -ObserverStarter $overflowHarness.ObserverStarter -SleepInvoker $overflowHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $overflowRoute.Value.blocker_class "lifecycle_transport_incomplete" "seventeenth lifecycle event fails closed"
+Assert-Equal $overflowRoute.Value.lifecycle_ingest_count 16 "bounded history acknowledges at most sixteen lifecycle events"
+Assert-Equal $overflowRoute.Value.observation_ingest_count 0 "bounded-history overflow publishes no observation"
+Assert-Equal $overflowHarness.State.CoreBodies.Count 16 "seventeenth lifecycle event is not dispatched"
+Assert-Equal $overflowHarness.State.ObserverStartCount 8 "bounded history starts only the eight acknowledged generation observers"
+Assert-Equal @($overflowHarness.State.ObserverProcesses | Where-Object { $_.DisposeCount -ne 1 }).Count 0 "bounded-history overflow disposes every observer"
 
 $ordinalHarness = New-ControlledRouteHarness -Mode "ordinal_gap"
 $ordinalRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $ordinalHarness.RequestInvoker -ObserverStarter $ordinalHarness.ObserverStarter -SleepInvoker $ordinalHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"

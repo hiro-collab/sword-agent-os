@@ -11,7 +11,6 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$LifecycleStates = @("handoff_accepted", "cooldown", "released")
 $TransportKeys = @(
   "schema_version",
   "lifecycle",
@@ -193,25 +192,61 @@ function Resolve-LifecycleStep {
   param(
     [Parameter(Mandatory)]$Transport,
     [Parameter(Mandatory)][long]$LastOrdinal,
-    [Parameter(Mandatory)][string]$ExpectedState,
-    [AllowNull()]$Lease
+    [AllowNull()]$Lease,
+    [Parameter(Mandatory)][string]$Phase
   )
   $validated = Assert-LifecycleTransport -Transport $Transport
   if ([long]$validated.transition_ordinal -ne $LastOrdinal + 1) {
     Throw-Fixed -Class "lifecycle_transport_incomplete"
   }
   $lifecycle = $validated.lifecycle
-  if ([string]$lifecycle.lifecycle_state -cne $ExpectedState) {
-    Throw-Fixed -Class "lifecycle_transition_mismatch"
-  }
-  if ($null -ne $Lease -and (
+  $state = [string]$lifecycle.lifecycle_state
+  $nextLease = $Lease
+  $nextPhase = $Phase
+  $completed = $false
+  if ($null -eq $Lease) {
+    if ($state -cne "handoff_accepted") {
+      Throw-Fixed -Class "lifecycle_transition_mismatch"
+    }
+    $nextLease = [pscustomobject]@{
+      system_speech_session_id = [string]$lifecycle.system_speech_session_id
+      speech_session_generation = [long]$lifecycle.speech_session_generation
+      playback_event_ref = [string]$lifecycle.playback_event_ref
+    }
+    $nextPhase = "handoff_accepted"
+  } elseif ($state -ceq "handoff_accepted") {
+    if ([long]$lifecycle.speech_session_generation -le [long]$Lease.speech_session_generation) {
+      Throw-Fixed -Class "lifecycle_stale_generation_replay"
+    }
+    $nextLease = [pscustomobject]@{
+      system_speech_session_id = [string]$lifecycle.system_speech_session_id
+      speech_session_generation = [long]$lifecycle.speech_session_generation
+      playback_event_ref = [string]$lifecycle.playback_event_ref
+    }
+    $nextPhase = "handoff_accepted"
+  } else {
+    if (
       [string]$lifecycle.system_speech_session_id -cne [string]$Lease.system_speech_session_id -or
       [long]$lifecycle.speech_session_generation -ne [long]$Lease.speech_session_generation -or
       [string]$lifecycle.playback_event_ref -cne [string]$Lease.playback_event_ref
-    )) {
-    Throw-Fixed -Class "lifecycle_lease_mismatch"
+    ) {
+      Throw-Fixed -Class "lifecycle_lease_mismatch"
+    }
+    if ($state -ceq "cooldown" -and $Phase -ceq "handoff_accepted") {
+      $nextPhase = "cooldown"
+    } elseif ($state -ceq "released" -and $Phase -ceq "cooldown") {
+      $nextPhase = "released"
+      $completed = $true
+    } else {
+      Throw-Fixed -Class "lifecycle_transition_mismatch"
+    }
   }
-  return $validated
+  return [pscustomobject]@{
+    transport = $validated
+    lease = $nextLease
+    phase = $nextPhase
+    completed = $completed
+  }
 }
 
 function Assert-AitResponse {
@@ -421,6 +456,19 @@ function Start-ObserverChild {
   return $process
 }
 
+function Stop-ObserverChild {
+  param([Parameter(Mandatory)]$Process)
+  $clear = $true
+  try {
+    if (-not $Process.HasExited) {
+      $Process.Kill($true)
+      if (-not $Process.WaitForExit(2000)) { $clear = $false }
+    }
+  } catch { $clear = $false }
+  try { $Process.Dispose() } catch { $clear = $false }
+  return $clear
+}
+
 function Assert-ObserverResult {
   param([Parameter(Mandatory)]$Value, [Parameter(Mandatory)][int]$WindowMs)
   Assert-ExactKeys -Value $Value -Expected $ObserverKeys -FailureClass "observer_result_invalid"
@@ -600,8 +648,10 @@ try {
   $baselineResponse = $null
 
   $lease = $null
+  $lifecyclePhase = "awaiting_handoff"
+  $lifecycleCompleted = $false
   $lastClientMonotonic = -1.0
-  for ($stateIndex = 0; $stateIndex -lt $LifecycleStates.Count; ) {
+  while (-not $lifecycleCompleted) {
     $remaining = $RouteDeadlineMs - [int]$routeStopwatch.ElapsedMilliseconds
     if ($remaining -le 50) { Throw-Fixed -Class "whole_route_timeout" }
     & $SleepInvoker 20
@@ -620,7 +670,8 @@ try {
       $response = $null
       continue
     }
-    $step = Resolve-LifecycleStep -Transport $responseTransport -LastOrdinal $lastOrdinal -ExpectedState $LifecycleStates[$stateIndex] -Lease $lease
+    $resolvedStep = Resolve-LifecycleStep -Transport $responseTransport -LastOrdinal $lastOrdinal -Lease $lease -Phase $lifecyclePhase
+    $step = $resolvedStep.transport
     if ([double]$step.client_timestamp_monotonic -lt $lastClientMonotonic) {
       Throw-Fixed -Class "lifecycle_timing_mismatch"
     }
@@ -633,12 +684,11 @@ try {
         )) {
         Throw-Fixed -Class "lifecycle_stale_generation_replay"
       }
-      $lease = [pscustomobject]@{
-        system_speech_session_id = [string]$step.lifecycle.system_speech_session_id
-        speech_session_generation = [long]$step.lifecycle.speech_session_generation
-        playback_event_ref = [string]$step.lifecycle.playback_event_ref
-      }
     }
+    $lease = $resolvedStep.lease
+    $lifecyclePhase = [string]$resolvedStep.phase
+    $lifecycleCompleted = [bool]$resolvedStep.completed
+    if ($lifecycleIngestCount -ge 16) { Throw-Fixed -Class "lifecycle_transport_incomplete" }
     $event = New-CoreEventEnvelope -Event "swordAgentSystemSpeechLifecycleV0" -Payload $step.lifecycle -TurnId $turnId -Wall ([string]$step.client_timestamp_wall) -Monotonic ([double]$step.client_timestamp_monotonic)
     $remaining = $RouteDeadlineMs - [int]$routeStopwatch.ElapsedMilliseconds
     if ($remaining -le 0) { Throw-Fixed -Class "whole_route_timeout" }
@@ -653,16 +703,30 @@ try {
     $finalLifecycleState = [string]$step.lifecycle.lifecycle_state
     switch ($finalLifecycleState) {
       "handoff_accepted" {
+        if ($null -ne $observerProcess) {
+          $supersededObserver = $observerProcess
+          $observerProcess = $null
+          if (-not (Stop-ObserverChild -Process $supersededObserver)) {
+            $cleanupClear = $false
+            Throw-Fixed -Class "cleanup_incomplete"
+          }
+        }
         $handoffPickupMs = [int]$routeStopwatch.ElapsedMilliseconds
+        $cooldownPickupMs = $null
+        $releasedPickupMs = $null
         $observerDeadline = [Math]::Min(10000, $RouteObserverWindowMs + 1500)
         $observerProcess = & $ObserverStarter -ObserverPath $observerPath -TargetPid $RouteControlledChromeRootPid -WindowMs $RouteObserverWindowMs -ObserverDeadlineMs $observerDeadline
       }
-      "cooldown" { $cooldownPickupMs = [int]$routeStopwatch.ElapsedMilliseconds }
+      "cooldown" {
+        if ($null -eq $cooldownPickupMs) {
+          $cooldownPickupMs = [int]$routeStopwatch.ElapsedMilliseconds
+        }
+      }
       "released" { $releasedPickupMs = [int]$routeStopwatch.ElapsedMilliseconds }
     }
-    $stateIndex += 1
     $response = $null
     $step = $null
+    $resolvedStep = $null
     $coreResponse = $null
   }
 
@@ -726,7 +790,7 @@ try {
     "lifecycle_stale_generation_replay",
     "observer_child_start_failed", "observer_child_failed",
     "observer_result_invalid", "core_observation_ingest_failed",
-    "whole_route_timeout"
+    "whole_route_timeout", "cleanup_incomplete"
   )
   $class = [string]$_.Exception.Message
   $blockerClass = if ($allowed -ccontains $class) { $class } else { "transport_failed" }
@@ -735,13 +799,7 @@ try {
 } finally {
   $coreToken = ""
   if ($null -ne $observerProcess) {
-    try {
-      if (-not $observerProcess.HasExited) {
-        $observerProcess.Kill($true)
-        if (-not $observerProcess.WaitForExit(2000)) { $cleanupClear = $false }
-      }
-    } catch { $cleanupClear = $false }
-    try { $observerProcess.Dispose() } catch { $cleanupClear = $false }
+    if (-not (Stop-ObserverChild -Process $observerProcess)) { $cleanupClear = $false }
   }
   if (-not $cleanupClear) {
     $status = "blocked"
