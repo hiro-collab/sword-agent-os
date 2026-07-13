@@ -957,6 +957,34 @@ function Test-ReadmeFirstRunGuidance {
   $motionFullRelaxedExample = Get-Content -Raw -LiteralPath $motionFullRelaxedExamplePath
   $motionRuntimeReadme = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "runtime\motion-runtime\README.md")
   $moduleUsageIndex = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "docs\module-usage-index.md")
+  Assert-TextMatch -Text $moduleUsageIndex -Pattern '<!-- module-usage:decision-authority-map -->' -Message "module usage index should retain the decision-authority map anchor"
+  $expectedAuthorityIds = @(
+    "AUTH-CONFIG-SELECTION",
+    "AUTH-RUNTIME-CONTROL",
+    "AUTH-SPEECH-ACCEPT",
+    "AUTH-CONVERSATION-INTENT",
+    "AUTH-REFLEX-REQUEST",
+    "AUTH-ACTION-GUARD",
+    "AUTH-DEVICE-EXECUTION",
+    "AUTH-EXPRESSION-LIFECYCLE",
+    "AUTH-MOTION-EXECUTION",
+    "AUTH-ENVIRONMENT-OBSERVATION",
+    "AUTH-CURRENT-STATE",
+    "AUTH-BODY-SCHEMA",
+    "AUTH-MEMORY-COMMIT",
+    "AUTH-RUNTIME-CORRELATION"
+  )
+  $actualAuthorityIds = @([regex]::Matches($moduleUsageIndex, '(?m)^\| `(?<id>AUTH-[A-Z-]+)` \|') | ForEach-Object { $_.Groups["id"].Value })
+  if (($actualAuthorityIds -join "`n") -cne ($expectedAuthorityIds -join "`n") -or @($actualAuthorityIds | Select-Object -Unique).Count -ne $actualAuthorityIds.Count) {
+    throw "module usage index authority ids must match the exact ordered unique set"
+  }
+  Assert-TextMatch -Text $moduleUsageIndex -Pattern '`AUTH-RUNTIME-CONTROL`[\s\S]{0,700}current operator marker intent[\s\S]{0,700}enforcement remains partial[\s\S]{0,700}not user intent[\s\S]{0,200}action admission' -Message "runtime control should own marker intent without becoming action or user-intent authority"
+  Assert-TextMatch -Text $moduleUsageIndex -Pattern '`AUTH-SPEECH-ACCEPT`[\s\S]{0,520}InputGate[\s\S]{0,520}must not grant TurnInput authority' -Message "speech authority should stay with the canonical InputGate rather than signal processing or transport"
+  Assert-TextMatch -Text $moduleUsageIndex -Pattern '`AUTH-EXPRESSION-LIFECYCLE`[\s\S]{0,360}selected player owns executed/playback state[\s\S]{0,360}process observer owns externally observed evidence[\s\S]{0,700}Queue acceptance must not be renamed playback' -Message "expression authority should keep queue acceptance, selected-player execution, and process observation separate"
+  Assert-TextMatch -Text $moduleUsageIndex -Pattern '`AUTH-ACTION-GUARD`[\s\S]{0,700}organ-local fallback must not bypass the guard' -Message "organ-local fallbacks should not bypass the canonical Action Boundary"
+  Assert-TextMatch -Text $moduleUsageIndex -Pattern '`AUTH-RUNTIME-CORRELATION`[\s\S]{0,700}must not classify user intent' -Message "runtime correlation should not become semantic authority"
+  Assert-TextMatch -Text $moduleUsageIndex -Pattern '<!-- module-usage:authority-audit-record -->' -Message "module usage index should retain the duplicate-authority audit anchor"
+  Assert-TextMatch -Text $moduleUsageIndex -Pattern 'an observation can[\s\S]{0,80}authorize an action[\s\S]{0,180}fallback bypasses the selected owner[\s\S]{0,420}Do not solve those cases by[\s\S]{0,80}third arbitrator' -Message "duplicate-authority audits should fail closed without adding a central arbitrator"
   $motionProfileSurface = "$motionStimulusSchema`n$motionFullRelaxedExample`n$motionRuntimeReadme`n$moduleUsageIndex"
   Assert-TextMatch -Text $motionStimulusSchema -Pattern '"motion\.runtime\.vrm_expression_weights\.v0"[\s\S]{0,140}"motion\.runtime\.vrm_expression_weights\.full_relaxed\.v0"' -Message "motion stimulus schema should expose default and full-relaxed expression profile refs"
   Assert-TextMatch -Text $motionStimulusSchema -Pattern "full_relaxed profile is a bounded diagnostic option" -Message "motion stimulus schema should prevent treating full-relaxed as default proof"

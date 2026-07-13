@@ -31,6 +31,73 @@ input/observation -> state -> decision -> guarded action/expression
 If a proposed change does not fit one step in that loop, write down why before
 adding a new module or route.
 
+## Decision Authority Map
+
+<!-- module-usage:decision-authority-map -->
+
+Sword uses distributed organs intentionally. The rule is not "one controller
+decides everything". The rule is **one semantic owner per decision class**.
+An upstream component may request an outcome, the owning organ may accept or
+reject it and choose its local execution, and downstream consumers may validate
+shape, identity, ordering, freshness, replay, and their own safety boundaries.
+They must not independently reinterpret the owner's decision.
+
+Use these stable authority ids when a cross-organ setting, option, state, or
+failure is being discussed:
+
+| Authority id | Decision class and semantic owner | Owner output | Consumers may do | Must not be duplicated |
+| --- | --- | --- | --- | --- |
+| `AUTH-CONFIG-SELECTION` | Distribution manifests select standard components; selected owner-local config supplies organ-specific values. | Selected profile, source pin, contract version, and redacted effective config class. | Render, validate, and report drift from the selected value. | Hidden defaults or UI/env copies must not silently select a different component or policy. |
+| `AUTH-RUNTIME-CONTROL` | Runtime Control owns the `HOLD_LIVE`, `STOP`, and `PAUSE` vocabulary and current operator marker intent. | A bounded control-intent state for route and service readers; current enforcement remains partial until those readers exist. | Each reader enforces the state locally and fails closed when its required control state is unreadable. | Runtime Control is not user intent, action admission, a universal interlock, permission, or proof authority. |
+| `AUTH-SPEECH-ACCEPT` | The speech-input organ's canonical InputGate decides whether a private candidate is accepted as user speech. | One bounded, one-use accepted-input capability or a fail-closed class. | AEC, VAD, recognizers, and transport may condition signals and produce private evidence. | Signal presence, VAD, AEC selection, caller flags, or transport success must not grant TurnInput authority. |
+| `AUTH-CONVERSATION-INTENT` | Thought Core owns conversational meaning, response choice, and contextual goal selection after accepted input. | Response events, bounded action requests, or expression/motion requests. | Organs may reject unsupported or unsafe requests and report capability/result state. | Speech, display, diagnostics, or device adapters must not infer a second conversational intent from raw text or presentation state. |
+| `AUTH-REFLEX-REQUEST` | The reflex organ owns its local stimulus classification and may create a bounded request without waiting for Thought Core. | A contracted action or motion request with reflex provenance. | Action Boundary and the target organ apply their own deterministic and capability guards. | Reflex must not bypass Action Boundary or become the device driver. |
+| `AUTH-ACTION-GUARD` | Action Boundary owns deterministic body-side admission: contract shape, action id, target, risk, rate, and emergency-stop state. | Admitted or rejected `action_request.v0`. | The target action organ may apply capability, current-state, and execution safety checks. | Thought Core semantic approval, a GUI click, or an organ-local fallback must not bypass the guard. |
+| `AUTH-DEVICE-EXECUTION` | The selected action organ/driver owns device capability, command execution, bounded restore/stop behavior, and its configured state authority. | Submission, tracking, state-check, cleanup, and explicit non-claim classes. | Status, diagnostics, and Thought Core may consume contracted summaries. | HA-visible state, camera observation, physical state, and user confirmation must not overwrite one another or be collapsed into one proof class. |
+| `AUTH-EXPRESSION-LIFECYCLE` | The expression organ owns requested and queue-accepted state; the selected player owns executed/playback state; the process observer owns externally observed evidence. | Separate requested, queued, executed, observed, released, and failure events. | Runtime controllers may correlate ids, enforce deadlines, reject replay, and clean up owned resources. | Queue acceptance must not be renamed playback; observation, AEC, or a controller must not mint user intent. |
+| `AUTH-MOTION-EXECUTION` | Motion Runtime and the motion organ own asset compatibility, track composition, joint conventions, start, stop, and release. | Motion lifecycle and bounded model-state/visible-result references. | Thought Core or Reflex may request a goal and observe the returned state. | Thought Core, display code, or diagnostics must not micro-manage joint transforms or bypass motion safety. |
+| `AUTH-ENVIRONMENT-OBSERVATION` | Each environment organ owns its sensor-specific observation and confidence; State/Event Ingest normalizes the event. | Source-, time-, confidence-, and ambiguity-labelled observation. | Status Store and Body Schema may project or combine observations while preserving provenance. | Camera estimates, HA state, device commands, and physical causality must not be treated as interchangeable. |
+| `AUTH-CURRENT-STATE` | Status Store owns the current normalized projection; Event Journal owns append-only history. | Current state with evidence refs, plus separate historical events. | Body Schema, Thought Core, displays, and diagnostics may read contracted projections. | Event replay must not become the current-state read path, and organs must not write every consumer store directly. |
+| `AUTH-BODY-SCHEMA` | Body Schema owns the current self-body model derived from Body Plan and current summarized evidence. | A provenance-preserving body snapshot. | Thought Core and display-safe projections may consume it as self-state context. | Body Schema must not become an action dispatcher, physical-proof upgrader, or substitute for organ-local control. |
+| `AUTH-MEMORY-COMMIT` | Memory Core owns durable memory candidate/commit policy. | Accepted durable memory reference or rejection. | Thought Core may propose and later retrieve contracted memory. | Event history, chat logs, diagnostics, or display state must not silently become durable memory. |
+| `AUTH-RUNTIME-CORRELATION` | Runtime controllers and the process registry own start order, correlation, deadlines, cancellation, ownership, and cleanup. | Run identity, timing, result linkage, and residue class. | They may stop only owned resources and report the narrowest failing edge. | A controller must not classify user intent, reinterpret an organ's semantic state, mint capability, or upgrade proof. |
+
+The rows define functional ownership, not implementation monopolies. An organ
+may contain several services or adapters, but exactly one owner-local boundary
+must publish the decision that other components consume. If two components can
+independently reach different semantic answers for the same authority id, the
+boundary is defective even when both paths pass their local tests.
+
+## Duplicate-Authority Audit
+
+<!-- module-usage:authority-audit-record -->
+
+Use the map as a development and debugging index, not as another coordination
+board. For the path currently being changed, record only:
+
+1. the authority id and exact decision;
+2. the owner input, owner output, and direct consumer;
+3. every copied default, fallback, cache, derived flag, or second state machine
+   that can change the semantic answer;
+4. the proof layer and provenance retained by each observation;
+5. the smallest correction that leaves one owner and turns the other locations
+   into validators, projections, or compatibility adapters;
+6. a mutation test proving that a consumer-side override cannot recreate the
+   retired decision path.
+
+Prioritize findings in this order:
+
+1. user-intent, safety, privacy, or live-device authority duplication;
+2. two state machines deciding the same lifecycle transition;
+3. conflicting defaults, configuration selectors, retries, or fallbacks;
+4. duplicated display labels or low-impact derived presentation settings.
+
+Fail closed and name the unresolved authority id when no owner can be named,
+two owners can independently accept the same decision, an observation can
+authorize an action, a fallback bypasses the selected owner, or a copied value
+can outlive the version/session that produced it. Do not solve those cases by
+adding a third arbitrator.
+
 ## Core Model
 
 | Need | Use | Do not use |
