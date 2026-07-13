@@ -222,6 +222,7 @@ function New-ControlledRouteHarness {
   )
   $state = [pscustomobject]@{
     AitReadCount = 0
+    AitQueries = [Collections.ArrayList]::new()
     CoreBodies = [Collections.ArrayList]::new()
     ObserverStartCount = 0
     ObserverProcess = New-FakeObserverProcess -ExitImmediately ($Mode -ne "timeout")
@@ -229,6 +230,7 @@ function New-ControlledRouteHarness {
   $requestInvoker = {
     param($Uri, $Method, $Body, $Token, $TimeoutMs, $FailureClass)
     if ($Uri.AbsolutePath -ceq "/api/self-output-awareness-transport/") {
+      [void]$state.AitQueries.Add([string]$Uri.Query)
       $readIndex = $state.AitReadCount
       $state.AitReadCount += 1
       if ($Mode -ceq "stale_replay") {
@@ -522,6 +524,7 @@ Assert-Equal $successHarness.State.CoreBodies.Count 4 "controlled success sends 
 Assert-Equal (@($successHarness.State.CoreBodies | ForEach-Object event) -join ",") "swordAgentSystemSpeechLifecycleV0,swordAgentSystemSpeechLifecycleV0,swordAgentSystemSpeechLifecycleV0,audioSelfOutputObservationV0" "controlled success preserves Core event order"
 Assert-Equal $successHarness.State.ObserverStartCount 1 "controlled success starts one observer"
 Assert-Equal $successHarness.State.ObserverProcess.DisposeCount 1 "controlled success disposes observer"
+Assert-Equal ($successHarness.State.AitQueries -join ",") ",?after_ordinal=0,?after_ordinal=1,?after_ordinal=2" "controller reads baseline then each next retained ordinal"
 
 $delayedHarness = New-ControlledRouteHarness -Mode "delayed_start"
 $delayedRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $delayedHarness.RequestInvoker -ObserverStarter $delayedHarness.ObserverStarter -SleepInvoker $delayedHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
@@ -529,6 +532,7 @@ Assert-Equal $delayedRoute.ExitCode 0 "controller waits through bounded empty li
 Assert-Equal $delayedHarness.State.AitReadCount 6 "delayed lifecycle consumes baseline, empty waits, and three transitions"
 Assert-Equal $delayedHarness.State.CoreBodies.Count 4 "delayed lifecycle sends one ordered event set"
 Assert-Equal $delayedRoute.Value.final_lifecycle_state "released" "delayed lifecycle still reaches released"
+Assert-Equal ($delayedHarness.State.AitQueries -join ",") ",?after_ordinal=0,?after_ordinal=0,?after_ordinal=0,?after_ordinal=1,?after_ordinal=2" "empty cursor reads do not advance the retained ordinal"
 
 $ordinalHarness = New-ControlledRouteHarness -Mode "ordinal_gap"
 $ordinalRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $ordinalHarness.RequestInvoker -ObserverStarter $ordinalHarness.ObserverStarter -SleepInvoker $ordinalHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"

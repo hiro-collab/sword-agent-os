@@ -605,7 +605,10 @@ try {
     $remaining = $RouteDeadlineMs - [int]$routeStopwatch.ElapsedMilliseconds
     if ($remaining -le 50) { Throw-Fixed -Class "whole_route_timeout" }
     & $SleepInvoker 20
-    $response = & $RequestInvoker -Uri $aitEndpoint -Method "GET" -Body $null -Token $null -TimeoutMs $remaining -FailureClass "ait_lifecycle_unreachable"
+    $cursorEndpointBuilder = [UriBuilder]::new($aitEndpoint)
+    $cursorEndpointBuilder.Query = "after_ordinal=$lastOrdinal"
+    $response = & $RequestInvoker -Uri $cursorEndpointBuilder.Uri -Method "GET" -Body $null -Token $null -TimeoutMs $remaining -FailureClass "ait_lifecycle_unreachable"
+    $cursorEndpointBuilder = $null
     $aitPollCount += 1
     $responseTransport = Assert-AitResponse -Response $response
     if ($null -eq $responseTransport) {
