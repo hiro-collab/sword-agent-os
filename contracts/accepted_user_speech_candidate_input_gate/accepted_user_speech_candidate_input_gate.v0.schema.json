@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sword-agent-os.local/contracts/accepted_user_speech_candidate_input_gate/accepted_user_speech_candidate_input_gate.v0.schema.json",
   "title": "Agent OS accepted_user_speech_candidate_input_gate.v0",
+  "$comment": "This serialized object is a post-decision audit record only. It cannot mint, grant, contain, or transport the process-local nonserializable one-use capability owned by ai_talk_core_input_gate. Later AI Talk Core code is the only materialization executor.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,19 +28,25 @@
       "const": "accepted_user_speech_candidate_input_gate.v0"
     },
     "candidate_id": {
-      "type": "string",
-      "pattern": "^ausc_[A-Za-z0-9_.:-]+$",
-      "maxLength": 120
+      "$ref": "#/$defs/candidate_id"
     },
     "generated_at": {
       "type": "string",
       "format": "date-time"
     },
     "proof_layer": {
-      "const": "source_static_contract_test_only"
+      "type": "string",
+      "enum": [
+        "source_static_contract_test_only",
+        "private_live_input_gate_decision"
+      ]
     },
     "route_id": {
-      "const": "ACCEPTED-USER-SPEECH-CANDIDATE-INPUT-GATE-THOUGHT-CORE-CONTRACT-RR00301-SOURCE-STATIC-02"
+      "type": "string",
+      "enum": [
+        "ACCEPTED-USER-SPEECH-CANDIDATE-INPUT-GATE-THOUGHT-CORE-CONTRACT-RR00301-SOURCE-STATIC-02",
+        "A-SELF-OUTPUT-AWARENESS-CANONICAL-INPUT-GATE-SESSION-JOIN-01"
+      ]
     },
     "candidate_route": {
       "type": "string",
@@ -170,7 +177,15 @@
           "type": "string",
           "enum": [
             "same_session_not_self_output",
+            "current_active_session_explicitly_excluded",
             "possible_same_session_self_output",
+            "missing_active_session",
+            "mismatched_active_session",
+            "stale_active_session",
+            "active_system_speech_session",
+            "self_output_cooldown_active",
+            "duplicate_candidate",
+            "compare_and_release_failed",
             "not_checked"
           ]
         },
@@ -258,7 +273,15 @@
             "blocked_self_output",
             "blocked_ambiguous",
             "blocked_low_confidence",
-            "blocked_redaction_only"
+            "blocked_redaction_only",
+            "blocked_session_join_missing",
+            "blocked_session_join_mismatch",
+            "blocked_session_join_stale",
+            "blocked_active_system_speech_session",
+            "blocked_self_output_cooldown",
+            "blocked_duplicate_candidate",
+            "blocked_compare_and_release_failed",
+            "blocked_session_join_toctou"
           ]
         },
         "normal_turn_block_reason": {
@@ -271,6 +294,14 @@
             "ambiguous_speaker_or_route",
             "low_confidence",
             "redaction_only_summary",
+            "session_join_missing",
+            "session_join_mismatch",
+            "session_join_stale",
+            "active_system_speech_session",
+            "self_output_cooldown_active",
+            "duplicate_candidate",
+            "compare_and_release_failed",
+            "session_join_changed_after_check",
             null
           ]
         }
@@ -297,7 +328,15 @@
             "blocked_self_output",
             "blocked_ambiguous",
             "blocked_low_confidence",
-            "blocked_redaction_only"
+            "blocked_redaction_only",
+            "blocked_session_join_missing",
+            "blocked_session_join_mismatch",
+            "blocked_session_join_stale",
+            "blocked_active_system_speech_session",
+            "blocked_self_output_cooldown",
+            "blocked_duplicate_candidate",
+            "blocked_compare_and_release_failed",
+            "blocked_session_join_toctou"
           ]
         },
         "may_materialize_thought_core_turninput": {
@@ -324,6 +363,323 @@
             "separate_private_runtime_handoff_required",
             "blocked_non_materializing_summary"
           ]
+        }
+      }
+    },
+    "runtime_session_join": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "near_end_evidence",
+        "system_speech_session_join",
+        "one_use_gate"
+      ],
+      "properties": {
+        "near_end_evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "evidence_class",
+            "window_ms",
+            "packet_count",
+            "processed_byte_count",
+            "frame_bytes",
+            "storage_class",
+            "aec_or_vad_turn_input_authority"
+          ],
+          "properties": {
+            "evidence_class": {
+              "type": "string",
+              "enum": [
+                "bounded_processed_near_end_candidate",
+                "missing_or_invalid_near_end_evidence"
+              ]
+            },
+            "window_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5000
+            },
+            "packet_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 500
+            },
+            "processed_byte_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 160000
+            },
+            "frame_bytes": {
+              "const": 320
+            },
+            "storage_class": {
+              "const": "in_memory_ephemeral"
+            },
+            "aec_or_vad_turn_input_authority": {
+              "const": false
+            }
+          }
+        },
+        "system_speech_session_join": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "observed_system_speech_session_id",
+            "observed_generation",
+            "active_system_speech_session_id",
+            "active_generation",
+            "playback_event_ref",
+            "self_output_observation_ref",
+            "self_output_observation_schema_version",
+            "session_join_status",
+            "post_compare_session_status",
+            "self_output_correlation_class",
+            "active_session_exclusion_status",
+            "cooldown_status",
+            "opaque_refs_non_dereferenceable"
+          ],
+          "properties": {
+            "observed_system_speech_session_id": {
+              "$ref": "#/$defs/nullable_system_speech_session_ref"
+            },
+            "observed_generation": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "active_system_speech_session_id": {
+              "$ref": "#/$defs/nullable_system_speech_session_ref"
+            },
+            "active_generation": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "playback_event_ref": {
+              "$ref": "#/$defs/nullable_playback_event_ref"
+            },
+            "self_output_observation_ref": {
+              "$ref": "#/$defs/nullable_self_output_observation_ref"
+            },
+            "self_output_observation_schema_version": {
+              "const": "audio_self_output_observation.v0"
+            },
+            "session_join_status": {
+              "type": "string",
+              "enum": [
+                "current_match",
+                "missing",
+                "mismatch",
+                "stale"
+              ]
+            },
+            "post_compare_session_status": {
+              "type": "string",
+              "enum": [
+                "current_unchanged",
+                "stale_after_check",
+                "not_checked"
+              ]
+            },
+            "self_output_correlation_class": {
+              "type": "string",
+              "enum": [
+                "not_self_output",
+                "self_output",
+                "ambiguous",
+                "missing"
+              ]
+            },
+            "active_session_exclusion_status": {
+              "type": "string",
+              "enum": [
+                "explicitly_excluded_from_candidate",
+                "active_system_speech_session",
+                "not_evaluated"
+              ]
+            },
+            "cooldown_status": {
+              "type": "string",
+              "enum": [
+                "clear",
+                "active",
+                "not_evaluated"
+              ]
+            },
+            "opaque_refs_non_dereferenceable": {
+              "const": true
+            }
+          }
+        },
+        "one_use_gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decision_owner",
+            "compared_candidate_id",
+            "candidate_identity_compare_status",
+            "session_identity_compare_status",
+            "generation_compare_status",
+            "candidate_use_state",
+            "compare_and_release_status",
+            "one_use_consume_status",
+            "acceptance_status",
+            "may_materialize_thought_core_turninput",
+            "turninput_materialization_limit"
+          ],
+          "properties": {
+            "decision_owner": {
+              "const": "ai_talk_core_input_gate"
+            },
+            "compared_candidate_id": {
+              "$ref": "#/$defs/private_live_candidate_id"
+            },
+            "candidate_identity_compare_status": {
+              "type": "string",
+              "enum": [
+                "matched",
+                "mismatch",
+                "not_checked"
+              ]
+            },
+            "session_identity_compare_status": {
+              "type": "string",
+              "enum": [
+                "matched",
+                "mismatch",
+                "missing",
+                "not_checked"
+              ]
+            },
+            "generation_compare_status": {
+              "type": "string",
+              "enum": [
+                "matched",
+                "mismatch",
+                "stale",
+                "missing",
+                "not_checked"
+              ]
+            },
+            "candidate_use_state": {
+              "type": "string",
+              "enum": [
+                "unused",
+                "duplicate"
+              ]
+            },
+            "compare_and_release_status": {
+              "type": "string",
+              "enum": [
+                "succeeded",
+                "failed",
+                "not_attempted"
+              ]
+            },
+            "one_use_consume_status": {
+              "type": "string",
+              "enum": [
+                "consumed",
+                "duplicate",
+                "failed",
+                "not_attempted"
+              ]
+            },
+            "acceptance_status": {
+              "type": "string",
+              "enum": [
+                "accepted_user_speech_candidate",
+                "blocked_session_join_missing",
+                "blocked_session_join_mismatch",
+                "blocked_session_join_stale",
+                "blocked_active_system_speech_session",
+                "blocked_self_output_cooldown",
+                "blocked_duplicate_candidate",
+                "blocked_compare_and_release_failed",
+                "blocked_session_join_toctou"
+              ]
+            },
+            "may_materialize_thought_core_turninput": {
+              "type": "boolean"
+            },
+            "turninput_materialization_limit": {
+              "const": 1
+            }
+          }
+        }
+      }
+    },
+    "post_decision_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "serialized_contract_role",
+        "process_local_capability_owner",
+        "materialization_executor",
+        "process_local_one_use_capability_serialized",
+        "capability_mint_authority",
+        "capability_grant_authority",
+        "capability_transport_authority",
+        "internal_atomic_compare_completed",
+        "output_status",
+        "may_materialize_thought_core_turninput",
+        "thought_core_turninput_materialized",
+        "thought_core_turninput_count"
+      ],
+      "properties": {
+        "serialized_contract_role": {
+          "const": "post_decision_audit_only"
+        },
+        "process_local_capability_owner": {
+          "const": "ai_talk_core_input_gate"
+        },
+        "materialization_executor": {
+          "const": "later_ai_talk_core_process_local_code"
+        },
+        "process_local_one_use_capability_serialized": {
+          "const": false
+        },
+        "capability_mint_authority": {
+          "const": false
+        },
+        "capability_grant_authority": {
+          "const": false
+        },
+        "capability_transport_authority": {
+          "const": false
+        },
+        "internal_atomic_compare_completed": {
+          "type": "boolean"
+        },
+        "output_status": {
+          "type": "string",
+          "enum": [
+            "eligible_for_later_process_local_materialization",
+            "blocked_session_join_missing",
+            "blocked_session_join_mismatch",
+            "blocked_session_join_stale",
+            "blocked_active_system_speech_session",
+            "blocked_self_output_cooldown",
+            "blocked_duplicate_candidate",
+            "blocked_compare_and_release_failed",
+            "blocked_session_join_toctou",
+            "validation_rejected"
+          ]
+        },
+        "may_materialize_thought_core_turninput": {
+          "type": "boolean",
+          "description": "Post-decision audit fact only; never a serialized capability or grant."
+        },
+        "thought_core_turninput_materialized": {
+          "const": false
+        },
+        "thought_core_turninput_count": {
+          "const": 0
         }
       }
     },
@@ -463,7 +819,15 @@
                   "blocked_self_output",
                   "blocked_ambiguous",
                   "blocked_low_confidence",
-                  "blocked_redaction_only"
+                  "blocked_redaction_only",
+                  "blocked_session_join_missing",
+                  "blocked_session_join_mismatch",
+                  "blocked_session_join_stale",
+                  "blocked_active_system_speech_session",
+                  "blocked_self_output_cooldown",
+                  "blocked_duplicate_candidate",
+                  "blocked_compare_and_release_failed",
+                  "blocked_session_join_toctou"
                 ]
               }
             }
@@ -509,9 +873,312 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "required": [
+          "proof_layer"
+        ],
+        "properties": {
+          "proof_layer": {
+            "const": "private_live_input_gate_decision"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "runtime_session_join",
+          "post_decision_audit"
+        ],
+        "properties": {
+          "route_id": {
+            "const": "A-SELF-OUTPUT-AWARENESS-CANONICAL-INPUT-GATE-SESSION-JOIN-01"
+          },
+          "candidate_route": {
+            "const": "private_user_speech_input_gate"
+          },
+          "source_kind": {
+            "const": "user_speech_candidate"
+          },
+          "speaker_role": {
+            "const": "user_candidate"
+          },
+          "candidate_id": {
+            "$ref": "#/$defs/private_live_candidate_id"
+          },
+          "recognition_summary": {
+            "properties": {
+              "recognition_summary_ref": {
+                "$ref": "#/$defs/private_live_recognition_summary_ref"
+              }
+            }
+          },
+          "text_publication": {
+            "properties": {
+              "text_publication_policy": {
+                "const": "text_redacted_or_absent"
+              },
+              "text_provenance_class": {
+                "const": "redacted_or_absent"
+              },
+              "expected_sample_text": {
+                "type": "null"
+              },
+              "recognized_text": {
+                "type": "null"
+              },
+              "content_match_text": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "allOf": [
+          {
+            "required": [
+              "proof_layer"
+            ],
+            "properties": {
+              "proof_layer": {
+                "const": "private_live_input_gate_decision"
+              }
+            }
+          },
+          {
+            "required": [
+              "acceptance_decision"
+            ],
+            "properties": {
+              "acceptance_decision": {
+                "properties": {
+                  "acceptance_status": {
+                    "const": "accepted_user_speech_candidate"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "self_output_context": {
+            "properties": {
+              "self_output_correlation_class": {
+                "const": "not_self_output"
+              },
+              "session_join_class": {
+                "const": "current_active_session_explicitly_excluded"
+              },
+              "bubble_or_tts_as_user_speech_authority": {
+                "const": false
+              }
+            }
+          },
+          "input_gate": {
+            "properties": {
+              "input_gate_decision_owner": {
+                "const": "ai_talk_core_input_gate"
+              },
+              "input_gate_decision_class": {
+                "const": "accepted_user_speech_candidate"
+              },
+              "normal_turn_block_reason": {
+                "type": "null"
+              }
+            }
+          },
+          "acceptance_decision": {
+            "properties": {
+              "acceptance_status": {
+                "const": "accepted_user_speech_candidate"
+              },
+              "may_materialize_thought_core_turninput": {
+                "const": true
+              },
+              "private_text_handoff_required": {
+                "const": true
+              },
+              "shared_artifact_contains_text": {
+                "const": false
+              }
+            }
+          },
+          "runtime_session_join": {
+            "properties": {
+              "near_end_evidence": {
+                "properties": {
+                  "evidence_class": {
+                    "const": "bounded_processed_near_end_candidate"
+                  },
+                  "window_ms": {
+                    "minimum": 100,
+                    "maximum": 5000
+                  },
+                  "packet_count": {
+                    "minimum": 1,
+                    "maximum": 500
+                  },
+                  "processed_byte_count": {
+                    "minimum": 320,
+                    "maximum": 160000
+                  },
+                  "frame_bytes": {
+                    "const": 320
+                  },
+                  "storage_class": {
+                    "const": "in_memory_ephemeral"
+                  },
+                  "aec_or_vad_turn_input_authority": {
+                    "const": false
+                  }
+                }
+              },
+              "system_speech_session_join": {
+                "properties": {
+                  "observed_system_speech_session_id": {
+                    "$ref": "#/$defs/system_speech_session_ref"
+                  },
+                  "observed_generation": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "active_system_speech_session_id": {
+                    "$ref": "#/$defs/system_speech_session_ref"
+                  },
+                  "active_generation": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "playback_event_ref": {
+                    "$ref": "#/$defs/playback_event_ref"
+                  },
+                  "self_output_observation_ref": {
+                    "$ref": "#/$defs/self_output_observation_ref"
+                  },
+                  "self_output_observation_schema_version": {
+                    "const": "audio_self_output_observation.v0"
+                  },
+                  "session_join_status": {
+                    "const": "current_match"
+                  },
+                  "post_compare_session_status": {
+                    "const": "current_unchanged"
+                  },
+                  "self_output_correlation_class": {
+                    "const": "not_self_output"
+                  },
+                  "active_session_exclusion_status": {
+                    "const": "explicitly_excluded_from_candidate"
+                  },
+                  "cooldown_status": {
+                    "const": "clear"
+                  },
+                  "opaque_refs_non_dereferenceable": {
+                    "const": true
+                  }
+                }
+              },
+              "one_use_gate": {
+                "properties": {
+                  "decision_owner": {
+                    "const": "ai_talk_core_input_gate"
+                  },
+                  "candidate_identity_compare_status": {
+                    "const": "matched"
+                  },
+                  "session_identity_compare_status": {
+                    "const": "matched"
+                  },
+                  "generation_compare_status": {
+                    "const": "matched"
+                  },
+                  "candidate_use_state": {
+                    "const": "unused"
+                  },
+                  "compare_and_release_status": {
+                    "const": "succeeded"
+                  },
+                  "one_use_consume_status": {
+                    "const": "consumed"
+                  },
+                  "acceptance_status": {
+                    "const": "accepted_user_speech_candidate"
+                  },
+                  "may_materialize_thought_core_turninput": {
+                    "const": true
+                  },
+                  "turninput_materialization_limit": {
+                    "const": 1
+                  }
+                }
+              }
+            }
+          },
+          "post_decision_audit": {
+            "properties": {
+              "serialized_contract_role": {
+                "const": "post_decision_audit_only"
+              },
+              "process_local_capability_owner": {
+                "const": "ai_talk_core_input_gate"
+              },
+              "materialization_executor": {
+                "const": "later_ai_talk_core_process_local_code"
+              },
+              "process_local_one_use_capability_serialized": {
+                "const": false
+              },
+              "capability_mint_authority": {
+                "const": false
+              },
+              "capability_grant_authority": {
+                "const": false
+              },
+              "capability_transport_authority": {
+                "const": false
+              },
+              "internal_atomic_compare_completed": {
+                "const": true
+              },
+              "output_status": {
+                "const": "eligible_for_later_process_local_materialization"
+              },
+              "may_materialize_thought_core_turninput": {
+                "const": true
+              },
+              "thought_core_turninput_materialized": {
+                "const": false
+              },
+              "thought_core_turninput_count": {
+                "const": 0
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "$defs": {
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^ausc_[A-Za-z0-9_.:-]+$",
+      "maxLength": 120
+    },
+    "private_live_candidate_id": {
+      "type": "string",
+      "pattern": "^ausc_live:cid_[a-f0-9]{32}$",
+      "maxLength": 46
+    },
+    "private_live_recognition_summary_ref": {
+      "type": "string",
+      "pattern": "^user-speech-candidate-summary:rsc_[a-f0-9]{32}$",
+      "maxLength": 66
+    },
     "source_label": {
       "type": "string",
       "pattern": "^(voice\\.local_sample_[0-9]{3}|speech\\.user_candidate_[0-9]{3})$",
@@ -521,6 +1188,61 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9_.:-]*:[A-Za-z0-9_.:-]+$",
       "maxLength": 160
+    },
+    "nullable_opaque_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/opaque_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "system_speech_session_ref": {
+      "type": "string",
+      "pattern": "^system-speech-session:sss_[a-f0-9]{32}$",
+      "maxLength": 58
+    },
+    "playback_event_ref": {
+      "type": "string",
+      "pattern": "^playback-event:pe_[a-f0-9]{32}$",
+      "maxLength": 50
+    },
+    "self_output_observation_ref": {
+      "type": "string",
+      "pattern": "^self-output-observation:aso_[a-f0-9]{32}$",
+      "maxLength": 65
+    },
+    "nullable_system_speech_session_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/system_speech_session_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullable_playback_event_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/playback_event_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullable_self_output_observation_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/self_output_observation_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   }
 }

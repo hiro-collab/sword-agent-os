@@ -1205,6 +1205,275 @@ function Test-AudioSelfOutputObservationContractStatic {
   Write-Host "Audio self-output observation contract static ok"
 }
 
+function Test-AcceptedUserSpeechCandidateRuntimeSessionJoinContractStatic {
+  Write-TestStep "Accepted user speech candidate post-decision audit contract checks"
+
+  $contractDir = Join-Path $RepoRoot "contracts\accepted_user_speech_candidate_input_gate"
+  $schemaPath = Join-Path $contractDir "accepted_user_speech_candidate_input_gate.v0.schema.json"
+  $vectorsPath = Join-Path $contractDir "examples\runtime_session_join_vectors.v0.json"
+  Assert-PathPresent -Path $schemaPath
+  Assert-PathPresent -Path $vectorsPath
+  $schemaText = Get-Content -Raw -LiteralPath $schemaPath
+  $vectorsText = Get-Content -Raw -LiteralPath $vectorsPath
+  $schema = $schemaText | ConvertFrom-Json -Depth 100
+  $vectors = $vectorsText | ConvertFrom-Json -Depth 100
+
+  $schemaComment = [string]$schema.PSObject.Properties['$comment'].Value
+  if ($schemaComment -notmatch 'post-decision audit record only' -or
+      $schemaComment -notmatch 'cannot mint, grant, contain, or transport' -or
+      $schemaComment -notmatch 'process-local nonserializable one-use capability') {
+    throw "serialized gate contract should be explicitly audit-only and non-capability-bearing"
+  }
+  if ([string]$vectors.serialized_contract_role -ne "post_decision_audit_only" -or
+      [string]$vectors.process_local_capability_rule -ne "nonserializable_one_use_capability_owned_by_ai_talk_core_input_gate" -or
+      [string]$vectors.proof_ceiling -ne "source_static_post_decision_audit_contract_only" -or
+      $vectors.raw_private_publication_flags -ne $false) {
+    throw "runtime vectors should preserve the audit-only process-local capability boundary"
+  }
+
+  $sourceStaticPaths = @(
+    Join-Path $contractDir "examples\source_static_accepted_prepared_sample_candidate.example.json"
+    Join-Path $contractDir "examples\source_static_accepted_private_user_speech_candidate.example.json"
+    Join-Path $contractDir "examples\source_static_blocked_low_confidence_candidate.example.json"
+    Join-Path $contractDir "examples\source_static_blocked_redaction_only_summary.example.json"
+    Join-Path $contractDir "examples\source_static_blocked_self_output_candidate.example.json"
+  )
+  foreach ($examplePath in $sourceStaticPaths) {
+    Assert-PathPresent -Path $examplePath
+    $exampleText = Get-Content -Raw -LiteralPath $examplePath
+    if (-not (Test-Json -Json $exampleText -SchemaFile $schemaPath -ErrorAction SilentlyContinue)) {
+      throw "existing source-static example should remain schema valid: $examplePath"
+    }
+    $example = $exampleText | ConvertFrom-Json -Depth 100
+    if ([string]$example.proof_layer -ne "source_static_contract_test_only" -or
+        "not_runtime_turn" -notin @($example.non_claims) -or
+        $example.acceptance_decision.thought_core_turninput_materialized -ne $false -or
+        [int]$example.acceptance_decision.thought_core_turninput_count -ne 0 -or
+        $null -ne (Get-OptionalProperty -Object $example -Name "runtime_session_join") -or
+        $null -ne (Get-OptionalProperty -Object $example -Name "post_decision_audit")) {
+      throw "source-static examples should stay non-runtime, non-materializing, and compatible without live audit fields"
+    }
+  }
+
+  $requiredCaseIds = @(
+    "canonical_positive",
+    "missing_session_join",
+    "session_id_mismatch",
+    "generation_mismatch",
+    "stale_session",
+    "active_system_speech_session",
+    "self_output_cooldown",
+    "duplicate_replay",
+    "compare_and_release_failure",
+    "forged_current_match",
+    "forged_owner",
+    "forged_cas_success",
+    "stale_after_check_toctou",
+    "aec_vad_only",
+    "contradictory_top_level_vs_one_use",
+    "near_end_byte_count_inconsistent",
+    "near_end_window_bound_exceeded",
+    "forged_ref_namespace",
+    "forged_private_candidate_id_namespace",
+    "forged_private_recognition_summary_ref_namespace"
+  )
+  $caseIds = @($vectors.cases | ForEach-Object { [string]$_.case_id })
+  if ($caseIds.Count -ne $requiredCaseIds.Count -or @($caseIds | Select-Object -Unique).Count -ne $caseIds.Count) {
+    throw "runtime session join vectors should contain one unique full instance per canonical case"
+  }
+  foreach ($requiredCaseId in $requiredCaseIds) {
+    if ($requiredCaseId -notin $caseIds) {
+      throw "runtime session join vectors should include full instance $requiredCaseId"
+    }
+  }
+
+  $defs = $schema.PSObject.Properties['$defs'].Value
+  if ([string]$defs.candidate_id.pattern -ne '^ausc_[A-Za-z0-9_.:-]+$' -or
+      [string]$defs.opaque_ref.pattern -ne '^[a-z][a-z0-9_.:-]*:[A-Za-z0-9_.:-]+$') {
+    throw "generic source-static candidate_id and opaque_ref definitions should remain unchanged"
+  }
+  $systemSessionPattern = [string]$defs.system_speech_session_ref.pattern
+  $playbackPattern = [string]$defs.playback_event_ref.pattern
+  $selfOutputPattern = [string]$defs.self_output_observation_ref.pattern
+  $privateCandidatePattern = [string]$defs.private_live_candidate_id.pattern
+  $privateRecognitionSummaryPattern = [string]$defs.private_live_recognition_summary_ref.pattern
+  if ($systemSessionPattern -ne '^system-speech-session:sss_[a-f0-9]{32}$' -or
+      $playbackPattern -ne '^playback-event:pe_[a-f0-9]{32}$' -or
+      $selfOutputPattern -ne '^self-output-observation:aso_[a-f0-9]{32}$' -or
+      $privateCandidatePattern -ne '^ausc_live:cid_[a-f0-9]{32}$' -or
+      $privateRecognitionSummaryPattern -ne '^user-speech-candidate-summary:rsc_[a-f0-9]{32}$') {
+    throw "private live identifiers and runtime join refs should use fixed bounded system-minted namespaces"
+  }
+
+  function Get-RuntimeSessionJoinSemanticResult {
+    param([Parameter(Mandatory = $true)]$Instance)
+
+    $valid = $true
+    $join = $Instance.runtime_session_join.system_speech_session_join
+    $nearEnd = $Instance.runtime_session_join.near_end_evidence
+    $oneUse = $Instance.runtime_session_join.one_use_gate
+    $audit = $Instance.post_decision_audit
+    $inputStatus = [string]$Instance.input_gate.input_gate_decision_class
+    $acceptanceStatus = [string]$Instance.acceptance_decision.acceptance_status
+
+    if ([string]$Instance.source_kind -ne "user_speech_candidate" -or
+        [string]$Instance.candidate_route -ne "private_user_speech_input_gate" -or
+        [string]$Instance.speaker_role -ne "user_candidate" -or
+        [string]$Instance.input_gate.input_gate_decision_owner -ne "ai_talk_core_input_gate" -or
+        [string]$oneUse.decision_owner -ne "ai_talk_core_input_gate" -or
+        [string]$audit.process_local_capability_owner -ne "ai_talk_core_input_gate" -or
+        [string]$audit.serialized_contract_role -ne "post_decision_audit_only" -or
+        [string]$audit.materialization_executor -ne "later_ai_talk_core_process_local_code" -or
+        $audit.process_local_one_use_capability_serialized -ne $false -or
+        $audit.capability_mint_authority -ne $false -or
+        $audit.capability_grant_authority -ne $false -or
+        $audit.capability_transport_authority -ne $false -or
+        $audit.thought_core_turninput_materialized -ne $false -or
+        [int]$audit.thought_core_turninput_count -ne 0 -or
+        $Instance.acceptance_decision.thought_core_turninput_materialized -ne $false -or
+        [int]$Instance.acceptance_decision.thought_core_turninput_count -ne 0 -or
+        $null -ne $Instance.acceptance_decision.thought_core_turninput_ref -or
+        $Instance.raw_private_publication_flags -ne $false) {
+      $valid = $false
+    }
+    if ([string]$nearEnd.evidence_class -ne "bounded_processed_near_end_candidate" -or
+        [int]$nearEnd.window_ms -lt 100 -or [int]$nearEnd.window_ms -gt 5000 -or
+        [int]$nearEnd.frame_bytes -ne 320 -or
+        [int]$nearEnd.packet_count -lt 1 -or
+        [int]$nearEnd.packet_count -gt [math]::Floor([int]$nearEnd.window_ms / 10) -or
+        [int]$nearEnd.processed_byte_count -ne ([int]$nearEnd.packet_count * [int]$nearEnd.frame_bytes) -or
+        [int]$nearEnd.processed_byte_count -gt 160000 -or
+        [string]$nearEnd.storage_class -ne "in_memory_ephemeral" -or
+        $nearEnd.aec_or_vad_turn_input_authority -ne $false) {
+      $valid = $false
+    }
+    foreach ($refCheck in @(
+      @($join.observed_system_speech_session_id, $systemSessionPattern),
+      @($join.active_system_speech_session_id, $systemSessionPattern),
+      @($join.playback_event_ref, $playbackPattern),
+      @($join.self_output_observation_ref, $selfOutputPattern)
+    )) {
+      if ($null -ne $refCheck[0] -and [string]$refCheck[0] -notmatch [string]$refCheck[1]) {
+        $valid = $false
+      }
+    }
+    if ([string]$join.self_output_observation_schema_version -ne "audio_self_output_observation.v0" -or
+        $join.opaque_refs_non_dereferenceable -ne $true -or
+        [string]$Instance.candidate_id -notmatch $privateCandidatePattern -or
+        [string]$Instance.recognition_summary.recognition_summary_ref -notmatch $privateRecognitionSummaryPattern -or
+        [string]$oneUse.compared_candidate_id -notmatch $privateCandidatePattern -or
+        [string]$oneUse.compared_candidate_id -ne [string]$Instance.candidate_id -or
+        $inputStatus -ne $acceptanceStatus) {
+      $valid = $false
+    }
+
+    if ($acceptanceStatus -eq "accepted_user_speech_candidate") {
+      if ([string]$oneUse.acceptance_status -ne $acceptanceStatus -or
+          [string]$audit.output_status -ne "eligible_for_later_process_local_materialization" -or
+          $Instance.acceptance_decision.may_materialize_thought_core_turninput -ne $true -or
+          $oneUse.may_materialize_thought_core_turninput -ne $true -or
+          $audit.may_materialize_thought_core_turninput -ne $true -or
+          $audit.internal_atomic_compare_completed -ne $true -or
+          [string]$Instance.self_output_context.self_output_correlation_class -ne "not_self_output" -or
+          [string]$Instance.self_output_context.session_join_class -ne "current_active_session_explicitly_excluded" -or
+          [string]$join.observed_system_speech_session_id -ne [string]$join.active_system_speech_session_id -or
+          [int]$join.observed_generation -ne [int]$join.active_generation -or
+          [string]$join.session_join_status -ne "current_match" -or
+          [string]$join.post_compare_session_status -ne "current_unchanged" -or
+          [string]$join.self_output_correlation_class -ne "not_self_output" -or
+          [string]$join.active_session_exclusion_status -ne "explicitly_excluded_from_candidate" -or
+          [string]$join.cooldown_status -ne "clear" -or
+          [string]$oneUse.candidate_identity_compare_status -ne "matched" -or
+          [string]$oneUse.session_identity_compare_status -ne "matched" -or
+          [string]$oneUse.generation_compare_status -ne "matched" -or
+          [string]$oneUse.candidate_use_state -ne "unused" -or
+          [string]$oneUse.compare_and_release_status -ne "succeeded" -or
+          [string]$oneUse.one_use_consume_status -ne "consumed") {
+        $valid = $false
+      }
+      return [pscustomobject]@{
+        semantic_result = $(if ($valid) { "accepted_post_decision_audit" } else { "validation_rejected" })
+        materialization_eligibility_audit = [bool]$valid
+      }
+    }
+
+    if (-not $acceptanceStatus.StartsWith("blocked_") -or
+        [string]$oneUse.acceptance_status -ne $acceptanceStatus -or
+        [string]$audit.output_status -ne $acceptanceStatus -or
+        $Instance.acceptance_decision.may_materialize_thought_core_turninput -ne $false -or
+        $oneUse.may_materialize_thought_core_turninput -ne $false -or
+        $audit.may_materialize_thought_core_turninput -ne $false) {
+      $valid = $false
+    }
+    switch ($acceptanceStatus) {
+      "blocked_session_join_missing" {
+        if ([string]$join.session_join_status -ne "missing" -or
+            $null -ne $join.observed_system_speech_session_id -or
+            $null -ne $join.observed_generation) { $valid = $false }
+      }
+      "blocked_session_join_mismatch" {
+        $idMismatch = [string]$join.observed_system_speech_session_id -ne [string]$join.active_system_speech_session_id
+        $generationMismatch = [int]$join.observed_generation -ne [int]$join.active_generation
+        if ([string]$join.session_join_status -ne "mismatch" -or (-not $idMismatch -and -not $generationMismatch)) { $valid = $false }
+      }
+      "blocked_session_join_stale" {
+        if ([string]$join.session_join_status -ne "stale" -or [string]$oneUse.generation_compare_status -ne "stale") { $valid = $false }
+      }
+      "blocked_active_system_speech_session" {
+        if ([string]$join.self_output_correlation_class -ne "self_output" -or
+            [string]$join.active_session_exclusion_status -ne "active_system_speech_session") { $valid = $false }
+      }
+      "blocked_self_output_cooldown" {
+        if ([string]$join.cooldown_status -ne "active") { $valid = $false }
+      }
+      "blocked_duplicate_candidate" {
+        if ([string]$oneUse.candidate_use_state -ne "duplicate" -or [string]$oneUse.one_use_consume_status -ne "duplicate") { $valid = $false }
+      }
+      "blocked_compare_and_release_failed" {
+        if ([string]$oneUse.compare_and_release_status -ne "failed" -or [string]$oneUse.one_use_consume_status -ne "failed") { $valid = $false }
+      }
+      "blocked_session_join_toctou" {
+        if ([string]$join.post_compare_session_status -ne "stale_after_check" -or [string]$oneUse.compare_and_release_status -ne "failed") { $valid = $false }
+      }
+      default { $valid = $false }
+    }
+    return [pscustomobject]@{
+      semantic_result = $(if ($valid) { $acceptanceStatus } else { "validation_rejected" })
+      materialization_eligibility_audit = $false
+    }
+  }
+
+  foreach ($case in @($vectors.cases)) {
+    $instanceText = $case.instance | ConvertTo-Json -Depth 100 -Compress
+    $schemaValid = [bool](Test-Json -Json $instanceText -SchemaFile $schemaPath -ErrorAction SilentlyContinue)
+    $semantic = Get-RuntimeSessionJoinSemanticResult -Instance $case.instance
+    if ($schemaValid -ne [bool]$case.expected_schema_valid) {
+      throw "runtime case $($case.case_id) schema validity should be $($case.expected_schema_valid)"
+    }
+    $actualSemanticResult = $(if ($schemaValid) { [string]$semantic.semantic_result } else { "validation_rejected" })
+    $actualEligibility = $schemaValid -and [bool]$semantic.materialization_eligibility_audit
+    if ($actualSemanticResult -ne [string]$case.expected_semantic_result -or
+        $actualEligibility -ne [bool]$case.expected_materialization_eligibility_audit) {
+      throw "runtime case $($case.case_id) should produce $($case.expected_semantic_result) with eligibility audit $($case.expected_materialization_eligibility_audit)"
+    }
+    if (-not $actualEligibility -and
+        ($case.instance.acceptance_decision.thought_core_turninput_materialized -ne $false -or
+         [int]$case.instance.acceptance_decision.thought_core_turninput_count -ne 0 -or
+         $case.instance.post_decision_audit.thought_core_turninput_materialized -ne $false -or
+         [int]$case.instance.post_decision_audit.thought_core_turninput_count -ne 0)) {
+      throw "non-eligible runtime case $($case.case_id) should keep TurnInput materialization at zero"
+    }
+  }
+
+  Assert-TextNotMatch -Text $vectorsText -Pattern 'C:\\|/Users/|localStorage|sessionStorage|\.wav|\.mp3|\.pcm|"capability_token"\s*:|"provider_id"\s*:|"device_(name|id)"\s*:' -Message "runtime audit vectors should not contain paths, storage keys, media filenames, capability tokens, provider ids, or device identity"
+  Assert-TextMatch -Text $schemaText -Pattern '"process_local_one_use_capability_serialized"[\s\S]{0,80}"const"\s*:\s*false' -Message "schema should forbid serializing the process-local one-use capability"
+  Assert-TextMatch -Text $schemaText -Pattern '"capability_mint_authority"[\s\S]{0,80}"const"\s*:\s*false' -Message "serialized audit should not mint authority"
+  Assert-TextMatch -Text $schemaText -Pattern '"capability_grant_authority"[\s\S]{0,80}"const"\s*:\s*false' -Message "serialized audit should not grant authority"
+  Assert-TextMatch -Text $schemaText -Pattern '"capability_transport_authority"[\s\S]{0,80}"const"\s*:\s*false' -Message "serialized audit should not transport authority"
+
+  Write-Host "Accepted user speech candidate post-decision audit contract ok"
+}
+
 function Test-LocalOfflineRecognizerRedactedAdapterContractStatic {
   Write-TestStep "Local offline recognizer redacted adapter contract static checks"
 
@@ -2952,6 +3221,7 @@ Test-PublicPathLeakStatic
 Test-TestLayoutPolicy
 Test-ReadmeFirstRunGuidance
 Test-AudioSelfOutputObservationContractStatic
+Test-AcceptedUserSpeechCandidateRuntimeSessionJoinContractStatic
 Test-LocalOfflineRecognizerRedactedAdapterContractStatic
 Test-LocalOfflineRecognizerExecutionWrapperContractStatic
 Test-OverallTestLadderReportContractStatic
