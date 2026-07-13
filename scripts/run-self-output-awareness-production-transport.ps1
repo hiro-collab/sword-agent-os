@@ -609,7 +609,8 @@ try {
     $aitPollCount += 1
     $responseTransport = Assert-AitResponse -Response $response
     if ($null -eq $responseTransport) {
-      Throw-Fixed -Class "lifecycle_transport_incomplete"
+      $response = $null
+      continue
     }
     $candidateOrdinal = [long]$responseTransport.transition_ordinal
     if ($candidateOrdinal -eq $lastOrdinal) {

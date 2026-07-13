@@ -217,7 +217,7 @@ function New-FakeObserverProcess {
 
 function New-ControlledRouteHarness {
   param(
-    [ValidateSet("success", "ordinal_gap", "lease_mismatch", "stale_replay", "ack_unknown", "timeout")]
+    [ValidateSet("success", "delayed_start", "ordinal_gap", "lease_mismatch", "stale_replay", "ack_unknown", "timeout")]
     [string]$Mode
   )
   $state = [pscustomobject]@{
@@ -235,12 +235,13 @@ function New-ControlledRouteHarness {
         if ($readIndex -eq 0) { return New-AitResponse (New-Transport "released" 9 -Generation 7) }
         return New-AitResponse (New-Transport "handoff_accepted" 10 -Generation 7 -PlaybackRef "playback-event:pe_cccccccccccccccccccccccccccccccc")
       }
-      if ($readIndex -eq 0) { return New-AitResponse $null }
-      if ($readIndex -eq 1) {
+      $lifecycleIndex = $(if ($Mode -ceq "delayed_start") { $readIndex - 2 } else { $readIndex })
+      if ($lifecycleIndex -le 0) { return New-AitResponse $null }
+      if ($lifecycleIndex -eq 1) {
         $ordinal = $(if ($Mode -ceq "ordinal_gap") { 2 } else { 1 })
         return New-AitResponse (New-Transport "handoff_accepted" $ordinal)
       }
-      if ($readIndex -eq 2) {
+      if ($lifecycleIndex -eq 2) {
         $ref = $(if ($Mode -ceq "lease_mismatch") {
             "playback-event:pe_ffffffffffffffffffffffffffffffff"
           } else {
@@ -520,6 +521,13 @@ Assert-Equal $successHarness.State.CoreBodies.Count 4 "controlled success sends 
 Assert-Equal (@($successHarness.State.CoreBodies | ForEach-Object event) -join ",") "swordAgentSystemSpeechLifecycleV0,swordAgentSystemSpeechLifecycleV0,swordAgentSystemSpeechLifecycleV0,audioSelfOutputObservationV0" "controlled success preserves Core event order"
 Assert-Equal $successHarness.State.ObserverStartCount 1 "controlled success starts one observer"
 Assert-Equal $successHarness.State.ObserverProcess.DisposeCount 1 "controlled success disposes observer"
+
+$delayedHarness = New-ControlledRouteHarness -Mode "delayed_start"
+$delayedRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $delayedHarness.RequestInvoker -ObserverStarter $delayedHarness.ObserverStarter -SleepInvoker $delayedHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $delayedRoute.ExitCode 0 "controller waits through bounded empty lifecycle polls"
+Assert-Equal $delayedHarness.State.AitReadCount 6 "delayed lifecycle consumes baseline, empty waits, and three transitions"
+Assert-Equal $delayedHarness.State.CoreBodies.Count 4 "delayed lifecycle sends one ordered event set"
+Assert-Equal $delayedRoute.Value.final_lifecycle_state "released" "delayed lifecycle still reaches released"
 
 $ordinalHarness = New-ControlledRouteHarness -Mode "ordinal_gap"
 $ordinalRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $ordinalHarness.RequestInvoker -ObserverStarter $ordinalHarness.ObserverStarter -SleepInvoker $ordinalHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
