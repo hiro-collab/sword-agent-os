@@ -49,6 +49,17 @@
             "-NoWrite"
           ],
           "expect_exit_code": 0
+        },
+        {
+          "id": "self_mirror.dance_stop_lifecycle_contract",
+          "mode": "auto",
+          "type": "command",
+          "executable": "node",
+          "args": [
+            "--test",
+            "scripts/tests/capture-self-mirror-frames.test.mjs"
+          ],
+          "expect_exit_code": 0
         }
       ]
     },

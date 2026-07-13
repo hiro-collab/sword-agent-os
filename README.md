@@ -19,10 +19,16 @@ MCPサーバー単体、スクリプト集ではありません。PC上の contr
 上の画面が、人に見える代表的な姿です。中央のアバター、左右の状態HUD、
 会話バブル、下部の入力欄を同じ Projection Visual 上で扱います。
 
+流れを短く書くと、声、身振り、UI入力 → recognizer / input gate →
+Thought Core / control-plane → Expression organ または Home Control / Home Assistant です。
+各境界は、前段の観測を受け取りますが、前段の役割や判断権限を引き継ぎません。
+Expression organ → アバター → Projection Visual / 会話バブル / TTS の出力も、
+実行、外部観測、ユーザー確認を同一視せず、確認できた proof layer ごとに記録します。
+
 内側では、人間の声、身振り、UI入力を recognizer / input gate が受け、
-Thought Core / Soft Core が会話内容や判断を決め、Expression organ が
-アバター、Projection Visual、会話バブル、TTSに返します。Thought Core /
-Soft Core が決めた応答文が、バブルとTTSの正本です。両者がずれる場合は、
+control-plane 内の Thought Core が会話内容や判断を決め、Expression organ が
+アバター、Projection Visual、会話バブル、TTSに返します。Thought Core が
+決めた応答文が、バブルとTTSの正本です。両者がずれる場合は、
 どちらか一方を正しい表示として選ぶのではなく、表示面が別の権威を読んでいる
 不具合として扱います。
 

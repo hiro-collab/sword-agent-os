@@ -845,9 +845,9 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $preparedSampleRunner -Pattern 'ConversationAttemptRefPattern\s*=\s*"\^m4\\\.prepared_sample_attempt:\[a-f0-9\]\{32\}\$"' -Message "prepared-sample runner should lock conversation_attempt_ref to the canonical M4 format"
   Assert-TextMatch -Text $preparedSampleRunner -Pattern 'function New-ConversationAttemptRef\s*\{[\s\S]{0,120}m4\.prepared_sample_attempt:\$\(\[guid\]::NewGuid\(\)\.ToString\(''N''\)\)' -Message "prepared-sample runner should generate canonical colon-delimited conversation_attempt_ref values"
   Assert-TextMatch -Text $preparedSampleRunner -Pattern 'ConversationAttemptRef = New-ConversationAttemptRef[\s\S]{0,120}Assert-ConversationAttemptRef -Value \$ConversationAttemptRef' -Message "prepared-sample runner should validate generated or supplied conversation_attempt_ref values"
-  Assert-TextMatch -Text $preparedSampleRunner -Pattern "browser_open_requested = \[bool\]\$OpenBrowser[\s\S]{0,100}browser_launch_executed = \$false" -Message "prepared-sample runner should distinguish requested browser opening from executed launch"
-  Assert-TextMatch -Text $preparedSampleRunner -Pattern "Start-Process \$operatorUrl[\s\S]{0,100}browser_launch_executed = \$true[\s\S]{0,160}source_static_preflight_plus_browser_launch_only" -Message "prepared-sample runner should only report launch after Start-Process returns and retain the launch-only ceiling"
-  Assert-TextMatch -Text $preparedSampleRunner -Pattern "raw_path_shared = \$false[\s\S]{0,460}browser_page_reachability_proven = \$false[\s\S]{0,120}browser_stt_runtime_executed = \$false[\s\S]{0,120}turn_input_materialized = \$false" -Message "prepared-sample runner should preserve source-static and no-reachability/no-STT boundaries"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'browser_open_requested = \[bool\]\$OpenBrowser[\s\S]{0,100}browser_launch_executed = \$false' -Message "prepared-sample runner should distinguish requested browser opening from executed launch"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'Start-Process \$operatorUrl[\s\S]{0,100}browser_launch_executed = \$true[\s\S]{0,160}source_static_preflight_plus_browser_launch_only' -Message "prepared-sample runner should only report launch after Start-Process returns and retain the launch-only ceiling"
+  Assert-TextMatch -Text $preparedSampleRunner -Pattern 'raw_path_shared = \$false[\s\S]{0,460}browser_page_reachability_proven = \$false[\s\S]{0,120}browser_stt_runtime_executed = \$false[\s\S]{0,120}turn_input_materialized = \$false' -Message "prepared-sample runner should preserve source-static and no-reachability/no-STT boundaries"
   $sourceStaticJoinRowNames = @(
     "recognition",
     "input_gate",
@@ -888,7 +888,7 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'prepared_sample_expected_text\.v1[\s\S]{0,240}prepared_sample_expected_text_authority_missing_or_invalid' -Message "prepared-sample playback controller should keep the local expected-text authority fixed and fail closed"
   Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'SWORD_PREPARED_SAMPLE_AUDIO_PATH[\s\S]{0,300}SWORD_PREPARED_SAMPLE_EXPECTED_TEXT[\s\S]{0,300}SWORD_PREPARED_SAMPLE_LOCALE' -Message "prepared-sample playback controller should pass private runtime inputs only through the child environment"
   Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'SWORD_PREPARED_SAMPLE_ATTEMPT_COUNT[\s\S]{0,240}SWORD_PREPARED_SAMPLE_AUDIO_ROUTE_CLASS' -Message "prepared-sample playback controller should pass only fixed count/class route options to the collector"
-  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'installed_virtual_cable_pair_v1[\s\S]{0,220}\$AttemptCount -ne 1[\s\S]{0,420}\$IntegratedPresentation[\s\S]{0,320}prepared_sample_playback_controller_configuration_invalid' -Message "prepared-sample playback controller should fail closed on invalid integrated option combinations"
+  Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'installed_virtual_cable_pair_v1[\s\S]{0,240}\[bool\]\$IntegratedPresentation -ne \$integratedRouteSelected[\s\S]{0,160}\(\$AttemptCount -eq 1\) -ne \$integratedRouteSelected[\s\S]{0,200}prepared_sample_playback_controller_configuration_invalid' -Message "prepared-sample playback controller should fail closed on invalid integrated option combinations"
   Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'WaitForExit\(95000\)[\s\S]{0,220}whole_route_timeout' -Message "prepared-sample playback controller should retain the bounded 90-second route with cleanup margin"
   Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'private_environment_shared = \$false' -Message "prepared-sample playback controller should keep private child environment values out of shared output"
   Assert-TextMatch -Text $preparedSamplePlaybackController -Pattern 'SWORD_PREPARED_SAMPLE_EXPECTED_TEXT[\s\S]{0,8000}Environment\.Remove\(\$key\)' -Message "prepared-sample playback controller should clear the private child environment in finally"
@@ -937,8 +937,9 @@ function Test-ReadmeFirstRunGuidance {
   $retiredCorePath = Join-Path $RepoRoot ("control-plane\core\src\sword_voice_agent\apps\local_media_" + "voice_gate_proof.py")
   Assert-PathAbsent -Path $retiredWrapperPath
   Assert-PathAbsent -Path $retiredCorePath
+  $overallTestLadder = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-overall-test-ladder-v2.ps1")
   $migrationSurface = @(
-    Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\run-overall-test-ladder-v2.ps1"),
+    $overallTestLadder,
     $localMediaPreparationHelper,
     $fullInstallHelper,
     $voiceAvatarStarter

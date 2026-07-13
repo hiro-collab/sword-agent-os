@@ -4,15 +4,15 @@ import test from "node:test";
 import {
   dispatchDanceStop,
   releaseCountEligibleAtMs,
-} from "./capture-self-mirror-frames.mjs";
+} from "../capture-self-mirror-frames.mjs";
 
 const capturePath = new URL(
-  "./capture-self-mirror-frames.mjs",
+  "../capture-self-mirror-frames.mjs",
   import.meta.url,
 );
-const wrapperPath = new URL("./run-self-mirror-proof.ps1", import.meta.url);
+const wrapperPath = new URL("../run-self-mirror-proof.ps1", import.meta.url);
 const routesPath = new URL(
-  "../runtime/visual-motion-analyzer/self-mirror-consumer-routes.json",
+  "../../runtime/visual-motion-analyzer/self-mirror-consumer-routes.json",
   import.meta.url,
 );
 
