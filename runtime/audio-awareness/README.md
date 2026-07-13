@@ -77,6 +77,48 @@ Focused test:
 pwsh -NoProfile -File runtime/audio-awareness/tests/test-effective-processing-inventory.ps1
 ```
 
+## Process-Scoped Loopback Observer (Phase 1)
+
+The Windows Phase 1 source/static slice is:
+
+- `runtime/audio-awareness/windows/ProcessLoopbackObserver.cs`
+- `runtime/audio-awareness/windows/invoke-process-loopback-observer.ps1`
+- `runtime/audio-awareness/tests/test-process-loopback-observer.ps1`
+
+It uses the Windows process-loopback activation surface to include only a
+leased target process and its child process tree. The observer is one-shot and
+bounded. It drains every available packet, releases each acquired buffer once,
+stops capture once, and disposes the backend even when cancellation or cleanup
+fails. PCM is transient and is never returned or persisted; the shared result
+contains only fixed classes, counts, and timing.
+
+The safe default is a class-only capability probe:
+
+```powershell
+pwsh -NoProfile -File runtime/audio-awareness/windows/invoke-process-loopback-observer.ps1
+```
+
+Synthetic render/silence modes exist only for source/static lifecycle tests.
+They set `source_class=synthetic_fixture`, `live_capture_used=false`, and cannot
+be promoted to runtime evidence. Live process-tree observation requires a
+separate exact process/render route and target. The wrapper acquires a private,
+in-memory lease from the current OS process creation identity and expiry, then
+revalidates it immediately before activation. There is no caller-supplied trust
+flag or persisted lease file. No target PID,
+process identity, device/endpoint identity, path, PCM, transcript, or arbitrary
+payload is published.
+
+Focused source/static test:
+
+```powershell
+pwsh -NoProfile -File runtime/audio-awareness/tests/test-process-loopback-observer.ps1
+```
+
+This phase proves only the source/static observer lifecycle and local API
+capability class. It does not prove that a TTS process rendered sound, select
+or validate an AEC owner, capture a microphone, classify self-output, block a
+`TurnInput`, prove the user heard audio, or establish readiness.
+
 ## Existing Speech Input Integration
 
 Existing speech-input VAD remains an adapter source. Its summary/debug
