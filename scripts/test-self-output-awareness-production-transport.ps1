@@ -228,7 +228,7 @@ function New-ControlledRouteHarness {
   }
   $requestInvoker = {
     param($Uri, $Method, $Body, $Token, $TimeoutMs, $FailureClass)
-    if ($Uri.AbsolutePath -ceq "/api/self-output-awareness-transport") {
+    if ($Uri.AbsolutePath -ceq "/api/self-output-awareness-transport/") {
       $readIndex = $state.AitReadCount
       $state.AitReadCount += 1
       if ($Mode -ceq "stale_replay") {

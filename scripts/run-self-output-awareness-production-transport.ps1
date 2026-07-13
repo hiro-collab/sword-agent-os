@@ -573,7 +573,7 @@ try {
   if ([string]::IsNullOrWhiteSpace($coreToken)) {
     Throw-Fixed -Class "core_token_unavailable"
   }
-  $aitEndpoint = [Uri]::new($aitUri, "/api/self-output-awareness-transport")
+  $aitEndpoint = [Uri]::new($aitUri, "/api/self-output-awareness-transport/")
   $coreEndpoint = [Uri]::new($coreUri, "/api/events/ingest")
   $turnId = "web_$([Guid]::NewGuid().ToString('N'))"
   $observerPath = [IO.Path]::GetFullPath(
