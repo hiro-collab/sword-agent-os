@@ -43,6 +43,40 @@ The current implementation is source/static:
 No WASAPI loopback, microphone capture, browser audio capture, STT, provider
 network call, or raw audio persistence is implemented by this slice.
 
+## Effective Processing Inventory (Phase 0)
+
+The Windows Phase 0 prototype is:
+
+- `runtime/audio-awareness/windows/effective-processing-inventory.ps1`
+
+It accepts only class-level declarations for the native microphone AEC owner,
+browser processing, and the prepared-sample virtual-cable route. Unknown input
+is normalized to `unknown`; it is never echoed. The output distinguishes:
+
+- `exactly_one_aec_owner` as a candidate declaration only;
+- `double_aec_owner`, `no_aec_owner`, unknown, or contradictory declarations
+  as observation-only;
+- browser-managed processing as separate from the native microphone owner;
+- the virtual cable as test-only, never product input authority.
+
+Example class-only invocation:
+
+```powershell
+pwsh -NoProfile -File runtime/audio-awareness/windows/effective-processing-inventory.ps1
+```
+
+The default result is fail-closed `processing_unknown`. This prototype does
+not inspect PCM, enumerate or publish device/process identity, prove that an
+AEC is effective, select an AEC implementation, capture loopback audio, or
+change Windows audio configuration. Phase 1 process-scoped loopback remains a
+separate reviewed route.
+
+Focused test:
+
+```powershell
+pwsh -NoProfile -File runtime/audio-awareness/tests/test-effective-processing-inventory.ps1
+```
+
 ## Existing Speech Input Integration
 
 Existing speech-input VAD remains an adapter source. Its summary/debug
