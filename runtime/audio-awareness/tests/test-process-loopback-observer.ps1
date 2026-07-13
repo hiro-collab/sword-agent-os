@@ -74,6 +74,8 @@ $parseErrors = $null
   [ref]$parseErrors)
 Assert-Equal @($parseErrors).Count 0 "wrapper parser errors"
 
+. $wrapperPath
+
 $sourceText = Get-Content -LiteralPath $sourcePath -Raw
 $fakeTypeDefinition = @'
 namespace SwordAgentOS.AudioAwareness.Tests
@@ -84,6 +86,7 @@ namespace SwordAgentOS.AudioAwareness.Tests
         private readonly System.Collections.Generic.Queue<
             SwordAgentOS.AudioAwareness.ProcessLoopbackPacket> _packets;
         private readonly bool _throwOnStop;
+        public System.Action ActivateAction;
 
         public FakeProcessLoopbackBackend(bool renderObserved, bool throwOnStop)
         {
@@ -93,12 +96,14 @@ namespace SwordAgentOS.AudioAwareness.Tests
             _packets.Enqueue(new SwordAgentOS.AudioAwareness.ProcessLoopbackPacket
             {
                 FrameCount = 128,
-                IsSilent = !renderObserved
+                IsSilent = true,
+                QpcPosition100Ns = 1050000UL
             });
             _packets.Enqueue(new SwordAgentOS.AudioAwareness.ProcessLoopbackPacket
             {
                 FrameCount = 64,
-                IsSilent = true
+                IsSilent = !renderObserved,
+                QpcPosition100Ns = 1250000UL
             });
         }
 
@@ -116,6 +121,7 @@ namespace SwordAgentOS.AudioAwareness.Tests
         {
             cancellationToken.ThrowIfCancellationRequested();
             ActivateCount += 1;
+            if (ActivateAction != null) ActivateAction();
             return System.Threading.Tasks.Task.CompletedTask;
         }
 
@@ -183,7 +189,8 @@ namespace SwordAgentOS.AudioAwareness.Tests
                     () => 0,
                     windowMs,
                     deadlineMs,
-                    cancellationToken);
+                    cancellationToken,
+                    () => 1000000UL);
         }
 
         public static System.Threading.Tasks.Task<
@@ -198,7 +205,8 @@ namespace SwordAgentOS.AudioAwareness.Tests
                     () => 0,
                     100,
                     1000,
-                    System.Threading.CancellationToken.None);
+                    System.Threading.CancellationToken.None,
+                    () => 1000000UL);
         }
 
         public static System.Threading.Tasks.Task<
@@ -221,7 +229,33 @@ namespace SwordAgentOS.AudioAwareness.Tests
                     () => nowTicks,
                     100,
                     1000,
-                    System.Threading.CancellationToken.None);
+                    System.Threading.CancellationToken.None,
+                    () => 1000000UL);
+        }
+
+        public static System.Threading.Tasks.Task<
+            SwordAgentOS.AudioAwareness.ProcessLoopbackObservation> ObserveActivationLeaseFailure(
+                FakeProcessLoopbackBackend backend,
+                string failureMode)
+        {
+            var provider = new FakeProcessIdentityProvider();
+            var lease = SwordAgentOS.AudioAwareness.ProcessLoopbackObserver
+                .AcquireProcessLease(provider, 1, 1000, 0);
+            backend.ActivateAction = () =>
+            {
+                if (failureMode == "mismatch") provider.CreationUtcTicks = 200;
+                if (failureMode == "exited") provider.Exists = false;
+            };
+            return SwordAgentOS.AudioAwareness.ProcessLoopbackObserver
+                .ObserveWithBackendAsync(
+                    backend,
+                    lease,
+                    provider,
+                    () => 0,
+                    100,
+                    1000,
+                    System.Threading.CancellationToken.None,
+                    () => 1000000UL);
         }
     }
 
@@ -262,6 +296,7 @@ namespace SwordAgentOS.AudioAwareness.Tests
     {
         internal int GetBufferCount;
         internal int ReleaseBufferCount;
+        internal uint Flags;
         private bool _hasPacket = true;
 
         public int GetNextPacketSize(out uint nextPacketFrames)
@@ -280,9 +315,9 @@ namespace SwordAgentOS.AudioAwareness.Tests
             GetBufferCount += 1;
             data = System.IntPtr.Zero;
             frameCount = 128;
-            flags = 0;
+            flags = Flags;
             devicePosition = 0;
-            qpcPosition = 0;
+            qpcPosition = 1234UL;
             _hasPacket = false;
             return 0;
         }
@@ -345,7 +380,32 @@ namespace SwordAgentOS.AudioAwareness.Tests
                 source.GetBufferCount,
                 source.ReleaseBufferCount,
                 observedReleases,
-                (int)packet.FrameCount
+                (int)packet.FrameCount,
+                (int)packet.QpcPosition100Ns
+            };
+        }
+
+        public static object[] TimestampErrorReleaseShape()
+        {
+            var source = new FakeCaptureBufferSource();
+            source.Flags = 0x4U;
+            int observedReleases = 0;
+            string failureClass = "no_failure";
+            try
+            {
+                SwordAgentOS.AudioAwareness.WasapiProcessLoopbackBackend
+                    .ReadPacketFromSource(source, () => observedReleases += 1);
+            }
+            catch (SwordAgentOS.AudioAwareness.ProcessLoopbackObserverException exception)
+            {
+                failureClass = exception.FailureClass;
+            }
+            return new object[]
+            {
+                failureClass,
+                source.GetBufferCount,
+                source.ReleaseBufferCount,
+                observedReleases
             };
         }
     }
@@ -368,12 +428,14 @@ Assert-Equal $renderFixture.Value.result_class "synthetic_process_tree_render_fi
 Assert-Equal $renderFixture.Value.source_class "synthetic_fixture" "render fixture source"
 Assert-Equal $renderFixture.Value.observation.non_silent_frame_count 256 "render fixture non-silent frames"
 Assert-Equal $renderFixture.Value.observation.silent_frame_count 0 "render fixture silent frames"
+Assert-Equal $renderFixture.Value.observation.first_non_silent_frame_offset_ms 0 "render fixture first-frame offset"
 Assert-False $renderFixture.Value.observation.live_capture_used "render fixture is not live"
 
 $silenceFixture = Invoke-Wrapper -Parameters @{ Mode = "synthetic_silence"; Compact = $true }
 Assert-Equal $silenceFixture.Value.result_class "synthetic_process_tree_silence_fixture" "silence fixture result"
 Assert-Equal $silenceFixture.Value.observation.non_silent_frame_count 0 "silence fixture non-silent frames"
 Assert-Equal $silenceFixture.Value.observation.silent_frame_count 256 "silence fixture silent frames"
+Assert-Equal $silenceFixture.Value.observation.first_non_silent_frame_offset_ms $null "silence fixture has no first-frame offset"
 
 $privateMarker = "private-marker-should-never-echo"
 $invalidMode = Invoke-Wrapper -Parameters @{ Mode = $privateMarker; Compact = $true }
@@ -428,8 +490,9 @@ $fakeResult = [SwordAgentOS.AudioAwareness.Tests.ObserverHarness]::Observe(
 Assert-Equal $fakeResult.ResultClass "process_tree_render_observed" "fake render observed"
 Assert-Equal $fakeResult.PacketCount 2 "all fake packets drained"
 Assert-Equal $fakeResult.FrameCount 192 "fake frames counted"
-Assert-Equal $fakeResult.NonSilentFrameCount 128 "fake non-silent frames counted"
-Assert-Equal $fakeResult.SilentFrameCount 64 "fake silent frames counted"
+Assert-Equal $fakeResult.NonSilentFrameCount 64 "fake non-silent frames counted"
+Assert-Equal $fakeResult.SilentFrameCount 128 "fake silent frames counted"
+Assert-Equal $fakeResult.FirstNonSilentFrameOffsetMs 25 "fake first non-silent frame uses packet QPC offset"
 Assert-Equal $fakeResult.CaptureStartCount 1 "fake capture starts once"
 Assert-Equal $fakeResult.CaptureStopAttemptCount 1 "fake capture stop attempted once"
 Assert-Equal $fakeResult.CaptureStopCount 1 "fake capture stops once"
@@ -512,6 +575,22 @@ foreach ($entry in $leaseFailures.GetEnumerator()) {
   Assert-Equal $leaseFake.DisposeCount 1 "lease failure $($entry.Key) disposes backend"
 }
 
+foreach ($entry in ([ordered]@{
+      mismatch = "target_process_lease_post_activation_identity_mismatch"
+      exited = "target_process_lease_post_activation_exited"
+    }).GetEnumerator()) {
+  $activationLeaseFake = [SwordAgentOS.AudioAwareness.Tests.FakeProcessLoopbackBackend]::new($false, $false)
+  $activationLeaseClass = Get-FixedFailureClass {
+    [SwordAgentOS.AudioAwareness.Tests.ObserverHarness]::ObserveActivationLeaseFailure(
+      $activationLeaseFake,
+      $entry.Key).GetAwaiter().GetResult()
+  }
+  Assert-Equal $activationLeaseClass $entry.Value "post-activation lease failure $($entry.Key) fixed class"
+  Assert-Equal $activationLeaseFake.ActivateCount 1 "post-activation lease failure activates once"
+  Assert-Equal $activationLeaseFake.CaptureStartCount 0 "post-activation lease failure starts no capture"
+  Assert-Equal $activationLeaseFake.DisposeCount 1 "post-activation lease failure disposes once"
+}
+
 Assert-Equal ([SwordAgentOS.AudioAwareness.Tests.ActivationHandlerHarness]::LateSuccessReleaseCount()) 1 "late activation success releases abandoned interface once"
 Assert-Equal ([SwordAgentOS.AudioAwareness.Tests.ActivationHandlerHarness]::FailedResultReleaseCount()) 1 "failed activation releases returned interface once"
 Assert-Equal ([SwordAgentOS.AudioAwareness.Tests.ActivationHandlerHarness]::CompletedThenAbandonReleaseCount()) 1 "completed activation releases once when abandonment wins before claim"
@@ -533,6 +612,20 @@ Assert-Equal $bufferReleaseShape[0] 1 "successful GetBuffer called once"
 Assert-Equal $bufferReleaseShape[1] 1 "successful GetBuffer releases once"
 Assert-Equal $bufferReleaseShape[2] 1 "release observer records once"
 Assert-Equal $bufferReleaseShape[3] 128 "released packet frame count preserved"
+Assert-Equal $bufferReleaseShape[4] 1234 "captured packet QPC position preserved"
+
+$timestampErrorShape = [SwordAgentOS.AudioAwareness.Tests.NativeShapeHarness]::TimestampErrorReleaseShape()
+Assert-Equal $timestampErrorShape[0] "process_loopback_packet_timestamp_invalid" "uncertain timestamp fails closed"
+Assert-Equal $timestampErrorShape[1] 1 "uncertain timestamp gets one buffer"
+Assert-Equal $timestampErrorShape[2] 1 "uncertain timestamp releases buffer once"
+Assert-Equal $timestampErrorShape[3] 1 "uncertain timestamp release observer runs once"
+
+$preActivationPhase = Resolve-FailurePhase -FailureClass "target_process_lease_identity_mismatch"
+Assert-Equal $preActivationPhase.attribution_class "not_attempted" "pre-activation lease failure is not attributed"
+Assert-Equal $preActivationPhase.cleanup_class "no_runtime_started" "pre-activation lease failure starts no runtime"
+$postActivationPhase = Resolve-FailurePhase -FailureClass "target_process_lease_post_activation_identity_mismatch"
+Assert-Equal $postActivationPhase.attribution_class "target_process_tree_activation_completed_not_started" "post-activation lease failure phase is explicit"
+Assert-Equal $postActivationPhase.cleanup_class "route_owned_cleanup_clear" "post-activation lease cleanup is explicit"
 
 Assert-Match $sourceText 'VAD\\Process_Loopback' "virtual process loopback surface present"
 Assert-Match $sourceText 'IncludeTargetProcessTree' "target process tree inclusion present"

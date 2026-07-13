@@ -32,6 +32,9 @@ function ConvertTo-FailureClass {
     "target_process_lease_exited",
     "target_process_lease_expired",
     "target_process_lease_identity_mismatch",
+    "target_process_lease_post_activation_exited",
+    "target_process_lease_post_activation_expired",
+    "target_process_lease_post_activation_identity_mismatch",
     "observation_bounds_invalid",
     "observation_deadline_exceeded",
     "process_loopback_activation_start_failed",
@@ -41,6 +44,7 @@ function ConvertTo-FailureClass {
     "process_loopback_capture_service_failed",
     "process_loopback_start_failed",
     "process_loopback_packet_query_failed",
+    "process_loopback_packet_timestamp_invalid",
     "process_loopback_buffer_get_failed",
     "process_loopback_buffer_release_failed",
     "process_loopback_stop_failed",
@@ -51,6 +55,26 @@ function ConvertTo-FailureClass {
   )
   $text = [string]($Value ?? "")
   return $(if ($allowed -contains $text) { $text } else { "process_loopback_observer_failed" })
+}
+
+function Resolve-FailurePhase {
+  param([Parameter(Mandatory)][string]$FailureClass)
+  if ($FailureClass -match '^target_process_lease_post_activation_') {
+    return [pscustomobject]@{
+      attribution_class = "target_process_tree_activation_completed_not_started"
+      cleanup_class = "route_owned_cleanup_clear"
+    }
+  }
+  if ($FailureClass -match '^target_process_lease_') {
+    return [pscustomobject]@{
+      attribution_class = "not_attempted"
+      cleanup_class = "no_runtime_started"
+    }
+  }
+  return [pscustomobject]@{
+    attribution_class = "target_process_tree_requested"
+    cleanup_class = "cleanup_not_proven"
+  }
 }
 
 function New-ClassOnlyOutput {
@@ -66,6 +90,7 @@ function New-ClassOnlyOutput {
     [long]$FrameCount = 0,
     [long]$NonSilentFrameCount = 0,
     [long]$SilentFrameCount = 0,
+    [AllowNull()][Nullable[int]]$FirstNonSilentFrameOffsetMs = $null,
     [int]$CaptureStartCount = 0,
     [int]$CaptureStopAttemptCount = 0,
     [int]$CaptureStopCount = 0,
@@ -94,6 +119,7 @@ function New-ClassOnlyOutput {
       frame_count = $FrameCount
       non_silent_frame_count = $NonSilentFrameCount
       silent_frame_count = $SilentFrameCount
+      first_non_silent_frame_offset_ms = $FirstNonSilentFrameOffsetMs
       live_capture_used = $LiveCaptureUsed
     }
     lifecycle = [ordered]@{
@@ -145,6 +171,8 @@ function Write-ClassOnlyOutput {
   }
   $Value | ConvertTo-Json @parameters
 }
+
+if ($MyInvocation.InvocationName -eq ".") { return }
 
 $modeClass = ConvertTo-ModeClass -Value $Mode
 if ($modeClass -eq "invalid") {
@@ -200,7 +228,8 @@ if ($modeClass -in @("synthetic_render", "synthetic_silence")) {
       -PacketCount $fixture.PacketCount `
       -FrameCount $fixture.FrameCount `
       -NonSilentFrameCount $fixture.NonSilentFrameCount `
-      -SilentFrameCount $fixture.SilentFrameCount)
+      -SilentFrameCount $fixture.SilentFrameCount `
+      -FirstNonSilentFrameOffsetMs $fixture.FirstNonSilentFrameOffsetMs)
   return
 }
 
@@ -249,6 +278,7 @@ try {
       -FrameCount $result.FrameCount `
       -NonSilentFrameCount $result.NonSilentFrameCount `
       -SilentFrameCount $result.SilentFrameCount `
+      -FirstNonSilentFrameOffsetMs $result.FirstNonSilentFrameOffsetMs `
       -CaptureStartCount $result.CaptureStartCount `
       -CaptureStopAttemptCount $result.CaptureStopAttemptCount `
       -CaptureStopCount $result.CaptureStopCount `
@@ -267,12 +297,12 @@ try {
     }
     $exception = $exception.InnerException
   }
-  $leaseFailure = $failureClass -match '^target_process_lease_'
+  $failurePhase = Resolve-FailurePhase -FailureClass $failureClass
   Write-ClassOnlyOutput (New-ClassOnlyOutput `
       -SourceClass "live_process_loopback" `
       -ProofCeiling "process_loopback_observation_summary_only" `
       -ResultClass $failureClass `
       -CapabilityClass $capability.CapabilityClass `
-      -AttributionClass $(if ($leaseFailure) { "not_attempted" } else { "target_process_tree_requested" }) `
-      -CleanupClass $(if ($leaseFailure) { "no_runtime_started" } else { "cleanup_not_proven" }))
+      -AttributionClass $failurePhase.attribution_class `
+      -CleanupClass $failurePhase.cleanup_class)
 }

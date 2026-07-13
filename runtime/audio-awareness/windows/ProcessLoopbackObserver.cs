@@ -17,6 +17,7 @@ namespace SwordAgentOS.AudioAwareness
     {
         public uint FrameCount { get; set; }
         public bool IsSilent { get; set; }
+        public ulong QpcPosition100Ns { get; set; }
     }
 
     public sealed class ProcessLoopbackObservation
@@ -29,6 +30,7 @@ namespace SwordAgentOS.AudioAwareness
         public long FrameCount { get; set; }
         public long NonSilentFrameCount { get; set; }
         public long SilentFrameCount { get; set; }
+        public int? FirstNonSilentFrameOffsetMs { get; set; }
         public int CaptureStartCount { get; set; }
         public int CaptureStopAttemptCount { get; set; }
         public int CaptureStopCount { get; set; }
@@ -212,7 +214,8 @@ namespace SwordAgentOS.AudioAwareness
                 () => DateTime.UtcNow.Ticks,
                 windowMs,
                 deadlineMs,
-                cancellationToken);
+                cancellationToken,
+                GetMonotonicPosition100Ns);
         }
 
         internal static async Task<ProcessLoopbackObservation> ObserveWithBackendAsync(
@@ -222,7 +225,8 @@ namespace SwordAgentOS.AudioAwareness
             Func<long> utcNowTicks,
             int windowMs,
             int deadlineMs,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Func<ulong> monotonicNow100Ns = null)
         {
             if (backend == null)
             {
@@ -245,9 +249,11 @@ namespace SwordAgentOS.AudioAwareness
             long nonSilentFrameCount = 0;
             long silentFrameCount = 0;
             int cancelCount = 0;
+            int? firstNonSilentFrameOffsetMs = null;
             bool started = false;
             bool cleanupFailed = false;
             string failureClass = null;
+            ulong captureStartQpc100Ns = 0;
 
             using (CancellationTokenSource linked =
                 CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
@@ -258,6 +264,12 @@ namespace SwordAgentOS.AudioAwareness
                     RevalidateProcessLease(lease, identityProvider, utcNowTicks());
                     await backend.ActivateAsync(lease.TargetProcessId, linked.Token)
                         .ConfigureAwait(false);
+                    RevalidatePostActivationProcessLease(
+                        lease,
+                        identityProvider,
+                        utcNowTicks());
+                    captureStartQpc100Ns = (monotonicNow100Ns ??
+                        GetMonotonicPosition100Ns)();
                     backend.Start();
                     started = true;
 
@@ -280,6 +292,23 @@ namespace SwordAgentOS.AudioAwareness
                         }
                         else
                         {
+                            if (!firstNonSilentFrameOffsetMs.HasValue)
+                            {
+                                if (packet.QpcPosition100Ns < captureStartQpc100Ns)
+                                {
+                                    throw new ProcessLoopbackObserverException(
+                                        "process_loopback_packet_timestamp_invalid");
+                                }
+                                ulong offset100Ns = packet.QpcPosition100Ns -
+                                    captureStartQpc100Ns;
+                                if (offset100Ns > checked((ulong)windowMs * 10000UL))
+                                {
+                                    throw new ProcessLoopbackObserverException(
+                                        "process_loopback_packet_timestamp_invalid");
+                                }
+                                firstNonSilentFrameOffsetMs = checked(
+                                    (int)(offset100Ns / 10000UL));
+                            }
                             nonSilentFrameCount += packet.FrameCount;
                         }
                     }
@@ -352,6 +381,7 @@ namespace SwordAgentOS.AudioAwareness
                 FrameCount = frameCount,
                 NonSilentFrameCount = nonSilentFrameCount,
                 SilentFrameCount = silentFrameCount,
+                FirstNonSilentFrameOffsetMs = firstNonSilentFrameOffsetMs,
                 CaptureStartCount = backend.CaptureStartCount,
                 CaptureStopAttemptCount = backend.CaptureStopAttemptCount,
                 CaptureStopCount = backend.CaptureStopCount,
@@ -375,6 +405,7 @@ namespace SwordAgentOS.AudioAwareness
                 FrameCount = 256,
                 NonSilentFrameCount = renderObserved ? 256 : 0,
                 SilentFrameCount = renderObserved ? 0 : 256,
+                FirstNonSilentFrameOffsetMs = renderObserved ? 0 : (int?)null,
                 CaptureStartCount = 0,
                 CaptureStopAttemptCount = 0,
                 CaptureStopCount = 0,
@@ -427,6 +458,44 @@ namespace SwordAgentOS.AudioAwareness
                     "target_process_lease_identity_mismatch");
             }
         }
+
+        private static void RevalidatePostActivationProcessLease(
+            ProcessRenderLease lease,
+            IProcessIdentityProvider identityProvider,
+            long nowUtcTicks)
+        {
+            try
+            {
+                RevalidateProcessLease(lease, identityProvider, nowUtcTicks);
+            }
+            catch (ProcessLoopbackObserverException exception)
+            {
+                string suffix;
+                switch (exception.FailureClass)
+                {
+                    case "target_process_lease_exited":
+                        suffix = "exited";
+                        break;
+                    case "target_process_lease_expired":
+                        suffix = "expired";
+                        break;
+                    case "target_process_lease_identity_mismatch":
+                        suffix = "identity_mismatch";
+                        break;
+                    default:
+                        throw;
+                }
+                throw new ProcessLoopbackObserverException(
+                    "target_process_lease_post_activation_" + suffix);
+            }
+        }
+
+        private static ulong GetMonotonicPosition100Ns()
+        {
+            decimal scaled = (decimal)Stopwatch.GetTimestamp() *
+                TimeSpan.TicksPerSecond / Stopwatch.Frequency;
+            return checked((ulong)scaled);
+        }
     }
 
     internal sealed class WasapiProcessLoopbackBackend : IProcessLoopbackBackend
@@ -439,6 +508,7 @@ namespace SwordAgentOS.AudioAwareness
         private const uint AudclntStreamflagsAutoconvertPcm = 0x80000000;
         private const uint AudclntStreamflagsSrcDefaultQuality = 0x08000000;
         private const uint AudclntBufferflagsSilent = 0x00000002;
+        private const uint AudclntBufferflagsTimestampError = 0x00000004;
 
         private IAudioClient _audioClient;
         private IAudioCaptureClient _captureClient;
@@ -574,10 +644,16 @@ namespace SwordAgentOS.AudioAwareness
                 "process_loopback_buffer_get_failed");
             try
             {
+                if ((flags & AudclntBufferflagsTimestampError) != 0)
+                {
+                    throw new ProcessLoopbackObserverException(
+                        "process_loopback_packet_timestamp_invalid");
+                }
                 return new ProcessLoopbackPacket
                 {
                     FrameCount = frameCount,
-                    IsSilent = (flags & AudclntBufferflagsSilent) != 0
+                    IsSilent = (flags & AudclntBufferflagsSilent) != 0,
+                    QpcPosition100Ns = qpcPosition
                 };
             }
             finally
