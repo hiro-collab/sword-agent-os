@@ -119,6 +119,62 @@ capability class. It does not prove that a TTS process rendered sound, select
 or validate an AEC owner, capture a microphone, classify self-output, block a
 `TurnInput`, prove the user heard audio, or establish readiness.
 
+## Windows Voice Capture DSP AEC Prerequisite
+
+The native-microphone prerequisite uses the built-in Windows Voice Capture DSP
+in source mode as the only AEC, noise-suppression, and automatic-gain owner.
+The Parent helper slice is:
+
+- `runtime/audio-awareness/windows/VoiceCaptureDspAec.cs`
+- `runtime/audio-awareness/windows/invoke-voice-capture-dsp-aec.ps1`
+- `runtime/audio-awareness/tests/test-voice-capture-dsp-aec.ps1`
+
+The C# helper configures single-channel AEC with 16 kHz, 16-bit mono output and
+accepts only one exact 10 ms / 320-byte PCM frame at a time. Only processed
+near-end PCM may cross the private, expiring, route-owned named pipe to the
+speech-input process. The render reference remains inside the Windows DSP and
+cannot become `TurnInput`. Rejected, copied, and written buffers are cleared;
+PCM is not written to a WAV file, log, JSON result, or shared artifact. The
+one-shot lifecycle requires exactly one sink/backend release and bounds
+connection, observation, cancel, stop, COM release, pipe release, and cleanup
+independently. Processed-frame writes and flushes are asynchronous under the
+same linked cancellation/deadline. Cancellation closes the route-owned pipe
+once, awaits write convergence, clears frame and length-prefix buffers, and
+permits no completed or late write.
+
+Live lease material is forbidden on the command line. The later Core consumer
+must generate a cryptographic one-time nonce, create a current-user-only local
+pipe server, and pass the nonce, pipe name, selected-owner class, server PID,
+server process creation time, and expiry as one private JSON line over the
+helper's inherited standard input. After connection and before DSP activation,
+the helper reads the actual named-pipe server PID from Windows, revalidates the
+sealed PID/start-time/expiry identity, and completes a nonce challenge/ACK.
+A missing, malformed, expired, late, or wrong-owner lease fails before DSP
+activation or PCM write. Replay prevention for a previously valid nonce remains
+the later Core server's responsibility; this client clears its nonce copy but
+does not itself own a nonce-reuse registry.
+
+The safe default is capability-only and does not start audio capture:
+
+```powershell
+pwsh -NoProfile -File runtime/audio-awareness/windows/invoke-voice-capture-dsp-aec.ps1
+```
+
+Focused fake/source-static test:
+
+```powershell
+pwsh -NoProfile -File runtime/audio-awareness/tests/test-voice-capture-dsp-aec.ps1
+```
+
+Do not invoke `-Mode live_source` by hand. It has no pipe or nonce command-line
+parameter and accepts live authority only through private inherited input. A
+later reviewed ai-talk-core consumer must first create the sealed pipe server,
+retain processed PCM only in memory, and own the bounded capture request. Until
+that consumer is adopted and a separately authorized device run succeeds, the proof ceiling is
+`source_static_live_aec_adapter_contract`: it does not prove live AEC
+effectiveness, barge-in, genuine-user classification, runtime no-`TurnInput`
+enforcement, user-heard audio, or readiness.
+
 ## Existing Speech Input Integration
 
 Existing speech-input VAD remains an adapter source. Its summary/debug
