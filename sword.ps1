@@ -50,6 +50,30 @@ function Invoke-RepoScript {
   }
 }
 
+function Resolve-LauncherPort {
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("manifest_default", "isolated_override")]
+    [string]$Mode
+  )
+
+  $serviceManifestPath = Join-Path $RepoRoot "manifests\services\standard.json"
+  $serviceManifest = Get-Content -Raw -LiteralPath $serviceManifestPath | ConvertFrom-Json
+  $modeProperty = $serviceManifest.port_modes.PSObject.Properties[$Mode]
+  if ($null -eq $modeProperty) {
+    throw "launcher port mode is missing from the service manifest: $Mode"
+  }
+  $portProperty = $modeProperty.Value.auxiliary_ports.PSObject.Properties["home_control_launcher"]
+  if ($null -eq $portProperty) {
+    throw "launcher port is missing from the service manifest for mode: $Mode"
+  }
+  $port = [int]$portProperty.Value
+  if ($port -lt 1 -or $port -gt 65535) {
+    throw "launcher port is invalid for mode: $Mode"
+  }
+  return $port
+}
+
 function Write-FrontDoorHeader {
   param([Parameter(Mandatory = $true)][string]$ProofLayer)
 
@@ -122,6 +146,7 @@ function Write-LauncherCommandPreview {
   Write-Host ("mode=launcher-{0}-preview" -f $Action)
   Write-Host ("launcher_wrapper=scripts\{0}-launcher.ps1" -f $Action)
   Write-Host ("port_mode={0}" -f $PortMode)
+  Write-Host ("launcher_port={0}" -f $LauncherPort)
   Write-Host "run_required=true"
   Write-Host "runtime_action_executed=false"
   Write-Host "home_assistant_command_submission=false"
@@ -137,6 +162,7 @@ function Write-LauncherCommandPreview {
 }
 
 $PowerShellCommand = Resolve-CurrentPowerShell
+$LauncherPort = Resolve-LauncherPort -Mode $PortMode
 
 if ($Run -and $NoLive) {
   throw "-Run and -NoLive cannot be combined. Omit -Run for no-live command previews."
@@ -162,7 +188,7 @@ switch ($Command) {
   "start" {
     if ($Run) {
       Write-FrontDoorHeader -ProofLayer "launcher-start/readiness"
-      Invoke-RepoScript -RelativeScript "scripts\start-launcher.ps1" -Arguments @("-PortMode", $PortMode, "-ReuseExisting")
+      Invoke-RepoScript -RelativeScript "scripts\start-launcher.ps1" -Arguments @("-Port", ([string]$LauncherPort), "-PortMode", $PortMode, "-ReuseExisting")
       Write-Host ""
       Invoke-RepoScript -RelativeScript "scripts\check-profile-health.ps1" -Arguments @("-ManifestOnly", "-PortMode", $PortMode, "-TimeoutMs", ([string]$TimeoutMs))
     }
@@ -175,7 +201,7 @@ switch ($Command) {
   "stop" {
     if ($Run) {
       Write-FrontDoorHeader -ProofLayer "launcher-stop/readiness"
-      $stopArgs = @("-TimeoutSeconds", ([string][Math]::Ceiling($TimeoutMs / 1000)))
+      $stopArgs = @("-Port", ([string]$LauncherPort), "-TimeoutSeconds", ([string][Math]::Ceiling($TimeoutMs / 1000)))
       if ($Force) {
         $stopArgs += "-Force"
       }

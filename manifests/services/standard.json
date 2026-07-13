@@ -23,7 +23,8 @@
         "touchdesigner_control_gui": 8788
       },
       "auxiliary_ports": {
-        "mediapipe_browser_monitor": 8770
+        "mediapipe_browser_monitor": 8770,
+        "home_control_launcher": 8799
       }
     },
     "isolated_override": {
@@ -45,7 +46,8 @@
         "touchdesigner_control_gui": 18889
       },
       "auxiliary_ports": {
-        "mediapipe_browser_monitor": 18870
+        "mediapipe_browser_monitor": 18870,
+        "home_control_launcher": 18799
       }
     }
   },

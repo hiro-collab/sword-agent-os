@@ -273,6 +273,24 @@ function Test-MaintenanceSafetyStatic {
     Write-Host "safety static ok: $relativePath"
   }
 
+  $serviceManifest = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "manifests\services\standard.json") | ConvertFrom-Json
+  $defaultLauncherPort = [int]$serviceManifest.port_modes.manifest_default.auxiliary_ports.home_control_launcher
+  $isolatedLauncherPort = [int]$serviceManifest.port_modes.isolated_override.auxiliary_ports.home_control_launcher
+  if ($defaultLauncherPort -lt 1 -or $defaultLauncherPort -gt 65535) {
+    throw "default launcher port should be manifest-owned"
+  }
+  if ($isolatedLauncherPort -lt 1 -or $isolatedLauncherPort -gt 65535) {
+    throw "isolated launcher port should be manifest-owned"
+  }
+  if ($defaultLauncherPort -eq $isolatedLauncherPort) {
+    throw "isolated launcher port should differ from the default launcher port"
+  }
+
+  $swordFrontDoor = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "sword.ps1")
+  Assert-TextMatch -Text $swordFrontDoor -Pattern "Resolve-LauncherPort" -Message "sword front door should resolve launcher ports from the service manifest"
+  Assert-TextMatch -Text $swordFrontDoor -Pattern 'start-launcher\.ps1" -Arguments @\("-Port"' -Message "sword start should pass the selected launcher port"
+  Assert-TextMatch -Text $swordFrontDoor -Pattern '\$stopArgs = @\("-Port"' -Message "sword stop should pass the same selected launcher port"
+
   $selfContent = Get-Content -Raw -LiteralPath $PSCommandPath
   foreach ($pattern in @("git\s+add\s+\.", "git\s+reset\s+--hard", "git\s+push\s+--force", "git\s+clean\b")) {
     if ($selfContent -match $pattern) {

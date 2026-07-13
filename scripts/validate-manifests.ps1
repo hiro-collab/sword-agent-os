@@ -460,6 +460,13 @@ foreach ($modeName in @("manifest_default", "isolated_override")) {
   }
   $monitorPort = [int]$mode.auxiliary_ports.mediapipe_browser_monitor
   Assert-True ($monitorPort -ge 1 -and $monitorPort -le 65535) "port mode $modeName has invalid mediapipe_browser_monitor port"
+  $launcherPort = [int]$mode.auxiliary_ports.home_control_launcher
+  Assert-True ($launcherPort -ge 1 -and $launcherPort -le 65535) "port mode $modeName has invalid home_control_launcher port"
+  $allModePorts = @(
+    @($mode.service_ports.PSObject.Properties | ForEach-Object { [int]$_.Value }) +
+    @($mode.auxiliary_ports.PSObject.Properties | ForEach-Object { [int]$_.Value })
+  )
+  Assert-True (($allModePorts | Select-Object -Unique).Count -eq $allModePorts.Count) "port mode $modeName must not contain duplicate service or auxiliary ports"
 }
 
 $organIds = @($organManifest.sources | ForEach-Object { $_.organ_id })
