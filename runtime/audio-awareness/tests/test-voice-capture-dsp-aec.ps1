@@ -1024,6 +1024,10 @@ Assert-Match $sourceText 'GetNamedPipeServerProcessId' "actual pipe server PID i
 Assert-Match $sourceText 'PipeDirection\.InOut' "nonce handshake uses duplex pipe"
 Assert-Match $sourceText 'processed_pcm_pipe_handshake_failed' "nonce handshake fails closed"
 Assert-Match $sourceText 'SINGLE_CHANNEL_AEC|SingleChannelAec' "one AEC owner mode"
+Assert-Match $sourceText 'SetIntProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidNoiseSuppression,\s*1\)' "noise suppression uses the required VT_I4 value"
+Assert-NotMatch $sourceText 'SetBoolProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidNoiseSuppression' "noise suppression is never encoded as VT_BOOL"
+Assert-Match $sourceText 'SetBoolProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidAutomaticGainControl,\s*true\)' "automatic gain control retains the required VT_BOOL value"
+Assert-NotMatch $sourceText 'properties\.Commit\(' "transient Voice Capture DSP properties are applied without an unsupported commit"
 Assert-NotMatch $sourceText 'WriteAllBytes|FileStream|\.wav|transcript' "source persists no audio or transcript"
 Assert-NotMatch $sourceText 'Console\.(Write|Error)|Trace\.|Debug\.' "source logs no raw data"
 

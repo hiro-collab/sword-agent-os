@@ -925,17 +925,14 @@ namespace SwordAgentOS.AudioAwareness
                 VoiceCaptureDspAec.SingleChannelAec);
             SetBoolProperty(properties, VoiceCaptureDspAec.PidSourceMode, true);
             SetBoolProperty(properties, VoiceCaptureDspAec.PidFeatureMode, true);
-            SetBoolProperty(
+            SetIntProperty(
                 properties,
                 VoiceCaptureDspAec.PidNoiseSuppression,
-                true);
+                1);
             SetBoolProperty(
                 properties,
                 VoiceCaptureDspAec.PidAutomaticGainControl,
                 true);
-            VoiceCaptureDspAec.ThrowIfFailed(
-                properties.Commit(),
-                "voice_capture_dsp_configuration_failed");
         }
 
         private static void SetIntProperty(
