@@ -51,6 +51,20 @@
           "expect_exit_code": 0
         },
         {
+          "id": "body_schema.driver_authority_mapping",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/tests/test-body-schema-driver-authority.ps1"
+          ],
+          "expect_exit_code": 0
+        },
+        {
           "id": "self_mirror.dance_stop_lifecycle_contract",
           "mode": "auto",
           "type": "command",

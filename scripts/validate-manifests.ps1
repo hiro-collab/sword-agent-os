@@ -540,6 +540,7 @@ $organDriverIds = @($driverManifest.organ_drivers | ForEach-Object { [string]$_.
 Assert-True (($organDriverIds | Select-Object -Unique).Count -eq $organDriverIds.Count) "organ driver ids must be unique"
 foreach ($organDriver in $driverManifest.organ_drivers) {
   Assert-True (-not [string]::IsNullOrWhiteSpace([string]$organDriver.driver_id)) "organ driver missing driver_id"
+  Assert-True ([string]$organDriver.driver_id -in $actionDriverIds) "organ driver $($organDriver.driver_id) has no canonical body-plan driver authority"
   $driverOrganId = [string]$organDriver.organ_id
   Assert-True (($driverOrganId -in $organIds) -or ($driverOrganId -eq $controlPlaneId)) "organ driver $($organDriver.driver_id) references unknown organ/control-plane id: $driverOrganId"
   foreach ($targetService in @($organDriver.target_services | ForEach-Object { [string]$_ })) {

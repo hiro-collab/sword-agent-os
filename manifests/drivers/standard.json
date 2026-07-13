@@ -135,7 +135,7 @@
   ],
   "organ_drivers": [
     {
-      "driver_id": "home-assistant-bridge-driver",
+      "driver_id": "home_control_driver",
       "driver_class": "organ",
       "organ_id": "home-assistant-server",
       "target_services": [
@@ -168,7 +168,7 @@
       ]
     },
     {
-      "driver_id": "camera-hub-driver",
+      "driver_id": "camera_hub_driver",
       "driver_class": "organ",
       "organ_id": "mediapipe-sword-sign",
       "target_services": [
@@ -203,7 +203,7 @@
       ]
     },
     {
-      "driver_id": "environment-state-driver",
+      "driver_id": "environment_state_driver",
       "driver_class": "organ",
       "organ_id": "environment-state-server",
       "target_services": [
@@ -230,7 +230,7 @@
       ]
     },
     {
-      "driver_id": "vision-snapshot-driver",
+      "driver_id": "vision_snapshot_driver",
       "driver_class": "organ",
       "organ_id": "vision-snapshot-processor",
       "target_services": [
@@ -258,7 +258,7 @@
       ]
     },
     {
-      "driver_id": "thought-core-driver",
+      "driver_id": "thought_core_driver",
       "driver_class": "organ",
       "organ_id": "sword-voice-agent-control-plane",
       "target_services": [
@@ -291,7 +291,7 @@
       ]
     },
     {
-      "driver_id": "aituber-kit-driver",
+      "driver_id": "aituber_kit_driver",
       "driver_class": "organ",
       "organ_id": "aituber-kit",
       "target_services": [
@@ -323,7 +323,7 @@
       ]
     },
     {
-      "driver_id": "display-runtime-driver",
+      "driver_id": "display_runtime_driver",
       "driver_class": "organ",
       "organ_id": "touchdesigner-ai-controller",
       "target_services": [
@@ -356,7 +356,7 @@
       ]
     },
     {
-      "driver_id": "diagnostics-view-driver",
+      "driver_id": "body_map_inspector_driver",
       "driver_class": "organ",
       "organ_id": "system-house-renderer",
       "target_services": [],
