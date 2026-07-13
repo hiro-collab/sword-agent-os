@@ -30,9 +30,27 @@ function New-EndpointResponse {
     [int]$SubmissionCount = 0,
     [int]$TurnInputCount = 0,
     [int]$ElapsedMs = 25,
+    [object]$LastVadSpeechFrameOffsetMs = $null,
+    [object]$UtteranceEndToCandidateResultMs = $null,
+    [string]$UtteranceEndTimingClass = "",
     [int]$PcmCleanupCount = 0,
     [int]$PrivateAuthorityResidueCount = 0
   )
+
+  if ([string]::IsNullOrWhiteSpace($UtteranceEndTimingClass)) {
+    $UtteranceEndTimingClass = switch ($VadDecisionClass) {
+      "speech_detected" {
+        if ($null -ne $LastVadSpeechFrameOffsetMs) {
+          "vad_speech_frame_available"
+        } else {
+          "vad_speech_frame_inconsistent"
+        }
+        break
+      }
+      "speech_not_detected" { "no_vad_speech_frame"; break }
+      default { "not_evaluated" }
+    }
+  }
 
   return [ordered]@{
     schema_version = "ai_talk_core.live_input_gate_candidate_window.v0"
@@ -46,6 +64,9 @@ function New-EndpointResponse {
     submission_count = $SubmissionCount
     thought_core_turninput_count = $TurnInputCount
     elapsed_ms = $ElapsedMs
+    last_vad_speech_frame_offset_ms = $LastVadSpeechFrameOffsetMs
+    utterance_end_to_candidate_result_ms = $UtteranceEndToCandidateResultMs
+    utterance_end_timing_class = $UtteranceEndTimingClass
     pcm_cleanup_count = $PcmCleanupCount
     private_authority_residue_count = $PrivateAuthorityResidueCount
     raw_private_publication_flags = $false
@@ -302,6 +323,8 @@ try {
     -TurnInputCount 1 `
     -VadDecisionClass "speech_detected" `
     -ElapsedMs 90 `
+    -LastVadSpeechFrameOffsetMs 80 `
+    -UtteranceEndToCandidateResultMs 10 `
     -PcmCleanupCount 1
   $positiveServer = Start-TestServer -Response $positiveResponse
   $positiveRun = Invoke-Controller `
@@ -317,6 +340,9 @@ try {
   Assert-True ($positive.transcription_count -eq 1) "positive scenario should transcribe once"
   Assert-True ($positive.submission_count -eq 1) "positive scenario should submit once"
   Assert-True ($positive.thought_core_turninput_count -eq 1) "positive scenario should materialize one TurnInput"
+  Assert-True ($positive.last_vad_speech_frame_offset_ms -eq 80) "positive scenario should preserve the last VAD speech frame offset"
+  Assert-True ($positive.utterance_end_to_candidate_result_ms -eq 10) "positive scenario should preserve utterance-end to candidate-result timing"
+  Assert-True ($positive.utterance_end_timing_class -ceq "vad_speech_frame_available") "positive utterance-end timing class mismatch"
 
   $mismatchResponse = New-EndpointResponse `
     -ResultClass "scenario_expectation_not_met" `
@@ -377,6 +403,41 @@ try {
   $invalidVad = Assert-CommonResult -Run $invalidVadRun
   Assert-True ($invalidVadRun.Code -ne 0) "invalid VAD class must fail closed"
   Assert-True ($invalidVad.blocker_class -ceq "live_controller_endpoint_response_invalid") "invalid VAD blocker mismatch"
+
+  $unexpectedTimingResponse = New-EndpointResponse `
+    -ResultClass "self_output_or_ambiguous_confirmed" `
+    -ExpectationClass "matched" `
+    -CapturePacketCount 10 `
+    -CaptureByteCount 3200 `
+    -LastVadSpeechFrameOffsetMs 10 `
+    -ElapsedMs 25 `
+    -PcmCleanupCount 1
+  $unexpectedTimingServer = Start-TestServer -Response $unexpectedTimingResponse
+  $unexpectedTimingRun = Invoke-Controller -BaseUrl $unexpectedTimingServer.BaseUrl
+  [void](Complete-TestServer -Server $unexpectedTimingServer)
+  $unexpectedTiming = Assert-CommonResult -Run $unexpectedTimingRun
+  Assert-True ($unexpectedTimingRun.Code -ne 0) "no-speech timing offset must fail closed"
+  Assert-True ($unexpectedTiming.blocker_class -ceq "live_controller_endpoint_response_invalid") "no-speech timing blocker mismatch"
+
+  $timingSumMismatchResponse = New-EndpointResponse `
+    -ResultClass "independent_user_speech_turninput_accepted" `
+    -ExpectationClass "matched" `
+    -CapturePacketCount 12 `
+    -CaptureByteCount 3840 `
+    -TranscriptionCount 1 `
+    -SubmissionCount 1 `
+    -TurnInputCount 1 `
+    -VadDecisionClass "speech_detected" `
+    -ElapsedMs 90 `
+    -LastVadSpeechFrameOffsetMs 80 `
+    -UtteranceEndToCandidateResultMs 11 `
+    -PcmCleanupCount 1
+  $timingSumMismatchServer = Start-TestServer -Response $timingSumMismatchResponse
+  $timingSumMismatchRun = Invoke-Controller -BaseUrl $timingSumMismatchServer.BaseUrl -Scenario "independent_current_session_user_speech"
+  [void](Complete-TestServer -Server $timingSumMismatchServer)
+  $timingSumMismatch = Assert-CommonResult -Run $timingSumMismatchRun
+  Assert-True ($timingSumMismatchRun.Code -ne 0) "timing sum mismatch must fail closed"
+  Assert-True ($timingSumMismatch.blocker_class -ceq "live_controller_endpoint_response_invalid") "timing sum mismatch blocker mismatch"
 
   $impossibleDiagnosticResponse = New-EndpointResponse `
     -ResultClass "self_output_or_ambiguous_confirmed" `

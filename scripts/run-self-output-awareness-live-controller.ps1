@@ -21,6 +21,9 @@ $ExpectedResponseKeys = @(
   "submission_count",
   "thought_core_turninput_count",
   "elapsed_ms",
+  "last_vad_speech_frame_offset_ms",
+  "utterance_end_to_candidate_result_ms",
+  "utterance_end_timing_class",
   "pcm_cleanup_count",
   "private_authority_residue_count",
   "raw_private_publication_flags"
@@ -35,6 +38,12 @@ $AllowedVadDecisionClasses = @(
   "not_evaluated",
   "speech_not_detected",
   "speech_detected"
+)
+$AllowedUtteranceEndTimingClasses = @(
+  "not_evaluated",
+  "no_vad_speech_frame",
+  "vad_speech_frame_available",
+  "vad_speech_frame_inconsistent"
 )
 $AllowedScenarios = @(
   "self_output_or_ambiguous",
@@ -123,6 +132,9 @@ $transcriptionCount = 0
 $submissionCount = 0
 $turnInputCount = 0
 $endpointElapsedMs = 0
+$lastVadSpeechFrameOffsetMs = $null
+$utteranceEndToCandidateResultMs = $null
+$utteranceEndTimingClass = "not_evaluated"
 $pcmCleanupCount = 0
 $privateAuthorityResidueCount = 0
 $httpStatusClass = "not_observed"
@@ -297,6 +309,8 @@ try {
     $AllowedSignalClasses -cnotcontains [string]$endpointResult.signal_class -or
     $endpointResult.vad_decision_class -isnot [string] -or
     $AllowedVadDecisionClasses -cnotcontains [string]$endpointResult.vad_decision_class -or
+    $endpointResult.utterance_end_timing_class -isnot [string] -or
+    $AllowedUtteranceEndTimingClasses -cnotcontains [string]$endpointResult.utterance_end_timing_class -or
     $endpointResult.raw_private_publication_flags -isnot [bool] -or
     [bool]$endpointResult.raw_private_publication_flags
   ) {
@@ -312,6 +326,32 @@ try {
   Assert-BoundedInteger -Value $endpointResult.pcm_cleanup_count -Minimum 0 -Maximum 1
   Assert-BoundedInteger -Value $endpointResult.private_authority_residue_count -Minimum 0 -Maximum 1
 
+  $lastFrameValue = $endpointResult.last_vad_speech_frame_offset_ms
+  $utteranceToResultValue = $endpointResult.utterance_end_to_candidate_result_ms
+  $timingClass = [string]$endpointResult.utterance_end_timing_class
+  if ($timingClass -ceq "vad_speech_frame_available") {
+    Assert-BoundedInteger -Value $lastFrameValue -Minimum 10 -Maximum $WindowMs
+    Assert-BoundedInteger -Value $utteranceToResultValue -Minimum 0 -Maximum 20000
+    if (
+      [string]$endpointResult.vad_decision_class -cne "speech_detected" -or
+      ([int]$lastFrameValue + [int]$utteranceToResultValue) -ne
+        [int]$endpointResult.elapsed_ms
+    ) {
+      Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+    }
+  } elseif ($null -ne $lastFrameValue -or $null -ne $utteranceToResultValue) {
+    Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+  } elseif (
+    ($timingClass -ceq "no_vad_speech_frame" -and
+      [string]$endpointResult.vad_decision_class -cne "speech_not_detected") -or
+    ($timingClass -ceq "vad_speech_frame_inconsistent" -and
+      [string]$endpointResult.vad_decision_class -cne "speech_detected") -or
+    ($timingClass -ceq "not_evaluated" -and
+      [string]$endpointResult.vad_decision_class -cne "not_evaluated")
+  ) {
+    Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+  }
+
   $resultClass = [string]$endpointResult.result_class
   $expectationClass = [string]$endpointResult.expectation_class
   $capturePacketCount = [int]$endpointResult.capture_packet_count
@@ -322,6 +362,9 @@ try {
   $submissionCount = [int]$endpointResult.submission_count
   $turnInputCount = [int]$endpointResult.thought_core_turninput_count
   $endpointElapsedMs = [int]$endpointResult.elapsed_ms
+  $lastVadSpeechFrameOffsetMs = $lastFrameValue
+  $utteranceEndToCandidateResultMs = $utteranceToResultValue
+  $utteranceEndTimingClass = $timingClass
   $pcmCleanupCount = [int]$endpointResult.pcm_cleanup_count
   $privateAuthorityResidueCount = [int]$endpointResult.private_authority_residue_count
 
@@ -491,6 +534,9 @@ $result = [ordered]@{
   submission_count = $submissionCount
   thought_core_turninput_count = $turnInputCount
   endpoint_elapsed_ms = $endpointElapsedMs
+  last_vad_speech_frame_offset_ms = $lastVadSpeechFrameOffsetMs
+  utterance_end_to_candidate_result_ms = $utteranceEndToCandidateResultMs
+  utterance_end_timing_class = $utteranceEndTimingClass
   controller_elapsed_ms = $controllerElapsedMs
   window_ms = $WindowMs
   deadline_ms = $DeadlineMs
