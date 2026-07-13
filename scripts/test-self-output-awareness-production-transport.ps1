@@ -221,7 +221,7 @@ function New-FakeObserverProcess {
 
 function New-ControlledRouteHarness {
   param(
-    [ValidateSet("success", "delayed_start", "superseded_generation", "superseded_generation_silent_new", "history_overflow", "ordinal_gap", "lease_mismatch", "stale_replay", "ack_unknown", "timeout")]
+    [ValidateSet("success", "delayed_start", "released_restart_lower_generation", "superseded_generation", "superseded_generation_silent_new", "history_overflow", "ordinal_gap", "lease_mismatch", "stale_replay", "ack_unknown", "timeout")]
     [string]$Mode
   )
   $state = [pscustomobject]@{
@@ -241,6 +241,21 @@ function New-ControlledRouteHarness {
       if ($Mode -ceq "stale_replay") {
         if ($readIndex -eq 0) { return New-AitResponse (New-Transport "released" 9 -Generation 7) }
         return New-AitResponse (New-Transport "handoff_accepted" 10 -Generation 7 -PlaybackRef "playback-event:pe_cccccccccccccccccccccccccccccccc")
+      }
+      if ($Mode -ceq "released_restart_lower_generation") {
+        if ($readIndex -eq 0) {
+          return New-AitResponse (New-Transport "released" 9 -Generation 7)
+        }
+        $restartArgs = @{
+          Generation = 1
+          SessionId = "system-speech-session:sss_cccccccccccccccccccccccccccccccc"
+          PlaybackRef = "playback-event:pe_dddddddddddddddddddddddddddddddd"
+        }
+        switch ($readIndex) {
+          1 { return New-AitResponse (New-Transport "handoff_accepted" 10 @restartArgs) }
+          2 { return New-AitResponse (New-Transport "cooldown" 11 @restartArgs) }
+          default { return New-AitResponse (New-Transport "released" 12 @restartArgs) }
+        }
       }
       $lifecycleIndex = $(if ($Mode -ceq "delayed_start") { $readIndex - 2 } else { $readIndex })
       if ($lifecycleIndex -le 0) { return New-AitResponse $null }
@@ -568,6 +583,16 @@ Assert-Equal $delayedHarness.State.AitReadCount 6 "delayed lifecycle consumes ba
 Assert-Equal $delayedHarness.State.CoreBodies.Count 4 "delayed lifecycle sends one ordered event set"
 Assert-Equal $delayedRoute.Value.final_lifecycle_state "released" "delayed lifecycle still reaches released"
 Assert-Equal ($delayedHarness.State.AitQueries -join ",") ",?after_ordinal=0,?after_ordinal=0,?after_ordinal=0,?after_ordinal=1,?after_ordinal=2" "empty cursor reads do not advance the retained ordinal"
+
+$restartHarness = New-ControlledRouteHarness -Mode "released_restart_lower_generation"
+$restartRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $restartHarness.RequestInvoker -ObserverStarter $restartHarness.ObserverStarter -SleepInvoker $restartHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $restartRoute.ExitCode 0 "fresh lower-generation lease after release is accepted"
+Assert-Equal $restartRoute.Value.lifecycle_ingest_count 3 "reload restart ingests exact lifecycle count"
+Assert-Equal $restartRoute.Value.observation_ingest_count 1 "reload restart emits one observation"
+Assert-Equal $restartRoute.Value.final_lifecycle_state "released" "reload restart reaches released"
+Assert-Equal $restartHarness.State.CoreBodies.Count 4 "reload restart sends three lifecycle events and one observation"
+Assert-Equal (@($restartHarness.State.CoreBodies | Select-Object -First 3 | ForEach-Object { $_.payload.speech_session_generation }) -join ",") "1,1,1" "reload restart preserves new lower generation"
+Assert-Equal ($restartHarness.State.AitQueries -join ",") ",?after_ordinal=9,?after_ordinal=10,?after_ordinal=11" "reload restart consumes only post-baseline ordinals"
 
 $supersededHarness = New-ControlledRouteHarness -Mode "superseded_generation"
 $supersededRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $supersededHarness.RequestInvoker -ObserverStarter $supersededHarness.ObserverStarter -SleepInvoker $supersededHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"

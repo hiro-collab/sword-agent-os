@@ -678,9 +678,8 @@ try {
     $lastClientMonotonic = [double]$step.client_timestamp_monotonic
     if ($null -eq $lease) {
       if ($null -ne $baselineLease -and (
-          [long]$step.lifecycle.speech_session_generation -le [long]$baselineLease.speech_session_generation -or
-          ([string]$step.lifecycle.system_speech_session_id -ceq [string]$baselineLease.system_speech_session_id -and
-            [string]$step.lifecycle.playback_event_ref -ceq [string]$baselineLease.playback_event_ref)
+          [string]$step.lifecycle.system_speech_session_id -ceq [string]$baselineLease.system_speech_session_id -or
+          [string]$step.lifecycle.playback_event_ref -ceq [string]$baselineLease.playback_event_ref
         )) {
         Throw-Fixed -Class "lifecycle_stale_generation_replay"
       }
