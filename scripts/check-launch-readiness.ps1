@@ -3,6 +3,7 @@ param(
   [string]$WorkspaceRoot = "",
   [switch]$CheckEndpoints,
   [switch]$SkipPortChecks,
+  [int]$AiTalkCorePort = 8000,
   [int]$HomeAssistantBridgePort = 8787,
   [int]$EnvironmentStatePort = 8790,
   [int]$MediapipePort = 8765,
@@ -324,6 +325,7 @@ $serviceManifest = Read-Json -Path ([string]$profile.service_manifest)
 
 if ($UseIsolatedPorts) {
   $isolatedPorts = Get-PortModePorts -ServiceManifest $serviceManifest -ModeName "isolated_override"
+  Set-PortIfUnbound -Name "AiTalkCorePort" -Value $isolatedPorts["ai_talk_core_web"]
   Set-PortIfUnbound -Name "HomeAssistantBridgePort" -Value $isolatedPorts["home_assistant_bridge"]
   Set-PortIfUnbound -Name "EnvironmentStatePort" -Value $isolatedPorts["environment_state_server"]
   Set-PortIfUnbound -Name "MediapipePort" -Value $isolatedPorts["mediapipe_camera_hub_stack"]
@@ -353,6 +355,7 @@ $checks += Test-Tool -Name "uv"
 $checks += Test-Tool -Name "node"
 $checks += Test-Tool -Name "npm"
 
+$checks += Test-LaunchPort -Id "port.ai_talk_core_web" -Port $AiTalkCorePort
 $checks += Test-LaunchPort -Id "port.home_assistant_bridge" -Port $HomeAssistantBridgePort
 $checks += Test-LaunchPort -Id "port.environment_state_server" -Port $EnvironmentStatePort
 $checks += Test-LaunchPort -Id "port.thought_core_api" -Port $ThoughtCorePort
@@ -484,6 +487,7 @@ $warnings = @($checks | Where-Object { $_.severity -eq "warning" -and $_.status 
   workspace_root = $workspace
   port_mode = if ($UseIsolatedPorts) { "isolated_override" } else { "manifest_default" }
   ports = [PSCustomObject]@{
+    ai_talk_core_web = $AiTalkCorePort
     home_assistant_bridge = $HomeAssistantBridgePort
     environment_state_server = $EnvironmentStatePort
     thought_core_api = $ThoughtCorePort

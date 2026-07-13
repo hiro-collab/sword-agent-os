@@ -135,6 +135,35 @@
   ],
   "organ_drivers": [
     {
+      "driver_id": "browser_speech_input_driver",
+      "driver_class": "organ",
+      "organ_id": "ai-talk-core",
+      "target_services": [
+        "ai_talk_core_web"
+      ],
+      "capabilities": [
+        "speech_input",
+        "accepted_user_speech_input_gate"
+      ],
+      "composes": [
+        "generic-process-port",
+        "generic-http-health"
+      ],
+      "event_sources": [],
+      "topology_outputs": [
+        "speech-input health endpoint",
+        "private input-gate decision boundary"
+      ],
+      "capability_evidence": [
+        "speech-input service health ok",
+        "input-gate decision owner is ai_talk_core_input_gate",
+        "AEC and VAD evidence does not grant TurnInput authority"
+      ],
+      "deep_checks": [
+        "bounded negative self-output window and positive independent-user-speech window with private-text and cleanup proof separated"
+      ]
+    },
+    {
       "driver_id": "home_control_driver",
       "driver_class": "organ",
       "organ_id": "home-assistant-server",

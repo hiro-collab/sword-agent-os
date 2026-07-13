@@ -3081,8 +3081,16 @@ function Test-NativeLaunchLayoutFixtures {
       "-SkipPortChecks"
     )
     $partialAiTalk = $partialAiTalkOutput -join "`n" | ConvertFrom-Json
-    if ([string]$partialAiTalk.status -ne "warning") {
-      throw "partial AI Talk Core layout should warn without the native speech-input path; got $($partialAiTalk.status)"
+    if ([string]$partialAiTalk.status -ne "blocked") {
+      throw "partial AI Talk Core layout should block without the required speech-input service target; got $($partialAiTalk.status)"
+    }
+    $partialAiTalkServiceCheck = @($partialAiTalk.checks | Where-Object { [string]$_.id -eq "service_target.ai_talk_core_web" } | Select-Object -First 1)
+    if (
+      $partialAiTalkServiceCheck.Count -eq 0 -or
+      [string]$partialAiTalkServiceCheck[0].status -ne "missing" -or
+      [string]$partialAiTalkServiceCheck[0].severity -ne "blocker"
+    ) {
+      throw "partial AI Talk Core layout should report the required speech-input service target as a blocker"
     }
     $partialAiTalkCheck = @($partialAiTalk.checks | Where-Object { [string]$_.id -eq "native_delegate_layout.ai_talk_core" } | Select-Object -First 1)
     if ($partialAiTalkCheck.Count -eq 0 -or [string]$partialAiTalkCheck[0].status -ne "missing") {

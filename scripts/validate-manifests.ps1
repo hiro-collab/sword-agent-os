@@ -429,8 +429,8 @@ foreach ($platformProfile in $platformProfiles) {
   }
 }
 
-Assert-True ($standardProfile.required_services.Count -eq 8) "standard profile should require 8 services"
-Assert-True ($serviceManifest.services.Count -eq 8) "standard service inventory should define 8 services"
+Assert-True ($standardProfile.required_services.Count -eq 9) "standard profile should require 9 services"
+Assert-True ($serviceManifest.services.Count -eq 9) "standard service inventory should define 9 services"
 
 $serviceIds = @($serviceManifest.services | ForEach-Object { $_.service_id })
 foreach ($serviceId in $standardProfile.required_services) {

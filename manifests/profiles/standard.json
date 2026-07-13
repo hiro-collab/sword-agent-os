@@ -24,6 +24,7 @@
     "approval-queue"
   ],
   "required_services": [
+    "ai_talk_core_web",
     "home_assistant_bridge",
     "environment_state_server",
     "thought_core_api",

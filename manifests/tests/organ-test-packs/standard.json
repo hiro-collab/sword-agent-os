@@ -78,6 +78,66 @@
       ]
     },
     {
+      "organ_id": "ai-talk-core",
+      "role": "speech-input",
+      "service_ids": ["ai_talk_core_web"],
+      "capabilities": ["speech_input", "accepted_user_speech_input_gate"],
+      "tests": [
+        {
+          "id": "ai_talk_core.checkout",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/speech-input/ai-talk-core",
+          "expect": "exists"
+        },
+        {
+          "id": "ai_talk_core.requirements",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "organs/speech-input/ai-talk-core/MODULE_REQUIREMENTS.md",
+          "expect": "exists"
+        },
+        {
+          "id": "ai_talk_core.start_owner",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "control-plane/core/scripts/start-ai-talk-core.ps1",
+          "expect": "exists"
+        },
+        {
+          "id": "ai_talk_core.stop_owner",
+          "mode": "auto",
+          "type": "path_exists",
+          "path": "control-plane/core/scripts/stop-full-stack.ps1",
+          "expect": "exists"
+        },
+        {
+          "id": "ai_talk_core.diagnostics_service",
+          "mode": "auto",
+          "type": "diagnostics_service",
+          "service_id": "ai_talk_core_web"
+        },
+        {
+          "id": "ai_talk_core.speech_input_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "speech_input"
+        },
+        {
+          "id": "ai_talk_core.input_gate_capability",
+          "mode": "auto",
+          "type": "diagnostics_capability",
+          "capability": "accepted_user_speech_input_gate"
+        },
+        {
+          "id": "ai_talk_core.http_live",
+          "mode": "live",
+          "type": "http_health",
+          "service_id": "ai_talk_core_web"
+        }
+      ]
+    },
+    {
       "organ_id": "home-assistant-server",
       "role": "action/home-control",
       "service_ids": ["home_assistant_bridge"],

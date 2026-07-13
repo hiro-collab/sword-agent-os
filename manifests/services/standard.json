@@ -13,6 +13,7 @@
       ],
       "conflict_policy": "Report blocked or unavailable when a port is owned by another process; do not stop unowned processes automatically.",
       "service_ports": {
+        "ai_talk_core_web": 8000,
         "home_assistant_bridge": 8787,
         "environment_state_server": 8790,
         "thought_core_api": 18787,
@@ -34,6 +35,7 @@
       ],
       "conflict_policy": "Valid operation-check evidence path, but not the standard fixed endpoint set.",
       "service_ports": {
+        "ai_talk_core_web": 18800,
         "home_assistant_bridge": 18887,
         "environment_state_server": 18890,
         "thought_core_api": 18888,
@@ -48,6 +50,41 @@
     }
   },
   "services": [
+    {
+      "service_id": "ai_talk_core_web",
+      "layer": "input",
+      "logical_service": "speech-input-gate",
+      "organ_id": "ai-talk-core",
+      "target_path": "organs/speech-input/ai-talk-core",
+      "contracts": [
+        "accepted_user_speech_candidate_input_gate",
+        "audio_self_output_observation"
+      ],
+      "start": {
+        "type": "script",
+        "owner": "control-plane/core/scripts/start-ai-talk-core.ps1"
+      },
+      "health": {
+        "type": "http",
+        "url": "http://127.0.0.1:8000/health"
+      },
+      "authority_touched": [
+        "user_speech_candidate_acceptance",
+        "input_gate_capability_issuance",
+        "private_transcription_handoff"
+      ],
+      "behavior": {
+        "behavior_kind": "input_gate",
+        "agency_mode": "autonomic",
+        "target_domain": "private_user_speech_candidate",
+        "risk_class": "privacy_sensitive_sensor",
+        "approval_mode": "canonical_input_gate_policy"
+      },
+      "runtime_outputs": [
+        "organs/speech-input/ai-talk-core/.cache"
+      ],
+      "notes": "Owns speech-candidate acceptance and one-use input capability issuance. AEC, VAD, transport, and external acoustic test stimuli may provide evidence but cannot grant user intent or TurnInput authority."
+    },
     {
       "service_id": "home_assistant_bridge",
       "layer": "action",
