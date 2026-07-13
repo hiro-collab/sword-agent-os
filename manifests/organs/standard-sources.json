@@ -13,7 +13,7 @@
       "version_source": "organs/speech-input/ai-talk-core/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/ai-talk-core.git",
       "branch": "main",
-      "commit": "b546cd5d24306430c5f6d60e1e3941ecadbf5e36",
+      "commit": "b9c91da6c4ff5b2f997ab25666cc7284ddc97c33",
       "adoption": "standard_candidate",
       "notes": "STT, browser recording, transcript, and handoff boundary."
     },
@@ -107,7 +107,7 @@
       "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
       "repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "branch": "main",
-      "commit": "d7c888f8f9c8aa95956b6d86e4470a62ab879127",
+      "commit": "ba62a19b7a647c41b9709554b5af4ea0895ecb56",
       "sword_adapter_version": "0.1.3",
       "patchset_id": "sword-aituberkit",
       "patchset_version": "0.1.3",
