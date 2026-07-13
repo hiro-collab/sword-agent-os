@@ -398,6 +398,7 @@ $observerSource = Get-Content -LiteralPath $ObserverSourcePath -Raw
 Assert-True ($sourceText -match 'X-AI-Core-Token') "Core token header fixed"
 Assert-True ($sourceText -match 'UseProxy = \$false') "proxy disabled"
 Assert-True ($sourceText -match 'AllowAutoRedirect = \$false') "redirect disabled"
+Assert-True ($sourceText -match 'ConvertFrom-Json -Depth 12 -DateKind String') "wire timestamps remain contract strings"
 Assert-True ($sourceText -match 'Kill\(\$true\)') "owned child cleanup present"
 Assert-True ($sourceText -match 'candidate_authority = \$false') "controller has no candidate authority"
 Assert-True ($sourceText -match 'turn_input_authority = \$false') "controller has no TurnInput authority"

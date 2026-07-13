@@ -361,7 +361,7 @@ function Invoke-JsonRequest {
     if ([Text.Encoding]::UTF8.GetByteCount($responseText) -gt 32768) {
       Throw-Fixed -Class $FailureClass
     }
-    try { $responseBody = $responseText | ConvertFrom-Json -Depth 12 }
+    try { $responseBody = $responseText | ConvertFrom-Json -Depth 12 -DateKind String }
     catch { Throw-Fixed -Class $FailureClass }
     finally { $responseText = "" }
     return [pscustomobject]@{
