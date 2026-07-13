@@ -242,6 +242,8 @@ function Test-BatchWrappers {
 function Test-MaintenanceSafetyStatic {
   Write-TestStep "maintenance safety static checks"
   $productionScripts = @(
+    "scripts/bootstrap-control-plane.ps1",
+    "scripts/bootstrap-organs.ps1",
     "scripts/bootstrap-workspace.ps1",
     "scripts/install-distribution.ps1",
     "scripts/update-distribution.ps1",
@@ -271,6 +273,17 @@ function Test-MaintenanceSafetyStatic {
       }
     }
     Write-Host "safety static ok: $relativePath"
+  }
+
+  foreach ($bootstrapPath in @(
+      "scripts/bootstrap-control-plane.ps1",
+      "scripts/bootstrap-organs.ps1"
+    )) {
+    $bootstrapContent = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot $bootstrapPath)
+    Assert-TextMatch `
+      -Text $bootstrapContent `
+      -Pattern '(?s)"clone",\s*"--config",\s*"core\.longpaths=true",\s*"--branch"' `
+      -Message "$bootstrapPath must keep long-path support repo-local during clone"
   }
 
   $serviceManifest = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "manifests\services\standard.json") | ConvertFrom-Json

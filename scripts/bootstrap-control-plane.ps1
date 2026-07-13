@@ -159,6 +159,8 @@ if (-not (Test-Path -LiteralPath $target)) {
   Invoke-Step -Command @(
     "git",
     "clone",
+    "--config",
+    "core.longpaths=true",
     "--branch",
     [string]$manifest.branch,
     [string]$manifest.repo_url,

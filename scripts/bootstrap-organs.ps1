@@ -171,6 +171,8 @@ foreach ($source in $manifest.sources) {
     Invoke-Step -Command @(
       "git",
       "clone",
+      "--config",
+      "core.longpaths=true",
       "--branch",
       [string]$source.branch,
       [string]$source.repo_url,
