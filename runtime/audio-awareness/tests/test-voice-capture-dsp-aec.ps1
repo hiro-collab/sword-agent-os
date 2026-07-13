@@ -1028,6 +1028,7 @@ Assert-Match $sourceText 'SetIntProperty\(\s*properties,\s*VoiceCaptureDspAec\.P
 Assert-NotMatch $sourceText 'SetBoolProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidNoiseSuppression' "noise suppression is never encoded as VT_BOOL"
 Assert-Match $sourceText 'SetBoolProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidAutomaticGainControl,\s*true\)' "automatic gain control retains the required VT_BOOL value"
 Assert-NotMatch $sourceText 'properties\.Commit\(' "transient Voice Capture DSP properties are applied without an unsupported commit"
+Assert-Match $sourceText 'ProcessOutput\(uint flags,\s*uint outputCount,\s*\[In, Out, MarshalAs\(UnmanagedType\.LPArray, SizeParamIndex = 1\)\]\s*DmoOutputDataBuffer\[\] output' "ProcessOutput marshals its bounded output array as an LPArray"
 Assert-NotMatch $sourceText 'WriteAllBytes|FileStream|\.wav|transcript' "source persists no audio or transcript"
 Assert-NotMatch $sourceText 'Console\.(Write|Error)|Trace\.|Debug\.' "source logs no raw data"
 

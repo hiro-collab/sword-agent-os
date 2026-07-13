@@ -1100,7 +1100,7 @@ namespace SwordAgentOS.AudioAwareness
         [PreserveSig] int FreeStreamingResources();
         [PreserveSig] int GetInputStatus(uint index, out uint flags);
         [PreserveSig] int ProcessInput(uint index, IMediaBuffer buffer, uint flags, long timestamp, long timelength);
-        [PreserveSig] int ProcessOutput(uint flags, uint outputCount, [In, Out] DmoOutputDataBuffer[] output, out uint status);
+        [PreserveSig] int ProcessOutput(uint flags, uint outputCount, [In, Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] DmoOutputDataBuffer[] output, out uint status);
         [PreserveSig] int Lock(int value);
     }
 
