@@ -56,6 +56,19 @@ const NON_CLAIMS = [
   "not_home_assistant_action",
   "not_release_or_final_rr003",
 ];
+const AEC_OWNER_CLASSES = new Set([
+  "windows_voice_capture_dsp",
+  "webrtc_apm_aec3",
+]);
+const PROCESSING_INVENTORY_CLASSES = new Set([
+  "known_no_owner",
+  "known_single_owner",
+  "unknown",
+  "double_owner",
+]);
+const MIN_ECHO_CONVERGENCE_DB = 6;
+const MIN_NEAR_END_PRESERVATION_RATIO = 0.85;
+const MIN_AEC_SELECTION_MARGIN_DB = 1;
 
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) return min;
@@ -149,8 +162,7 @@ export function analyzePcmWindow({
     : 0;
   const rms = sampleCount
     ? Math.sqrt(
-        normalized.reduce((sum, value) => sum + value * value, 0) /
-          sampleCount,
+        normalized.reduce((sum, value) => sum + value * value, 0) / sampleCount,
       )
     : 0;
   const silenceCount = sampleCount
@@ -257,9 +269,7 @@ export function buildAudioAwarenessSummary({
     proof_ceiling: PROOF_CEILINGS.has(proofCeiling)
       ? proofCeiling
       : SOURCE_STATIC_PROOF_CEILING,
-    source_mode: SOURCE_MODES.has(sourceMode)
-      ? sourceMode
-      : "source_static",
+    source_mode: SOURCE_MODES.has(sourceMode) ? sourceMode : "source_static",
     capture_permissions: {
       ...defaultCapturePermissions(),
       ...capturePermissions,
@@ -415,12 +425,22 @@ function assertChannel(errors, channel, index) {
   if (!OBSERVATION_STATUSES.has(channel.observation_status)) {
     errors.push(`channels[${index}].observation_status is invalid`);
   }
-  for (const field of ["window_ms", "sample_count", "clipping_count", "dropout_count"]) {
+  for (const field of [
+    "window_ms",
+    "sample_count",
+    "clipping_count",
+    "dropout_count",
+  ]) {
     if (!Number.isInteger(channel[field]) || channel[field] < 0) {
       errors.push(`channels[${index}].${field} must be a non-negative integer`);
     }
   }
-  for (const field of ["rms_dbfs", "peak_dbfs", "silence_ratio", "source_confidence"]) {
+  for (const field of [
+    "rms_dbfs",
+    "peak_dbfs",
+    "silence_ratio",
+    "source_confidence",
+  ]) {
     if (channel[field] !== null && !Number.isFinite(channel[field])) {
       errors.push(`channels[${index}].${field} must be a number or null`);
     }
@@ -499,17 +519,41 @@ export function validateAudioAwarenessSummary(payload) {
   if (!correlation || typeof correlation !== "object") {
     errors.push("correlation is required");
   } else {
-    assertSafeRef(errors, correlation.self_output_event_ref, "correlation.self_output_event_ref");
-    assertSafeRef(errors, correlation.playback_event_ref, "correlation.playback_event_ref");
+    assertSafeRef(
+      errors,
+      correlation.self_output_event_ref,
+      "correlation.self_output_event_ref",
+    );
+    assertSafeRef(
+      errors,
+      correlation.playback_event_ref,
+      "correlation.playback_event_ref",
+    );
   }
   const transcript = payload.transcript;
   if (!transcript || typeof transcript !== "object") {
     errors.push("transcript is required");
   } else {
-    assertFalse(errors, transcript.full_transcript_saved, "transcript.full_transcript_saved");
-    assertFalse(errors, transcript.raw_transcript_included, "transcript.raw_transcript_included");
-    assertFalse(errors, transcript.provider_payload_included, "transcript.provider_payload_included");
-    assertNull(errors, transcript.transcript_summary_ref, "transcript.transcript_summary_ref");
+    assertFalse(
+      errors,
+      transcript.full_transcript_saved,
+      "transcript.full_transcript_saved",
+    );
+    assertFalse(
+      errors,
+      transcript.raw_transcript_included,
+      "transcript.raw_transcript_included",
+    );
+    assertFalse(
+      errors,
+      transcript.provider_payload_included,
+      "transcript.provider_payload_included",
+    );
+    assertNull(
+      errors,
+      transcript.transcript_summary_ref,
+      "transcript.transcript_summary_ref",
+    );
   }
   for (const sectionName of ["redaction", "safety"]) {
     if (!payload[sectionName] || typeof payload[sectionName] !== "object") {
@@ -555,6 +599,168 @@ export function validateAudioAwarenessSummary(payload) {
     }
   }
   return errors;
+}
+
+export function selectSyntheticAecOwner({
+  processingInventoryClass = "unknown",
+  activeOwnerClasses = [],
+  candidates = [],
+} = {}) {
+  const inventory = PROCESSING_INVENTORY_CLASSES.has(processingInventoryClass)
+    ? processingInventoryClass
+    : "unknown";
+  const activeInputValid = Array.isArray(activeOwnerClasses);
+  const active = activeInputValid ? [...activeOwnerClasses] : ["invalid"];
+  const candidateInputValid = Array.isArray(candidates);
+  const candidateValues = candidateInputValid ? candidates : [];
+  const activeValid = active.every((value) => AEC_OWNER_CLASSES.has(value));
+  const normalized = candidateValues.map(normalizeSyntheticAecCandidate);
+
+  if (!candidateInputValid || normalized.some((value) => value === null)) {
+    return buildSyntheticAecSelectionResult({
+      resultClass: "synthetic_aec_candidate_invalid_observation_only",
+      inventoryClass: inventory,
+      candidateCount: candidateValues.length,
+    });
+  }
+
+  if (inventory === "double_owner" || active.length > 1) {
+    return buildSyntheticAecSelectionResult({
+      resultClass: "aec_double_owner_rejected",
+      inventoryClass: inventory,
+      candidateCount: normalized.length,
+    });
+  }
+  if (
+    inventory === "unknown" ||
+    !activeValid ||
+    (inventory === "known_single_owner" && active.length !== 1) ||
+    (inventory === "known_no_owner" && active.length !== 0)
+  ) {
+    return buildSyntheticAecSelectionResult({
+      resultClass: "aec_processing_unknown_observation_only",
+      inventoryClass: "unknown",
+      candidateCount: normalized.length,
+    });
+  }
+
+  if (
+    new Set(normalized.map((value) => value.owner_class)).size !==
+    normalized.length
+  ) {
+    return buildSyntheticAecSelectionResult({
+      resultClass: "synthetic_aec_owner_ambiguous",
+      inventoryClass: inventory,
+      candidateCount: normalized.length,
+    });
+  }
+
+  const eligible = normalized
+    .filter(
+      (value) =>
+        value.echo_convergence_db >= MIN_ECHO_CONVERGENCE_DB &&
+        value.near_end_preservation_ratio >= MIN_NEAR_END_PRESERVATION_RATIO,
+    )
+    .sort(
+      (left, right) =>
+        right.echo_convergence_db - left.echo_convergence_db ||
+        right.near_end_preservation_ratio - left.near_end_preservation_ratio,
+    );
+  if (eligible.length === 0) {
+    return buildSyntheticAecSelectionResult({
+      resultClass: "synthetic_aec_candidate_unqualified",
+      inventoryClass: inventory,
+      candidateCount: normalized.length,
+    });
+  }
+  if (
+    eligible.length > 1 &&
+    eligible[0].echo_convergence_db - eligible[1].echo_convergence_db <
+      MIN_AEC_SELECTION_MARGIN_DB
+  ) {
+    return buildSyntheticAecSelectionResult({
+      resultClass: "synthetic_aec_owner_ambiguous",
+      inventoryClass: inventory,
+      candidateCount: normalized.length,
+    });
+  }
+
+  const selected = eligible[0];
+  if (active.length === 1 && active[0] !== selected.owner_class) {
+    return buildSyntheticAecSelectionResult({
+      resultClass: "aec_active_owner_mismatch_observation_only",
+      inventoryClass: inventory,
+      candidateCount: normalized.length,
+    });
+  }
+  return buildSyntheticAecSelectionResult({
+    resultClass: "synthetic_aec_owner_selected",
+    inventoryClass: inventory,
+    candidateCount: normalized.length,
+    selected,
+  });
+}
+
+function normalizeSyntheticAecCandidate(candidate) {
+  try {
+    if (
+      !candidate ||
+      typeof candidate !== "object" ||
+      Array.isArray(candidate)
+    ) {
+      return null;
+    }
+    if (!AEC_OWNER_CLASSES.has(candidate.owner_class)) return null;
+    if (!Number.isFinite(candidate.echo_convergence_db)) return null;
+    if (!Number.isFinite(candidate.near_end_preservation_ratio)) return null;
+    if (
+      candidate.near_end_preservation_ratio < 0 ||
+      candidate.near_end_preservation_ratio > 1
+    ) {
+      return null;
+    }
+    return {
+      owner_class: candidate.owner_class,
+      echo_convergence_db: candidate.echo_convergence_db,
+      near_end_preservation_ratio: candidate.near_end_preservation_ratio,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildSyntheticAecSelectionResult({
+  resultClass,
+  inventoryClass,
+  candidateCount,
+  selected = null,
+}) {
+  return {
+    schema_version: "synthetic_aec_owner_selection.v0",
+    proof_ceiling: "synthetic_aec_owner_selection_only",
+    result_class: resultClass,
+    processing_inventory_class: inventoryClass,
+    candidate_count: candidateCount,
+    selected_owner_class: selected?.owner_class ?? null,
+    selected_echo_convergence_db: selected
+      ? roundAecMetric(selected.echo_convergence_db)
+      : null,
+    selected_near_end_preservation_ratio: selected
+      ? roundAecMetric(selected.near_end_preservation_ratio)
+      : null,
+    exactly_one_aec_owner: selected !== null,
+    observation_only: selected === null,
+    render_reference_may_create_turn_input: false,
+    raw_audio_persisted: false,
+    live_audio_used: false,
+  };
+}
+
+function roundAecMetric(value) {
+  const scaled = value * 1000;
+  const rounded =
+    value >= 0 ? Math.floor(scaled + 0.5) : Math.ceil(scaled - 0.5);
+  return rounded / 1000;
 }
 
 export const AUDIO_AWARENESS_SCHEMA_VERSION = SCHEMA_VERSION;

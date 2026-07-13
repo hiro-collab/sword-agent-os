@@ -8,6 +8,7 @@ import {
   buildAudioAwarenessSummary,
   buildSpeechInputVadAdapterChannel,
   buildSyntheticAudioAwarenessSummary,
+  selectSyntheticAecOwner,
   validateAudioAwarenessSummary,
 } from "../audio-awareness.mjs";
 
@@ -65,6 +66,266 @@ test("summarizes samples without retaining raw audio", () => {
   assert.equal(channel.speech_present, true);
   assert.equal(channel.raw_audio, undefined);
   assert.equal(channel.peak_dbfs, -6.02);
+});
+
+test("selects exactly one synthetic AEC owner with summary-only output", () => {
+  const result = selectSyntheticAecOwner({
+    processingInventoryClass: "known_no_owner",
+    activeOwnerClasses: [],
+    candidates: [
+      {
+        owner_class: "windows_voice_capture_dsp",
+        echo_convergence_db: 20,
+        near_end_preservation_ratio: 1,
+        raw_audio: [0.1, 0.2],
+      },
+      {
+        owner_class: "webrtc_apm_aec3",
+        echo_convergence_db: 13.979,
+        near_end_preservation_ratio: 1,
+      },
+    ],
+  });
+
+  assert.deepEqual(result, {
+    schema_version: "synthetic_aec_owner_selection.v0",
+    proof_ceiling: "synthetic_aec_owner_selection_only",
+    result_class: "synthetic_aec_owner_selected",
+    processing_inventory_class: "known_no_owner",
+    candidate_count: 2,
+    selected_owner_class: "windows_voice_capture_dsp",
+    selected_echo_convergence_db: 20,
+    selected_near_end_preservation_ratio: 1,
+    exactly_one_aec_owner: true,
+    observation_only: false,
+    render_reference_may_create_turn_input: false,
+    raw_audio_persisted: false,
+    live_audio_used: false,
+  });
+  assert.equal(result.raw_audio, undefined);
+  assert.equal(JSON.stringify(result).includes("0.1"), false);
+});
+
+test("AEC owner selection fails closed for unknown double and tied states", () => {
+  const tiedCandidates = [
+    {
+      owner_class: "windows_voice_capture_dsp",
+      echo_convergence_db: 12,
+      near_end_preservation_ratio: 0.95,
+    },
+    {
+      owner_class: "webrtc_apm_aec3",
+      echo_convergence_db: 12,
+      near_end_preservation_ratio: 0.95,
+    },
+  ];
+  const cases = [
+    ["unknown", [], "aec_processing_unknown_observation_only"],
+    [
+      "double_owner",
+      ["windows_voice_capture_dsp", "webrtc_apm_aec3"],
+      "aec_double_owner_rejected",
+    ],
+    ["known_no_owner", [], "synthetic_aec_owner_ambiguous"],
+  ];
+  for (const [
+    processingInventoryClass,
+    activeOwnerClasses,
+    resultClass,
+  ] of cases) {
+    const result = selectSyntheticAecOwner({
+      processingInventoryClass,
+      activeOwnerClasses,
+      candidates: tiedCandidates,
+    });
+    assert.equal(result.result_class, resultClass);
+    assert.equal(result.selected_owner_class, null);
+    assert.equal(result.exactly_one_aec_owner, false);
+    assert.equal(result.observation_only, true);
+    assert.equal(result.render_reference_may_create_turn_input, false);
+  }
+});
+
+test("AEC owner selection does not echo invalid private candidates", () => {
+  const privateMarker = String.raw`private C:\audio\device`;
+  const result = selectSyntheticAecOwner({
+    processingInventoryClass: "known_no_owner",
+    activeOwnerClasses: [],
+    candidates: [
+      {
+        owner_class: privateMarker,
+        echo_convergence_db: 20,
+        near_end_preservation_ratio: 1,
+      },
+    ],
+  });
+
+  assert.equal(
+    result.result_class,
+    "synthetic_aec_candidate_invalid_observation_only",
+  );
+  assert.equal(result.candidate_count, 1);
+  assert.equal(result.selected_owner_class, null);
+  assert.equal(JSON.stringify(result).includes(privateMarker), false);
+});
+
+test("AEC synthetic winner cannot replace a different active owner", () => {
+  const result = selectSyntheticAecOwner({
+    processingInventoryClass: "known_single_owner",
+    activeOwnerClasses: ["webrtc_apm_aec3"],
+    candidates: [
+      {
+        owner_class: "windows_voice_capture_dsp",
+        echo_convergence_db: 18,
+        near_end_preservation_ratio: 0.98,
+      },
+    ],
+  });
+
+  assert.equal(
+    result.result_class,
+    "aec_active_owner_mismatch_observation_only",
+  );
+  assert.equal(result.selected_owner_class, null);
+  assert.equal(result.observation_only, true);
+});
+
+test("any malformed AEC candidate blocks selection from the valid subset", () => {
+  const valid = {
+    owner_class: "windows_voice_capture_dsp",
+    echo_convergence_db: 20,
+    near_end_preservation_ratio: 1,
+  };
+  const malformedCandidates = [
+    {
+      owner_class: "windows_voice_capture_dsp",
+      echo_convergence_db: "private-same-owner-marker",
+      near_end_preservation_ratio: 1,
+    },
+    {
+      owner_class: "webrtc_apm_aec3",
+      echo_convergence_db: 13.979,
+      near_end_preservation_ratio: "private-other-owner-marker",
+    },
+  ];
+
+  for (const malformed of malformedCandidates) {
+    const result = selectSyntheticAecOwner({
+      processingInventoryClass: "known_no_owner",
+      candidates: [valid, malformed],
+    });
+    assert.equal(
+      result.result_class,
+      "synthetic_aec_candidate_invalid_observation_only",
+    );
+    assert.equal(result.candidate_count, 2);
+    assert.equal(result.selected_owner_class, null);
+    assert.equal(result.observation_only, true);
+    assert.doesNotMatch(JSON.stringify(result), /private-.*-owner-marker/);
+  }
+});
+
+test("duplicate summaries for one AEC owner remain ambiguous", () => {
+  const result = selectSyntheticAecOwner({
+    processingInventoryClass: "known_no_owner",
+    candidates: [
+      {
+        owner_class: "windows_voice_capture_dsp",
+        echo_convergence_db: 20,
+        near_end_preservation_ratio: 1,
+      },
+      {
+        owner_class: "windows_voice_capture_dsp",
+        echo_convergence_db: 15,
+        near_end_preservation_ratio: 0.95,
+      },
+    ],
+  });
+
+  assert.equal(result.result_class, "synthetic_aec_owner_ambiguous");
+  assert.equal(result.selected_owner_class, null);
+  assert.equal(result.observation_only, true);
+});
+
+test("high convergence cannot override weak near-end preservation", () => {
+  const result = selectSyntheticAecOwner({
+    processingInventoryClass: "known_no_owner",
+    candidates: [
+      {
+        owner_class: "windows_voice_capture_dsp",
+        echo_convergence_db: 30,
+        near_end_preservation_ratio: 0.7,
+      },
+    ],
+  });
+
+  assert.equal(result.result_class, "synthetic_aec_candidate_unqualified");
+  assert.equal(result.selected_owner_class, null);
+  assert.equal(result.observation_only, true);
+});
+
+test("AEC selection thresholds have exact inclusive boundaries", () => {
+  const candidate = (
+    owner_class,
+    echo_convergence_db,
+    near_end_preservation_ratio,
+  ) => ({
+    owner_class,
+    echo_convergence_db,
+    near_end_preservation_ratio,
+  });
+  const singleCases = [
+    [6, 1, "synthetic_aec_owner_selected"],
+    [5.999, 1, "synthetic_aec_candidate_unqualified"],
+    [30, 0.85, "synthetic_aec_owner_selected"],
+    [30, 0.849, "synthetic_aec_candidate_unqualified"],
+  ];
+  for (const [convergence, preservation, resultClass] of singleCases) {
+    const result = selectSyntheticAecOwner({
+      processingInventoryClass: "known_no_owner",
+      candidates: [
+        candidate("windows_voice_capture_dsp", convergence, preservation),
+      ],
+    });
+    assert.equal(result.result_class, resultClass);
+  }
+
+  const marginSelected = selectSyntheticAecOwner({
+    processingInventoryClass: "known_no_owner",
+    candidates: [
+      candidate("windows_voice_capture_dsp", 10, 1),
+      candidate("webrtc_apm_aec3", 9, 1),
+    ],
+  });
+  assert.equal(marginSelected.result_class, "synthetic_aec_owner_selected");
+  const marginAmbiguous = selectSyntheticAecOwner({
+    processingInventoryClass: "known_no_owner",
+    candidates: [
+      candidate("windows_voice_capture_dsp", 10, 1),
+      candidate("webrtc_apm_aec3", 9.001, 1),
+    ],
+  });
+  assert.equal(marginAmbiguous.result_class, "synthetic_aec_owner_ambiguous");
+
+  const halfStep = selectSyntheticAecOwner({
+    processingInventoryClass: "known_no_owner",
+    candidates: [candidate("windows_voice_capture_dsp", 6.2345, 0.9005)],
+  });
+  assert.deepEqual(halfStep, {
+    schema_version: "synthetic_aec_owner_selection.v0",
+    proof_ceiling: "synthetic_aec_owner_selection_only",
+    result_class: "synthetic_aec_owner_selected",
+    processing_inventory_class: "known_no_owner",
+    candidate_count: 1,
+    selected_owner_class: "windows_voice_capture_dsp",
+    selected_echo_convergence_db: 6.235,
+    selected_near_end_preservation_ratio: 0.901,
+    exactly_one_aec_owner: true,
+    observation_only: false,
+    render_reference_may_create_turn_input: false,
+    raw_audio_persisted: false,
+    live_audio_used: false,
+  });
 });
 
 test("maps speech-input VAD debug into hearing summary channel", () => {
@@ -230,10 +491,7 @@ test("schema locks raw audio and transcript safety constants", () => {
     schema.properties.transcript.properties.transcript_summary_ref.type,
     "null",
   );
-  assert.doesNotMatch(
-    schema.$defs.safe_ref.pattern,
-    /\btts\b|\bplayback\b/,
-  );
+  assert.doesNotMatch(schema.$defs.safe_ref.pattern, /\btts\b|\bplayback\b/);
   assert.equal(
     schema.properties.safety.properties.home_assistant_action.const,
     false,
