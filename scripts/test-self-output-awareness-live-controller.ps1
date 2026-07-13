@@ -24,6 +24,8 @@ function New-EndpointResponse {
     [string]$ExpectationClass,
     [int]$CapturePacketCount = 0,
     [int]$CaptureByteCount = 0,
+    [string]$SignalClass = "signal_above_floor",
+    [string]$VadDecisionClass = "speech_not_detected",
     [int]$TranscriptionCount = 0,
     [int]$SubmissionCount = 0,
     [int]$TurnInputCount = 0,
@@ -38,6 +40,8 @@ function New-EndpointResponse {
     expectation_class = $ExpectationClass
     capture_packet_count = $CapturePacketCount
     capture_byte_count = $CaptureByteCount
+    signal_class = $SignalClass
+    vad_decision_class = $VadDecisionClass
     transcription_count = $TranscriptionCount
     submission_count = $SubmissionCount
     thought_core_turninput_count = $TurnInputCount
@@ -68,7 +72,9 @@ function Start-TestServer {
       $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
       $listener.Start()
       $port = ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
-      [System.IO.File]::WriteAllText($ReadyPath, [string]$port, [System.Text.Encoding]::ASCII)
+      $readyTempPath = "$ReadyPath.tmp"
+      [System.IO.File]::WriteAllText($readyTempPath, [string]$port, [System.Text.Encoding]::ASCII)
+      [System.IO.File]::Move($readyTempPath, $ReadyPath)
       $client = $listener.AcceptTcpClient()
       $stream = $client.GetStream()
       $stream.ReadTimeout = 5000
@@ -270,6 +276,8 @@ try {
   Assert-True ($negative.controller_status -ceq "completed") "negative scenario status mismatch"
   Assert-True ($negative.scenario -ceq "self_output_or_ambiguous") "negative result scenario mismatch"
   Assert-True ($negative.result_class -ceq "self_output_or_ambiguous_confirmed") "negative result mismatch"
+  Assert-True ($negative.signal_class -ceq "signal_above_floor") "negative signal class mismatch"
+  Assert-True ($negative.vad_decision_class -ceq "speech_not_detected") "negative VAD class mismatch"
   Assert-True ($negative.transcription_count -eq 0) "negative scenario must not transcribe"
   Assert-True ($negative.submission_count -eq 0) "negative scenario must not submit"
   Assert-True ($negative.thought_core_turninput_count -eq 0) "negative scenario must not materialize TurnInput"
@@ -292,6 +300,7 @@ try {
     -TranscriptionCount 1 `
     -SubmissionCount 1 `
     -TurnInputCount 1 `
+    -VadDecisionClass "speech_detected" `
     -ElapsedMs 90 `
     -PcmCleanupCount 1
   $positiveServer = Start-TestServer -Response $positiveResponse
@@ -303,6 +312,8 @@ try {
   Assert-True ($positiveRun.Code -eq 0) "positive scenario should complete"
   Assert-True ($positive.controller_status -ceq "completed") "positive status mismatch"
   Assert-True ($positive.scenario -ceq "independent_current_session_user_speech") "positive result scenario mismatch"
+  Assert-True ($positive.signal_class -ceq "signal_above_floor") "positive signal class mismatch"
+  Assert-True ($positive.vad_decision_class -ceq "speech_detected") "positive VAD class mismatch"
   Assert-True ($positive.transcription_count -eq 1) "positive scenario should transcribe once"
   Assert-True ($positive.submission_count -eq 1) "positive scenario should submit once"
   Assert-True ($positive.thought_core_turninput_count -eq 1) "positive scenario should materialize one TurnInput"
@@ -339,6 +350,80 @@ try {
   Assert-True ($extraRun.Code -ne 0) "extra response field must fail closed"
   Assert-True ($extra.blocker_class -ceq "live_controller_endpoint_response_invalid") "extra field blocker mismatch"
 
+  $invalidDiagnosticResponse = New-EndpointResponse `
+    -ResultClass "self_output_or_ambiguous_confirmed" `
+    -ExpectationClass "matched" `
+    -CapturePacketCount 10 `
+    -CaptureByteCount 3200 `
+    -PcmCleanupCount 1
+  $invalidDiagnosticResponse.signal_class = $privateResponseMarker
+  $invalidDiagnosticServer = Start-TestServer -Response $invalidDiagnosticResponse
+  $invalidDiagnosticRun = Invoke-Controller -BaseUrl $invalidDiagnosticServer.BaseUrl
+  [void](Complete-TestServer -Server $invalidDiagnosticServer)
+  $invalidDiagnostic = Assert-CommonResult -Run $invalidDiagnosticRun
+  Assert-True ($invalidDiagnosticRun.Code -ne 0) "invalid diagnostic class must fail closed"
+  Assert-True ($invalidDiagnostic.blocker_class -ceq "live_controller_endpoint_response_invalid") "invalid diagnostic blocker mismatch"
+
+  $invalidVadResponse = New-EndpointResponse `
+    -ResultClass "self_output_or_ambiguous_confirmed" `
+    -ExpectationClass "matched" `
+    -CapturePacketCount 10 `
+    -CaptureByteCount 3200 `
+    -PcmCleanupCount 1
+  $invalidVadResponse.vad_decision_class = $privateResponseMarker
+  $invalidVadServer = Start-TestServer -Response $invalidVadResponse
+  $invalidVadRun = Invoke-Controller -BaseUrl $invalidVadServer.BaseUrl
+  [void](Complete-TestServer -Server $invalidVadServer)
+  $invalidVad = Assert-CommonResult -Run $invalidVadRun
+  Assert-True ($invalidVadRun.Code -ne 0) "invalid VAD class must fail closed"
+  Assert-True ($invalidVad.blocker_class -ceq "live_controller_endpoint_response_invalid") "invalid VAD blocker mismatch"
+
+  $impossibleDiagnosticResponse = New-EndpointResponse `
+    -ResultClass "self_output_or_ambiguous_confirmed" `
+    -ExpectationClass "matched" `
+    -CapturePacketCount 10 `
+    -CaptureByteCount 3200 `
+    -SignalClass "all_zero" `
+    -VadDecisionClass "speech_detected" `
+    -PcmCleanupCount 1
+  $impossibleDiagnosticServer = Start-TestServer -Response $impossibleDiagnosticResponse
+  $impossibleDiagnosticRun = Invoke-Controller -BaseUrl $impossibleDiagnosticServer.BaseUrl
+  [void](Complete-TestServer -Server $impossibleDiagnosticServer)
+  $impossibleDiagnostic = Assert-CommonResult -Run $impossibleDiagnosticRun
+  Assert-True ($impossibleDiagnosticRun.Code -ne 0) "impossible diagnostic combination must fail closed"
+  Assert-True ($impossibleDiagnostic.blocker_class -ceq "live_controller_endpoint_response_invalid") "impossible diagnostic blocker mismatch"
+
+  $reversedOrderingResponse = New-EndpointResponse `
+    -ResultClass "live_candidate_processing_failed" `
+    -ExpectationClass "not_evaluated" `
+    -CapturePacketCount 10 `
+    -CaptureByteCount 3200 `
+    -SignalClass "not_evaluated" `
+    -VadDecisionClass "speech_not_detected" `
+    -PcmCleanupCount 1
+  $reversedOrderingServer = Start-TestServer -Response $reversedOrderingResponse -StatusCode 503
+  $reversedOrderingRun = Invoke-Controller -BaseUrl $reversedOrderingServer.BaseUrl
+  [void](Complete-TestServer -Server $reversedOrderingServer)
+  $reversedOrdering = Assert-CommonResult -Run $reversedOrderingRun
+  Assert-True ($reversedOrderingRun.Code -ne 0) "reversed diagnostic ordering must fail closed"
+  Assert-True ($reversedOrdering.blocker_class -ceq "live_controller_endpoint_response_invalid") "reversed diagnostic ordering blocker mismatch"
+
+  $vadFailureResponse = New-EndpointResponse `
+    -ResultClass "live_candidate_processing_failed" `
+    -ExpectationClass "not_evaluated" `
+    -CapturePacketCount 10 `
+    -CaptureByteCount 3200 `
+    -SignalClass "signal_above_floor" `
+    -VadDecisionClass "not_evaluated" `
+    -PcmCleanupCount 1
+  $vadFailureServer = Start-TestServer -Response $vadFailureResponse -StatusCode 503
+  $vadFailureRun = Invoke-Controller -BaseUrl $vadFailureServer.BaseUrl
+  [void](Complete-TestServer -Server $vadFailureServer)
+  $vadFailure = Assert-CommonResult -Run $vadFailureRun
+  Assert-True ($vadFailureRun.Code -ne 0) "VAD failure should remain a blocking result"
+  Assert-True ($vadFailure.blocker_class -ceq "live_candidate_processing_failed") "VAD failure class must survive"
+  Assert-True ($vadFailure.cleanup_class -ceq "controller_http_resources_disposed_endpoint_pcm_and_authority_clear") "VAD failure cleanup mismatch"
+
   $countMismatchResponse = New-EndpointResponse `
     -ResultClass "independent_user_speech_turninput_accepted" `
     -ExpectationClass "matched" `
@@ -359,7 +444,9 @@ try {
 
   $fixedFailureResponse = New-EndpointResponse `
     -ResultClass "voice_capture_dsp_start_failed" `
-    -ExpectationClass "not_evaluated"
+    -ExpectationClass "not_evaluated" `
+    -SignalClass "not_evaluated" `
+    -VadDecisionClass "not_evaluated"
   $fixedFailureServer = Start-TestServer -Response $fixedFailureResponse -StatusCode 503
   $fixedFailureRun = Invoke-Controller -BaseUrl $fixedFailureServer.BaseUrl
   [void](Complete-TestServer -Server $fixedFailureServer)

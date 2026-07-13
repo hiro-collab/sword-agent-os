@@ -15,6 +15,8 @@ $ExpectedResponseKeys = @(
   "expectation_class",
   "capture_packet_count",
   "capture_byte_count",
+  "signal_class",
+  "vad_decision_class",
   "transcription_count",
   "submission_count",
   "thought_core_turninput_count",
@@ -22,6 +24,17 @@ $ExpectedResponseKeys = @(
   "pcm_cleanup_count",
   "private_authority_residue_count",
   "raw_private_publication_flags"
+)
+$AllowedSignalClasses = @(
+  "not_evaluated",
+  "all_zero",
+  "low_signal",
+  "signal_above_floor"
+)
+$AllowedVadDecisionClasses = @(
+  "not_evaluated",
+  "speech_not_detected",
+  "speech_detected"
 )
 $AllowedScenarios = @(
   "self_output_or_ambiguous",
@@ -103,6 +116,8 @@ $resultClass = "not_observed"
 $expectationClass = "not_evaluated"
 $capturePacketCount = 0
 $captureByteCount = 0
+$signalClass = "not_evaluated"
+$vadDecisionClass = "not_evaluated"
 $transcriptionCount = 0
 $submissionCount = 0
 $turnInputCount = 0
@@ -277,6 +292,10 @@ try {
     $AllowedEndpointResultClasses -cnotcontains [string]$endpointResult.result_class -or
     $endpointResult.expectation_class -isnot [string] -or
     @("matched", "mismatch", "not_evaluated") -cnotcontains [string]$endpointResult.expectation_class -or
+    $endpointResult.signal_class -isnot [string] -or
+    $AllowedSignalClasses -cnotcontains [string]$endpointResult.signal_class -or
+    $endpointResult.vad_decision_class -isnot [string] -or
+    $AllowedVadDecisionClasses -cnotcontains [string]$endpointResult.vad_decision_class -or
     $endpointResult.raw_private_publication_flags -isnot [bool] -or
     [bool]$endpointResult.raw_private_publication_flags
   ) {
@@ -296,6 +315,8 @@ try {
   $expectationClass = [string]$endpointResult.expectation_class
   $capturePacketCount = [int]$endpointResult.capture_packet_count
   $captureByteCount = [int]$endpointResult.capture_byte_count
+  $signalClass = [string]$endpointResult.signal_class
+  $vadDecisionClass = [string]$endpointResult.vad_decision_class
   $transcriptionCount = [int]$endpointResult.transcription_count
   $submissionCount = [int]$endpointResult.submission_count
   $turnInputCount = [int]$endpointResult.thought_core_turninput_count
@@ -318,6 +339,25 @@ try {
   }
 
   $hasCapture = $capturePacketCount -gt 0 -or $captureByteCount -gt 0
+  $requiresEvaluatedDiagnostic = (
+    $SuccessfulResultClasses -ccontains $resultClass -or
+    $resultClass -ceq "scenario_expectation_not_met"
+  )
+  if (
+    (-not $hasCapture -and (
+      $signalClass -cne "not_evaluated" -or
+      $vadDecisionClass -cne "not_evaluated"
+    )) -or
+    ($requiresEvaluatedDiagnostic -and (
+      -not $hasCapture -or
+      $signalClass -ceq "not_evaluated" -or
+      $vadDecisionClass -ceq "not_evaluated"
+    )) -or
+    ($signalClass -ceq "not_evaluated" -and $vadDecisionClass -cne "not_evaluated") -or
+    ($signalClass -ceq "all_zero" -and $vadDecisionClass -ceq "speech_detected")
+  ) {
+    Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+  }
   if (
     (($capturePacketCount -eq 0) -xor ($captureByteCount -eq 0)) -or
     ($hasCapture -and $pcmCleanupCount -ne 1) -or
@@ -351,6 +391,7 @@ try {
       $Scenario -cne "independent_current_session_user_speech" -or
       $expectationClass -cne "matched" -or
       -not $hasCapture -or
+      $vadDecisionClass -cne "speech_detected" -or
       $transcriptionCount -ne 1 -or
       $submissionCount -ne 1 -or
       $turnInputCount -ne 1
@@ -443,6 +484,8 @@ $result = [ordered]@{
   expectation_class = $expectationClass
   capture_packet_count = $capturePacketCount
   capture_byte_count = $captureByteCount
+  signal_class = $signalClass
+  vad_decision_class = $vadDecisionClass
   transcription_count = $transcriptionCount
   submission_count = $submissionCount
   thought_core_turninput_count = $turnInputCount
