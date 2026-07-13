@@ -565,8 +565,8 @@ try {
   }
   $aitUri = Resolve-LoopbackBaseUri -Value $RouteAitBaseUrl
   $coreUri = Resolve-LoopbackBaseUri -Value $RouteAiTalkCoreBaseUrl
-  $coreToken = $(if ($null -ne $CoreTokenOverride) {
-      $CoreTokenOverride
+  $coreToken = $(if ($PSBoundParameters.ContainsKey("CoreTokenOverride")) {
+      [string]$CoreTokenOverride
     } else {
       [Environment]::GetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", "Process")
     })

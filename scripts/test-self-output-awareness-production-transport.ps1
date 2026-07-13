@@ -440,6 +440,66 @@ if ([string]::IsNullOrEmpty($env:AI_TALK_CORE_WEB_TOKEN)) {
 }
 Assert-True (-not (Test-Path -LiteralPath $childFixturePath)) "token-isolation fixture leaves no residue"
 
+$environmentHarness = New-ControlledRouteHarness -Mode "success"
+$previousRouteToken = [Environment]::GetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", "Process")
+try {
+  [Environment]::SetEnvironmentVariable(
+    "AI_TALK_CORE_WEB_TOKEN",
+    "fixed-test-core-token",
+    "Process"
+  )
+  $environmentRoute = Invoke-ProductionTransportRoute `
+    -RouteAitBaseUrl "http://127.0.0.1:3000" `
+    -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" `
+    -RouteControlledChromeRootPid 1 `
+    -RouteObserverWindowMs 1000 `
+    -RouteDeadlineMs 3000 `
+    -RequestInvoker $environmentHarness.RequestInvoker `
+    -ObserverStarter $environmentHarness.ObserverStarter `
+    -SleepInvoker $environmentHarness.SleepInvoker
+} finally {
+  [Environment]::SetEnvironmentVariable(
+    "AI_TALK_CORE_WEB_TOKEN",
+    $previousRouteToken,
+    "Process"
+  )
+}
+Assert-Equal $environmentRoute.ExitCode 0 "omitted token override uses process environment"
+Assert-Equal $environmentRoute.Value.lifecycle_ingest_count 3 "environment token route acknowledges lifecycle"
+Assert-Equal $environmentHarness.State.CoreBodies.Count 4 "environment token route sends exact Core request count"
+
+$emptyOverrideHarness = New-ControlledRouteHarness -Mode "success"
+$previousEmptyOverrideToken = [Environment]::GetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", "Process")
+try {
+  [Environment]::SetEnvironmentVariable(
+    "AI_TALK_CORE_WEB_TOKEN",
+    "fixed-test-core-token",
+    "Process"
+  )
+  $emptyOverrideRoute = Invoke-ProductionTransportRoute `
+    -RouteAitBaseUrl "http://127.0.0.1:3000" `
+    -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" `
+    -RouteControlledChromeRootPid 1 `
+    -RouteObserverWindowMs 1000 `
+    -RouteDeadlineMs 3000 `
+    -RequestInvoker $emptyOverrideHarness.RequestInvoker `
+    -ObserverStarter $emptyOverrideHarness.ObserverStarter `
+    -SleepInvoker $emptyOverrideHarness.SleepInvoker `
+    -CoreTokenOverride ""
+} finally {
+  [Environment]::SetEnvironmentVariable(
+    "AI_TALK_CORE_WEB_TOKEN",
+    $previousEmptyOverrideToken,
+    "Process"
+  )
+}
+Assert-Equal $emptyOverrideRoute.ExitCode 1 "explicit empty token override fails closed"
+Assert-Equal $emptyOverrideRoute.Value.blocker_class "core_token_unavailable" "empty override cannot borrow environment token"
+Assert-Equal $emptyOverrideHarness.State.AitReadCount 0 "empty override stops before AIT polling"
+Assert-Equal $emptyOverrideHarness.State.CoreBodies.Count 0 "empty override sends no Core request"
+Assert-Equal $emptyOverrideHarness.State.ObserverStartCount 0 "empty override starts no observer"
+Assert-Equal $emptyOverrideRoute.Value.cleanup_class "route_owned_cleanup_clear" "empty override cleanup remains clear"
+
 $successHarness = New-ControlledRouteHarness -Mode "success"
 $successRoute = Invoke-ProductionTransportRoute `
   -RouteAitBaseUrl "http://127.0.0.1:3000" `
