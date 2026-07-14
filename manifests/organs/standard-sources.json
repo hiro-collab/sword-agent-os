@@ -26,7 +26,7 @@
       "version_source": "organs/reflex/mediapipe-sword-sign/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/mediapipe-sword-sign.git",
       "branch": "feature/camera-hub-topic-envelope",
-      "commit": "7d1148b2731c87ec26ab68d9e7e6121e04a2ad6a",
+      "commit": "d2d33431c2696951f0c35c7af81af0e9acb4e852",
       "adoption": "standard_candidate",
       "notes": "Camera Hub, gesture inference, and reflex topic surface."
     },
