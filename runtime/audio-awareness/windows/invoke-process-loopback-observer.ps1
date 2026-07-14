@@ -4,6 +4,7 @@ param(
   [int]$TargetProcessId = 0,
   [int]$WindowMs = 1000,
   [int]$DeadlineMs = 3000,
+  [switch]$IncludeCaptureStartTimestamp,
   [switch]$Compact
 )
 
@@ -77,6 +78,19 @@ function Resolve-FailurePhase {
   }
 }
 
+function ConvertTo-CaptureStartedAtUtcMs {
+  param([long]$CaptureStartedAtUtcTicks)
+
+  if ($CaptureStartedAtUtcTicks -le 0) {
+    return $null
+  }
+  $captureStartedAtUtc = [System.DateTime]::new(
+    $CaptureStartedAtUtcTicks,
+    [System.DateTimeKind]::Utc)
+  return [System.DateTimeOffset]::new(
+    $captureStartedAtUtc).ToUnixTimeMilliseconds()
+}
+
 function New-ClassOnlyOutput {
   param(
     [Parameter(Mandatory)][string]$SourceClass,
@@ -91,6 +105,8 @@ function New-ClassOnlyOutput {
     [long]$NonSilentFrameCount = 0,
     [long]$SilentFrameCount = 0,
     [AllowNull()][Nullable[int]]$FirstNonSilentFrameOffsetMs = $null,
+    [AllowNull()][Nullable[long]]$CaptureStartedAtUtcMs = $null,
+    [bool]$EmitCaptureStartTimestamp = $IncludeCaptureStartTimestamp,
     [int]$CaptureStartCount = 0,
     [int]$CaptureStopAttemptCount = 0,
     [int]$CaptureStopCount = 0,
@@ -106,6 +122,19 @@ function New-ClassOnlyOutput {
       0
     })
 
+  $observation = [ordered]@{
+    window_ms = $ObservedWindowMs
+    packet_count = $PacketCount
+    frame_count = $FrameCount
+    non_silent_frame_count = $NonSilentFrameCount
+    silent_frame_count = $SilentFrameCount
+    first_non_silent_frame_offset_ms = $FirstNonSilentFrameOffsetMs
+    live_capture_used = $LiveCaptureUsed
+  }
+  if ($EmitCaptureStartTimestamp) {
+    $observation.capture_started_at_utc_ms = $CaptureStartedAtUtcMs
+  }
+
   return [ordered]@{
     schema_version = "process_loopback_observation.v0"
     source_class = $SourceClass
@@ -113,15 +142,7 @@ function New-ClassOnlyOutput {
     result_class = $ResultClass
     capability_class = $CapabilityClass
     attribution_class = $AttributionClass
-    observation = [ordered]@{
-      window_ms = $ObservedWindowMs
-      packet_count = $PacketCount
-      frame_count = $FrameCount
-      non_silent_frame_count = $NonSilentFrameCount
-      silent_frame_count = $SilentFrameCount
-      first_non_silent_frame_offset_ms = $FirstNonSilentFrameOffsetMs
-      live_capture_used = $LiveCaptureUsed
-    }
+    observation = $observation
     lifecycle = [ordered]@{
       capture_start_count = $CaptureStartCount
       capture_stop_attempt_count = $CaptureStopAttemptCount
@@ -266,6 +287,8 @@ try {
     $DeadlineMs,
     [System.Threading.CancellationToken]::None)
   $result = $task.GetAwaiter().GetResult()
+  $captureStartedAtUtcMs = ConvertTo-CaptureStartedAtUtcMs `
+    -CaptureStartedAtUtcTicks $result.CaptureStartedAtUtcTicks
   Write-ClassOnlyOutput (New-ClassOnlyOutput `
       -SourceClass $result.SourceClass `
       -ProofCeiling "process_loopback_observation_summary_only" `
@@ -279,6 +302,7 @@ try {
       -NonSilentFrameCount $result.NonSilentFrameCount `
       -SilentFrameCount $result.SilentFrameCount `
       -FirstNonSilentFrameOffsetMs $result.FirstNonSilentFrameOffsetMs `
+      -CaptureStartedAtUtcMs $captureStartedAtUtcMs `
       -CaptureStartCount $result.CaptureStartCount `
       -CaptureStopAttemptCount $result.CaptureStopAttemptCount `
       -CaptureStopCount $result.CaptureStopCount `

@@ -38,6 +38,13 @@ function Assert-NotMatch {
   if ($Actual -match $Pattern) { throw "assertion_failed:$Message" }
 }
 
+function Assert-PropertyNames {
+  param($Actual, [string[]]$Expected, [Parameter(Mandatory)][string]$Message)
+  $actualNames = @($Actual.PSObject.Properties.Name | Sort-Object)
+  $expectedNames = @($Expected | Sort-Object)
+  Assert-Equal ($actualNames -join '|') ($expectedNames -join '|') $Message
+}
+
 function Invoke-Wrapper {
   param([hashtable]$Parameters = @{})
   $json = (& $wrapperPath @Parameters | Out-String).Trim()
@@ -75,6 +82,13 @@ $parseErrors = $null
 Assert-Equal @($parseErrors).Count 0 "wrapper parser errors"
 
 . $wrapperPath
+
+Assert-Equal (ConvertTo-CaptureStartedAtUtcMs `
+    -CaptureStartedAtUtcTicks 621355969230000000) 123000 `
+  "fixed UTC ticks convert to Unix milliseconds"
+Assert-Equal (ConvertTo-CaptureStartedAtUtcMs `
+    -CaptureStartedAtUtcTicks 0) $null `
+  "missing capture start remains absent"
 
 $sourceText = Get-Content -LiteralPath $sourcePath -Raw
 $fakeTypeDefinition = @'
@@ -181,12 +195,16 @@ namespace SwordAgentOS.AudioAwareness.Tests
             var provider = new FakeProcessIdentityProvider();
             var lease = SwordAgentOS.AudioAwareness.ProcessLoopbackObserver
                 .AcquireProcessLease(provider, 1, 1000, 0);
+            int utcCallCount = 0;
+            long captureStartedAtUtcTicks = 621355969230000000L;
             return SwordAgentOS.AudioAwareness.ProcessLoopbackObserver
                 .ObserveWithBackendAsync(
                     backend,
                     lease,
                     provider,
-                    () => 0,
+                    () => ++utcCallCount == 3
+                        ? captureStartedAtUtcTicks
+                        : 0,
                     windowMs,
                     deadlineMs,
                     cancellationToken,
@@ -430,6 +448,22 @@ Assert-Equal $renderFixture.Value.observation.non_silent_frame_count 256 "render
 Assert-Equal $renderFixture.Value.observation.silent_frame_count 0 "render fixture silent frames"
 Assert-Equal $renderFixture.Value.observation.first_non_silent_frame_offset_ms 0 "render fixture first-frame offset"
 Assert-False $renderFixture.Value.observation.live_capture_used "render fixture is not live"
+Assert-PropertyNames $renderFixture.Value.observation @(
+  "window_ms", "packet_count", "frame_count", "non_silent_frame_count",
+  "silent_frame_count", "first_non_silent_frame_offset_ms", "live_capture_used"
+) "default observation schema remains backward compatible"
+
+$timedRenderFixture = Invoke-Wrapper -Parameters @{
+  Mode = "synthetic_render"
+  IncludeCaptureStartTimestamp = $true
+  Compact = $true
+}
+Assert-PropertyNames $timedRenderFixture.Value.observation @(
+  "window_ms", "packet_count", "frame_count", "non_silent_frame_count",
+  "silent_frame_count", "first_non_silent_frame_offset_ms", "live_capture_used",
+  "capture_started_at_utc_ms"
+) "timed observation schema adds only capture start"
+Assert-Equal $timedRenderFixture.Value.observation.capture_started_at_utc_ms $null "synthetic fixture has no live capture start"
 
 $silenceFixture = Invoke-Wrapper -Parameters @{ Mode = "synthetic_silence"; Compact = $true }
 Assert-Equal $silenceFixture.Value.result_class "synthetic_process_tree_silence_fixture" "silence fixture result"
@@ -493,6 +527,7 @@ Assert-Equal $fakeResult.FrameCount 192 "fake frames counted"
 Assert-Equal $fakeResult.NonSilentFrameCount 64 "fake non-silent frames counted"
 Assert-Equal $fakeResult.SilentFrameCount 128 "fake silent frames counted"
 Assert-Equal $fakeResult.FirstNonSilentFrameOffsetMs 25 "fake first non-silent frame uses packet QPC offset"
+Assert-Equal $fakeResult.CaptureStartedAtUtcTicks 621355969230000000 "fake capture start is recorded after lease validation and before start"
 Assert-Equal $fakeResult.CaptureStartCount 1 "fake capture starts once"
 Assert-Equal $fakeResult.CaptureStopAttemptCount 1 "fake capture stop attempted once"
 Assert-Equal $fakeResult.CaptureStopCount 1 "fake capture stops once"
@@ -500,6 +535,16 @@ Assert-Equal $fakeResult.BufferReleaseCount 2 "each fake packet released once"
 Assert-Equal $fakeResult.ResourceReleaseCount 1 "fake backend resources released once"
 Assert-Equal $fake.ActivateCount 1 "normal observation activates once"
 Assert-Equal $fake.DisposeCount 1 "fake backend disposed once"
+
+$silentFake = [SwordAgentOS.AudioAwareness.Tests.FakeProcessLoopbackBackend]::new($false, $false)
+$silentFakeResult = [SwordAgentOS.AudioAwareness.Tests.ObserverHarness]::Observe(
+  $silentFake,
+  100,
+  1000,
+  [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
+Assert-Equal $silentFakeResult.ResultClass "process_tree_silence_observed" "silent capture remains a distinct result"
+Assert-Equal $silentFakeResult.FirstNonSilentFrameOffsetMs $null "silent capture has no first non-silent offset"
+Assert-Equal $silentFakeResult.CaptureStartedAtUtcTicks 621355969230000000 "silent capture still records its capture start"
 
 $missingTargetFake = [SwordAgentOS.AudioAwareness.Tests.FakeProcessLoopbackBackend]::new($false, $false)
 $missingTargetClass = Get-FixedFailureClass {
@@ -633,6 +678,7 @@ Assert-Match $sourceText 'ActivateAudioInterfaceAsync' "official activation API 
 Assert-Match $sourceText 'ReleaseBuffer' "buffer release present"
 Assert-Match $sourceText 'finally' "bounded cleanup present"
 Assert-Match $sourceText 'BuildActivationVariant[\s\S]+ActivateAudioInterfaceAsync[\s\S]+ref variant' "built activation blob is passed to activation API"
+Assert-Match (Get-Content -LiteralPath $wrapperPath -Raw) 'ConvertTo-CaptureStartedAtUtcMs[\s\S]+-CaptureStartedAtUtcTicks \$result\.CaptureStartedAtUtcTicks' "live wrapper converts the observer capture start"
 Assert-NotMatch $sourceText 'System\.IO\.File|FileStream|WriteAll|\.wav|Process\.Start\s*\(|\[System\.Diagnostics\.Process\]::Start|GetDefaultAudioEndpoint|IMMDeviceEnumerator' "no file output, process start, or endpoint enumeration"
 
 foreach ($json in @(

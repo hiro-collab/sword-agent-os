@@ -31,6 +31,7 @@ namespace SwordAgentOS.AudioAwareness
         public long NonSilentFrameCount { get; set; }
         public long SilentFrameCount { get; set; }
         public int? FirstNonSilentFrameOffsetMs { get; set; }
+        public long CaptureStartedAtUtcTicks { get; set; }
         public int CaptureStartCount { get; set; }
         public int CaptureStopAttemptCount { get; set; }
         public int CaptureStopCount { get; set; }
@@ -253,6 +254,7 @@ namespace SwordAgentOS.AudioAwareness
             bool started = false;
             bool cleanupFailed = false;
             string failureClass = null;
+            long captureStartedAtUtcTicks = 0;
             ulong captureStartQpc100Ns = 0;
 
             using (CancellationTokenSource linked =
@@ -268,6 +270,7 @@ namespace SwordAgentOS.AudioAwareness
                         lease,
                         identityProvider,
                         utcNowTicks());
+                    captureStartedAtUtcTicks = utcNowTicks();
                     captureStartQpc100Ns = (monotonicNow100Ns ??
                         GetMonotonicPosition100Ns)();
                     backend.Start();
@@ -382,6 +385,7 @@ namespace SwordAgentOS.AudioAwareness
                 NonSilentFrameCount = nonSilentFrameCount,
                 SilentFrameCount = silentFrameCount,
                 FirstNonSilentFrameOffsetMs = firstNonSilentFrameOffsetMs,
+                CaptureStartedAtUtcTicks = captureStartedAtUtcTicks,
                 CaptureStartCount = backend.CaptureStartCount,
                 CaptureStopAttemptCount = backend.CaptureStopAttemptCount,
                 CaptureStopCount = backend.CaptureStopCount,
@@ -406,6 +410,7 @@ namespace SwordAgentOS.AudioAwareness
                 NonSilentFrameCount = renderObserved ? 256 : 0,
                 SilentFrameCount = renderObserved ? 0 : 256,
                 FirstNonSilentFrameOffsetMs = renderObserved ? 0 : (int?)null,
+                CaptureStartedAtUtcTicks = 0,
                 CaptureStartCount = 0,
                 CaptureStopAttemptCount = 0,
                 CaptureStopCount = 0,
