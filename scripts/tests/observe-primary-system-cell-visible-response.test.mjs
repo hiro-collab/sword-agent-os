@@ -6,7 +6,7 @@ import {
   observeVisibleResponse,
   parseArgs,
   selectProjectionVisualTarget,
-} from "./observe-primary-system-cell-visible-response.mjs";
+} from "../observe-primary-system-cell-visible-response.mjs";
 
 const TARGET = Object.freeze({
   type: "page",
