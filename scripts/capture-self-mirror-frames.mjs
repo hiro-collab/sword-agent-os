@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createRequire } from "node:module";
+import { Buffer } from "node:buffer";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -1336,14 +1337,127 @@ async function launchChromium(chromium, args) {
   }
 }
 
-async function captureFrames(page, frameDir, args) {
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+const PNG_IHDR_TYPE = Buffer.from("IHDR", "ascii");
+const PNG_IEND_TYPE = Buffer.from("IEND", "ascii");
+const MAX_CDP_SCREENSHOT_BASE64_LENGTH = 64 * 1024 * 1024;
+
+function fixedCdpCaptureError(code) {
+  const error = new Error(code);
+  error.code = code;
+  return error;
+}
+
+function decodeCdpPngScreenshot(response) {
+  const data = response?.data;
+  if (
+    typeof data !== "string" ||
+    data.length === 0 ||
+    data.length > MAX_CDP_SCREENSHOT_BASE64_LENGTH ||
+    data.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(data)
+  ) {
+    throw fixedCdpCaptureError("self_mirror_cdp_screenshot_invalid");
+  }
+
+  const bytes = Buffer.from(data, "base64");
+  const minimumPngLength = PNG_SIGNATURE.length + 25 + 12;
+  if (
+    bytes.length < minimumPngLength ||
+    !bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE) ||
+    bytes.readUInt32BE(8) !== 13 ||
+    !bytes.subarray(12, 16).equals(PNG_IHDR_TYPE) ||
+    !Number.isFinite(bytes.readUInt32BE(16)) ||
+    bytes.readUInt32BE(16) <= 0 ||
+    !Number.isFinite(bytes.readUInt32BE(20)) ||
+    bytes.readUInt32BE(20) <= 0
+  ) {
+    throw fixedCdpCaptureError("self_mirror_cdp_screenshot_invalid");
+  }
+
+  const iendOffset = bytes.length - 12;
+  if (
+    iendOffset < PNG_SIGNATURE.length + 25 ||
+    bytes.readUInt32BE(iendOffset) !== 0 ||
+    !bytes.subarray(iendOffset + 4, iendOffset + 8).equals(PNG_IEND_TYPE)
+  ) {
+    throw fixedCdpCaptureError("self_mirror_cdp_screenshot_invalid");
+  }
+  return bytes;
+}
+
+export async function createCdpFrameCapture(page, writeFile = fs.writeFile) {
+  let cdpSession;
+  try {
+    const context = page?.context?.();
+    if (!context || typeof context.newCDPSession !== "function") {
+      throw fixedCdpCaptureError("self_mirror_cdp_session_unavailable");
+    }
+    cdpSession = await context.newCDPSession(page);
+  } catch {
+    throw fixedCdpCaptureError("self_mirror_cdp_session_unavailable");
+  }
+
+  const canSend = typeof cdpSession?.send === "function";
+  const canDetach = typeof cdpSession?.detach === "function";
+  if (!canSend || !canDetach) {
+    if (!canSend && canDetach) {
+      try {
+        await cdpSession.detach();
+      } catch {
+        throw fixedCdpCaptureError("self_mirror_cdp_detach_failed");
+      }
+    }
+    throw fixedCdpCaptureError("self_mirror_cdp_session_unavailable");
+  }
+
+  let closed = false;
+  return {
+    async capture(framePath) {
+      if (closed) {
+        throw fixedCdpCaptureError("self_mirror_cdp_session_closed");
+      }
+
+      let response;
+      try {
+        response = await cdpSession.send("Page.captureScreenshot", {
+          format: "png",
+          fromSurface: true,
+          captureBeyondViewport: false,
+        });
+      } catch {
+        throw fixedCdpCaptureError("self_mirror_cdp_capture_failed");
+      }
+
+      const bytes = decodeCdpPngScreenshot(response);
+      try {
+        await writeFile(framePath, bytes);
+      } catch {
+        throw fixedCdpCaptureError("self_mirror_cdp_frame_write_failed");
+      }
+    },
+    async close() {
+      if (closed) return;
+      closed = true;
+      if (typeof cdpSession.detach !== "function") return;
+      try {
+        await cdpSession.detach();
+      } catch {
+        throw fixedCdpCaptureError("self_mirror_cdp_detach_failed");
+      }
+    },
+  };
+}
+
+export async function captureFrames(page, frameDir, args) {
   const frameCount = Math.max(
     2,
     Math.ceil((args.durationMs / 1000) * args.sampleRateFps),
   );
   const intervalMs = 1000 / args.sampleRateFps;
   const framePaths = [];
-  const startedAtMs = Date.now();
   let triggerResult = { trigger: args.trigger, dispatched: false };
   let motionStimulusResult = null;
   let startProjectionVisualDiagnostics = null;
@@ -1351,6 +1465,11 @@ async function captureFrames(page, frameDir, args) {
   let danceStopMotionStimulusResult = null;
   let danceInstancesAfterRelease = null;
   let danceInstancesAfterReleaseSampledAtMs = null;
+  const cdpCapture = await createCdpFrameCapture(page);
+  const startedAtMs = Date.now();
+  let captureFailure = null;
+  let detachFailure = null;
+  let failSafeStopFailure = null;
 
   try {
     for (let index = 0; index < frameCount; index += 1) {
@@ -1409,7 +1528,7 @@ async function captureFrames(page, frameDir, args) {
         frameDir,
         `frame_${String(index).padStart(4, "0")}.png`,
       );
-      await page.screenshot({ path: framePath, fullPage: false });
+      await cdpCapture.capture(framePath);
       framePaths.push(framePath);
 
       const nextTargetMs = Math.round((index + 1) * intervalMs);
@@ -1425,19 +1544,36 @@ async function captureFrames(page, frameDir, args) {
         dispatchedAtMs: Date.now() - startedAtMs,
       });
     }
+  } catch (error) {
+    captureFailure = error;
   } finally {
+    try {
+      await cdpCapture.close();
+    } catch {
+      detachFailure = fixedCdpCaptureError("self_mirror_cdp_detach_failed");
+    }
     if (
       args.danceStopAtMs > 0 &&
       triggerResult.dispatched &&
       !danceStopResult.dispatched
     ) {
-      danceStopResult = await dispatchDanceStop(
-        page,
-        { ...args, captureStartedAtEpochMs: startedAtMs },
-        "fail_safe",
-      );
+      try {
+        danceStopResult = await dispatchDanceStop(
+          page,
+          { ...args, captureStartedAtEpochMs: startedAtMs },
+          "fail_safe",
+        );
+      } catch {
+        failSafeStopFailure = fixedCdpCaptureError(
+          "self_mirror_dance_stop_cleanup_failed",
+        );
+      }
     }
   }
+
+  if (failSafeStopFailure) throw failSafeStopFailure;
+  if (detachFailure) throw detachFailure;
+  if (captureFailure) throw captureFailure;
 
   if (!motionStimulusResult && triggerResult.dispatched) {
     const candidate = await readTriggerResult(page);
