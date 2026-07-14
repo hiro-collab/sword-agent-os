@@ -853,6 +853,29 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextMatch -Text $fullInstallHelper -Pattern "RequestLiveHomeAssistant" -Message "full install helper should require explicit live HA request"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "AllowedActionId" -Message "full install helper should require live HA action id"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "git_unreadable" -Message "full install helper should separate git_unreadable from true pin mismatch"
+  Assert-TextMatch -Text $fullInstallHelper -Pattern '\$result\.exit_code\s+-ne\s+0\s+-and\s+[\s\S]{0,180}\$outputText\s+-match\s+\$BlockedPattern' -Message "full install helper should classify blocker vocabulary only when the child command fails"
+  $pinBlockedPatternMatch = [regex]::Match(
+    $fullInstallHelper,
+    '(?s)-Id\s+"FIV-02b".{0,1000}-BlockedPattern\s+''([^'']+)'''
+  )
+  if (-not $pinBlockedPatternMatch.Success) {
+    throw "full install helper pin-check blocker pattern could not be read"
+  }
+  $pinBlockedPattern = $pinBlockedPatternMatch.Groups[1].Value
+  $pinClassificationCases = @(
+    [PSCustomObject]@{ exit_code = 0; output = '{"local_artifact_holds":0,"strict_violations":0}'; expected = "pass" },
+    [PSCustomObject]@{ exit_code = 1; output = '{"local_artifact_holds":0,"strict_violations":1}'; expected = "fail" },
+    [PSCustomObject]@{ exit_code = 1; output = '{"local_artifact_holds":1,"strict_violations":1}'; expected = "blocked" }
+  )
+  foreach ($case in $pinClassificationCases) {
+    $classification = if ($case.exit_code -eq 0) { "pass" } else { "fail" }
+    if ($case.exit_code -ne 0 -and $case.output -match $pinBlockedPattern) {
+      $classification = "blocked"
+    }
+    if ($classification -ne $case.expected) {
+      throw "full install pin-check classification mismatch: expected=$($case.expected) actual=$classification"
+    }
+  }
   Assert-TextMatch -Text $fullInstallHelper -Pattern 'raw_audio_shared = \$false' -Message "full install helper should keep raw audio unshared"
   Assert-TextMatch -Text $fullInstallHelper -Pattern 'live_action_executed = \$false' -Message "full install helper should not execute live actions"
   Assert-TextMatch -Text $fullInstallHelper -Pattern "<workspace>" -Message "full install helper should redact workspace paths in display commands"

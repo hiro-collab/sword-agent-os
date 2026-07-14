@@ -200,7 +200,9 @@ function Add-CommandLayer {
     $status = "fail"
     $detail = $FailureDetail
   }
-  if (-not [string]::IsNullOrWhiteSpace($BlockedPattern) -and $outputText -match $BlockedPattern) {
+  if ($result.exit_code -ne 0 -and
+      -not [string]::IsNullOrWhiteSpace($BlockedPattern) -and
+      $outputText -match $BlockedPattern) {
     $status = "blocked"
     $detail = $BlockedDetail
   }
@@ -285,7 +287,7 @@ Add-CommandLayer `
   -Arguments ($distributionArgs + @("-Strict", "-Json")) `
   -PassDetail "pin check completed without strict violation" `
   -FailureDetail "pin check failed" `
-  -BlockedPattern "git_unreadable|dubious ownership|detected dubious ownership|local_artifact_hold" `
+  -BlockedPattern 'git_unreadable|dubious ownership|detected dubious ownership|"local_artifact_holds"\s*:\s*[1-9][0-9]*' `
   -BlockedDetail "pin check reached a classified hold; distinguish Git readability friction or local artifact hold from a true source pin mismatch" | Out-Null
 
 if ($RunNoLiveSmoke) {
