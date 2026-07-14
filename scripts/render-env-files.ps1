@@ -4,6 +4,7 @@ param(
   [string]$CentralEnvPath = "",
   [switch]$DryRun,
   [switch]$Force,
+  [switch]$CreateCentralEnv,
   [switch]$NoCreateCentralEnv
 )
 
@@ -217,8 +218,12 @@ if ([string]::IsNullOrWhiteSpace($CentralEnvPath)) {
 }
 $resolvedCentralEnvPath = Resolve-RepoBoundWriteFile -Path $CentralEnvPath -Label "central env"
 
+if ($CreateCentralEnv -and $NoCreateCentralEnv) {
+  throw "-CreateCentralEnv and -NoCreateCentralEnv cannot be used together"
+}
+
 if (-not (Test-Path -LiteralPath $resolvedCentralEnvPath -PathType Leaf)) {
-  if (-not $DryRun) {
+  if (-not $DryRun -and -not $CreateCentralEnv) {
     throw "central env missing for non-dry-run; create it explicitly before rendering: $resolvedCentralEnvPath"
   }
   if ($NoCreateCentralEnv) {

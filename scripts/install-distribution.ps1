@@ -194,7 +194,14 @@ function Invoke-Bootstrap {
 }
 
 function Invoke-EnvRender {
-  $renderArgs = @("-NoProfile", "-File", (Join-Path $PSScriptRoot "render-env-files.ps1"), "-Profile", $Profile)
+  $renderArgs = @(
+    "-NoProfile",
+    "-File",
+    (Join-Path $PSScriptRoot "render-env-files.ps1"),
+    "-Profile",
+    $Profile,
+    "-CreateCentralEnv"
+  )
   if (-not [string]::IsNullOrWhiteSpace($DistributionManifestPath)) {
     $renderArgs += @("-DistributionManifestPath", $DistributionManifestPath)
   }

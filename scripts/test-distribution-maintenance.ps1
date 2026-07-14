@@ -3140,6 +3140,19 @@ function Test-EnvRenderFixtures {
     Assert-PathAbsent -Path $centralEnv
     Assert-PathAbsent -Path $targetEnv
 
+    $conflictingCreateOutput = Invoke-ExpectFailure -Command @(
+      $PowerShellCommand,
+      "-NoProfile",
+      "-File",
+      $rendererScript,
+      "-DistributionManifestPath",
+      $manifestPath,
+      "-DryRun",
+      "-CreateCentralEnv",
+      "-NoCreateCentralEnv"
+    )
+    Assert-TextMatch -Text ($conflictingCreateOutput -join "`n") -Pattern "cannot be used together" -Message "conflicting central env creation switches were not rejected"
+
     $failureOutput = Invoke-ExpectFailure -Command @(
       $PowerShellCommand,
       "-NoProfile",
@@ -3161,8 +3174,6 @@ function Test-EnvRenderFixtures {
       "KEEP=local-template-keep"
     ) -Encoding utf8
     Set-Content -LiteralPath $configTemplate -Value "enabled: true" -Encoding utf8
-    New-Item -ItemType Directory -Path (Split-Path -Parent $centralEnv) -Force | Out-Null
-    Copy-Item -LiteralPath $centralTemplate -Destination $centralEnv
     Write-JsonFixture -Path $manifestPath -Value ([ordered]@{
       env = [ordered]@{
         central_template_path = $centralTemplate
@@ -3196,7 +3207,8 @@ function Test-EnvRenderFixtures {
       "-File",
       $rendererScript,
       "-DistributionManifestPath",
-      $manifestPath
+      $manifestPath,
+      "-CreateCentralEnv"
     ) | Out-Null
     Assert-PathPresent -Path $centralEnv
     Assert-PathPresent -Path $targetEnv
