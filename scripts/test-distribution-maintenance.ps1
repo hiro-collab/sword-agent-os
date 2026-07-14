@@ -2210,6 +2210,10 @@ function Test-RouteAParentNoLiveUxStatic {
   Assert-TextMatch -Text $install -Pattern "Dry run: planning only" -Message "install dry-run should say it is planning only"
   Assert-TextMatch -Text $install -Pattern "SWORD AGENT OS DRY RUN COMPLETE" -Message "install dry-run should not look like real readiness"
   Assert-TextMatch -Text $install -Pattern "no clone, env, dependency, or generated local file changes" -Message "install dry-run should spell out no-write scope"
+  Assert-TextMatch -Text $install -Pattern 'elseif \(\$NoDeps\)' -Message "install completion should classify the no-deps path separately"
+  Assert-TextMatch -Text $install -Pattern "SWORD AGENT OS SOURCE BOOTSTRAP COMPLETE" -Message "install no-deps completion should not claim launch readiness"
+  Assert-TextMatch -Text $install -Pattern "Dependencies were skipped; this checkout is not ready for first launch" -Message "install no-deps completion should state the missing dependency layer"
+  Assert-TextMatch -Text $install -Pattern 'install-distribution\.ps1 -Profile \$Profile' -Message "install no-deps completion should point to the dependency-installing command"
 
   $readiness = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "scripts\check-launch-readiness.ps1")
   Assert-TextMatch -Text $readiness -Pattern "expected_for_no_live=true" -Message "readiness should mark mock adapter as expected no-live evidence"

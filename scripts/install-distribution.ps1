@@ -299,12 +299,20 @@ Write-InstallText "+------------------------------------------------------------
 if ($DryRun) {
   Write-InstallText "| SWORD AGENT OS DRY RUN COMPLETE                           |" Green
 }
+elseif ($NoDeps) {
+  Write-InstallText "| SWORD AGENT OS SOURCE BOOTSTRAP COMPLETE                  |" Yellow
+}
 else {
   Write-InstallText "| SWORD AGENT OS IS READY FOR FIRST LAUNCH                  |" Green
 }
 Write-InstallText "+------------------------------------------------------------+" Green
 if ($DryRun) {
   Write-InstallText "Next command for real install:" Yellow
+  Write-Host "  pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile $Profile"
+}
+elseif ($NoDeps) {
+  Write-InstallText "Dependencies were skipped; this checkout is not ready for first launch." Yellow
+  Write-InstallText "Next command for dependency installation:" Yellow
   Write-Host "  pwsh -NoProfile -File .\scripts\install-distribution.ps1 -Profile $Profile"
 }
 else {
