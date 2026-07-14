@@ -3369,14 +3369,184 @@ function Remove-FixtureSubtree {
     [Parameter(Mandatory = $true)][string]$RelativePath
   )
 
-  $target = Join-Path $Workspace $RelativePath
-  $resolvedTarget = [System.IO.Path]::GetFullPath($target)
-  $resolvedWorkspace = [System.IO.Path]::GetFullPath($Workspace)
-  if (-not $resolvedTarget.StartsWith($resolvedWorkspace, [System.StringComparison]::OrdinalIgnoreCase)) {
+  if ([System.IO.Path]::IsPathRooted($RelativePath) -or
+      @($RelativePath -split '[\\/]' | Where-Object { $_ -eq ".." }).Count -gt 0) {
+    throw "fixture subtree path must be a bounded relative path: $RelativePath"
+  }
+
+  $resolvedWorkspace = [System.IO.Path]::GetFullPath($Workspace).TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+  )
+  $owningRecords = @(
+    foreach ($entry in $OwnedFreshTestRoots.GetEnumerator()) {
+      $ownedRoot = [System.IO.Path]::GetFullPath([string]$entry.Value.root).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+      )
+      $ownedPrefix = $ownedRoot + [System.IO.Path]::DirectorySeparatorChar
+      if ($resolvedWorkspace.StartsWith($ownedPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        [PSCustomObject]@{
+          root = $ownedRoot
+          record = $entry.Value
+        }
+      }
+    }
+  )
+  if ($owningRecords.Count -ne 1) {
+    throw "fixture workspace must belong to exactly one root created by this invocation: $resolvedWorkspace"
+  }
+
+  $ownedRoot = [string]$owningRecords[0].root
+  $record = $owningRecords[0].record
+  $key = $ownedRoot.ToUpperInvariant()
+  if (-not $OwnedFreshTestRoots.ContainsKey($key) -or
+      [string]$record.invocation_id -ne $FreshTestInvocationId) {
+    throw "fixture workspace ownership record is invalid: $resolvedWorkspace"
+  }
+  if (-not (Test-Path -LiteralPath $ownedRoot -PathType Container)) {
+    throw "owned fixture root is missing: $ownedRoot"
+  }
+  $rootItem = Get-Item -LiteralPath $ownedRoot -Force
+  if (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+      $rootItem.CreationTimeUtc.Ticks -ne [long]$record.creation_time_utc_ticks) {
+    throw "owned fixture root identity changed: $ownedRoot"
+  }
+  $markerPath = Join-Path $ownedRoot $FreshTestOwnerMarkerName
+  if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+    throw "owned fixture root marker is missing: $ownedRoot"
+  }
+  $markerItem = Get-Item -LiteralPath $markerPath -Force
+  if (($markerItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "owned fixture root marker became a reparse point: $ownedRoot"
+  }
+  $marker = Get-Content -Raw -LiteralPath $markerPath | ConvertFrom-Json
+  if ([string]$marker.invocation_id -ne $FreshTestInvocationId -or
+      -not ([string]$marker.root).Equals($ownedRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+      [long]$marker.creation_time_utc_ticks -ne [long]$record.creation_time_utc_ticks) {
+    throw "owned fixture root marker does not match this invocation: $ownedRoot"
+  }
+
+  [void](Assert-NoFreshTestPathReparsePoint -Path $resolvedWorkspace -Boundary $ownedRoot -Label "fixture workspace")
+  if (-not (Test-Path -LiteralPath $resolvedWorkspace -PathType Container)) {
+    throw "fixture workspace is missing or no longer a directory: $resolvedWorkspace"
+  }
+  $workspaceItem = Get-Item -LiteralPath $resolvedWorkspace -Force
+  if (($workspaceItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "fixture workspace became a reparse point: $resolvedWorkspace"
+  }
+
+  $resolvedTarget = [System.IO.Path]::GetFullPath((Join-Path $resolvedWorkspace $RelativePath)).TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+  )
+  $workspacePrefix = $resolvedWorkspace + [System.IO.Path]::DirectorySeparatorChar
+  if (-not $resolvedTarget.StartsWith($workspacePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "refusing to remove fixture path outside workspace: $resolvedTarget"
   }
+  [void](Assert-NoFreshTestPathReparsePoint -Path $resolvedTarget -Boundary $ownedRoot -Label "fixture subtree")
+  if (-not (Test-Path -LiteralPath $resolvedTarget -PathType Container)) {
+    throw "fixture subtree is missing or no longer a directory: $resolvedTarget"
+  }
+  $targetItem = Get-Item -LiteralPath $resolvedTarget -Force
+  if (($targetItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "fixture subtree became a reparse point: $resolvedTarget"
+  }
+  $reparseDescendant = Get-ChildItem -LiteralPath $resolvedTarget -Force -Recurse -ErrorAction Stop |
+    Where-Object { ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 } |
+    Select-Object -First 1
+  if ($null -ne $reparseDescendant) {
+    throw "owned fixture subtree contains a reparse point and cannot be recursively cleaned: $($reparseDescendant.FullName)"
+  }
+
+  Remove-Item -LiteralPath $resolvedTarget -Recurse -Force
   if (Test-Path -LiteralPath $resolvedTarget) {
-    Remove-Item -LiteralPath $resolvedTarget -Recurse -Force
+    throw "owned fixture subtree cleanup incomplete: $resolvedTarget"
+  }
+}
+
+function Test-FixtureSubtreeCleanupSafety {
+  Write-TestStep "owned fixture subtree cleanup safety"
+  $root = New-FreshTestRoot
+  try {
+    $workspace = Join-Path $root "workspace"
+    $validTarget = Join-Path $workspace "valid-target"
+    New-Item -ItemType Directory -Path $validTarget -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $validTarget "fixture.txt") -Value "fixture" -Encoding utf8
+    Remove-FixtureSubtree -Workspace $workspace -RelativePath "valid-target"
+    Assert-PathAbsent -Path $validTarget
+
+    $sibling = Join-Path $root "workspace-sibling"
+    $siblingSentinel = Join-Path $sibling "caller-owned-sentinel.txt"
+    New-Item -ItemType Directory -Path $sibling -Force | Out-Null
+    Set-Content -LiteralPath $siblingSentinel -Value "keep" -Encoding utf8
+    $traversalRejected = $false
+    try {
+      Remove-FixtureSubtree -Workspace $workspace -RelativePath "..\workspace-sibling"
+    }
+    catch {
+      $traversalRejected = $true
+    }
+    if (-not $traversalRejected -or -not (Test-Path -LiteralPath $siblingSentinel -PathType Leaf)) {
+      throw "fixture subtree cleanup did not reject parent traversal without touching the sibling"
+    }
+
+    $missingRejected = $false
+    try {
+      Remove-FixtureSubtree -Workspace $workspace -RelativePath "missing-target"
+    }
+    catch {
+      $missingRejected = $true
+    }
+    if (-not $missingRejected) {
+      throw "fixture subtree cleanup accepted a missing target"
+    }
+
+    $markerGuardTarget = Join-Path $workspace "marker-guard-target"
+    New-Item -ItemType Directory -Path $markerGuardTarget -Force | Out-Null
+    $markerPath = Join-Path $root $FreshTestOwnerMarkerName
+    $markerContent = Get-Content -Raw -LiteralPath $markerPath
+    $tamperedMarker = $markerContent | ConvertFrom-Json
+    $tamperedMarker.invocation_id = "different-invocation"
+    Set-Content -LiteralPath $markerPath -Value ($tamperedMarker | ConvertTo-Json -Compress) -Encoding utf8
+    $markerRejected = $false
+    try {
+      Remove-FixtureSubtree -Workspace $workspace -RelativePath "marker-guard-target"
+    }
+    catch {
+      $markerRejected = $true
+    }
+    finally {
+      Set-Content -LiteralPath $markerPath -Value $markerContent -Encoding utf8
+    }
+    if (-not $markerRejected -or -not (Test-Path -LiteralPath $markerGuardTarget -PathType Container)) {
+      throw "fixture subtree cleanup did not reject a mismatched owner marker"
+    }
+    Remove-FixtureSubtree -Workspace $workspace -RelativePath "marker-guard-target"
+
+    $externalTarget = Join-Path $root "junction-target"
+    $reparseTarget = Join-Path $workspace "reparse-target"
+    $junction = Join-Path $reparseTarget "linked-content"
+    $externalSentinel = Join-Path $externalTarget "external-sentinel.txt"
+    New-Item -ItemType Directory -Path $externalTarget -Force | Out-Null
+    New-Item -ItemType Directory -Path $reparseTarget -Force | Out-Null
+    Set-Content -LiteralPath $externalSentinel -Value "keep" -Encoding utf8
+    New-Item -ItemType Junction -Path $junction -Target $externalTarget | Out-Null
+    $reparseRejected = $false
+    try {
+      Remove-FixtureSubtree -Workspace $workspace -RelativePath "reparse-target"
+    }
+    catch {
+      $reparseRejected = $true
+    }
+    if (-not $reparseRejected -or -not (Test-Path -LiteralPath $externalSentinel -PathType Leaf)) {
+      throw "fixture subtree cleanup did not reject a reparse descendant without touching its target"
+    }
+    Remove-Item -LiteralPath $junction -Force
+    Remove-FixtureSubtree -Workspace $workspace -RelativePath "reparse-target"
+  }
+  finally {
+    Remove-FreshTestRoot -Path $root
   }
 }
 
@@ -3675,6 +3845,7 @@ Test-OverallTestLadderFrontDoorV2Static
 Test-AudioAwarenessRefPolicyStatic
 Test-RouteAParentNoLiveUxStatic
 Test-FreshTestRootOwnershipSafety
+Test-FixtureSubtreeCleanupSafety
 Test-HomeControlTrackingHelperFixtures
 Test-ManifestAndVersion
 Test-UpdateFixtureHoldBehavior
