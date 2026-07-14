@@ -121,6 +121,103 @@
               "minLength": 1
             }
           },
+          "current_state": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema_version",
+              "self_state_class",
+              "input_availability_class",
+              "system_speech_intent_class",
+              "self_output_observation_class",
+              "pending_private_authority_class",
+              "projection_freshness_class",
+              "raw_private_publication_flags",
+              "status_observed_at",
+              "status_freshness_class",
+              "status_confidence",
+              "status_source_ref"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "input_gate_body_state.v0"
+              },
+              "self_state_class": {
+                "enum": ["self-speaking", "input-receivable", "ambiguity-held"]
+              },
+              "input_availability_class": {
+                "enum": ["enabled", "disabled"]
+              },
+              "system_speech_intent_class": {
+                "enum": ["handoff_accepted", "cooldown", "released", "missing"]
+              },
+              "self_output_observation_class": {
+                "enum": ["matched_current", "missing"]
+              },
+              "pending_private_authority_class": {
+                "enum": ["zero", "nonzero"]
+              },
+              "projection_freshness_class": {
+                "enum": ["current_owner_read", "missing_owner_read"]
+              },
+              "raw_private_publication_flags": {
+                "const": false
+              },
+              "status_observed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "status_freshness_class": {
+                "enum": ["fresh", "missing"]
+              },
+              "status_confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "status_source_ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "projection_freshness_class": {
+                      "const": "missing_owner_read"
+                    }
+                  },
+                  "required": ["projection_freshness_class"]
+                },
+                "then": {
+                  "properties": {
+                    "self_state_class": {
+                      "const": "ambiguity-held"
+                    },
+                    "input_availability_class": {
+                      "const": "disabled"
+                    },
+                    "system_speech_intent_class": {
+                      "const": "missing"
+                    },
+                    "self_output_observation_class": {
+                      "const": "missing"
+                    },
+                    "pending_private_authority_class": {
+                      "const": "nonzero"
+                    },
+                    "status_freshness_class": {
+                      "const": "missing"
+                    },
+                    "status_confidence": {
+                      "const": 0
+                    }
+                  }
+                }
+              }
+            ]
+          },
           "source_refs": {
             "type": "array",
             "items": {

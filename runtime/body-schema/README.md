@@ -61,3 +61,18 @@ compatibility summary, freshness/staleness timestamps, and a logical status
 source such as `status-store.current`. Raw motion assets, local paths, raw
 media, prompts, transcripts, provider payloads, and full logs remain outside
 Body Schema snapshots.
+
+## Hearing Organ Current State
+
+When Status Store contains one current, canonical
+`sense.hearing.primary.input_gate.body_state` row, Body Schema may attach its
+fixed `input_gate_body_state.v0` projection to the hearing organ. It copies the
+owner classes and their logical status-source metadata without recomputing
+them.
+
+The InputGate remains the only owner of `self-speaking`, `input-receivable`,
+and `ambiguity-held`. Body Schema does not inspect AEC, VAD, PCM, transcripts,
+candidate/session identifiers, lifecycle transport, or caller claims. It does
+not accept a candidate, mint a capability, materialize TurnInput, or upgrade a
+process observation to user-heard proof. Stale, duplicated, malformed,
+wrong-organ, wrong-driver, or private-bearing rows are not projected.

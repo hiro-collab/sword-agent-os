@@ -216,6 +216,145 @@ function Get-StatusEvidenceForOrgan {
   }
 }
 
+function Test-ExactObjectKeys {
+  param(
+    [object]$Value,
+    [Parameter(Mandatory = $true)][string[]]$Expected
+  )
+
+  if ($null -eq $Value) {
+    return $false
+  }
+  $actual = @($Value.PSObject.Properties.Name | Sort-Object)
+  $wanted = @($Expected | Sort-Object)
+  return (($actual -join "`n") -ceq ($wanted -join "`n"))
+}
+
+function Get-InputGateBodyStateForOrgan {
+  param(
+    [Parameter(Mandatory = $true)][string]$OrganId,
+    [Parameter(Mandatory = $true)][hashtable]$AliasMap,
+    [object]$Status,
+    [Parameter(Mandatory = $true)][DateTimeOffset]$Now
+  )
+
+  if ($null -eq $Status -or $OrganId -cne "sense.hearing.primary") {
+    return $null
+  }
+
+  $rows = @(
+    ConvertTo-Array (Get-OptionalProperty -Object $Status -Name "organ_states" -Default @()) |
+      Where-Object { [string](Get-OptionalProperty -Object $_ -Name "state_key" -Default "") -ceq "sense.hearing.primary.input_gate.body_state" }
+  )
+  if ($rows.Count -ne 1) {
+    return $null
+  }
+
+  $row = $rows[0]
+  $rowKeys = @(
+    "state_key", "organ_id", "driver_id", "value", "observed_at",
+    "received_at", "stale_after", "freshness", "confidence", "source_ref"
+  )
+  if (-not (Test-ExactObjectKeys -Value $row -Expected $rowKeys)) {
+    return $null
+  }
+  if (
+    [string]$row.organ_id -cne $OrganId -or
+    [string]$row.driver_id -cne "browser_speech_input_driver" -or
+    [string]$row.source_ref -cne "sense.hearing.primary.input_gate.body_state"
+  ) {
+    return $null
+  }
+  $resolved = Resolve-Alias -Map $AliasMap -Value ([string]$row.driver_id)
+  if ($null -eq $resolved -or [string]$resolved.organ_id -cne $OrganId) {
+    return $null
+  }
+
+  $value = $row.value
+  $valueKeys = @(
+    "schema_version", "self_state_class", "input_availability_class",
+    "system_speech_intent_class", "self_output_observation_class",
+    "pending_private_authority_class", "projection_freshness_class",
+    "raw_private_publication_flags"
+  )
+  if (-not (Test-ExactObjectKeys -Value $value -Expected $valueKeys)) {
+    return $null
+  }
+  if (
+    [string]$value.schema_version -cne "input_gate_body_state.v0" -or
+    [string]$value.self_state_class -cnotin @("self-speaking", "input-receivable", "ambiguity-held") -or
+    [string]$value.input_availability_class -cnotin @("enabled", "disabled") -or
+    [string]$value.system_speech_intent_class -cnotin @("handoff_accepted", "cooldown", "released", "missing") -or
+    [string]$value.self_output_observation_class -cnotin @("matched_current", "missing") -or
+    [string]$value.pending_private_authority_class -cnotin @("zero", "nonzero") -or
+    [string]$value.projection_freshness_class -cnotin @("current_owner_read", "missing_owner_read") -or
+    $value.raw_private_publication_flags -isnot [bool] -or
+    [bool]$value.raw_private_publication_flags
+  ) {
+    return $null
+  }
+  if (
+    [string]$value.projection_freshness_class -ceq "missing_owner_read" -and
+    (
+      [string]$value.self_state_class -cne "ambiguity-held" -or
+      [string]$value.input_availability_class -cne "disabled" -or
+      [string]$value.system_speech_intent_class -cne "missing" -or
+      [string]$value.self_output_observation_class -cne "missing" -or
+      [string]$value.pending_private_authority_class -cne "nonzero"
+    )
+  ) {
+    return $null
+  }
+
+  try {
+    $observedAt = [DateTimeOffset]::Parse([string]$row.observed_at)
+    $receivedAt = [DateTimeOffset]::Parse([string]$row.received_at)
+    $staleAfter = [DateTimeOffset]::Parse([string]$row.stale_after)
+  }
+  catch {
+    return $null
+  }
+  if ($receivedAt -lt $observedAt -or $receivedAt -gt $Now.AddSeconds(5)) {
+    return $null
+  }
+  $confidence = [double]$row.confidence
+  $ownerReadCurrent = [string]$value.projection_freshness_class -ceq "current_owner_read"
+  if ($ownerReadCurrent) {
+    if (
+      [string]$row.freshness -cne "fresh" -or
+      $confidence -le 0 -or
+      $confidence -gt 1 -or
+      $Now -gt $staleAfter
+    ) {
+      return $null
+    }
+  }
+  else {
+    if (
+      [string]$value.self_state_class -cne "ambiguity-held" -or
+      [string]$row.freshness -cne "missing" -or
+      $confidence -ne 0
+    ) {
+      return $null
+    }
+  }
+
+  return [PSCustomObject]@{
+    schema_version = [string]$value.schema_version
+    self_state_class = [string]$value.self_state_class
+    input_availability_class = [string]$value.input_availability_class
+    system_speech_intent_class = [string]$value.system_speech_intent_class
+    self_output_observation_class = [string]$value.self_output_observation_class
+    pending_private_authority_class = [string]$value.pending_private_authority_class
+    projection_freshness_class = [string]$value.projection_freshness_class
+    raw_private_publication_flags = $false
+    status_observed_at = $observedAt.ToString("o")
+    status_freshness_class = [string]$row.freshness
+    status_confidence = $confidence
+    status_source_ref = [string]$row.source_ref
+  }
+}
+
 function Write-JsonFile {
   param(
     [Parameter(Mandatory = $true)][string]$Path,
@@ -335,6 +474,34 @@ function Add-BodySchemaContractErrors {
   elseif (Test-LocalPathString -Value ([string]$BodySchema.status_source.source_id)) {
     $Errors.Value += "body schema status_source.source_id is path-like"
   }
+
+  $currentStateContract = $BodySchemaContract.properties.organs.items.properties.current_state
+  if ($null -eq $currentStateContract -or [string](Get-OptionalProperty -Object $currentStateContract -Name "type" -Default "") -ne "object") {
+    $Errors.Value += "body schema contract must expose optional current_state as an object"
+  }
+  foreach ($organ in @($BodySchema.organs)) {
+    $currentStateProperty = $organ.PSObject.Properties["current_state"]
+    if ($null -eq $currentStateProperty) {
+      continue
+    }
+    $expectedKeys = @(
+      "schema_version", "self_state_class", "input_availability_class",
+      "system_speech_intent_class", "self_output_observation_class",
+      "pending_private_authority_class", "projection_freshness_class",
+      "raw_private_publication_flags", "status_observed_at",
+      "status_freshness_class", "status_confidence", "status_source_ref"
+    )
+    if (-not (Test-ExactObjectKeys -Value $currentStateProperty.Value -Expected $expectedKeys)) {
+      $Errors.Value += "body schema current_state fields are invalid"
+      continue
+    }
+    if (
+      [bool]$currentStateProperty.Value.raw_private_publication_flags -or
+      (Test-LocalPathString -Value ([string]$currentStateProperty.Value.status_source_ref))
+    ) {
+      $Errors.Value += "body schema current_state contains unsafe publication data"
+    }
+  }
 }
 
 function Add-ProjectionContractErrors {
@@ -393,14 +560,22 @@ $mappedStatusCount = 0
 foreach ($organ in ConvertTo-Array $bodyPlan.organs) {
   $organId = [string]$organ.organ_id
   $evidence = Get-StatusEvidenceForOrgan -OrganId $organId -AliasMap $aliasMap -Status $status
+  $currentState = Get-InputGateBodyStateForOrgan -OrganId $organId -AliasMap $aliasMap -Status $status -Now ([DateTimeOffset]$generatedAt)
   $mappedStatusCount += [int]$evidence.mapped_count
+  if ($null -ne $currentState) {
+    $mappedStatusCount += 1
+  }
   $states = [string[]]$evidence.states
   $health = Convert-StateToHealth -States $states
   $freshness = Convert-HealthToFreshness -Health $health
   $confidence = Convert-HealthToConfidence -Health $health
   $driverRefs = @(ConvertTo-Array $organ.driver_manifest_refs | ForEach-Object { [string]$_ })
+  $organSourceRefs = @($evidence.source_refs)
+  if ($null -ne $currentState) {
+    $organSourceRefs += "status:$($currentState.status_source_ref)"
+  }
 
-  $organs += [PSCustomObject]@{
+  $organRecord = [PSCustomObject]@{
     organ_id = $organId
     role = [string]$organ.role
     required = [bool]$organ.required
@@ -410,8 +585,12 @@ foreach ($organ in ConvertTo-Array $bodyPlan.organs) {
     confidence = $confidence
     services = @($evidence.services)
     capabilities = @($evidence.capabilities)
-    source_refs = @($evidence.source_refs)
+    source_refs = @($organSourceRefs | Select-Object -Unique)
   }
+  if ($null -ne $currentState) {
+    $organRecord | Add-Member -NotePropertyName "current_state" -NotePropertyValue $currentState
+  }
+  $organs += $organRecord
 
   $nodes += [PSCustomObject]@{
     node_id = $organId
@@ -421,7 +600,7 @@ foreach ($organ in ConvertTo-Array $bodyPlan.organs) {
     activity = "idle"
     freshness = $freshness
     confidence = $confidence
-    source_refs = @($evidence.source_refs)
+    source_refs = @($organSourceRefs | Select-Object -Unique)
   }
 }
 

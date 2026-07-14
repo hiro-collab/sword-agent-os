@@ -8,6 +8,7 @@ param(
   [string]$WebSocketProbeMode = "process",
   [switch]$ManifestOnly,
   [int]$TimeoutMs = 1200,
+  [string]$InputGateBodyStateUrl = "http://127.0.0.1:8000/api/input-gate/body-state",
   [string]$WorkspaceRoot = "",
   [string]$StackStateDir = "",
   [switch]$NoJournal
@@ -17,6 +18,8 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
+$StateEventIngestModulePath = Join-Path $RepoRoot "runtime\state-event-ingest\StateEventIngest.psm1"
+Import-Module -Name $StateEventIngestModulePath -Force
 
 function Resolve-RepoPath {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -78,6 +81,112 @@ function ConvertTo-StringArray {
     return @()
   }
   return @($Value | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+
+function New-MissingInputGateBodyStateProjection {
+  return [PSCustomObject]@{
+    schema_version = "input_gate_body_state.v0"
+    self_state_class = "ambiguity-held"
+    input_availability_class = "disabled"
+    system_speech_intent_class = "missing"
+    self_output_observation_class = "missing"
+    pending_private_authority_class = "nonzero"
+    projection_freshness_class = "missing_owner_read"
+    raw_private_publication_flags = $false
+  }
+}
+
+function Read-InputGateBodyStateProjection {
+  param(
+    [Parameter(Mandatory = $true)][string]$Url,
+    [Parameter(Mandatory = $true)][int]$Timeout,
+    [Parameter(Mandatory = $true)][bool]$ManifestOnlyMode,
+    [string]$Token = ""
+  )
+
+  if ($ManifestOnlyMode) {
+    return New-MissingInputGateBodyStateProjection
+  }
+  try {
+    $uri = [System.Uri]::new($Url, [System.UriKind]::Absolute)
+  }
+  catch {
+    return New-MissingInputGateBodyStateProjection
+  }
+  if (
+    $uri.Scheme -cne "http" -or
+    $uri.Host -cne "127.0.0.1" -or
+    $uri.Port -lt 1 -or
+    $uri.Port -gt 65535 -or
+    $uri.AbsolutePath -cne "/api/input-gate/body-state" -or
+    -not [string]::IsNullOrEmpty($uri.Query) -or
+    -not [string]::IsNullOrEmpty($uri.Fragment) -or
+    -not [string]::IsNullOrEmpty($uri.UserInfo)
+  ) {
+    return New-MissingInputGateBodyStateProjection
+  }
+
+  try {
+    $timeoutSeconds = [Math]::Max(1, [int][Math]::Ceiling($Timeout / 1000.0))
+    $headers = @{}
+    if (-not [string]::IsNullOrWhiteSpace($Token)) {
+      $headers["X-AI-Core-Token"] = $Token
+    }
+    $projection = Invoke-RestMethod -Method Get -Uri $uri.AbsoluteUri -Headers $headers -TimeoutSec $timeoutSeconds
+    [void](Test-InputGateBodyStateProjection -Projection $projection)
+    return $projection
+  }
+  catch {
+    return New-MissingInputGateBodyStateProjection
+  }
+}
+
+function New-InputGateBodyStateIngestEnvelope {
+  param(
+    [Parameter(Mandatory = $true)]$Projection,
+    [Parameter(Mandatory = $true)][DateTimeOffset]$ObservedAt
+  )
+
+  $suffix = $ObservedAt.UtcDateTime.ToString("yyyyMMddTHHmmssfffZ")
+  $isCurrentOwnerRead = [string]$Projection.projection_freshness_class -ceq "current_owner_read"
+  return [PSCustomObject]@{
+    schema_version = "event_ingest.v0"
+    ingest_id = "ing_input_gate_body_state_$suffix"
+    event = [PSCustomObject]@{
+      event_id = "evt_input_gate_body_state_$suffix"
+      event_type = "sense.hearing.input_gate.body_state"
+      event_level = 1
+      reported_at = $ObservedAt.ToString("o")
+      source = [PSCustomObject]@{
+        origin = "system"
+        organ_id = "sense.hearing.primary"
+        driver_id = "browser_speech_input_driver"
+        instance_id = "ai_talk_core_input_gate"
+      }
+      payload = [PSCustomObject]@{
+        schema_version = "input_gate_body_state.event.v0"
+        status_key = "sense.hearing.primary.input_gate.body_state"
+        raw_private_publication_flags = $false
+      }
+      redaction = "summary_only"
+      dry_run = $false
+      driver_kind = "compat_adapter"
+    }
+    status_patch = [PSCustomObject]@{
+      schema_version = "status_patch.v0"
+      patch_id = "sp_input_gate_body_state_$suffix"
+      updates = @(
+        [PSCustomObject]@{
+          key = "sense.hearing.primary.input_gate.body_state"
+          value = $Projection
+          observed_at = $ObservedAt.ToString("o")
+          freshness_ms = if ($isCurrentOwnerRead) { 5000 } else { 0 }
+          confidence = if ($isCurrentOwnerRead) { 1.0 } else { 0.0 }
+          source_ref = "sense.hearing.primary.input_gate.body_state"
+        }
+      )
+    }
+  }
 }
 
 function Ensure-DirectoryForFile {
@@ -574,9 +683,23 @@ function New-DigestInput {
       detail = $_.detail
     }
   })
+  $organStates = @((Get-OptionalProperty -Object $Status -Name "organ_states" -Default @()) | Sort-Object state_key | ForEach-Object {
+    [PSCustomObject]@{
+      state_key = $_.state_key
+      organ_id = $_.organ_id
+      driver_id = $_.driver_id
+      value = $_.value
+      observed_at = $_.observed_at
+      stale_after = $_.stale_after
+      freshness = $_.freshness
+      confidence = $_.confidence
+      source_ref = $_.source_ref
+    }
+  })
   $digestInput = [PSCustomObject]@{
     services = $services
     capabilities = $capabilities
+    organ_states = $organStates
   }
   $provenanceProperty = $Status.PSObject.Properties["no_provider_child_provenance_diagnostics"]
   if ($null -ne $provenanceProperty) {
@@ -937,6 +1060,23 @@ $status = [PSCustomObject]@{
   services = @($services | Sort-Object service_id)
   capabilities = @($capabilities | Sort-Object driver_id, capability)
 }
+$resolvedInputGateBodyStateUrl = Convert-UrlForPortMode `
+  -Url $InputGateBodyStateUrl `
+  -ServiceId "ai_talk_core_web" `
+  -ServiceManifest $serviceManifest `
+  -SelectedPortMode $PortMode
+$inputGateBodyState = Read-InputGateBodyStateProjection `
+  -Url $resolvedInputGateBodyStateUrl `
+  -Timeout 600 `
+  -ManifestOnlyMode ([bool]$ManifestOnly) `
+  -Token ([Environment]::GetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", "Process"))
+$inputGateBodyStateEnvelope = New-InputGateBodyStateIngestEnvelope `
+  -Projection $inputGateBodyState `
+  -ObservedAt $now
+$status = Invoke-StateEventIngest `
+  -Envelope $inputGateBodyStateEnvelope `
+  -CurrentStatus $status `
+  -ReceivedAt $now
 $status | Add-Member -NotePropertyName "digest" -NotePropertyValue (Get-ObjectDigest -Value (New-DigestInput -Status $status))
 $status | Add-Member -NotePropertyName "stores" -NotePropertyValue ([PSCustomObject]@{
   status_store = $statusPath
@@ -1016,5 +1156,7 @@ if (-not $NoJournal) {
   capabilities_available = $summary.capabilities_available
   capabilities_unavailable = $summary.capabilities_unavailable
   capabilities_unknown = $summary.capabilities_unknown
+  input_gate_body_state_class = [string]$inputGateBodyState.self_state_class
+  input_gate_body_state_freshness = [string]$inputGateBodyState.projection_freshness_class
   digest = $status.digest
 } | ConvertTo-Json -Depth 6
