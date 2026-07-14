@@ -13,6 +13,111 @@ Set-StrictMode -Version Latest
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "lib/common.ps1")
 
+$CanonicalRepoRoot = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd(
+  [System.IO.Path]::DirectorySeparatorChar,
+  [System.IO.Path]::AltDirectorySeparatorChar
+)
+
+function Test-PathHasParentTraversal {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  return @(($Path -split '[\\/]') | Where-Object { $_ -eq ".." }).Count -gt 0
+}
+
+function Test-PathInsideRepo {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  $candidate = [System.IO.Path]::GetFullPath($Path)
+  $prefix = $CanonicalRepoRoot + [System.IO.Path]::DirectorySeparatorChar
+  return $candidate.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Assert-NoRepoReparsePoint {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Label
+  )
+  $current = if (Test-Path -LiteralPath $Path) { $Path } else { Split-Path -Parent $Path }
+  while (-not [string]::IsNullOrWhiteSpace($current)) {
+    if (Test-Path -LiteralPath $current) {
+      $item = Get-Item -LiteralPath $current -Force
+      if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "$Label crosses a reparse point: $current"
+      }
+    }
+    $resolvedCurrent = [System.IO.Path]::GetFullPath($current).TrimEnd(
+      [System.IO.Path]::DirectorySeparatorChar,
+      [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    if ($resolvedCurrent.Equals($CanonicalRepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+      break
+    }
+    $parent = Split-Path -Parent $current
+    if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $current) {
+      break
+    }
+    $current = $parent
+  }
+}
+
+function Resolve-RepoBoundRegularFile {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Label,
+    [switch]$AllowMissing
+  )
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    throw "$Label path is empty"
+  }
+  if (Test-PathHasParentTraversal -Path $Path) {
+    throw "$Label path contains parent traversal"
+  }
+  $candidate = if ([System.IO.Path]::IsPathRooted($Path)) {
+    [System.IO.Path]::GetFullPath($Path)
+  }
+  else {
+    [System.IO.Path]::GetFullPath((Join-Path $CanonicalRepoRoot ($Path -replace "/", [System.IO.Path]::DirectorySeparatorChar)))
+  }
+  if (-not (Test-PathInsideRepo -Path $candidate)) {
+    throw "$Label path is outside repository root: $candidate"
+  }
+  Assert-NoRepoReparsePoint -Path $candidate -Label $Label
+  if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+    if ($AllowMissing -and -not (Test-Path -LiteralPath $candidate)) {
+      return $candidate
+    }
+    throw "$Label must be an existing regular file: $candidate"
+  }
+  return $candidate
+}
+
+function Resolve-RepoBoundWriteFile {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Label
+  )
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    throw "$Label path is empty"
+  }
+  if (Test-PathHasParentTraversal -Path $Path) {
+    throw "$Label path contains parent traversal"
+  }
+  $candidate = if ([System.IO.Path]::IsPathRooted($Path)) {
+    [System.IO.Path]::GetFullPath($Path)
+  }
+  else {
+    [System.IO.Path]::GetFullPath((Join-Path $CanonicalRepoRoot ($Path -replace "/", [System.IO.Path]::DirectorySeparatorChar)))
+  }
+  if (-not (Test-PathInsideRepo -Path $candidate)) {
+    throw "$Label path is outside repository root: $candidate"
+  }
+  Assert-NoRepoReparsePoint -Path $candidate -Label $Label
+  if (Test-Path -LiteralPath $candidate) {
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+      throw "$Label must be a regular file destination: $candidate"
+    }
+  }
+  return $candidate
+}
+
 function Read-DotEnvMap {
   param([Parameter(Mandatory = $true)][string]$Path)
   $map = @{}
@@ -99,19 +204,23 @@ if ([string]::IsNullOrWhiteSpace($DistributionManifestPath)) {
   $DistributionManifestPath = "manifests/distributions/$Profile.json"
 }
 
-$manifest = Read-JsonFile -Path $DistributionManifestPath
+$resolvedManifestPath = Resolve-RepoBoundRegularFile -Path $DistributionManifestPath -Label "distribution manifest"
+$manifest = Read-JsonFile -Path $resolvedManifestPath
 $envConfig = Get-OptionalProperty -Object $manifest -Name "env"
 if ($null -eq $envConfig) {
   throw "distribution has no env section: $DistributionManifestPath"
 }
 
-$centralTemplatePath = Resolve-RepoPath ([string]$envConfig.central_template_path)
+$centralTemplatePath = Resolve-RepoBoundRegularFile -Path ([string]$envConfig.central_template_path) -Label "central env template"
 if ([string]::IsNullOrWhiteSpace($CentralEnvPath)) {
   $CentralEnvPath = [string]$envConfig.central_env_path
 }
-$resolvedCentralEnvPath = Resolve-RepoPath $CentralEnvPath
+$resolvedCentralEnvPath = Resolve-RepoBoundWriteFile -Path $CentralEnvPath -Label "central env"
 
 if (-not (Test-Path -LiteralPath $resolvedCentralEnvPath -PathType Leaf)) {
+  if (-not $DryRun) {
+    throw "central env missing for non-dry-run; create it explicitly before rendering: $resolvedCentralEnvPath"
+  }
   if ($NoCreateCentralEnv) {
     Write-Warning "central env missing: $resolvedCentralEnvPath"
   }
@@ -132,14 +241,15 @@ else {
 $centralValues = Read-DotEnvMap -Path $valueSourcePath
 
 foreach ($copyTarget in @(Get-OptionalProperty -Object $envConfig -Name "local_config_templates" -Default @())) {
-  $source = Resolve-RepoPath ([string]$copyTarget.template_path)
-  $target = Resolve-RepoPath ([string]$copyTarget.target_path)
+  $source = Resolve-RepoBoundRegularFile -Path ([string]$copyTarget.template_path) -Label "$($copyTarget.id) template" -AllowMissing:$DryRun
+  $target = Resolve-RepoBoundWriteFile -Path ([string]$copyTarget.target_path) -Label "$($copyTarget.id) target"
   Copy-IfMissing -Source $source -Target $target -Label ([string]$copyTarget.id)
 }
 
 foreach ($target in @($envConfig.targets)) {
-  $templatePath = Resolve-RepoPath ([string]$target.template_path)
-  $targetPath = Resolve-RepoPath ([string]$target.target_path)
+  $templatePath = Resolve-RepoBoundRegularFile -Path ([string]$target.template_path) -Label "$($target.id) env template" -AllowMissing:$DryRun
+  $targetPath = Resolve-RepoBoundWriteFile -Path ([string]$target.target_path) -Label "$($target.id) env target"
+  $preserveLocal = [bool](Get-OptionalProperty -Object $target -Name "preserve_local" -Default $false)
   if (-not (Test-Path -LiteralPath $templatePath -PathType Leaf)) {
     if ($DryRun) {
       Write-Warning "env template not present yet for $($target.id): $templatePath"
@@ -148,6 +258,22 @@ foreach ($target in @($envConfig.targets)) {
       continue
     }
     throw "env template missing for $($target.id): $templatePath"
+  }
+  if ($preserveLocal) {
+    if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+      Write-Host "exists-local-authoritative: $targetPath"
+      continue
+    }
+    $parent = Split-Path -Parent $targetPath
+    if ($DryRun) {
+      Write-Host "New-Item -ItemType Directory -Force -Path $parent"
+      Write-Host "Copy local-authoritative env $($target.id): $templatePath -> $targetPath"
+      continue
+    }
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    Copy-Item -LiteralPath $templatePath -Destination $targetPath
+    Write-Host "created-local-authoritative: $targetPath"
+    continue
   }
   if ((Test-Path -LiteralPath $targetPath) -and -not $Force) {
     Write-Host "exists: $targetPath"

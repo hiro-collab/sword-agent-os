@@ -12,6 +12,9 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
+$FreshTestInvocationId = [guid]::NewGuid().ToString("N")
+$OwnedFreshTestRoots = @{}
+$FreshTestOwnerMarkerName = ".sword-agent-os-maintenance-owner.json"
 
 function Write-TestStep {
   param([Parameter(Mandatory = $true)][string]$Message)
@@ -2307,14 +2310,103 @@ function Test-InstalledWorkspaceMaintenance {
   ) | Out-Null
 }
 
-function New-FreshTestRoot {
-  if (-not [string]::IsNullOrWhiteSpace($TempRoot)) {
-    New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
-    return (Resolve-Path -LiteralPath $TempRoot).Path
+function Assert-NoFreshTestPathReparsePoint {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Boundary,
+    [Parameter(Mandatory = $true)][string]$Label
+  )
+  $boundaryFull = [System.IO.Path]::GetFullPath($Boundary).TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+  )
+  $candidateFull = [System.IO.Path]::GetFullPath($Path).TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+  )
+  $boundaryPrefix = $boundaryFull + [System.IO.Path]::DirectorySeparatorChar
+  if (-not $candidateFull.Equals($boundaryFull, [System.StringComparison]::OrdinalIgnoreCase) -and
+      -not $candidateFull.StartsWith($boundaryPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "$Label must remain inside its canonical boundary: $candidateFull"
   }
-  $root = Join-Path ([System.IO.Path]::GetTempPath()) ("sword-agent-os-maintenance-test-" + [guid]::NewGuid().ToString("N"))
-  New-Item -ItemType Directory -Force -Path $root | Out-Null
-  return $root
+
+  $current = $boundaryFull
+  $pathsToCheck = @($current)
+  if (-not $candidateFull.Equals($boundaryFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $relative = [System.IO.Path]::GetRelativePath($boundaryFull, $candidateFull)
+    foreach ($component in @($relative -split '[\\/]')) {
+      if ([string]::IsNullOrWhiteSpace($component) -or $component -eq ".") {
+        continue
+      }
+      $current = Join-Path $current $component
+      $pathsToCheck += $current
+    }
+  }
+  foreach ($candidate in $pathsToCheck) {
+    if (-not (Test-Path -LiteralPath $candidate)) {
+      continue
+    }
+    $item = Get-Item -LiteralPath $candidate -Force
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "$Label crosses a reparse point: $candidate"
+    }
+  }
+  return $candidateFull
+}
+
+function New-FreshTestRoot {
+  $tempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+  )
+  $base = if ([string]::IsNullOrWhiteSpace($TempRoot)) {
+    $tempBase
+  }
+  else {
+    [System.IO.Path]::GetFullPath($TempRoot).TrimEnd(
+      [System.IO.Path]::DirectorySeparatorChar,
+      [System.IO.Path]::AltDirectorySeparatorChar
+    )
+  }
+  $tempPrefix = $tempBase.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+  if (-not $base.Equals($tempBase, [System.StringComparison]::OrdinalIgnoreCase) -and
+      -not $base.StartsWith($tempPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "TempRoot base must remain inside the system temp directory: $base"
+  }
+  [void](Assert-NoFreshTestPathReparsePoint -Path $base -Boundary $tempBase -Label "TempRoot base")
+  if (-not (Test-Path -LiteralPath $base)) {
+    New-Item -ItemType Directory -Path $base | Out-Null
+  }
+  if (-not (Test-Path -LiteralPath $base -PathType Container)) {
+    throw "TempRoot base must be a directory: $base"
+  }
+  $baseItem = Get-Item -LiteralPath $base -Force
+  if (($baseItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "TempRoot base must not be a reparse point: $base"
+  }
+  [void](Assert-NoFreshTestPathReparsePoint -Path $base -Boundary $tempBase -Label "TempRoot base")
+  $root = Join-Path $base ("sword-agent-os-maintenance-test-" + [guid]::NewGuid().ToString("N"))
+  if (Test-Path -LiteralPath $root) {
+    throw "fresh test root unexpectedly exists: $root"
+  }
+  $rootItem = New-Item -ItemType Directory -Path $root
+  if (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "fresh test root must not be a reparse point: $root"
+  }
+  $resolved = [System.IO.Path]::GetFullPath($rootItem.FullName)
+  [void](Assert-NoFreshTestPathReparsePoint -Path $resolved -Boundary $tempBase -Label "fresh test root")
+  $markerPath = Join-Path $resolved $FreshTestOwnerMarkerName
+  $record = [ordered]@{
+    schema_version = 1
+    owner = "scripts/test-distribution-maintenance.ps1"
+    invocation_id = $FreshTestInvocationId
+    root = $resolved
+    base = [System.IO.Path]::GetFullPath($base)
+    creation_time_utc_ticks = $rootItem.CreationTimeUtc.Ticks
+  }
+  Set-Content -LiteralPath $markerPath -Value ($record | ConvertTo-Json -Compress) -Encoding utf8
+  $OwnedFreshTestRoots[$resolved.ToUpperInvariant()] = $record
+  return $resolved
 }
 
 function Remove-FreshTestRoot {
@@ -2324,13 +2416,190 @@ function Remove-FreshTestRoot {
     return
   }
   $resolved = [System.IO.Path]::GetFullPath($Path)
-  $tempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+  $key = $resolved.ToUpperInvariant()
+  if (-not $OwnedFreshTestRoots.ContainsKey($key)) {
+    throw "refusing to remove test root not created by this invocation: $resolved"
+  }
+  $record = $OwnedFreshTestRoots[$key]
+  $tempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+  )
+  $tempPrefix = $tempBase.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+  $base = [System.IO.Path]::GetFullPath([string]$record.base).TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+  )
+  $basePrefix = $base.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
   $leaf = Split-Path -Leaf $resolved
-  if (-not $resolved.StartsWith($tempBase, [System.StringComparison]::OrdinalIgnoreCase) -or
+  if (-not $resolved.StartsWith($tempPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+      -not $resolved.StartsWith($basePrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
       -not $leaf.StartsWith("sword-agent-os-maintenance-test-", [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "refusing to remove unexpected temp root: $resolved"
   }
+  if (-not ([System.IO.Path]::GetDirectoryName($resolved)).Equals($base, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "owned temp root is not a direct child of its recorded base: $resolved"
+  }
+  [void](Assert-NoFreshTestPathReparsePoint -Path $base -Boundary $tempBase -Label "recorded TempRoot base")
+  [void](Assert-NoFreshTestPathReparsePoint -Path $resolved -Boundary $tempBase -Label "owned temp root")
+  if (-not (Test-Path -LiteralPath $resolved -PathType Container)) {
+    throw "owned temp root is missing or no longer a directory: $resolved"
+  }
+  $rootItem = Get-Item -LiteralPath $resolved -Force
+  if (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+      $rootItem.CreationTimeUtc.Ticks -ne [long]$record.creation_time_utc_ticks) {
+    throw "owned temp root identity changed: $resolved"
+  }
+  $markerPath = Join-Path $resolved $FreshTestOwnerMarkerName
+  if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+    throw "owned temp root marker is missing: $resolved"
+  }
+  $markerItem = Get-Item -LiteralPath $markerPath -Force
+  if (($markerItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "owned temp root marker became a reparse point: $resolved"
+  }
+  $marker = Get-Content -Raw -LiteralPath $markerPath | ConvertFrom-Json
+  if ([string]$marker.invocation_id -ne $FreshTestInvocationId -or
+      -not ([string]$marker.root).Equals($resolved, [System.StringComparison]::OrdinalIgnoreCase) -or
+      [long]$marker.creation_time_utc_ticks -ne [long]$record.creation_time_utc_ticks) {
+    throw "owned temp root marker does not match this invocation: $resolved"
+  }
+  $reparseDescendant = Get-ChildItem -LiteralPath $resolved -Force -Recurse -ErrorAction Stop |
+    Where-Object { ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 } |
+    Select-Object -First 1
+  if ($null -ne $reparseDescendant) {
+    throw "owned temp root contains a reparse point and cannot be recursively cleaned: $($reparseDescendant.FullName)"
+  }
   Remove-Item -LiteralPath $resolved -Recurse -Force
+  if (Test-Path -LiteralPath $resolved) {
+    throw "owned temp root cleanup incomplete: $resolved"
+  }
+  [void]$OwnedFreshTestRoots.Remove($key)
+}
+
+function Test-FreshTestRootOwnershipSafety {
+  Write-TestStep "fresh test root ownership and cleanup safety"
+  $originalTempRoot = $TempRoot
+  $base = Join-Path ([System.IO.Path]::GetTempPath()) ("sword-agent-os-maintenance-parent-" + [guid]::NewGuid().ToString("N"))
+  $sentinel = Join-Path $base "caller-owned-sentinel.txt"
+  $unowned = Join-Path $base ("sword-agent-os-maintenance-test-" + [guid]::NewGuid().ToString("N"))
+  $junctionParent = Join-Path ([System.IO.Path]::GetTempPath()) ("sword-agent-os-maintenance-junction-parent-" + [guid]::NewGuid().ToString("N"))
+  $junction = Join-Path $junctionParent "nested-link"
+  $externalBase = Join-Path ([System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::LocalApplicationData)) ("sword-agent-os-maintenance-external-" + [guid]::NewGuid().ToString("N"))
+  $externalSentinel = Join-Path $externalBase "outside-sentinel.txt"
+  $first = $null
+  $second = $null
+  $descendantLink = $null
+  $markerPath = $null
+  $markerContent = $null
+  try {
+    New-Item -ItemType Directory -Path $base | Out-Null
+    Set-Content -LiteralPath $sentinel -Value "preserve" -Encoding utf8
+    New-Item -ItemType Directory -Path $externalBase | Out-Null
+    Set-Content -LiteralPath $externalSentinel -Value "outside-preserve" -Encoding utf8
+
+    $TempRoot = $base
+    $first = New-FreshTestRoot
+    $second = New-FreshTestRoot
+    if ($first -eq $second -or
+        [System.IO.Path]::GetDirectoryName($first) -ne [System.IO.Path]::GetFullPath($base)) {
+      throw "caller TempRoot was not treated as a base for unique owned children"
+    }
+    New-Item -ItemType Directory -Path $unowned | Out-Null
+    try {
+      Remove-FreshTestRoot -Path $unowned
+      throw "cleanup accepted an unowned prefix-matching directory"
+    }
+    catch {
+      if ($_.Exception.Message -notmatch "not created by this invocation") {
+        throw
+      }
+    }
+    $markerPath = Join-Path $second $FreshTestOwnerMarkerName
+    $markerContent = Get-Content -Raw -LiteralPath $markerPath
+    Set-Content -LiteralPath $markerPath -Value '{"invocation_id":"tampered"}' -Encoding utf8
+    try {
+      Remove-FreshTestRoot -Path $second
+      throw "cleanup accepted a tampered ownership marker"
+    }
+    catch {
+      if ($_.Exception.Message -notmatch "marker does not match") {
+        throw
+      }
+    }
+    Set-Content -LiteralPath $markerPath -Value $markerContent -Encoding utf8
+    $markerContent = $null
+
+    $descendantLink = Join-Path $first "redirected-child"
+    New-Item -ItemType Junction -Path $descendantLink -Target $externalBase | Out-Null
+    try {
+      Remove-FreshTestRoot -Path $first
+      throw "cleanup accepted a reparse-point descendant"
+    }
+    catch {
+      if ($_.Exception.Message -notmatch "contains a reparse point") {
+        throw
+      }
+    }
+    Assert-PathPresent -Path $externalSentinel
+    Remove-Item -LiteralPath $descendantLink -Force
+    $descendantLink = $null
+
+    Remove-FreshTestRoot -Path $first
+    $first = $null
+    Remove-FreshTestRoot -Path $second
+    $second = $null
+    Assert-PathPresent -Path $sentinel
+
+    New-Item -ItemType Directory -Path $junctionParent | Out-Null
+    New-Item -ItemType Junction -Path $junction -Target $externalBase | Out-Null
+    $TempRoot = Join-Path $junction "caller-base"
+    try {
+      New-FreshTestRoot | Out-Null
+      throw "fresh test root creation accepted an intermediate TempRoot junction"
+    }
+    catch {
+      if ($_.Exception.Message -notmatch "crosses a reparse point") {
+        throw
+      }
+    }
+    Assert-PathPresent -Path $externalSentinel
+  }
+  finally {
+    $TempRoot = $originalTempRoot
+    if ($null -ne $descendantLink -and (Test-Path -LiteralPath $descendantLink)) {
+      Remove-Item -LiteralPath $descendantLink -Force
+    }
+    if ($null -ne $markerContent -and $null -ne $markerPath -and (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+      Set-Content -LiteralPath $markerPath -Value $markerContent -Encoding utf8
+    }
+    foreach ($ownedRoot in @($first, $second)) {
+      if ($null -ne $ownedRoot -and (Test-Path -LiteralPath $ownedRoot -PathType Container)) {
+        Remove-FreshTestRoot -Path $ownedRoot
+      }
+    }
+    if (Test-Path -LiteralPath $junction) {
+      Remove-Item -LiteralPath $junction -Force
+    }
+    if (Test-Path -LiteralPath $junctionParent -PathType Container) {
+      Remove-Item -LiteralPath $junctionParent
+    }
+    if (Test-Path -LiteralPath $unowned -PathType Container) {
+      Remove-Item -LiteralPath $unowned
+    }
+    if (Test-Path -LiteralPath $sentinel -PathType Leaf) {
+      Remove-Item -LiteralPath $sentinel
+    }
+    if (Test-Path -LiteralPath $base -PathType Container) {
+      Remove-Item -LiteralPath $base
+    }
+    if (Test-Path -LiteralPath $externalSentinel -PathType Leaf) {
+      Remove-Item -LiteralPath $externalSentinel
+    }
+    if (Test-Path -LiteralPath $externalBase -PathType Container) {
+      Remove-Item -LiteralPath $externalBase
+    }
+  }
 }
 
 function New-UpdateFixtureManifest {
@@ -2805,18 +3074,27 @@ function Test-EnvRenderFixtures {
   Write-TestStep "env renderer fixture behavior"
   $root = New-FreshTestRoot
   try {
-    $templateDir = Join-Path $root "templates"
-    $targetDir = Join-Path $root "target"
+    $workspace = Join-Path $root "renderer-workspace"
+    $rendererScriptDir = Join-Path $workspace "scripts"
+    $rendererLibDir = Join-Path $rendererScriptDir "lib"
+    New-Item -ItemType Directory -Path $rendererLibDir -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "render-env-files.ps1") -Destination (Join-Path $rendererScriptDir "render-env-files.ps1")
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "lib\common.ps1") -Destination (Join-Path $rendererLibDir "common.ps1")
+    $rendererScript = Join-Path $rendererScriptDir "render-env-files.ps1"
+    $templateDir = Join-Path $workspace "templates"
+    $targetDir = Join-Path $workspace "target"
     New-Item -ItemType Directory -Force -Path $templateDir | Out-Null
     $centralTemplate = Join-Path $templateDir "central.env.example"
-    $centralEnv = Join-Path $root "local\env\sword-agent-os.env"
+    $centralEnv = Join-Path $workspace "local\env\sword-agent-os.env"
     $targetTemplate = Join-Path $templateDir "organ.env.example"
     $targetEnv = Join-Path $targetDir ".env"
+    $localTargetTemplate = Join-Path $templateDir "local-organ.env.example"
+    $localTargetEnv = Join-Path $targetDir "local.env"
     $configTemplate = Join-Path $templateDir "home-control.example.yaml"
     $targetConfig = Join-Path $targetDir "home-control.yaml"
     $missingTargetTemplate = Join-Path $templateDir "missing.env.example"
     $missingConfigTemplate = Join-Path $templateDir "missing-config.yaml"
-    $manifestPath = Join-Path $root "env-fixture.json"
+    $manifestPath = Join-Path $workspace "env-fixture.json"
 
     Set-Content -LiteralPath $centralTemplate -Value @(
       "TOKEN=central-token",
@@ -2849,7 +3127,7 @@ function Test-EnvRenderFixtures {
       $PowerShellCommand,
       "-NoProfile",
       "-File",
-      (Join-Path $PSScriptRoot "render-env-files.ps1"),
+      $rendererScript,
       "-DistributionManifestPath",
       $manifestPath,
       "-DryRun",
@@ -2866,19 +3144,25 @@ function Test-EnvRenderFixtures {
       $PowerShellCommand,
       "-NoProfile",
       "-File",
-      (Join-Path $PSScriptRoot "render-env-files.ps1"),
+      $rendererScript,
       "-DistributionManifestPath",
       $manifestPath,
       "-NoCreateCentralEnv"
     )
-    Assert-TextMatch -Text ($failureOutput -join "`n") -Pattern "template missing|env template missing" -Message "non-dry-run missing template did not fail clearly"
+    Assert-TextMatch -Text ($failureOutput -join "`n") -Pattern "central env missing for non-dry-run" -Message "non-dry-run missing central env did not fail closed"
 
     Set-Content -LiteralPath $targetTemplate -Value @(
       "TOKEN=template-token",
       "KEEP=template-keep",
       "LOCAL_ONLY=template-local"
     ) -Encoding utf8
+    Set-Content -LiteralPath $localTargetTemplate -Value @(
+      "TOKEN=local-template-token",
+      "KEEP=local-template-keep"
+    ) -Encoding utf8
     Set-Content -LiteralPath $configTemplate -Value "enabled: true" -Encoding utf8
+    New-Item -ItemType Directory -Path (Split-Path -Parent $centralEnv) -Force | Out-Null
+    Copy-Item -LiteralPath $centralTemplate -Destination $centralEnv
     Write-JsonFixture -Path $manifestPath -Value ([ordered]@{
       env = [ordered]@{
         central_template_path = $centralTemplate
@@ -2895,6 +3179,12 @@ function Test-EnvRenderFixtures {
             id = "fixture-target"
             template_path = $targetTemplate
             target_path = $targetEnv
+          },
+          [ordered]@{
+            id = "local-authoritative-target"
+            template_path = $localTargetTemplate
+            target_path = $localTargetEnv
+            preserve_local = $true
           }
         )
       }
@@ -2904,21 +3194,24 @@ function Test-EnvRenderFixtures {
       $PowerShellCommand,
       "-NoProfile",
       "-File",
-      (Join-Path $PSScriptRoot "render-env-files.ps1"),
+      $rendererScript,
       "-DistributionManifestPath",
       $manifestPath
     ) | Out-Null
     Assert-PathPresent -Path $centralEnv
     Assert-PathPresent -Path $targetEnv
+    Assert-PathPresent -Path $localTargetEnv
     Assert-PathPresent -Path $targetConfig
     Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "TOKEN=scoped-token" -Message "target env did not inherit scoped central value"
+    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $localTargetEnv) -Pattern "TOKEN=local-template-token" -Message "local-authoritative env should be copied from its own template"
 
     Set-Content -LiteralPath $targetEnv -Value "TOKEN=operator-override" -Encoding utf8
+    Set-Content -LiteralPath $localTargetEnv -Value "TOKEN=local-operator-value" -Encoding utf8
     Invoke-Checked -Command @(
       $PowerShellCommand,
       "-NoProfile",
       "-File",
-      (Join-Path $PSScriptRoot "render-env-files.ps1"),
+      $rendererScript,
       "-DistributionManifestPath",
       $manifestPath
     ) | Out-Null
@@ -2928,12 +3221,97 @@ function Test-EnvRenderFixtures {
       $PowerShellCommand,
       "-NoProfile",
       "-File",
-      (Join-Path $PSScriptRoot "render-env-files.ps1"),
+      $rendererScript,
       "-DistributionManifestPath",
       $manifestPath,
       "-Force"
     ) | Out-Null
     Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "TOKEN=scoped-token" -Message "target env was not refreshed with scoped value under -Force"
+    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $localTargetEnv) -Pattern "TOKEN=local-operator-value" -Message "local-authoritative env was overwritten under -Force"
+
+    $outsideManifest = Join-Path $root "outside-manifest.json"
+    Copy-Item -LiteralPath $manifestPath -Destination $outsideManifest
+    $outsideFailure = Invoke-ExpectFailure -Command @(
+      $PowerShellCommand, "-NoProfile", "-File", $rendererScript,
+      "-DistributionManifestPath", $outsideManifest, "-DryRun"
+    )
+    Assert-TextMatch -Text ($outsideFailure -join "`n") -Pattern "outside repository root" -Message "outside manifest was not rejected"
+
+    $prefixCollisionDir = $workspace + "-sibling"
+    New-Item -ItemType Directory -Path $prefixCollisionDir | Out-Null
+    $prefixCollisionManifest = Join-Path $prefixCollisionDir "env-fixture.json"
+    Copy-Item -LiteralPath $manifestPath -Destination $prefixCollisionManifest
+    $prefixCollisionFailure = Invoke-ExpectFailure -Command @(
+      $PowerShellCommand, "-NoProfile", "-File", $rendererScript,
+      "-DistributionManifestPath", $prefixCollisionManifest, "-DryRun"
+    )
+    Assert-TextMatch -Text ($prefixCollisionFailure -join "`n") -Pattern "outside repository root" -Message "repository prefix-collision path was not rejected"
+
+    $traversalFailure = Invoke-ExpectFailure -Command @(
+      $PowerShellCommand, "-NoProfile", "-File", $rendererScript,
+      "-DistributionManifestPath", "manifests\..\..\outside-manifest.json", "-DryRun"
+    ) -WorkingDirectory $workspace
+    Assert-TextMatch -Text ($traversalFailure -join "`n") -Pattern "parent traversal" -Message "parent traversal manifest was not rejected"
+
+    $directoryTargetManifest = Join-Path $workspace "directory-target-fixture.json"
+    Write-JsonFixture -Path $directoryTargetManifest -Value ([ordered]@{
+      env = [ordered]@{
+        central_template_path = $centralTemplate
+        central_env_path = $centralEnv
+        local_config_templates = @()
+        targets = @([ordered]@{ id = "directory-target"; template_path = $targetTemplate; target_path = $targetDir })
+      }
+    })
+    $directoryFailure = Invoke-ExpectFailure -Command @(
+      $PowerShellCommand, "-NoProfile", "-File", $rendererScript,
+      "-DistributionManifestPath", $directoryTargetManifest, "-Force"
+    )
+    Assert-TextMatch -Text ($directoryFailure -join "`n") -Pattern "regular file destination" -Message "directory target substitution was not rejected"
+
+    $outsideCentralEnv = Join-Path $root "outside-central.env"
+    Set-Content -LiteralPath $outsideCentralEnv -Value "TOKEN=outside" -Encoding utf8
+    $outsideCentralManifest = Join-Path $workspace "outside-central-fixture.json"
+    Write-JsonFixture -Path $outsideCentralManifest -Value ([ordered]@{
+      env = [ordered]@{
+        central_template_path = $centralTemplate
+        central_env_path = $outsideCentralEnv
+        local_config_templates = @()
+        targets = @()
+      }
+    })
+    $outsideCentralFailure = Invoke-ExpectFailure -Command @(
+      $PowerShellCommand, "-NoProfile", "-File", $rendererScript,
+      "-DistributionManifestPath", $outsideCentralManifest, "-DryRun"
+    )
+    Assert-TextMatch -Text ($outsideCentralFailure -join "`n") -Pattern "outside repository root" -Message "outside central env write path was not rejected"
+
+    $reparseOutside = Join-Path $root "reparse-outside"
+    $reparseLink = Join-Path $workspace "reparse-link"
+    New-Item -ItemType Directory -Path $reparseOutside | Out-Null
+    Set-Content -LiteralPath (Join-Path $reparseOutside "sentinel.txt") -Value "preserve" -Encoding utf8
+    New-Item -ItemType Junction -Path $reparseLink -Target $reparseOutside | Out-Null
+    try {
+      $reparseManifest = Join-Path $workspace "reparse-target-fixture.json"
+      Write-JsonFixture -Path $reparseManifest -Value ([ordered]@{
+        env = [ordered]@{
+          central_template_path = $centralTemplate
+          central_env_path = $centralEnv
+          local_config_templates = @()
+          targets = @([ordered]@{ id = "reparse-target"; template_path = $targetTemplate; target_path = (Join-Path $reparseLink "generated.env") })
+        }
+      })
+      $reparseFailure = Invoke-ExpectFailure -Command @(
+        $PowerShellCommand, "-NoProfile", "-File", $rendererScript,
+        "-DistributionManifestPath", $reparseManifest, "-Force"
+      )
+      Assert-TextMatch -Text ($reparseFailure -join "`n") -Pattern "reparse point" -Message "reparse target path was not rejected"
+      Assert-PathPresent -Path (Join-Path $reparseOutside "sentinel.txt")
+    }
+    finally {
+      if (Test-Path -LiteralPath $reparseLink) {
+        Remove-Item -LiteralPath $reparseLink -Force
+      }
+    }
   }
   finally {
     Remove-FreshTestRoot -Path $root
@@ -3296,6 +3674,7 @@ Test-OverallTestLadderReportContractStatic
 Test-OverallTestLadderFrontDoorV2Static
 Test-AudioAwarenessRefPolicyStatic
 Test-RouteAParentNoLiveUxStatic
+Test-FreshTestRootOwnershipSafety
 Test-HomeControlTrackingHelperFixtures
 Test-ManifestAndVersion
 Test-UpdateFixtureHoldBehavior
