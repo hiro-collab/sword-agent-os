@@ -1,9 +1,12 @@
 param(
   [string]$BaseUrl = "http://127.0.0.1:8000",
+  [string]$AitBaseUrl = "http://127.0.0.1:3000",
   [string]$Scenario = "self_output_or_ambiguous",
   [int]$WindowMs = 1000,
   [int]$DeadlineMs = 5000,
   [string]$CdpEndpoint = "",
+  [int]$ControlledChromeRootPid = 0,
+  [int]$AudioObserverWindowMs = 3000,
   [switch]$Json
 )
 
@@ -112,6 +115,8 @@ $AllowedControllerFailureClasses = @(
   "live_controller_endpoint_cleanup_incomplete",
   "visible_response_observer_unavailable",
   "visible_response_not_observed",
+  "production_transport_unavailable",
+  "production_transport_not_completed",
   "live_controller_failed",
   "whole_route_timeout",
   "cleanup_incomplete"
@@ -128,6 +133,7 @@ $token = ""
 $requestJson = ""
 $requestBody = $null
 $visibleObserverProcess = $null
+$productionTransportProcess = $null
 $visibleObserverStdout = $null
 $visibleObserverStderr = $null
 $controllerCleanupClear = $true
@@ -159,6 +165,7 @@ $utteranceEndToFirstVisibleMs = $null
 $firstNonSilentAudioObservationClass = "not_observed"
 $utteranceEndToFirstAudioMs = $null
 $endpointRequestStartedAtWallMs = $null
+$utteranceEndWallMs = $null
 $pcmCleanupCount = 0
 $privateAuthorityResidueCount = 0
 $httpStatusClass = "not_observed"
@@ -189,7 +196,8 @@ function Assert-BoundedInteger {
   param(
     [Parameter(Mandatory = $true)]$Value,
     [Parameter(Mandatory = $true)][long]$Minimum,
-    [Parameter(Mandatory = $true)][long]$Maximum
+    [Parameter(Mandatory = $true)][long]$Maximum,
+    [string]$FailureClass = "live_controller_endpoint_response_invalid"
   )
 
   if (
@@ -198,7 +206,7 @@ function Assert-BoundedInteger {
     [long]$Value -lt $Minimum -or
     [long]$Value -gt $Maximum
   ) {
-    Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+    Throw-Fixed -Class $FailureClass
   }
 }
 
@@ -354,6 +362,248 @@ function Complete-VisibleResponseObserver {
   return $value
 }
 
+function Start-ProductionTransportChild {
+  param(
+    [Parameter(Mandatory = $true)][System.Uri]$AitEndpoint,
+    [Parameter(Mandatory = $true)][System.Uri]$AiTalkCoreEndpoint,
+    [Parameter(Mandatory = $true)][int]$ChromeRootPid,
+    [Parameter(Mandatory = $true)][int]$ObserverWindowMs,
+    [Parameter(Mandatory = $true)][int]$TimeoutMs,
+    [AllowNull()][scriptblock]$ProcessFactory = $null
+  )
+
+  $pwshPath = "C:\Program Files\PowerShell\7\pwsh.exe"
+  $transportPath = Join-Path $PSScriptRoot "run-self-output-awareness-production-transport.ps1"
+  if (
+    -not [System.IO.File]::Exists($pwshPath) -or
+    -not [System.IO.File]::Exists($transportPath)
+  ) {
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  $resolvedTransportPath = [System.IO.Path]::GetFullPath($transportPath)
+  $resolvedScriptsRoot = [System.IO.Path]::GetFullPath(
+    $PSScriptRoot + [System.IO.Path]::DirectorySeparatorChar)
+  if (
+    -not $resolvedTransportPath.StartsWith(
+      $resolvedScriptsRoot,
+      [System.StringComparison]::OrdinalIgnoreCase) -or
+    [System.IO.Path]::GetFileName($resolvedTransportPath) -cne
+      "run-self-output-awareness-production-transport.ps1"
+  ) {
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+
+  $process = $null
+  if ($null -eq $ProcessFactory) {
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $pwshPath
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($argument in @(
+        "-NoProfile", "-File", $resolvedTransportPath,
+        "-AitBaseUrl", $AitEndpoint.AbsoluteUri,
+        "-AiTalkCoreBaseUrl", $AiTalkCoreEndpoint.AbsoluteUri,
+        "-ControlledChromeRootPid", [string]$ChromeRootPid,
+        "-ObserverWindowMs", [string]$ObserverWindowMs,
+        "-DeadlineMs", [string]$TimeoutMs,
+        "-EmitArmSignal", "-Json"
+      )) {
+      [void]$startInfo.ArgumentList.Add($argument)
+    }
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+  } else {
+    $process = & $ProcessFactory
+  }
+  if ($process -isnot [System.Diagnostics.Process]) {
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  if (-not $process.Start()) {
+    $process.Dispose()
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  $armTask = $process.StandardOutput.ReadLineAsync()
+  if (-not $armTask.Wait([Math]::Min(5000, $TimeoutMs))) {
+    if (-not (Stop-ProductionTransportChild -Process $process)) {
+      Throw-Fixed -Class "cleanup_incomplete"
+    }
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  try { $arm = $armTask.Result | ConvertFrom-Json }
+  catch {
+    if (-not (Stop-ProductionTransportChild -Process $process)) {
+      Throw-Fixed -Class "cleanup_incomplete"
+    }
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  $expectedArmKeys = @(
+    "schema_version", "result_class", "raw_private_publication_flags")
+  if (
+    $null -eq $arm -or
+    (@($arm.PSObject.Properties.Name | Sort-Object) -join ",") -cne
+      (@($expectedArmKeys | Sort-Object) -join ",") -or
+    $arm.schema_version -cne "self_output_awareness.production_transport_arm.v0" -or
+    $arm.result_class -cne "production_transport_armed" -or
+    $arm.raw_private_publication_flags -isnot [bool] -or
+    [bool]$arm.raw_private_publication_flags
+  ) {
+    if (-not (Stop-ProductionTransportChild -Process $process)) {
+      Throw-Fixed -Class "cleanup_incomplete"
+    }
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  return $process
+}
+
+function Complete-ProductionTransportChild {
+  param(
+    [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
+    [Parameter(Mandatory = $true)][int]$TimeoutMs,
+    [Parameter(Mandatory = $true)][int]$RouteDeadlineMs
+  )
+
+  if (-not $Process.WaitForExit([Math]::Max(1, $TimeoutMs))) {
+    try { $Process.Kill($true) } catch {}
+    Throw-Fixed -Class "whole_route_timeout"
+  }
+  $stdout = $Process.StandardOutput.ReadToEnd().Trim()
+  $stderr = $Process.StandardError.ReadToEnd().Trim()
+  if (
+    $Process.ExitCode -ne 0 -or
+    -not [string]::IsNullOrWhiteSpace($stderr) -or
+    [System.Text.Encoding]::UTF8.GetByteCount($stdout) -gt 16384
+  ) {
+    $stdout = ""
+    $stderr = ""
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  try { $value = $stdout | ConvertFrom-Json -Depth 10 }
+  catch { Throw-Fixed -Class "production_transport_not_completed" }
+  finally {
+    $stdout = ""
+    $stderr = ""
+  }
+  $expectedKeys = @(
+    "schema_version", "status", "result_class", "blocker_class",
+    "lifecycle_ingest_count", "observation_ingest_count",
+    "lifecycle_ingest_outcome_class", "observation_ingest_outcome_class",
+    "ait_poll_count", "core_request_count", "final_lifecycle_state",
+    "observer_result_class", "first_non_silent_frame_offset_ms",
+    "first_non_silent_observed_at_utc_ms", "handoff_pickup_ms",
+    "cooldown_pickup_ms", "released_pickup_ms", "observation_ingest_ms",
+    "elapsed_ms", "latency_requirement_status", "cleanup_class",
+    "route_owned_process_residue_count", "route_owned_request_residue_count",
+    "route_owned_pipe_residue_count", "route_owned_temp_residue_count",
+    "audio_route_change_count", "microphone_route_change_count",
+    "candidate_authority", "acceptance_authority", "turn_input_authority",
+    "raw_audio_shared", "raw_text_shared", "private_identifier_shared",
+    "private_environment_shared", "raw_private_publication_flags")
+  if (
+    $null -eq $value -or
+    (@($value.PSObject.Properties.Name | Sort-Object) -join ",") -cne
+      (@($expectedKeys | Sort-Object) -join ",") -or
+    $value.schema_version -cne "self_output_awareness.production_transport.v0" -or
+    $value.status -cne "completed" -or
+    $value.result_class -cne "production_self_output_transport_completed" -or
+    $null -ne $value.blocker_class -or
+    $value.final_lifecycle_state -cne "released" -or
+    $value.observer_result_class -cne "process_tree_render_observed" -or
+    $value.latency_requirement_status -cne
+      "first_non_silent_wall_timestamp_available" -or
+    $value.cleanup_class -cne "route_owned_cleanup_clear" -or
+    $value.lifecycle_ingest_outcome_class -cne "acknowledged" -or
+    $value.observation_ingest_outcome_class -cne "acknowledged" -or
+    $value.raw_private_publication_flags -isnot [bool] -or
+    [bool]$value.raw_private_publication_flags
+  ) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  foreach ($key in @(
+      "candidate_authority", "acceptance_authority", "turn_input_authority",
+      "raw_audio_shared", "raw_text_shared", "private_identifier_shared",
+      "private_environment_shared"
+    )) {
+    if ($value.$key -isnot [bool] -or [bool]$value.$key) {
+      Throw-Fixed -Class "production_transport_not_completed"
+    }
+  }
+  foreach ($key in @(
+      "route_owned_process_residue_count", "route_owned_request_residue_count",
+      "route_owned_pipe_residue_count", "route_owned_temp_residue_count",
+      "audio_route_change_count", "microphone_route_change_count"
+    )) {
+    Assert-BoundedInteger -Value $value.$key -Minimum 0 -Maximum 0 `
+      -FailureClass "production_transport_not_completed"
+  }
+  Assert-BoundedInteger -Value $value.lifecycle_ingest_count -Minimum 3 -Maximum 16 `
+    -FailureClass "production_transport_not_completed"
+  Assert-BoundedInteger -Value $value.observation_ingest_count -Minimum 1 -Maximum 1 `
+    -FailureClass "production_transport_not_completed"
+  Assert-BoundedInteger -Value $value.ait_poll_count -Minimum 4 -Maximum 1000 `
+    -FailureClass "production_transport_not_completed"
+  Assert-BoundedInteger -Value $value.core_request_count -Minimum 4 -Maximum 17 `
+    -FailureClass "production_transport_not_completed"
+  Assert-BoundedInteger -Value $value.first_non_silent_frame_offset_ms -Minimum 0 -Maximum 5000 `
+    -FailureClass "production_transport_not_completed"
+  Assert-BoundedInteger -Value $value.first_non_silent_observed_at_utc_ms -Minimum 0 -Maximum 4102444800000 `
+    -FailureClass "production_transport_not_completed"
+  Assert-BoundedInteger -Value $value.elapsed_ms -Minimum 0 -Maximum $RouteDeadlineMs `
+    -FailureClass "production_transport_not_completed"
+  if ([long]$value.core_request_count -ne (
+      [long]$value.lifecycle_ingest_count + [long]$value.observation_ingest_count)) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  return $value
+}
+
+function Stop-ProductionTransportChild {
+  param([Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process)
+
+  $clear = $true
+  try {
+    if (-not $Process.HasExited) {
+      $Process.Kill($true)
+      if (-not $Process.WaitForExit(2000)) { $clear = $false }
+    }
+  } catch { $clear = $false }
+  try { $Process.Dispose() } catch { $clear = $false }
+  return $clear
+}
+
+function Resolve-UtteranceEndToFirstAudioMs {
+  param(
+    [Parameter(Mandatory = $true)]$UtteranceEndWallMs,
+    [Parameter(Mandatory = $true)]$FirstAudioWallMs,
+    [Parameter(Mandatory = $true)][int]$RouteDeadlineMs,
+    $ObservedNowUtcMs = [System.DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  )
+
+  foreach ($value in @($UtteranceEndWallMs, $FirstAudioWallMs, $ObservedNowUtcMs)) {
+    if (
+      $value -is [bool] -or
+      ($value -isnot [int] -and $value -isnot [long]) -or
+      [long]$value -lt 0 -or
+      [long]$value -gt 4102444800000
+    ) {
+      Throw-Fixed -Class "production_transport_not_completed"
+    }
+  }
+  if (
+    $RouteDeadlineMs -lt 1 -or
+    $RouteDeadlineMs -gt 10000 -or
+    [long]$FirstAudioWallMs -gt ([long]$ObservedNowUtcMs + 1000)
+  ) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  $delta = [long]$FirstAudioWallMs - [long]$UtteranceEndWallMs
+  if ($delta -lt 0 -or $delta -gt $RouteDeadlineMs) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  return [int]$delta
+}
+
 function Set-Failure {
   param([Parameter(Mandatory = $true)][string]$Class)
 
@@ -370,19 +620,33 @@ function Get-RemainingRouteBudgetMs {
   return [int][Math]::Min([int]::MaxValue, $remainingMs)
 }
 
+if ($MyInvocation.InvocationName -eq ".") { return }
+
 try {
   if (
     $AllowedScenarios -cnotcontains $Scenario -or
     $WindowMs -lt 100 -or
     $WindowMs -gt 3000 -or
     $DeadlineMs -lt ($WindowMs + 200) -or
-    $DeadlineMs -gt 10000
+    $DeadlineMs -gt 10000 -or
+    $ControlledChromeRootPid -lt 0 -or
+    $AudioObserverWindowMs -lt 100 -or
+    $AudioObserverWindowMs -gt 5000 -or
+    ($ControlledChromeRootPid -gt 0 -and (
+      $Scenario -cne "independent_current_session_user_speech" -or
+      [string]::IsNullOrWhiteSpace($CdpEndpoint) -or
+      $DeadlineMs -lt ($AudioObserverWindowMs + 1000)
+    ))
   ) {
     Throw-Fixed -Class "live_controller_configuration_invalid"
   }
   $safeScenario = $Scenario
 
   $baseUri = Resolve-LoopbackBaseUri -Value $BaseUrl
+  $aitUri = $null
+  if ($ControlledChromeRootPid -gt 0) {
+    $aitUri = Resolve-LoopbackBaseUri -Value $AitBaseUrl
+  }
   $cdpUri = $null
   if (-not [string]::IsNullOrWhiteSpace($CdpEndpoint)) {
     if ($Scenario -cne "independent_current_session_user_speech") {
@@ -402,6 +666,19 @@ try {
     $visibleObserverProcess = Start-VisibleResponseObserver `
       -Endpoint $cdpUri `
       -TimeoutMs $observerArmBudgetMs
+  }
+
+  if ($ControlledChromeRootPid -gt 0) {
+    $productionArmBudgetMs = Get-RemainingRouteBudgetMs
+    if ($productionArmBudgetMs -lt ($AudioObserverWindowMs + 1000)) {
+      Throw-Fixed -Class "whole_route_timeout"
+    }
+    $productionTransportProcess = Start-ProductionTransportChild `
+      -AitEndpoint $aitUri `
+      -AiTalkCoreEndpoint $baseUri `
+      -ChromeRootPid $ControlledChromeRootPid `
+      -ObserverWindowMs $AudioObserverWindowMs `
+      -TimeoutMs $productionArmBudgetMs
   }
 
   $httpBudgetMs = Get-RemainingRouteBudgetMs
@@ -576,6 +853,13 @@ try {
   $thoughtCoreFirstEventElapsedMs = $thoughtCoreFirstEventElapsedValue
   $pcmCleanupCount = [int]$endpointResult.pcm_cleanup_count
   $privateAuthorityResidueCount = [int]$endpointResult.private_authority_residue_count
+  if (
+    $null -ne $lastVadSpeechFrameOffsetMs -and
+    $null -ne $endpointRequestStartedAtWallMs
+  ) {
+    $utteranceEndWallMs = [long]$endpointRequestStartedAtWallMs +
+      [long]$lastVadSpeechFrameOffsetMs
+  }
 
   $expectedStatusCode = switch ($resultClass) {
     { $SuccessfulResultClasses -ccontains $_ } { 200; break }
@@ -701,13 +985,32 @@ try {
     } catch {
       Throw-Fixed -Class "visible_response_not_observed"
     }
-    $utteranceEndWallMs = [long]$endpointRequestStartedAtWallMs + [long]$lastVadSpeechFrameOffsetMs
     $visibleDelta = [long]$visibleWallMs - $utteranceEndWallMs
     if ($visibleDelta -lt 0 -or $visibleDelta -gt $DeadlineMs) {
       Throw-Fixed -Class "visible_response_not_observed"
     }
     $utteranceEndToFirstVisibleMs = [int]$visibleDelta
     $visibleObservation = $null
+  }
+  if ($null -ne $productionTransportProcess) {
+    $remainingProductionMs = Get-RemainingRouteBudgetMs
+    $productionObservation = Complete-ProductionTransportChild `
+      -Process $productionTransportProcess `
+      -TimeoutMs $remainingProductionMs `
+      -RouteDeadlineMs $DeadlineMs
+    $productionTransportProcess.Dispose()
+    $productionTransportProcess = $null
+    if ($null -eq $utteranceEndWallMs) {
+      Throw-Fixed -Class "production_transport_not_completed"
+    }
+    $firstAudioWallMs = [long]$productionObservation.first_non_silent_observed_at_utc_ms
+    $audioDelta = Resolve-UtteranceEndToFirstAudioMs `
+      -UtteranceEndWallMs $utteranceEndWallMs `
+      -FirstAudioWallMs $firstAudioWallMs `
+      -RouteDeadlineMs $DeadlineMs
+    $firstNonSilentAudioObservationClass = [string]$productionObservation.observer_result_class
+    $utteranceEndToFirstAudioMs = [int]$audioDelta
+    $productionObservation = $null
   }
   $deadlineClass = "within_deadline"
   $endpointResult = $null
@@ -752,6 +1055,12 @@ try {
       $visibleObserverProcess = $null
     }
   }
+  if ($null -ne $productionTransportProcess) {
+    if (-not (Stop-ProductionTransportChild -Process $productionTransportProcess)) {
+      $controllerCleanupClear = $false
+    }
+    $productionTransportProcess = $null
+  }
   $response = $null
   $content = $null
   $request = $null
@@ -761,6 +1070,8 @@ try {
   $token = ""
   $requestJson = ""
   $requestBody = $null
+  $aitUri = $null
+  $productionObservation = $null
 }
 
 $controllerStopwatch.Stop()
@@ -818,7 +1129,7 @@ $result = [ordered]@{
   http_status_class = $httpStatusClass
   pcm_cleanup_count = $pcmCleanupCount
   private_authority_residue_count = $privateAuthorityResidueCount
-  route_owned_process_residue_count = 0
+  route_owned_process_residue_count = $(if ($controllerCleanupClear) { 0 } else { 1 })
   route_owned_temp_residue_count = 0
   route_owned_request_residue_count = $(if ($controllerCleanupClear) { 0 } else { 1 })
   cleanup_class = $cleanupClass

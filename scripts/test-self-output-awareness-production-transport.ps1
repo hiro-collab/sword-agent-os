@@ -116,6 +116,7 @@ function New-ObserverResult {
       silent_frame_count = 256
       first_non_silent_frame_offset_ms = 25
       live_capture_used = $true
+      capture_started_at_utc_ms = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
     }
     lifecycle = [pscustomobject]@{
       capture_start_count = 1
@@ -221,7 +222,7 @@ function New-FakeObserverProcess {
 
 function New-ControlledRouteHarness {
   param(
-    [ValidateSet("success", "delayed_start", "released_restart_lower_generation", "superseded_generation", "superseded_generation_silent_new", "history_overflow", "ordinal_gap", "lease_mismatch", "stale_replay", "ack_unknown", "timeout")]
+    [ValidateSet("success", "future_derived_wall", "delayed_start", "released_restart_lower_generation", "superseded_generation", "superseded_generation_silent_new", "history_overflow", "ordinal_gap", "lease_mismatch", "stale_replay", "ack_unknown", "timeout")]
     [string]$Mode
   )
   $state = [pscustomobject]@{
@@ -229,6 +230,8 @@ function New-ControlledRouteHarness {
     AitQueries = [Collections.ArrayList]::new()
     CoreBodies = [Collections.ArrayList]::new()
     ObserverStartCount = 0
+    ArmedCount = 0
+    LastObserverResult = $null
     ObserverProcess = $null
     ObserverProcesses = [Collections.ArrayList]::new()
   }
@@ -307,6 +310,12 @@ function New-ControlledRouteHarness {
       $observerResult.observation.silent_frame_count = 512
       $observerResult.observation.first_non_silent_frame_offset_ms = -1
     }
+    if ($Mode -ceq "future_derived_wall") {
+      $observerResult.observation.capture_started_at_utc_ms =
+        [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + 900
+      $observerResult.observation.first_non_silent_frame_offset_ms = 1000
+    }
+    $state.LastObserverResult = $observerResult
     $observerProcess = New-FakeObserverProcess -ExitImmediately ($Mode -ne "timeout") -ObserverResult $observerResult
     $state.ObserverProcess = $observerProcess
     [void]$state.ObserverProcesses.Add($observerProcess)
@@ -408,6 +417,23 @@ Assert-Equal $observationPayload.turn_adoption_authority $false "observation has
 
 $observer = Assert-ObserverResult -Value (New-ObserverResult) -WindowMs 1000
 Assert-Equal $observer.observation.first_non_silent_frame_offset_ms 25 "first-frame offset accepted"
+Assert-Equal (Resolve-FirstNonSilentObservedAtUtcMs `
+    -CaptureStartedAtUtcMs 123000 `
+    -FirstNonSilentFrameOffsetMs 25 `
+    -ObserverCompletedAtUtcMs 123100) 123025 `
+  "capture wall plus QPC offset yields first non-silent wall"
+Assert-FixedFailure {
+  Resolve-FirstNonSilentObservedAtUtcMs `
+    -CaptureStartedAtUtcMs 123000 `
+    -FirstNonSilentFrameOffsetMs 5000 `
+    -ObserverCompletedAtUtcMs 123100
+} "observer_result_invalid" "derived first-audio wall cannot be in the future"
+$missingCaptureMutation = New-ObserverResult
+$missingCaptureMutation.observation.capture_started_at_utc_ms = $null
+Assert-FixedFailure { Assert-ObserverResult -Value $missingCaptureMutation -WindowMs 1000 } "observer_result_invalid" "missing capture wall rejected"
+$stringCaptureMutation = New-ObserverResult
+$stringCaptureMutation.observation.capture_started_at_utc_ms = "123000"
+Assert-FixedFailure { Assert-ObserverResult -Value $stringCaptureMutation -WindowMs 1000 } "observer_result_invalid" "string capture wall rejected"
 $silentMutation = New-ObserverResult
 $silentMutation.result_class = "process_tree_silence_observed"
 $silentMutation.observation.non_silent_frame_count = 0
@@ -458,6 +484,7 @@ Assert-True ($sourceText -notmatch 'WriteAllBytes|WriteAllText|\.wav|transcript\
 Assert-True ($observerSource -match 'FirstNonSilentFrameOffsetMs') "observer first-frame offset implemented"
 Assert-True ($observerSource -match 'QpcPosition100Ns') "offset uses captured packet QPC position"
 Assert-True ($observerSource -match 'RevalidateProcessLease[\s\S]+ActivateAsync[\s\S]+RevalidatePostActivationProcessLease[\s\S]+Start\(\)') "lease revalidated after activation before capture start"
+Assert-True ($sourceText -match 'IncludeCaptureStartTimestamp') "production observer requests the capture wall anchor"
 
 $tokenMarker = "fixed-test-core-token-must-not-enter-child"
 $previousToken = [Environment]::GetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", "Process")
@@ -555,6 +582,11 @@ Assert-Equal $emptyOverrideHarness.State.ObserverStartCount 0 "empty override st
 Assert-Equal $emptyOverrideRoute.Value.cleanup_class "route_owned_cleanup_clear" "empty override cleanup remains clear"
 
 $successHarness = New-ControlledRouteHarness -Mode "success"
+$armedCallback = {
+  Assert-Equal $successHarness.State.AitReadCount 1 "arm follows exactly one baseline read"
+  Assert-Equal $successHarness.State.ObserverStartCount 0 "arm precedes lifecycle observer start"
+  $successHarness.State.ArmedCount += 1
+}.GetNewClosure()
 $successRoute = Invoke-ProductionTransportRoute `
   -RouteAitBaseUrl "http://127.0.0.1:3000" `
   -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" `
@@ -564,6 +596,7 @@ $successRoute = Invoke-ProductionTransportRoute `
   -RequestInvoker $successHarness.RequestInvoker `
   -ObserverStarter $successHarness.ObserverStarter `
   -SleepInvoker $successHarness.SleepInvoker `
+  -ArmedCallback $armedCallback `
   -CoreTokenOverride "fixed-test-core-token"
 Assert-Equal $successRoute.ExitCode 0 "controlled success route exits clear"
 Assert-Equal $successRoute.Value.lifecycle_ingest_count 3 "controlled success acknowledges three lifecycle events"
@@ -573,7 +606,28 @@ Assert-Equal $successRoute.Value.observation_ingest_outcome_class "acknowledged"
 Assert-Equal $successHarness.State.CoreBodies.Count 4 "controlled success sends exactly four Core requests"
 Assert-Equal (@($successHarness.State.CoreBodies | ForEach-Object event) -join ",") "swordAgentSystemSpeechLifecycleV0,swordAgentSystemSpeechLifecycleV0,swordAgentSystemSpeechLifecycleV0,audioSelfOutputObservationV0" "controlled success preserves Core event order"
 Assert-Equal $successHarness.State.ObserverStartCount 1 "controlled success starts one observer"
+Assert-Equal $successHarness.State.ArmedCount 1 "controlled success arms exactly once before the trigger"
 Assert-Equal $successHarness.State.ObserverProcess.DisposeCount 1 "controlled success disposes observer"
+Assert-Equal $successRoute.Value.first_non_silent_observed_at_utc_ms `
+  ($successHarness.State.LastObserverResult.observation.capture_started_at_utc_ms + 25) `
+  "controlled success returns the derived first non-silent wall"
+
+$futureWallHarness = New-ControlledRouteHarness -Mode "future_derived_wall"
+$futureWallRoute = Invoke-ProductionTransportRoute `
+  -RouteAitBaseUrl "http://127.0.0.1:3000" `
+  -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" `
+  -RouteControlledChromeRootPid 1 `
+  -RouteObserverWindowMs 1000 `
+  -RouteDeadlineMs 3000 `
+  -RequestInvoker $futureWallHarness.RequestInvoker `
+  -ObserverStarter $futureWallHarness.ObserverStarter `
+  -SleepInvoker $futureWallHarness.SleepInvoker `
+  -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $futureWallRoute.Value.blocker_class "observer_result_invalid" "future derived first-audio wall fails closed"
+Assert-Equal $futureWallRoute.Value.observation_ingest_count 0 "future derived wall performs no observation ingest"
+Assert-Equal $futureWallRoute.Value.first_non_silent_observed_at_utc_ms $null "future derived wall publishes no audio timestamp"
+Assert-Equal $futureWallRoute.Value.cleanup_class "route_owned_cleanup_clear" "future derived wall cleanup converges"
+Assert-Equal $futureWallRoute.Value.raw_private_publication_flags $false "future derived wall publishes no private fields"
 Assert-Equal ($successHarness.State.AitQueries -join ",") ",?after_ordinal=0,?after_ordinal=1,?after_ordinal=2" "controller reads baseline then each next retained ordinal"
 
 $delayedHarness = New-ControlledRouteHarness -Mode "delayed_start"

@@ -5,6 +5,7 @@ param(
   [int]$ControlledChromeRootPid = 0,
   [int]$ObserverWindowMs = 3000,
   [int]$DeadlineMs = 10000,
+  [switch]$EmitArmSignal,
   [switch]$Json
 )
 
@@ -118,6 +119,27 @@ function Test-ExactInteger {
   }
   $number = [long]$Value
   return $number -ge $Minimum -and $number -le $Maximum
+}
+
+function Resolve-FirstNonSilentObservedAtUtcMs {
+  param(
+    [Parameter(Mandatory)]$CaptureStartedAtUtcMs,
+    [Parameter(Mandatory)]$FirstNonSilentFrameOffsetMs,
+    [Parameter(Mandatory)]$ObserverCompletedAtUtcMs
+  )
+  if (
+    -not (Test-ExactInteger $CaptureStartedAtUtcMs 0 4102444800000) -or
+    -not (Test-ExactInteger $FirstNonSilentFrameOffsetMs 0 5000) -or
+    -not (Test-ExactInteger $ObserverCompletedAtUtcMs 0 4102444800000)
+  ) {
+    Throw-Fixed -Class "observer_result_invalid"
+  }
+  $firstNonSilentObservedAtUtcMs = [long]$CaptureStartedAtUtcMs +
+    [long]$FirstNonSilentFrameOffsetMs
+  if ($firstNonSilentObservedAtUtcMs -gt ([long]$ObserverCompletedAtUtcMs + 1000)) {
+    Throw-Fixed -Class "observer_result_invalid"
+  }
+  return $firstNonSilentObservedAtUtcMs
 }
 
 function Assert-LifecycleTransport {
@@ -443,6 +465,7 @@ function Start-ObserverChild {
       "-TargetProcessId", [string]$TargetPid,
       "-WindowMs", [string]$WindowMs,
       "-DeadlineMs", [string]$ObserverDeadlineMs,
+      "-IncludeCaptureStartTimestamp",
       "-Compact"
     )) {
     [void]$startInfo.ArgumentList.Add($argument)
@@ -474,7 +497,8 @@ function Assert-ObserverResult {
   Assert-ExactKeys -Value $Value -Expected $ObserverKeys -FailureClass "observer_result_invalid"
   $observationKeys = @(
     "window_ms", "packet_count", "frame_count", "non_silent_frame_count",
-    "silent_frame_count", "first_non_silent_frame_offset_ms", "live_capture_used"
+    "silent_frame_count", "first_non_silent_frame_offset_ms", "live_capture_used",
+    "capture_started_at_utc_ms"
   )
   Assert-ExactKeys -Value $Value.observation -Expected $observationKeys -FailureClass "observer_result_invalid"
   Assert-ExactKeys -Value $Value.lifecycle -Expected @(
@@ -551,6 +575,7 @@ function Assert-ObserverResult {
     [long]$Value.observation.non_silent_frame_count -lt 1 -or
     -not (Test-ExactInteger $Value.observation.first_non_silent_frame_offset_ms 0 $WindowMs) -or
     [long]$Value.observation.first_non_silent_frame_offset_ms -gt $WindowMs -or
+    -not (Test-ExactInteger $Value.observation.capture_started_at_utc_ms 0 4102444800000) -or
     [long]$Value.lifecycle.capture_start_count -ne 1 -or
     [long]$Value.lifecycle.capture_stop_attempt_count -ne 1 -or
     [long]$Value.lifecycle.capture_stop_count -ne 1 -or
@@ -577,9 +602,11 @@ param(
   [scriptblock]$RequestInvoker = ${function:Invoke-JsonRequest},
   [scriptblock]$ObserverStarter = ${function:Start-ObserverChild},
   [scriptblock]$SleepInvoker = { param([int]$Milliseconds) Start-Sleep -Milliseconds $Milliseconds },
+  [scriptblock]$ArmedCallback = {},
   [AllowNull()][string]$CoreTokenOverride = $null
 )
 $routeStopwatch = [Diagnostics.Stopwatch]::StartNew()
+$routeStartedAtUtcMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $observerProcess = $null
 $cleanupClear = $true
 $status = "blocked"
@@ -594,6 +621,7 @@ $coreRequestCount = 0
 $finalLifecycleState = "not_observed"
 $observerResultClass = "not_observed"
 $firstNonSilentFrameOffsetMs = $null
+$firstNonSilentObservedAtUtcMs = $null
 $handoffPickupMs = $null
 $cooldownPickupMs = $null
 $releasedPickupMs = $null
@@ -646,6 +674,8 @@ try {
     }
   }
   $baselineResponse = $null
+  try { [void](& $ArmedCallback) }
+  catch { Throw-Fixed -Class "transport_arm_failed" }
 
   $lease = $null
   $lifecyclePhase = "awaiting_handoff"
@@ -750,6 +780,18 @@ try {
   $observerValue = Assert-ObserverResult -Value $observerValue -WindowMs $RouteObserverWindowMs
   $observerResultClass = [string]$observerValue.result_class
   $firstNonSilentFrameOffsetMs = [int]$observerValue.observation.first_non_silent_frame_offset_ms
+  $captureStartedAtUtcMs = [long]$observerValue.observation.capture_started_at_utc_ms
+  $observerCompletedAtUtcMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  if (
+    $captureStartedAtUtcMs -lt ($routeStartedAtUtcMs - 1000) -or
+    $captureStartedAtUtcMs -gt ($observerCompletedAtUtcMs + 1000)
+  ) {
+    Throw-Fixed -Class "observer_result_invalid"
+  }
+  $firstNonSilentObservedAtUtcMs = Resolve-FirstNonSilentObservedAtUtcMs `
+    -CaptureStartedAtUtcMs $captureStartedAtUtcMs `
+    -FirstNonSilentFrameOffsetMs $firstNonSilentFrameOffsetMs `
+    -ObserverCompletedAtUtcMs $observerCompletedAtUtcMs
 
   $observationPayload = New-SelfOutputObservationPayload -Lease $lease
   $nowMonotonic = [double]$routeStopwatch.Elapsed.TotalMilliseconds
@@ -789,7 +831,7 @@ try {
     "lifecycle_stale_generation_replay",
     "observer_child_start_failed", "observer_child_failed",
     "observer_result_invalid", "core_observation_ingest_failed",
-    "whole_route_timeout", "cleanup_incomplete"
+    "transport_arm_failed", "whole_route_timeout", "cleanup_incomplete"
   )
   $class = [string]$_.Exception.Message
   $blockerClass = if ($allowed -ccontains $class) { $class } else { "transport_failed" }
@@ -822,12 +864,17 @@ $result = [ordered]@{
   final_lifecycle_state = $finalLifecycleState
   observer_result_class = $observerResultClass
   first_non_silent_frame_offset_ms = $firstNonSilentFrameOffsetMs
+  first_non_silent_observed_at_utc_ms = $firstNonSilentObservedAtUtcMs
   handoff_pickup_ms = $handoffPickupMs
   cooldown_pickup_ms = $cooldownPickupMs
   released_pickup_ms = $releasedPickupMs
   observation_ingest_ms = $observationIngestMs
   elapsed_ms = [int]$routeStopwatch.ElapsedMilliseconds
-  latency_requirement_status = "last_accepted_speech_frame_timestamp_not_available"
+  latency_requirement_status = $(if ($null -ne $firstNonSilentObservedAtUtcMs) {
+      "first_non_silent_wall_timestamp_available"
+    } else {
+      "first_non_silent_wall_timestamp_not_available"
+    })
   cleanup_class = $(if ($cleanupClear) { "route_owned_cleanup_clear" } else { "cleanup_incomplete" })
   route_owned_process_residue_count = $(if ($cleanupClear) { 0 } else { $null })
   route_owned_request_residue_count = 0
@@ -852,12 +899,22 @@ return [pscustomobject]@{
 
 if ($MyInvocation.InvocationName -eq ".") { return }
 
+$armedCallback = $(if ($EmitArmSignal) {
+    {
+      [Console]::Out.WriteLine(
+        '{"schema_version":"self_output_awareness.production_transport_arm.v0","result_class":"production_transport_armed","raw_private_publication_flags":false}')
+      [Console]::Out.Flush()
+    }
+  } else {
+    {}
+  })
 $execution = Invoke-ProductionTransportRoute `
   -RouteAitBaseUrl $AitBaseUrl `
   -RouteAiTalkCoreBaseUrl $AiTalkCoreBaseUrl `
   -RouteControlledChromeRootPid $ControlledChromeRootPid `
   -RouteObserverWindowMs $ObserverWindowMs `
-  -RouteDeadlineMs $DeadlineMs
+  -RouteDeadlineMs $DeadlineMs `
+  -ArmedCallback $armedCallback
 $convertParameters = @{ Depth = 6 }
 if ($Json) { $convertParameters.Compress = $true }
 $execution.Value | ConvertTo-Json @convertParameters

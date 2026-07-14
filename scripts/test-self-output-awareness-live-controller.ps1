@@ -6,10 +6,13 @@ $ControllerPath = Join-Path $RepoRoot "scripts\run-self-output-awareness-live-co
 $pwsh = Get-Command pwsh -ErrorAction Stop
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("self-output-live-controller-test-" + [guid]::NewGuid().ToString("N"))
 $fakeObserverModulePath = Join-Path $tempRoot "observer-process-fake.mjs"
+$fakeProductionTransportPath = Join-Path $tempRoot "production-transport-process-fake.ps1"
 $privateToken = "PRIVATE_LIVE_CONTROLLER_TOKEN_SENTINEL"
 $privateResponseMarker = "PRIVATE_TRANSCRIPT_SENTINEL"
 $assertions = 0
 $jobs = [System.Collections.Generic.List[object]]::new()
+$productionProcess = $null
+$caseProcess = $null
 
 function Assert-True {
   param([bool]$Condition, [string]$Message)
@@ -17,6 +20,17 @@ function Assert-True {
   if (-not $Condition) {
     throw $Message
   }
+}
+
+function Assert-FixedFailure {
+  param(
+    [Parameter(Mandatory = $true)][scriptblock]$Action,
+    [Parameter(Mandatory = $true)][string]$Expected,
+    [Parameter(Mandatory = $true)][string]$Message
+  )
+  $actual = "no_failure"
+  try { & $Action } catch { $actual = [string]$_.Exception.Message }
+  Assert-True ($actual -ceq $Expected) "$Message; actual=$actual"
 }
 
 function New-EndpointResponse {
@@ -309,13 +323,129 @@ process.exit(0);
   )
   Assert-True ([System.IO.File]::Exists($fakeObserverModulePath)) "observer process fake module was not created"
 }
+
+function Initialize-TestProductionTransportProcessFake {
+  $source = @'
+param(
+  [Parameter(Mandatory = $true)][string]$TriggerPath,
+  [Parameter(Mandatory = $true)][string]$ResultPath,
+  [Parameter(Mandatory = $true)][string]$Mode
+)
+$ErrorActionPreference = "Stop"
+[System.IO.File]::WriteAllText(
+  "$TriggerPath.arm",
+  "armed",
+  [System.Text.Encoding]::ASCII)
+[Console]::Out.WriteLine('{"schema_version":"self_output_awareness.production_transport_arm.v0","result_class":"production_transport_armed","raw_private_publication_flags":false}')
+[Console]::Out.Flush()
+if ($Mode -ceq "timeout") {
+  Start-Sleep -Seconds 30
+  exit 5
+}
+$deadline = [System.Diagnostics.Stopwatch]::StartNew()
+while (-not [System.IO.File]::Exists($TriggerPath)) {
+  if ($deadline.ElapsedMilliseconds -gt 5000) { exit 6 }
+  Start-Sleep -Milliseconds 10
+}
+if ($Mode -ceq "stderr") {
+  [Console]::Error.WriteLine("fixed_child_failure")
+  exit 4
+}
+if ($Mode -ceq "bad_output") {
+  [Console]::Out.WriteLine('{"schema_version":"invalid"}')
+  exit 0
+}
+[Console]::Out.WriteLine(
+  [System.IO.File]::ReadAllText($ResultPath, [System.Text.Encoding]::UTF8))
+exit 0
+'@
+  [System.IO.File]::WriteAllText(
+    $fakeProductionTransportPath,
+    $source,
+    [System.Text.UTF8Encoding]::new($false))
+  Assert-True ([System.IO.File]::Exists($fakeProductionTransportPath)) "production transport fake was not created"
+}
+
+function New-ProductionTransportResult {
+  param([Parameter(Mandatory = $true)][long]$FirstAudioWallMs)
+
+  return [ordered]@{
+    schema_version = "self_output_awareness.production_transport.v0"
+    status = "completed"
+    result_class = "production_self_output_transport_completed"
+    blocker_class = $null
+    lifecycle_ingest_count = 3
+    observation_ingest_count = 1
+    lifecycle_ingest_outcome_class = "acknowledged"
+    observation_ingest_outcome_class = "acknowledged"
+    ait_poll_count = 4
+    core_request_count = 4
+    final_lifecycle_state = "released"
+    observer_result_class = "process_tree_render_observed"
+    first_non_silent_frame_offset_ms = 25
+    first_non_silent_observed_at_utc_ms = $FirstAudioWallMs
+    handoff_pickup_ms = 50
+    cooldown_pickup_ms = 75
+    released_pickup_ms = 100
+    observation_ingest_ms = 125
+    elapsed_ms = 150
+    latency_requirement_status = "first_non_silent_wall_timestamp_available"
+    cleanup_class = "route_owned_cleanup_clear"
+    route_owned_process_residue_count = 0
+    route_owned_request_residue_count = 0
+    route_owned_pipe_residue_count = 0
+    route_owned_temp_residue_count = 0
+    audio_route_change_count = 0
+    microphone_route_change_count = 0
+    candidate_authority = $false
+    acceptance_authority = $false
+    turn_input_authority = $false
+    raw_audio_shared = $false
+    raw_text_shared = $false
+    private_identifier_shared = $false
+    private_environment_shared = $false
+    raw_private_publication_flags = $false
+  }
+}
+
+function New-ProductionTransportProcessFactory {
+  param(
+    [Parameter(Mandatory = $true)][string]$TriggerPath,
+    [Parameter(Mandatory = $true)][string]$ResultPath,
+    [Parameter(Mandatory = $true)][string]$Mode
+  )
+
+  return {
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $pwsh.Source
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    [void]$startInfo.Environment.Remove("AI_TALK_CORE_WEB_TOKEN")
+    foreach ($argument in @(
+        "-NoProfile", "-File", $fakeProductionTransportPath,
+        "-TriggerPath", $TriggerPath,
+        "-ResultPath", $ResultPath,
+        "-Mode", $Mode
+      )) {
+      [void]$startInfo.ArgumentList.Add($argument)
+    }
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    return $process
+  }.GetNewClosure()
+}
 function Invoke-Controller {
   param(
     [string]$BaseUrl,
+    [string]$AitBaseUrl = "http://127.0.0.1:3000",
     [string]$Scenario = "self_output_or_ambiguous",
     [int]$WindowMs = 100,
     [int]$DeadlineMs = 1000,
     [string]$CdpEndpoint = "",
+    [int]$ControlledChromeRootPid = 0,
+    [int]$AudioObserverWindowMs = 3000,
     [bool]$ProvideToken = $true,
     [string]$ObserverMode = "",
     [string]$ObserverReceiptPath = ""
@@ -330,10 +460,13 @@ function Invoke-Controller {
   foreach ($argument in @(
     "-NoProfile", "-File", $ControllerPath,
     "-BaseUrl", $BaseUrl,
+    "-AitBaseUrl", $AitBaseUrl,
     "-Scenario", $Scenario,
     "-WindowMs", [string]$WindowMs,
     "-DeadlineMs", [string]$DeadlineMs,
     "-CdpEndpoint", $CdpEndpoint,
+    "-ControlledChromeRootPid", [string]$ControlledChromeRootPid,
+    "-AudioObserverWindowMs", [string]$AudioObserverWindowMs,
     "-Json"
   )) {
     [void]$startInfo.ArgumentList.Add($argument)
@@ -428,8 +561,120 @@ function Assert-ObserverProcessZeroIdReceipt {
 
 [System.IO.Directory]::CreateDirectory($tempRoot) | Out-Null
 Initialize-TestObserverProcessFake
+Initialize-TestProductionTransportProcessFake
+. $ControllerPath
+$controllerSource = Get-Content -LiteralPath $ControllerPath -Raw
+Assert-True ($controllerSource -match 'Start-ProductionTransportChild[\s\S]+\$endpointRequestStartedAtWallMs\s*=') "production transport must arm before the D1 request starts"
+Assert-True ($controllerSource -match 'Complete-ProductionTransportChild[\s\S]+first_non_silent_observed_at_utc_ms[\s\S]+utteranceEndToFirstAudioMs') "production result must feed the bounded first-audio delta"
+Assert-True ($controllerSource -match 'candidate_authority[\s\S]+acceptance_authority[\s\S]+turn_input_authority') "production result validation must retain false authority fields"
 
 try {
+  $fixedNowUtcMs = [System.DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  $fixedFirstAudioWallMs = $fixedNowUtcMs - 100
+  $fixedUtteranceEndWallMs = $fixedFirstAudioWallMs - 250
+  $productionResultPath = Join-Path $tempRoot "production-success.json"
+  $productionTriggerPath = Join-Path $tempRoot "production-success.trigger"
+  [System.IO.File]::WriteAllText(
+    $productionResultPath,
+    (New-ProductionTransportResult `
+      -FirstAudioWallMs $fixedFirstAudioWallMs | ConvertTo-Json -Depth 6 -Compress),
+    [System.Text.UTF8Encoding]::new($false))
+  $productionFactory = New-ProductionTransportProcessFactory `
+    -TriggerPath $productionTriggerPath `
+    -ResultPath $productionResultPath `
+    -Mode "success"
+  $productionProcess = Start-ProductionTransportChild `
+    -AitEndpoint ([System.Uri]"http://127.0.0.1:3000/") `
+    -AiTalkCoreEndpoint ([System.Uri]"http://127.0.0.1:8000/") `
+    -ChromeRootPid 1 `
+    -ObserverWindowMs 1000 `
+    -TimeoutMs 3000 `
+    -ProcessFactory $productionFactory
+  Assert-True ([System.IO.File]::Exists("$productionTriggerPath.arm")) "production child must report arm before the D1 trigger"
+  Assert-True (-not [System.IO.File]::Exists($productionTriggerPath)) "D1 trigger must remain absent when child becomes armed"
+  Assert-True (-not $productionProcess.HasExited) "armed production child must still await the trigger"
+  [System.IO.File]::WriteAllText(
+    $productionTriggerPath,
+    "triggered",
+    [System.Text.Encoding]::ASCII)
+  $productionValue = Complete-ProductionTransportChild `
+    -Process $productionProcess `
+    -TimeoutMs 3000 `
+    -RouteDeadlineMs 10000
+  $productionProcess.Dispose()
+  $productionProcess = $null
+  Assert-True ($productionValue.first_non_silent_observed_at_utc_ms -eq $fixedFirstAudioWallMs) "production child result must preserve the fixed first-audio wall"
+  $fixedAudioDelta = Resolve-UtteranceEndToFirstAudioMs `
+    -UtteranceEndWallMs $fixedUtteranceEndWallMs `
+    -FirstAudioWallMs $fixedFirstAudioWallMs `
+    -RouteDeadlineMs 10000 `
+    -ObservedNowUtcMs $fixedNowUtcMs
+  Assert-True ($fixedAudioDelta -eq 250) "Parent must derive the exact utterance-end to first-audio delta"
+  Assert-FixedFailure {
+    Resolve-UtteranceEndToFirstAudioMs `
+      -UtteranceEndWallMs $fixedFirstAudioWallMs `
+      -FirstAudioWallMs ($fixedFirstAudioWallMs - 1) `
+      -RouteDeadlineMs 10000 `
+      -ObservedNowUtcMs $fixedNowUtcMs
+  } "production_transport_not_completed" "negative first-audio delta must fail closed"
+  Assert-FixedFailure {
+    Resolve-UtteranceEndToFirstAudioMs `
+      -UtteranceEndWallMs ($fixedFirstAudioWallMs - 10001) `
+      -FirstAudioWallMs $fixedFirstAudioWallMs `
+      -RouteDeadlineMs 10000 `
+      -ObservedNowUtcMs $fixedNowUtcMs
+  } "production_transport_not_completed" "over-deadline first-audio delta must fail closed"
+  Assert-FixedFailure {
+    Resolve-UtteranceEndToFirstAudioMs `
+      -UtteranceEndWallMs $fixedUtteranceEndWallMs `
+      -FirstAudioWallMs ($fixedNowUtcMs + 1001) `
+      -RouteDeadlineMs 10000 `
+      -ObservedNowUtcMs $fixedNowUtcMs
+  } "production_transport_not_completed" "future first-audio wall must fail closed at Parent"
+
+  foreach ($mode in @("bad_output", "stderr", "timeout")) {
+    $caseTriggerPath = Join-Path $tempRoot "production-$mode.trigger"
+    $caseResultPath = Join-Path $tempRoot "production-$mode.json"
+    [System.IO.File]::WriteAllText(
+      $caseResultPath,
+      (New-ProductionTransportResult `
+        -FirstAudioWallMs $fixedFirstAudioWallMs | ConvertTo-Json -Depth 6 -Compress),
+      [System.Text.UTF8Encoding]::new($false))
+    $caseFactory = New-ProductionTransportProcessFactory `
+      -TriggerPath $caseTriggerPath `
+      -ResultPath $caseResultPath `
+      -Mode $mode
+    $caseProcess = Start-ProductionTransportChild `
+      -AitEndpoint ([System.Uri]"http://127.0.0.1:3000/") `
+      -AiTalkCoreEndpoint ([System.Uri]"http://127.0.0.1:8000/") `
+      -ChromeRootPid 1 `
+      -ObserverWindowMs 1000 `
+      -TimeoutMs 1000 `
+      -ProcessFactory $caseFactory
+    $caseProcessId = $caseProcess.Id
+    if ($mode -cne "timeout") {
+      [System.IO.File]::WriteAllText(
+        $caseTriggerPath,
+        "triggered",
+        [System.Text.Encoding]::ASCII)
+    }
+    $expectedFailure = $(if ($mode -ceq "timeout") {
+        "whole_route_timeout"
+      } else {
+        "production_transport_not_completed"
+      })
+    Assert-FixedFailure {
+      Complete-ProductionTransportChild `
+        -Process $caseProcess `
+        -TimeoutMs 100 `
+        -RouteDeadlineMs 1000
+    } $expectedFailure "production child $mode must fail with a fixed class"
+    Assert-True (Stop-ProductionTransportChild -Process $caseProcess) "production child $mode cleanup must be exact"
+    $caseProcess = $null
+    Start-Sleep -Milliseconds 20
+    Assert-True ($null -eq (Get-Process -Id $caseProcessId -ErrorAction SilentlyContinue)) "production child $mode must leave zero process residue"
+  }
+
   $negativeResponse = New-EndpointResponse `
     -ResultClass "self_output_or_ambiguous_confirmed" `
     -ExpectationClass "matched" `
@@ -526,6 +771,8 @@ try {
   Assert-True ($visible.first_visible_observer_elapsed_ms -ge 0) "visible observer timing missing"
   Assert-True ($visible.utterance_end_to_first_visible_ms -ge 0) "utterance-end to visible timing missing"
   Assert-True ($visible.utterance_end_to_first_visible_ms -le 5000) "utterance-end to visible timing exceeded deadline"
+  Assert-True ($visible.first_non_silent_audio_observation_class -ceq "not_observed") "visible-only route must not claim audio observation"
+  Assert-True ($null -eq $visible.utterance_end_to_first_audio_ms) "visible-only route must not claim audio latency"
   Assert-True (-not $visibleRun.Text.Contains("evt-live-visible-1")) "correlated visible run must not publish the assistant event id"
 
   $mismatchedReceipt = Join-Path $tempRoot "observer-mismatch.receipt.json"
@@ -862,6 +1109,26 @@ try {
   Assert-True ($invalidBoundsRun.Code -ne 0) "invalid bounds must fail"
   Assert-True ($invalidBounds.blocker_class -ceq "live_controller_configuration_invalid") "invalid bounds blocker mismatch"
 
+  $audioWithoutVisibleRun = Invoke-Controller `
+    -BaseUrl "http://127.0.0.1:65534" `
+    -Scenario "independent_current_session_user_speech" `
+    -DeadlineMs 5000 `
+    -ControlledChromeRootPid 1
+  $audioWithoutVisible = Assert-CommonResult -Run $audioWithoutVisibleRun
+  Assert-True ($audioWithoutVisibleRun.Code -ne 0) "audio join without visible observer must fail before child start"
+  Assert-True ($audioWithoutVisible.blocker_class -ceq "live_controller_configuration_invalid") "audio join without visible observer blocker mismatch"
+
+  $audioDeadlineRun = Invoke-Controller `
+    -BaseUrl "http://127.0.0.1:65534" `
+    -Scenario "independent_current_session_user_speech" `
+    -DeadlineMs 3500 `
+    -CdpEndpoint "http://127.0.0.1:9222/" `
+    -ControlledChromeRootPid 1 `
+    -AudioObserverWindowMs 3000
+  $audioDeadline = Assert-CommonResult -Run $audioDeadlineRun
+  Assert-True ($audioDeadlineRun.Code -ne 0) "audio join without one shared child budget must fail before child start"
+  Assert-True ($audioDeadline.blocker_class -ceq "live_controller_configuration_invalid") "audio shared-budget blocker mismatch"
+
   $invalidScenarioMarker = "PRIVATE_INVALID_SCENARIO_SENTINEL"
   $invalidScenarioRun = Invoke-Controller `
     -BaseUrl "http://127.0.0.1:65534" `
@@ -876,6 +1143,11 @@ try {
   Write-Output ("assertions={0}" -f $assertions)
   Write-Output "raw_private_publication_flags=false"
 } finally {
+  foreach ($ownedProcess in @($productionProcess, $caseProcess)) {
+    if ($null -ne $ownedProcess) {
+      [void](Stop-ProductionTransportChild -Process $ownedProcess)
+    }
+  }
   foreach ($job in $jobs) {
     if ($job.State -notin @("Completed", "Failed", "Stopped")) {
       Stop-Job -Job $job -ErrorAction SilentlyContinue
