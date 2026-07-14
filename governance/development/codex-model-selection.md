@@ -76,6 +76,24 @@ and tools unrelated to the task. Link current evidence instead of replaying old
 packets. A shorter prompt must still preserve every material decision,
 constraint, caveat, and next action.
 
+For an independent Test-QA or security review, omit the implementation thread's
+chain of thought, persuasive narrative, desired verdict, and other reviewers'
+initial conclusions. Supply the controlling request, frozen exact diff,
+canonical contracts and proof boundaries, focused validation, and known limits.
+The reviewer may request more context after identifying a concrete question.
+
+## Subagent Model Budget
+
+Use Luna or Terra for bounded exploration, exact searches, routine tests, and
+supporting-document review. Reserve Sol for the parent thread when it must
+resolve conflicting evidence or synthesize several independent returns. Do not
+run multiple Sol/high-effort agents merely because several role threads exist.
+
+Thread ownership, independent review context, concurrency, nesting, and
+workstation backpressure are defined once in `codex-threading.md`. Model strength
+or the number of available owner threads does not justify additional parallel
+workers.
+
 ## Evaluation And Trace
 
 For a new model assignment or material change in reasoning effort, compare a

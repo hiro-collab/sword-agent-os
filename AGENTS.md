@@ -51,3 +51,15 @@ This repository is the source of truth for Sword Agent OS.
   device, publication, readiness, and final-acceptance evidence remain separate.
 - If GPT-5.6 is unavailable, record the fallback and use the closest available
   capability tier without silently changing the task's proof ceiling.
+- Keep persistent owner threads for durable responsibility and independent
+  review context. Use subagents only for bounded temporary work; the parent
+  thread remains responsible for scope, writes, evidence, and final synthesis.
+- Preserve reviewer independence. Give Test-QA and security the controlling
+  request, exact diff, canonical contracts and proof boundaries, and focused
+  validation. Do not preload the author's reasoning, desired verdict, or another
+  reviewer's conclusion before their first assessment.
+- Run at most one write-heavy worker at a time across persistent owner sessions.
+  Within one Codex root session, the project configuration caps that session's
+  concurrently open agent threads at two and spawned nesting depth at one; it
+  does not globally cap separately opened owner sessions. Reduce total active
+  Codex work to one while the workstation is under sustained load.
