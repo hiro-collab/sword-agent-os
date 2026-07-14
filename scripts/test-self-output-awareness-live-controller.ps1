@@ -5,6 +5,7 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ControllerPath = Join-Path $RepoRoot "scripts\run-self-output-awareness-live-controller.ps1"
 $pwsh = Get-Command pwsh -ErrorAction Stop
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("self-output-live-controller-test-" + [guid]::NewGuid().ToString("N"))
+$fakeObserverModulePath = Join-Path $tempRoot "observer-process-fake.mjs"
 $privateToken = "PRIVATE_LIVE_CONTROLLER_TOKEN_SENTINEL"
 $privateResponseMarker = "PRIVATE_TRANSCRIPT_SENTINEL"
 $assertions = 0
@@ -33,6 +34,9 @@ function New-EndpointResponse {
     [object]$LastVadSpeechFrameOffsetMs = $null,
     [object]$UtteranceEndToCandidateResultMs = $null,
     [string]$UtteranceEndTimingClass = "",
+    [string]$PresentationClass = "presentation_not_attempted",
+    [object]$AssistantEventId = $null,
+    [object]$ThoughtCoreFirstEventElapsedMs = $null,
     [int]$PcmCleanupCount = 0,
     [int]$PrivateAuthorityResidueCount = 0
   )
@@ -67,6 +71,9 @@ function New-EndpointResponse {
     last_vad_speech_frame_offset_ms = $LastVadSpeechFrameOffsetMs
     utterance_end_to_candidate_result_ms = $UtteranceEndToCandidateResultMs
     utterance_end_timing_class = $UtteranceEndTimingClass
+    presentation_class = $PresentationClass
+    assistant_event_id = $AssistantEventId
+    thought_core_first_event_elapsed_ms = $ThoughtCoreFirstEventElapsedMs
     pcm_cleanup_count = $PcmCleanupCount
     private_authority_residue_count = $PrivateAuthorityResidueCount
     raw_private_publication_flags = $false
@@ -96,7 +103,11 @@ function Start-TestServer {
       $readyTempPath = "$ReadyPath.tmp"
       [System.IO.File]::WriteAllText($readyTempPath, [string]$port, [System.Text.Encoding]::ASCII)
       [System.IO.File]::Move($readyTempPath, $ReadyPath)
-      $client = $listener.AcceptTcpClient()
+      $acceptTask = $listener.AcceptTcpClientAsync()
+      if (-not $acceptTask.Wait(5000)) {
+        throw "test server accept timeout"
+      }
+      $client = $acceptTask.Result
       $stream = $client.GetStream()
       $stream.ReadTimeout = 5000
       $stream.WriteTimeout = 5000
@@ -206,6 +217,8 @@ function Start-TestServer {
     Job = $job
     BaseUrl = "http://127.0.0.1:$port"
     ReadyPath = $readyPath
+    DelayMs = $DelayMs
+    ResultClass = [string]$Response.result_class
   }
 }
 
@@ -214,42 +227,151 @@ function Complete-TestServer {
 
   $completed = Wait-Job -Job $Server.Job -Timeout 5
   Assert-True ($null -ne $completed) "test server did not complete"
-  $rows = @(Receive-Job -Job $Server.Job)
+  try {
+    $rows = @(Receive-Job -Job $Server.Job -ErrorAction Stop)
+  } catch {
+    throw (
+      "test server failed; result_class={0}; delay_ms={1}" -f
+        $Server.ResultClass,
+        $Server.DelayMs
+    )
+  }
   Assert-True ($Server.Job.State -ceq "Completed") "test server failed"
   Assert-True ($rows.Count -eq 1) "test server should return one request summary"
   return $rows[0]
 }
 
+function Initialize-TestObserverProcessFake {
+  $source = @'
+import fs from "node:fs";
+
+const mode = process.env.SWORD_TEST_OBSERVER_MODE || "success";
+const receiptPath = process.env.SWORD_TEST_OBSERVER_RECEIPT || "";
+if (mode === "early_exit") {
+  process.exit(4);
+}
+if (mode === "delayed_arm") {
+  await new Promise((resolve) => setTimeout(resolve, 500));
+}
+
+process.stdout.write('{"schema_version":"primary_system_cell_visible_response_observer_arm.v1","result_class":"observer_armed","raw_private_publication_flags":false}\n');
+let input = "";
+for await (const chunk of process.stdin) {
+  input += chunk;
+}
+const lines = input.split(/\r?\n/u).filter((value) => value.length > 0);
+const messageId = lines.length === 1 ? lines[0] : null;
+const safeId =
+  typeof messageId === "string" &&
+  /^[A-Za-z0-9_.:-]{1,128}$/u.test(messageId) &&
+  !/(?:private|secret|token|path|url)/iu.test(messageId);
+if (receiptPath) {
+  fs.writeFileSync(
+    receiptPath,
+    JSON.stringify({
+      line_count: lines.length,
+      safe_id: safeId,
+      raw_private_publication_flags: false,
+    }),
+    { encoding: "utf8", flag: "wx" },
+  );
+}
+
+if (mode === "timeout") {
+  await new Promise((resolve) => setTimeout(resolve, 30000));
+  process.exit(5);
+}
+if (!safeId) {
+  process.exit(6);
+}
+if (mode === "mismatch") {
+  process.stdout.write('{"schema_version":"primary_system_cell_visible_response_observation.v1","result_class":"visible_response_timeout","visible_match_count":0,"observed_at_wall":null,"observer_elapsed_ms":100,"cleanup_class":"observer_socket_released","raw_private_publication_flags":false}\n');
+  process.exit(1);
+}
+
+process.stdout.write(
+  JSON.stringify({
+    schema_version: "primary_system_cell_visible_response_observation.v1",
+    result_class: "visible_response_observed",
+    visible_match_count: 1,
+    observed_at_wall: new Date(Date.now() + 250).toISOString().replace("Z", "0000Z"),
+    observer_elapsed_ms: 100,
+    cleanup_class: "observer_socket_released",
+    raw_private_publication_flags: false,
+  }) + "\n",
+);
+process.exit(0);
+'@
+  [System.IO.File]::WriteAllText(
+    $fakeObserverModulePath,
+    $source,
+    [System.Text.UTF8Encoding]::new($false)
+  )
+  Assert-True ([System.IO.File]::Exists($fakeObserverModulePath)) "observer process fake module was not created"
+}
 function Invoke-Controller {
   param(
     [string]$BaseUrl,
     [string]$Scenario = "self_output_or_ambiguous",
     [int]$WindowMs = 100,
     [int]$DeadlineMs = 1000,
-    [bool]$ProvideToken = $true
+    [string]$CdpEndpoint = "",
+    [bool]$ProvideToken = $true,
+    [string]$ObserverMode = "",
+    [string]$ObserverReceiptPath = ""
   )
 
-  $previousToken = [System.Environment]::GetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", "Process")
+  $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $startInfo.FileName = $pwsh.Source
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  foreach ($argument in @(
+    "-NoProfile", "-File", $ControllerPath,
+    "-BaseUrl", $BaseUrl,
+    "-Scenario", $Scenario,
+    "-WindowMs", [string]$WindowMs,
+    "-DeadlineMs", [string]$DeadlineMs,
+    "-CdpEndpoint", $CdpEndpoint,
+    "-Json"
+  )) {
+    [void]$startInfo.ArgumentList.Add($argument)
+  }
+  if ($ProvideToken) {
+    $startInfo.Environment["AI_TALK_CORE_WEB_TOKEN"] = $privateToken
+  } else {
+    [void]$startInfo.Environment.Remove("AI_TALK_CORE_WEB_TOKEN")
+  }
+  if (-not [string]::IsNullOrWhiteSpace($ObserverMode)) {
+    $fakeObserverModuleUri = [System.Uri]::new($fakeObserverModulePath).AbsoluteUri
+    $startInfo.Environment["NODE_OPTIONS"] = "--import=$fakeObserverModuleUri"
+    $startInfo.Environment["SWORD_TEST_OBSERVER_MODE"] = $ObserverMode
+    $startInfo.Environment["SWORD_TEST_OBSERVER_RECEIPT"] = $ObserverReceiptPath
+  }
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $startInfo
   try {
-    if ($ProvideToken) {
-      [System.Environment]::SetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", $privateToken, "Process")
-    } else {
-      [System.Environment]::SetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", $null, "Process")
+    Assert-True ($process.Start()) "controller process did not start"
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    if (-not $process.WaitForExit([Math]::Max(15000, $DeadlineMs + 5000))) {
+      $process.Kill($true)
+      throw "controller process exceeded test boundary"
     }
-    $output = @(
-      & $pwsh.Source -NoProfile -File $ControllerPath `
-        -BaseUrl $BaseUrl `
-        -Scenario $Scenario `
-        -WindowMs $WindowMs `
-        -DeadlineMs $DeadlineMs `
-        -Json 2>&1
-    )
+    $stdout = $stdoutTask.Result.Trim()
+    $stderr = $stderrTask.Result.Trim()
+    Assert-True ([string]::IsNullOrWhiteSpace($stderr)) "controller wrote unexpected stderr"
     return [PSCustomObject]@{
-      Code = $LASTEXITCODE
-      Text = ($output -join "`n")
+      Code = $process.ExitCode
+      Text = $stdout
     }
   } finally {
-    [System.Environment]::SetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", $previousToken, "Process")
+    if (-not $process.HasExited) {
+      try { $process.Kill($true) } catch {}
+    }
+    $process.Dispose()
   }
 }
 
@@ -279,7 +401,33 @@ function Assert-CommonResult {
   return $result
 }
 
+function Assert-ObserverProcessReceipt {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  Assert-True ([System.IO.File]::Exists($Path)) "observer process fake receipt missing"
+  $receiptText = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+  $receipt = $receiptText | ConvertFrom-Json
+  Assert-True ((@($receipt.PSObject.Properties.Name | Sort-Object) -join ",") -ceq "line_count,raw_private_publication_flags,safe_id") "observer process fake receipt keys mismatch"
+  Assert-True ($receipt.line_count -eq 1) "controller must write exactly one observer id line"
+  Assert-True ($receipt.safe_id -eq $true) "observer process fake did not receive one safe opaque id"
+  Assert-True ($receipt.raw_private_publication_flags -eq $false) "observer process fake receipt privacy flag mismatch"
+  Assert-True (-not $receiptText.Contains("evt-live-visible-1")) "observer process fake receipt must not persist the opaque id"
+}
+
+function Assert-ObserverProcessZeroIdReceipt {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  Assert-True ([System.IO.File]::Exists($Path)) "observer zero-id receipt missing"
+  $receiptText = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+  $receipt = $receiptText | ConvertFrom-Json
+  Assert-True ($receipt.line_count -eq 0) "timed-out route must not write an observer id"
+  Assert-True ($receipt.safe_id -eq $false) "timed-out route must not classify a safe observer id"
+  Assert-True ($receipt.raw_private_publication_flags -eq $false) "observer zero-id receipt privacy flag mismatch"
+  Assert-True (-not $receiptText.Contains("evt-live-visible-1")) "observer zero-id receipt must not persist the opaque id"
+}
+
 [System.IO.Directory]::CreateDirectory($tempRoot) | Out-Null
+Initialize-TestObserverProcessFake
 
 try {
   $negativeResponse = New-EndpointResponse `
@@ -311,7 +459,8 @@ try {
   Assert-True (($negativeRequest.request_keys -join ",") -ceq "deadline_ms,scenario,window_ms") "controller request keys must be exact"
   Assert-True ($negativeRequest.scenario -ceq "self_output_or_ambiguous") "negative request scenario mismatch"
   Assert-True ($negativeRequest.window_ms -eq 100) "negative request window mismatch"
-  Assert-True ($negativeRequest.deadline_ms -eq 1000) "negative request deadline mismatch"
+  Assert-True ($negativeRequest.deadline_ms -ge 300) "negative request deadline must preserve the endpoint minimum"
+  Assert-True ($negativeRequest.deadline_ms -le 1000) "negative request deadline must not exceed the route budget"
 
   $positiveResponse = New-EndpointResponse `
     -ResultClass "independent_user_speech_turninput_accepted" `
@@ -325,6 +474,9 @@ try {
     -ElapsedMs 90 `
     -LastVadSpeechFrameOffsetMs 80 `
     -UtteranceEndToCandidateResultMs 10 `
+    -PresentationClass "aituber_presentation_forwarded" `
+    -AssistantEventId "evt-live-visible-1" `
+    -ThoughtCoreFirstEventElapsedMs 35 `
     -PcmCleanupCount 1
   $positiveServer = Start-TestServer -Response $positiveResponse
   $positiveRun = Invoke-Controller `
@@ -343,6 +495,127 @@ try {
   Assert-True ($positive.last_vad_speech_frame_offset_ms -eq 80) "positive scenario should preserve the last VAD speech frame offset"
   Assert-True ($positive.utterance_end_to_candidate_result_ms -eq 10) "positive scenario should preserve utterance-end to candidate-result timing"
   Assert-True ($positive.utterance_end_timing_class -ceq "vad_speech_frame_available") "positive utterance-end timing class mismatch"
+  Assert-True ($positive.presentation_class -ceq "aituber_presentation_forwarded") "positive presentation class mismatch"
+  Assert-True ($positive.thought_core_first_event_elapsed_ms -eq 35) "positive first-event timing mismatch"
+  Assert-True ($positive.visible_response_class -ceq "not_observed") "positive visible proof must remain explicit without CDP"
+  Assert-True ($positive.visible_match_count -eq 0) "positive visible count must remain zero without CDP"
+  Assert-True ($null -eq $positive.utterance_end_to_first_visible_ms) "positive visible latency must remain unavailable without CDP"
+  Assert-True (-not $positiveRun.Text.Contains("evt-live-visible-1")) "controller must not publish the assistant event id"
+
+  $visibleReceipt = Join-Path $tempRoot "observer-success.receipt.json"
+  $visibleServer = Start-TestServer -Response $positiveResponse -DelayMs 120
+  $visibleRun = Invoke-Controller `
+    -BaseUrl $visibleServer.BaseUrl `
+    -Scenario "independent_current_session_user_speech" `
+    -DeadlineMs 5000 `
+    -CdpEndpoint "http://127.0.0.1:9222/" `
+    -ObserverMode "success" `
+    -ObserverReceiptPath $visibleReceipt
+  [void](Complete-TestServer -Server $visibleServer)
+  $visible = Assert-CommonResult -Run $visibleRun
+  Assert-ObserverProcessReceipt -Path $visibleReceipt
+  Assert-True ($visibleRun.Code -eq 0) (
+    "correlated visible scenario should complete; blocker={0}; class={1}; count={2}; elapsed={3}" -f
+      $visible.blocker_class,
+      $visible.visible_response_class,
+      $visible.visible_match_count,
+      $visible.utterance_end_to_first_visible_ms
+  )
+  Assert-True ($visible.visible_response_class -ceq "visible_response_observed") "visible response class mismatch"
+  Assert-True ($visible.visible_match_count -eq 1) "visible response count mismatch"
+  Assert-True ($visible.first_visible_observer_elapsed_ms -ge 0) "visible observer timing missing"
+  Assert-True ($visible.utterance_end_to_first_visible_ms -ge 0) "utterance-end to visible timing missing"
+  Assert-True ($visible.utterance_end_to_first_visible_ms -le 5000) "utterance-end to visible timing exceeded deadline"
+  Assert-True (-not $visibleRun.Text.Contains("evt-live-visible-1")) "correlated visible run must not publish the assistant event id"
+
+  $mismatchedReceipt = Join-Path $tempRoot "observer-mismatch.receipt.json"
+  $mismatchedVisibleServer = Start-TestServer -Response $positiveResponse
+  $mismatchedVisibleRun = Invoke-Controller `
+    -BaseUrl $mismatchedVisibleServer.BaseUrl `
+    -Scenario "independent_current_session_user_speech" `
+    -DeadlineMs 5000 `
+    -CdpEndpoint "http://127.0.0.1:9222/" `
+    -ObserverMode "mismatch" `
+    -ObserverReceiptPath $mismatchedReceipt
+  [void](Complete-TestServer -Server $mismatchedVisibleServer)
+  $mismatchedVisible = Assert-CommonResult -Run $mismatchedVisibleRun
+  Assert-ObserverProcessReceipt -Path $mismatchedReceipt
+  Assert-True ($mismatchedVisibleRun.Code -ne 0) "changed visible id must fail closed"
+  Assert-True ($mismatchedVisible.blocker_class -ceq "visible_response_not_observed") "changed visible id blocker mismatch"
+  Assert-True ($mismatchedVisible.visible_match_count -eq 0) "changed visible id must observe zero matches"
+  Assert-True (-not $mismatchedVisibleRun.Text.Contains("evt-live-visible-1")) "changed visible id run must not publish the assistant event id"
+
+  $observerTimeoutReceipt = Join-Path $tempRoot "observer-timeout.receipt.json"
+  $observerTimeoutServer = Start-TestServer -Response $positiveResponse
+  $observerTimeoutStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+  $observerTimeoutRun = Invoke-Controller `
+    -BaseUrl $observerTimeoutServer.BaseUrl `
+    -Scenario "independent_current_session_user_speech" `
+    -DeadlineMs 5000 `
+    -CdpEndpoint "http://127.0.0.1:9222/" `
+    -ObserverMode "timeout" `
+    -ObserverReceiptPath $observerTimeoutReceipt
+  $observerTimeoutStopwatch.Stop()
+  [void](Complete-TestServer -Server $observerTimeoutServer)
+  $observerTimeout = Assert-CommonResult -Run $observerTimeoutRun
+  Assert-ObserverProcessReceipt -Path $observerTimeoutReceipt
+  Assert-True ($observerTimeoutRun.Code -ne 0) "observer timeout must fail closed"
+  Assert-True ($observerTimeout.blocker_class -ceq "visible_response_not_observed") "observer timeout blocker mismatch"
+  Assert-True ($observerTimeoutStopwatch.ElapsedMilliseconds -lt 6000) "observer timeout exceeded bounded test duration"
+
+  $observerEarlyExitRun = Invoke-Controller `
+    -BaseUrl "http://127.0.0.1:65534" `
+    -Scenario "independent_current_session_user_speech" `
+    -DeadlineMs 3000 `
+    -CdpEndpoint "http://127.0.0.1:9222/" `
+    -ObserverMode "early_exit"
+  $observerEarlyExit = Assert-CommonResult -Run $observerEarlyExitRun
+  Assert-True ($observerEarlyExitRun.Code -ne 0) "observer early exit must fail closed"
+  Assert-True ($observerEarlyExit.blocker_class -ceq "visible_response_observer_unavailable") "observer early-exit blocker mismatch"
+
+  $sharedDeadlineReceipt = Join-Path $tempRoot "observer-shared-deadline.receipt.json"
+  $sharedDeadlineServer = Start-TestServer -Response $positiveResponse -DelayMs 4500
+  $sharedDeadlineStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+  $sharedDeadlineRun = Invoke-Controller `
+    -BaseUrl $sharedDeadlineServer.BaseUrl `
+    -Scenario "independent_current_session_user_speech" `
+    -DeadlineMs 5000 `
+    -CdpEndpoint "http://127.0.0.1:9222/" `
+    -ObserverMode "delayed_arm" `
+    -ObserverReceiptPath $sharedDeadlineReceipt
+  $sharedDeadlineStopwatch.Stop()
+  [void](Complete-TestServer -Server $sharedDeadlineServer)
+  $sharedDeadline = Assert-CommonResult -Run $sharedDeadlineRun
+  Assert-ObserverProcessZeroIdReceipt -Path $sharedDeadlineReceipt
+  Assert-True ($sharedDeadlineRun.Code -ne 0) "combined arm and HTTP delay must fail closed"
+  Assert-True ($sharedDeadline.blocker_class -ceq "whole_route_timeout") "shared deadline blocker mismatch"
+  Assert-True ($sharedDeadline.controller_elapsed_ms -le 5100) "controller renewed the route deadline across blocking phases"
+  Assert-True ($sharedDeadlineStopwatch.ElapsedMilliseconds -lt 6500) "shared deadline test exceeded its bounded wall duration"
+
+  $presentationFailureResponse = New-EndpointResponse `
+    -ResultClass "independent_user_speech_turninput_accepted" `
+    -ExpectationClass "matched" `
+    -CapturePacketCount 12 `
+    -CaptureByteCount 3840 `
+    -TranscriptionCount 1 `
+    -SubmissionCount 1 `
+    -TurnInputCount 1 `
+    -VadDecisionClass "speech_detected" `
+    -ElapsedMs 90 `
+    -LastVadSpeechFrameOffsetMs 80 `
+    -UtteranceEndToCandidateResultMs 10 `
+    -PresentationClass "aituber_presentation_not_forwarded" `
+    -PcmCleanupCount 1
+  $presentationFailureServer = Start-TestServer -Response $presentationFailureResponse
+  $presentationFailureRun = Invoke-Controller `
+    -BaseUrl $presentationFailureServer.BaseUrl `
+    -Scenario "independent_current_session_user_speech"
+  [void](Complete-TestServer -Server $presentationFailureServer)
+  $presentationFailure = Assert-CommonResult -Run $presentationFailureRun
+  Assert-True ($presentationFailureRun.Code -eq 0) "presentation failure must not rewrite accepted TurnInput"
+  Assert-True ($presentationFailure.submission_count -eq 1) "presentation failure must preserve submission count"
+  Assert-True ($presentationFailure.thought_core_turninput_count -eq 1) "presentation failure must preserve TurnInput count"
+  Assert-True ($presentationFailure.presentation_class -ceq "aituber_presentation_not_forwarded") "presentation failure class mismatch"
 
   $mismatchResponse = New-EndpointResponse `
     -ResultClass "scenario_expectation_not_met" `
@@ -375,6 +648,32 @@ try {
   $extra = Assert-CommonResult -Run $extraRun
   Assert-True ($extraRun.Code -ne 0) "extra response field must fail closed"
   Assert-True ($extra.blocker_class -ceq "live_controller_endpoint_response_invalid") "extra field blocker mismatch"
+
+  $privateIdResponse = New-EndpointResponse `
+    -ResultClass "independent_user_speech_turninput_accepted" `
+    -ExpectationClass "matched" `
+    -CapturePacketCount 12 `
+    -CaptureByteCount 3840 `
+    -TranscriptionCount 1 `
+    -SubmissionCount 1 `
+    -TurnInputCount 1 `
+    -VadDecisionClass "speech_detected" `
+    -ElapsedMs 90 `
+    -LastVadSpeechFrameOffsetMs 80 `
+    -UtteranceEndToCandidateResultMs 10 `
+    -PresentationClass "aituber_presentation_forwarded" `
+    -AssistantEventId "evt.private.marker" `
+    -ThoughtCoreFirstEventElapsedMs 35 `
+    -PcmCleanupCount 1
+  $privateIdServer = Start-TestServer -Response $privateIdResponse
+  $privateIdRun = Invoke-Controller `
+    -BaseUrl $privateIdServer.BaseUrl `
+    -Scenario "independent_current_session_user_speech"
+  [void](Complete-TestServer -Server $privateIdServer)
+  $privateId = Assert-CommonResult -Run $privateIdRun
+  Assert-True ($privateIdRun.Code -ne 0) "private-like event id must fail closed"
+  Assert-True ($privateId.blocker_class -ceq "live_controller_endpoint_response_invalid") "private-like event id blocker mismatch"
+  Assert-True (-not $privateIdRun.Text.Contains("evt.private.marker")) "private-like event id must not echo"
 
   $invalidDiagnosticResponse = New-EndpointResponse `
     -ResultClass "self_output_or_ambiguous_confirmed" `
@@ -532,8 +831,8 @@ try {
     -CapturePacketCount 10 `
     -CaptureByteCount 3200 `
     -PcmCleanupCount 1
-  $timeoutServer = Start-TestServer -Response $timeoutResponse -DelayMs 1000
-  $timeoutRun = Invoke-Controller -BaseUrl $timeoutServer.BaseUrl -WindowMs 100 -DeadlineMs 300
+  $timeoutServer = Start-TestServer -Response $timeoutResponse -DelayMs 1500
+  $timeoutRun = Invoke-Controller -BaseUrl $timeoutServer.BaseUrl -WindowMs 100 -DeadlineMs 1000
   [void](Complete-TestServer -Server $timeoutServer)
   $timeout = Assert-CommonResult -Run $timeoutRun
   Assert-True ($timeoutRun.Code -ne 0) "timeout must fail closed"

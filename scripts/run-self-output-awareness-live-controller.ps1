@@ -3,6 +3,7 @@ param(
   [string]$Scenario = "self_output_or_ambiguous",
   [int]$WindowMs = 1000,
   [int]$DeadlineMs = 5000,
+  [string]$CdpEndpoint = "",
   [switch]$Json
 )
 
@@ -24,6 +25,9 @@ $ExpectedResponseKeys = @(
   "last_vad_speech_frame_offset_ms",
   "utterance_end_to_candidate_result_ms",
   "utterance_end_timing_class",
+  "presentation_class",
+  "assistant_event_id",
+  "thought_core_first_event_elapsed_ms",
   "pcm_cleanup_count",
   "private_authority_residue_count",
   "raw_private_publication_flags"
@@ -44,6 +48,12 @@ $AllowedUtteranceEndTimingClasses = @(
   "no_vad_speech_frame",
   "vad_speech_frame_available",
   "vad_speech_frame_inconsistent"
+)
+$AllowedPresentationClasses = @(
+  "presentation_not_attempted",
+  "aituber_presentation_forwarded",
+  "aituber_presentation_forwarded_timing_unavailable",
+  "aituber_presentation_not_forwarded"
 )
 $AllowedScenarios = @(
   "self_output_or_ambiguous",
@@ -100,6 +110,8 @@ $AllowedControllerFailureClasses = @(
   "live_controller_endpoint_not_found",
   "live_controller_endpoint_response_invalid",
   "live_controller_endpoint_cleanup_incomplete",
+  "visible_response_observer_unavailable",
+  "visible_response_not_observed",
   "live_controller_failed",
   "whole_route_timeout",
   "cleanup_incomplete"
@@ -115,6 +127,9 @@ $cancellation = $null
 $token = ""
 $requestJson = ""
 $requestBody = $null
+$visibleObserverProcess = $null
+$visibleObserverStdout = $null
+$visibleObserverStderr = $null
 $controllerCleanupClear = $true
 $requestStarted = $false
 $endpointResponseObserved = $false
@@ -135,6 +150,15 @@ $endpointElapsedMs = 0
 $lastVadSpeechFrameOffsetMs = $null
 $utteranceEndToCandidateResultMs = $null
 $utteranceEndTimingClass = "not_evaluated"
+$presentationClass = "presentation_not_attempted"
+$thoughtCoreFirstEventElapsedMs = $null
+$visibleResponseClass = "not_observed"
+$visibleMatchCount = 0
+$firstVisibleObserverElapsedMs = $null
+$utteranceEndToFirstVisibleMs = $null
+$firstNonSilentAudioObservationClass = "not_observed"
+$utteranceEndToFirstAudioMs = $null
+$endpointRequestStartedAtWallMs = $null
 $pcmCleanupCount = 0
 $privateAuthorityResidueCount = 0
 $httpStatusClass = "not_observed"
@@ -200,12 +224,150 @@ function Resolve-LoopbackBaseUri {
   return $uri
 }
 
+function Resolve-LoopbackCdpUri {
+  param([Parameter(Mandatory = $true)][string]$Value)
+
+  $uri = Resolve-LoopbackBaseUri -Value $Value
+  return $uri
+}
+
+function Start-VisibleResponseObserver {
+  param(
+    [Parameter(Mandatory = $true)][System.Uri]$Endpoint,
+    [Parameter(Mandatory = $true)][int]$TimeoutMs
+  )
+
+  $node = Get-Command node -CommandType Application -ErrorAction SilentlyContinue
+  $observerPath = Join-Path $PSScriptRoot "observe-primary-system-cell-visible-response.mjs"
+  if ($null -eq $node -or -not [System.IO.File]::Exists($observerPath)) {
+    Throw-Fixed -Class "visible_response_observer_unavailable"
+  }
+  $resolvedObserverPath = [System.IO.Path]::GetFullPath($observerPath)
+  $resolvedScriptsRoot = [System.IO.Path]::GetFullPath($PSScriptRoot + [System.IO.Path]::DirectorySeparatorChar)
+  if (-not $resolvedObserverPath.StartsWith($resolvedScriptsRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    Throw-Fixed -Class "visible_response_observer_unavailable"
+  }
+
+  $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $startInfo.FileName = $node.Source
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardInput = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  [void]$startInfo.ArgumentList.Add($resolvedObserverPath)
+  [void]$startInfo.ArgumentList.Add("--cdp-endpoint")
+  [void]$startInfo.ArgumentList.Add($Endpoint.AbsoluteUri)
+  [void]$startInfo.ArgumentList.Add("--message-id-stdin")
+  [void]$startInfo.ArgumentList.Add("--timeout-ms")
+  [void]$startInfo.ArgumentList.Add([string]$TimeoutMs)
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $startInfo
+  if (-not $process.Start()) {
+    $process.Dispose()
+    Throw-Fixed -Class "visible_response_observer_unavailable"
+  }
+  $armTask = $process.StandardOutput.ReadLineAsync()
+  if (-not $armTask.Wait([Math]::Min(5000, $TimeoutMs))) {
+    try { $process.Kill($true) } catch {}
+    $process.Dispose()
+    Throw-Fixed -Class "visible_response_observer_unavailable"
+  }
+  try {
+    $arm = $armTask.Result | ConvertFrom-Json
+  } catch {
+    try { $process.Kill($true) } catch {}
+    $process.Dispose()
+    Throw-Fixed -Class "visible_response_observer_unavailable"
+  }
+  if ($null -eq $arm) {
+    try { if (-not $process.HasExited) { $process.Kill($true) } } catch {}
+    $process.Dispose()
+    Throw-Fixed -Class "visible_response_observer_unavailable"
+  }
+  $armKeys = @($arm.PSObject.Properties.Name | Sort-Object)
+  if (
+    ($armKeys -join ",") -cne "raw_private_publication_flags,result_class,schema_version" -or
+    $arm.schema_version -cne "primary_system_cell_visible_response_observer_arm.v1" -or
+    $arm.result_class -cne "observer_armed" -or
+    $arm.raw_private_publication_flags -isnot [bool] -or
+    [bool]$arm.raw_private_publication_flags
+  ) {
+    try { $process.Kill($true) } catch {}
+    $process.Dispose()
+    Throw-Fixed -Class "visible_response_observer_unavailable"
+  }
+  return $process
+}
+
+function Complete-VisibleResponseObserver {
+  param(
+    [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
+    [AllowNull()][string]$AssistantEventId,
+    [Parameter(Mandatory = $true)][int]$TimeoutMs
+  )
+
+  if ($null -ne $AssistantEventId) {
+    $Process.StandardInput.WriteLine($AssistantEventId)
+  }
+  $Process.StandardInput.Close()
+  if (-not $Process.WaitForExit([Math]::Max(1, $TimeoutMs))) {
+    try { $Process.Kill($true) } catch {}
+    Throw-Fixed -Class "visible_response_not_observed"
+  }
+  $stdout = $Process.StandardOutput.ReadToEnd()
+  $stderr = $Process.StandardError.ReadToEnd()
+  if (
+    [System.Text.Encoding]::UTF8.GetByteCount($stdout) -gt 4096 -or
+    [System.Text.Encoding]::UTF8.GetByteCount($stderr) -gt 4096
+  ) {
+    Throw-Fixed -Class "visible_response_not_observed"
+  }
+  $lines = @($stdout -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+  if ($lines.Count -ne 1) {
+    Throw-Fixed -Class "visible_response_not_observed"
+  }
+  try {
+    $value = $lines[0] | ConvertFrom-Json -DateKind String
+  } catch {
+    Throw-Fixed -Class "visible_response_not_observed"
+  }
+  $expectedKeys = @(
+    "schema_version", "result_class", "visible_match_count",
+    "observed_at_wall", "observer_elapsed_ms", "cleanup_class",
+    "raw_private_publication_flags"
+  )
+  if (
+    (@($value.PSObject.Properties.Name | Sort-Object) -join ",") -cne
+      (@($expectedKeys | Sort-Object) -join ",") -or
+    $value.schema_version -cne "primary_system_cell_visible_response_observation.v1" -or
+    $value.result_class -isnot [string] -or
+    $value.cleanup_class -cne "observer_socket_released" -or
+    $value.raw_private_publication_flags -isnot [bool] -or
+    [bool]$value.raw_private_publication_flags
+  ) {
+    Throw-Fixed -Class "visible_response_not_observed"
+  }
+  Assert-BoundedInteger -Value $value.visible_match_count -Minimum 0 -Maximum 2
+  Assert-BoundedInteger -Value $value.observer_elapsed_ms -Minimum 0 -Maximum 30000
+  return $value
+}
+
 function Set-Failure {
   param([Parameter(Mandatory = $true)][string]$Class)
 
   $script:controllerStatus = "error"
   $script:blockerClass = $Class
   $script:exitCode = 1
+}
+
+function Get-RemainingRouteBudgetMs {
+  $remainingMs = [long]$DeadlineMs - [long]$controllerStopwatch.ElapsedMilliseconds
+  if ($remainingMs -le 0) {
+    Throw-Fixed -Class "whole_route_timeout"
+  }
+  return [int][Math]::Min([int]::MaxValue, $remainingMs)
 }
 
 try {
@@ -221,16 +383,35 @@ try {
   $safeScenario = $Scenario
 
   $baseUri = Resolve-LoopbackBaseUri -Value $BaseUrl
+  $cdpUri = $null
+  if (-not [string]::IsNullOrWhiteSpace($CdpEndpoint)) {
+    if ($Scenario -cne "independent_current_session_user_speech") {
+      Throw-Fixed -Class "live_controller_configuration_invalid"
+    }
+    $cdpUri = Resolve-LoopbackCdpUri -Value $CdpEndpoint
+  }
   $token = [System.Environment]::GetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", "Process")
   if ([string]::IsNullOrWhiteSpace($token)) {
     Throw-Fixed -Class "live_controller_token_unavailable"
   }
 
   $endpointUri = [System.Uri]::new($baseUri, "/api/live-input-gate/candidate-window")
+
+  if ($null -ne $cdpUri) {
+    $observerArmBudgetMs = Get-RemainingRouteBudgetMs
+    $visibleObserverProcess = Start-VisibleResponseObserver `
+      -Endpoint $cdpUri `
+      -TimeoutMs $observerArmBudgetMs
+  }
+
+  $httpBudgetMs = Get-RemainingRouteBudgetMs
+  if ($httpBudgetMs -lt ($WindowMs + 200)) {
+    Throw-Fixed -Class "whole_route_timeout"
+  }
   $requestBody = [ordered]@{
     scenario = $Scenario
     window_ms = $WindowMs
-    deadline_ms = $DeadlineMs
+    deadline_ms = $httpBudgetMs
   }
   $requestJson = $requestBody | ConvertTo-Json -Compress
   $requestBody.Clear()
@@ -255,7 +436,8 @@ try {
   $requestJson = ""
 
   $cancellation = [System.Threading.CancellationTokenSource]::new()
-  $cancellation.CancelAfter($DeadlineMs)
+  $cancellation.CancelAfter($httpBudgetMs)
+  $endpointRequestStartedAtWallMs = [System.DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
   $requestStarted = $true
   $response = $client.SendAsync(
     $request,
@@ -311,6 +493,8 @@ try {
     $AllowedVadDecisionClasses -cnotcontains [string]$endpointResult.vad_decision_class -or
     $endpointResult.utterance_end_timing_class -isnot [string] -or
     $AllowedUtteranceEndTimingClasses -cnotcontains [string]$endpointResult.utterance_end_timing_class -or
+    $endpointResult.presentation_class -isnot [string] -or
+    $AllowedPresentationClasses -cnotcontains [string]$endpointResult.presentation_class -or
     $endpointResult.raw_private_publication_flags -isnot [bool] -or
     [bool]$endpointResult.raw_private_publication_flags
   ) {
@@ -329,6 +513,9 @@ try {
   $lastFrameValue = $endpointResult.last_vad_speech_frame_offset_ms
   $utteranceToResultValue = $endpointResult.utterance_end_to_candidate_result_ms
   $timingClass = [string]$endpointResult.utterance_end_timing_class
+  $presentationClass = [string]$endpointResult.presentation_class
+  $assistantEventId = $endpointResult.assistant_event_id
+  $thoughtCoreFirstEventElapsedValue = $endpointResult.thought_core_first_event_elapsed_ms
   if ($timingClass -ceq "vad_speech_frame_available") {
     Assert-BoundedInteger -Value $lastFrameValue -Minimum 10 -Maximum $WindowMs
     Assert-BoundedInteger -Value $utteranceToResultValue -Minimum 0 -Maximum 20000
@@ -352,6 +539,27 @@ try {
     Throw-Fixed -Class "live_controller_endpoint_response_invalid"
   }
 
+  $forwardedPresentation = $presentationClass -in @(
+    "aituber_presentation_forwarded",
+    "aituber_presentation_forwarded_timing_unavailable"
+  )
+  if ($forwardedPresentation) {
+    if (
+      $assistantEventId -isnot [string] -or
+      [string]$assistantEventId -notmatch '^[A-Za-z0-9_.:-]{1,128}$' -or
+      [string]$assistantEventId -match '(?i)(^|[._:-])(private|raw|secret|token|transcript|prompt|path|url)($|[._:-])'
+    ) {
+      Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+    }
+    if ($presentationClass -ceq "aituber_presentation_forwarded") {
+      Assert-BoundedInteger -Value $thoughtCoreFirstEventElapsedValue -Minimum 0 -Maximum 20000
+    } elseif ($null -ne $thoughtCoreFirstEventElapsedValue) {
+      Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+    }
+  } elseif ($null -ne $assistantEventId -or $null -ne $thoughtCoreFirstEventElapsedValue) {
+    Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+  }
+
   $resultClass = [string]$endpointResult.result_class
   $expectationClass = [string]$endpointResult.expectation_class
   $capturePacketCount = [int]$endpointResult.capture_packet_count
@@ -365,6 +573,7 @@ try {
   $lastVadSpeechFrameOffsetMs = $lastFrameValue
   $utteranceEndToCandidateResultMs = $utteranceToResultValue
   $utteranceEndTimingClass = $timingClass
+  $thoughtCoreFirstEventElapsedMs = $thoughtCoreFirstEventElapsedValue
   $pcmCleanupCount = [int]$endpointResult.pcm_cleanup_count
   $privateAuthorityResidueCount = [int]$endpointResult.private_authority_residue_count
 
@@ -423,7 +632,8 @@ try {
       -not $hasCapture -or
       $transcriptionCount -ne 0 -or
       $submissionCount -ne 0 -or
-      $turnInputCount -ne 0
+      $turnInputCount -ne 0 -or
+      $presentationClass -cne "presentation_not_attempted"
     ) {
       Throw-Fixed -Class "live_controller_endpoint_response_invalid"
     }
@@ -438,7 +648,8 @@ try {
       $vadDecisionClass -cne "speech_detected" -or
       $transcriptionCount -ne 1 -or
       $submissionCount -ne 1 -or
-      $turnInputCount -ne 1
+      $turnInputCount -ne 1 -or
+      $presentationClass -ceq "presentation_not_attempted"
     ) {
       Throw-Fixed -Class "live_controller_endpoint_response_invalid"
     }
@@ -459,6 +670,44 @@ try {
     $controllerStatus = "blocked"
     $blockerClass = $resultClass
     $exitCode = 1
+  }
+
+  if ($null -ne $visibleObserverProcess) {
+    $remainingObserverMs = Get-RemainingRouteBudgetMs
+    $visibleObservation = Complete-VisibleResponseObserver `
+      -Process $visibleObserverProcess `
+      -AssistantEventId $(if ($assistantEventId -is [string]) { [string]$assistantEventId } else { $null }) `
+      -TimeoutMs $remainingObserverMs
+    $assistantEventId = $null
+    $visibleResponseClass = [string]$visibleObservation.result_class
+    $visibleMatchCount = [int]$visibleObservation.visible_match_count
+    $firstVisibleObserverElapsedMs = [int]$visibleObservation.observer_elapsed_ms
+    if (
+      $visibleResponseClass -cne "visible_response_observed" -or
+      $visibleMatchCount -ne 1 -or
+      $null -eq $visibleObservation.observed_at_wall -or
+      $null -eq $lastVadSpeechFrameOffsetMs -or
+      $null -eq $endpointRequestStartedAtWallMs
+    ) {
+      Throw-Fixed -Class "visible_response_not_observed"
+    }
+    try {
+      $visibleWallMs = [System.DateTimeOffset]::ParseExact(
+        [string]$visibleObservation.observed_at_wall,
+        "O",
+        [System.Globalization.CultureInfo]::InvariantCulture,
+        [System.Globalization.DateTimeStyles]::AssumeUniversal
+      ).ToUnixTimeMilliseconds()
+    } catch {
+      Throw-Fixed -Class "visible_response_not_observed"
+    }
+    $utteranceEndWallMs = [long]$endpointRequestStartedAtWallMs + [long]$lastVadSpeechFrameOffsetMs
+    $visibleDelta = [long]$visibleWallMs - $utteranceEndWallMs
+    if ($visibleDelta -lt 0 -or $visibleDelta -gt $DeadlineMs) {
+      Throw-Fixed -Class "visible_response_not_observed"
+    }
+    $utteranceEndToFirstVisibleMs = [int]$visibleDelta
+    $visibleObservation = $null
   }
   $deadlineClass = "within_deadline"
   $endpointResult = $null
@@ -485,6 +734,22 @@ try {
       } catch {
         $controllerCleanupClear = $false
       }
+    }
+  }
+  if ($null -ne $visibleObserverProcess) {
+    try {
+      if (-not $visibleObserverProcess.HasExited) {
+        try { $visibleObserverProcess.StandardInput.Close() } catch {}
+        if (-not $visibleObserverProcess.WaitForExit(1000)) {
+          $visibleObserverProcess.Kill($true)
+          $controllerCleanupClear = $false
+        }
+      }
+    } catch {
+      $controllerCleanupClear = $false
+    } finally {
+      $visibleObserverProcess.Dispose()
+      $visibleObserverProcess = $null
     }
   }
   $response = $null
@@ -537,6 +802,14 @@ $result = [ordered]@{
   last_vad_speech_frame_offset_ms = $lastVadSpeechFrameOffsetMs
   utterance_end_to_candidate_result_ms = $utteranceEndToCandidateResultMs
   utterance_end_timing_class = $utteranceEndTimingClass
+  presentation_class = $presentationClass
+  thought_core_first_event_elapsed_ms = $thoughtCoreFirstEventElapsedMs
+  visible_response_class = $visibleResponseClass
+  visible_match_count = $visibleMatchCount
+  first_visible_observer_elapsed_ms = $firstVisibleObserverElapsedMs
+  utterance_end_to_first_visible_ms = $utteranceEndToFirstVisibleMs
+  first_non_silent_audio_observation_class = $firstNonSilentAudioObservationClass
+  utterance_end_to_first_audio_ms = $utteranceEndToFirstAudioMs
   controller_elapsed_ms = $controllerElapsedMs
   window_ms = $WindowMs
   deadline_ms = $DeadlineMs
