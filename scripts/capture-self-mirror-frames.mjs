@@ -440,6 +440,21 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function renderSettleMsForTrigger(trigger) {
+  // Continuous CDP screenshots can reduce requestAnimationFrame progress to the
+  // capture cadence. Give the bounded expression ramp one browser-only window
+  // before resuming screenshots so the proof harness does not manufacture a
+  // half-applied expression state.
+  return trigger === "expression-visible" ? 650 : 0;
+}
+
+function expressionDiagnosticsTimeoutMs(args) {
+  const requested = Number(args.expressionDiagnosticsTimeoutMs ?? 2000);
+  return Number.isFinite(requested)
+    ? Math.min(5000, Math.max(1, Math.round(requested)))
+    : 2000;
+}
+
 async function dispatchTrigger(page, args) {
   if (args.trigger === "none") return { trigger: "none", dispatched: false };
   if (
@@ -1041,6 +1056,24 @@ async function readProjectionVisualDiagnostics(page) {
     .catch(() => null);
 }
 
+export function isProjectionVisualDiagnosticsReadyForTrigger(
+  trigger,
+  diagnostics,
+  expectedDriverResultId,
+) {
+  if (!diagnostics || typeof diagnostics !== "object") return false;
+  if (trigger !== "expression-visible") return true;
+  return (
+    typeof expectedDriverResultId === "string" &&
+    expectedDriverResultId.length > 0 &&
+    diagnostics.driver_result_id === expectedDriverResultId &&
+    diagnostics.last_driver_result_id === expectedDriverResultId &&
+    diagnostics.expression_weight_applied === true &&
+    Number.isFinite(diagnostics.frame_applied_count) &&
+    diagnostics.frame_applied_count > 0
+  );
+}
+
 function lifecycleTraceRequestIssuedAbsoluteMs(trace) {
   const entry = trace.find(
     (item) =>
@@ -1484,14 +1517,63 @@ export async function captureFrames(page, frameDir, args) {
           ...args,
           dispatchedAtMs: elapsedMs,
         });
+        const renderSettleMs = renderSettleMsForTrigger(args.trigger);
+        if (renderSettleMs > 0) await sleep(renderSettleMs);
+
+        if (args.trigger === "expression-visible") {
+          const readyDeadlineMs =
+            Date.now() + expressionDiagnosticsTimeoutMs(args);
+          while (Date.now() <= readyDeadlineMs) {
+            if (!motionStimulusResult) {
+              const resultCandidate = await readTriggerResult(page);
+              if (
+                resultCandidate?.stimulus_id === triggerResult.stimulus_id &&
+                resultCandidate.driver_result_id === args.driverResultId
+              ) {
+                motionStimulusResult = resultCandidate;
+              }
+            }
+            const diagnosticsCandidate = motionStimulusResult
+              ? await readProjectionVisualDiagnostics(page)
+              : null;
+            if (
+              isProjectionVisualDiagnosticsReadyForTrigger(
+                args.trigger,
+                diagnosticsCandidate,
+                args.driverResultId,
+              )
+            ) {
+              startProjectionVisualDiagnostics = diagnosticsCandidate;
+              break;
+            }
+            const remainingMs = readyDeadlineMs - Date.now();
+            if (remainingMs > 0) await sleep(Math.min(25, remainingMs));
+          }
+          if (!startProjectionVisualDiagnostics) {
+            throw fixedCdpCaptureError(
+              "self_mirror_expression_frame_not_applied",
+            );
+          }
+        }
       }
 
       if (triggerResult.dispatched && !motionStimulusResult) {
         const candidate = await readTriggerResult(page);
         if (candidate?.stimulus_id === triggerResult.stimulus_id) {
           motionStimulusResult = candidate;
-          startProjectionVisualDiagnostics =
-            await readProjectionVisualDiagnostics(page);
+        }
+      }
+
+      if (motionStimulusResult && !startProjectionVisualDiagnostics) {
+        const candidate = await readProjectionVisualDiagnostics(page);
+        if (
+          isProjectionVisualDiagnosticsReadyForTrigger(
+            args.trigger,
+            candidate,
+            args.driverResultId,
+          )
+        ) {
+          startProjectionVisualDiagnostics = candidate;
         }
       }
 
@@ -1586,6 +1668,16 @@ export async function captureFrames(page, frameDir, args) {
     if (candidate?.stimulus_id === danceStopResult.stimulus_id) {
       danceStopMotionStimulusResult = candidate;
     }
+  }
+  if (
+    args.trigger === "expression-visible" &&
+    !isProjectionVisualDiagnosticsReadyForTrigger(
+      args.trigger,
+      startProjectionVisualDiagnostics,
+      args.driverResultId,
+    )
+  ) {
+    throw fixedCdpCaptureError("self_mirror_expression_frame_not_applied");
   }
 
   return {
@@ -1691,9 +1783,13 @@ async function main() {
     triggerResult = capture.triggerResult;
     motionStimulusResult =
       capture.motionStimulusResult ?? (await readTriggerResult(page));
-    projectionVisualDiagnostics =
-      capture.startProjectionVisualDiagnostics ??
-      (await readProjectionVisualDiagnostics(page));
+    if (capture.startProjectionVisualDiagnostics) {
+      projectionVisualDiagnostics = capture.startProjectionVisualDiagnostics;
+    } else if (args.trigger === "expression-visible") {
+      throw fixedCdpCaptureError("self_mirror_expression_frame_not_applied");
+    } else {
+      projectionVisualDiagnostics = await readProjectionVisualDiagnostics(page);
+    }
     danceStopResult = capture.danceStopResult;
     danceStopMotionStimulusResult = capture.danceStopMotionStimulusResult;
     danceRuntimeCounts = capture.danceRuntimeCounts;

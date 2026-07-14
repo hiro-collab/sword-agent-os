@@ -7,6 +7,8 @@ import {
   captureFrames,
   createCdpFrameCapture,
   dispatchDanceStop,
+  isProjectionVisualDiagnosticsReadyForTrigger,
+  renderSettleMsForTrigger,
   releaseCountEligibleAtMs,
 } from "../capture-self-mirror-frames.mjs";
 
@@ -26,7 +28,11 @@ const PNG_BYTES = Buffer.from(PNG_DATA, "base64");
 
 function createFakeCdpPage(
   responses,
-  { detachError = null, evaluateErrorForKind = null } = {},
+  {
+    detachError = null,
+    evaluateErrorForKind = null,
+    evaluateHandler = null,
+  } = {},
 ) {
   const events = [];
   let detached = 0;
@@ -57,12 +63,15 @@ function createFakeCdpPage(
       pageScreenshotCalls += 1;
       throw new Error("page screenshot must not be used");
     },
-    async evaluate(_callback, payload) {
+    async evaluate(callback, payload) {
       if (payload?.kind) {
         events.push({ type: "page_evaluate", kind: payload.kind });
         if (payload.kind === evaluateErrorForKind) {
           throw new Error("private_native_path_must_not_echo");
         }
+      }
+      if (evaluateHandler) {
+        return await evaluateHandler(callback, payload, events);
       }
       return 0;
     },
@@ -89,6 +98,186 @@ function captureArgs() {
     danceSettleAtMs: 0,
   };
 }
+
+test("expression capture waits for an applied frame instead of freezing the queue acknowledgement", () => {
+  assert.equal(
+    isProjectionVisualDiagnosticsReadyForTrigger(
+      "expression-visible",
+      {
+        expression_weight_applied: false,
+        frame_applied_count: 0,
+        driver_result_id: "driver-current",
+        last_driver_result_id: "driver-current",
+        runtime_status: "started",
+        runtime_reason_code: "motion_runtime_expression_frame_queued",
+      },
+      "driver-current",
+    ),
+    false,
+  );
+  assert.equal(
+    isProjectionVisualDiagnosticsReadyForTrigger(
+      "expression-visible",
+      {
+        expression_weight_applied: true,
+        frame_applied_count: 1,
+        driver_result_id: "driver-current",
+        last_driver_result_id: "driver-current",
+      },
+      "driver-current",
+    ),
+    true,
+  );
+  assert.equal(
+    isProjectionVisualDiagnosticsReadyForTrigger("context-nod", {
+      expression_weight_applied: false,
+      frame_applied_count: 0,
+    }),
+    true,
+  );
+  assert.equal(
+    isProjectionVisualDiagnosticsReadyForTrigger(
+      "expression-visible",
+      null,
+      "driver-current",
+    ),
+    false,
+  );
+  assert.equal(
+    isProjectionVisualDiagnosticsReadyForTrigger(
+      "expression-visible",
+      {
+        expression_weight_applied: true,
+        frame_applied_count: 1,
+        driver_result_id: "driver-stale",
+        last_driver_result_id: "driver-stale",
+      },
+      "driver-current",
+    ),
+    false,
+  );
+});
+
+test("only expression capture yields a bounded render-only settle window", () => {
+  assert.equal(renderSettleMsForTrigger("expression-visible"), 650);
+  assert.equal(renderSettleMsForTrigger("context-nod"), 0);
+  assert.equal(renderSettleMsForTrigger("dance"), 0);
+  assert.equal(renderSettleMsForTrigger("none"), 0);
+});
+
+test("expression capture waits for current correlated diagnostics before the first post-trigger frame", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "self-mirror-cdp-"));
+  let diagnosticsReadCount = 0;
+  const fake = createFakeCdpPage([{ data: PNG_DATA }, { data: PNG_DATA }], {
+    evaluateHandler(callback, payload, events) {
+      if (payload?.kind === "expression") return undefined;
+      const source = String(callback);
+      if (source.includes("__projectionVisualMotionStimulusResult")) {
+        return {
+          accepted: true,
+          status: "started",
+          reason_code: "motion_runtime_expression_frame_queued",
+          safe_visible_state: "expression_change_requested",
+          stimulus_id: "expression.visible.face.browser",
+          driver_result_id: "safe_driver",
+        };
+      }
+      if (source.includes("__projectionVisualInPageDiagnostics")) {
+        diagnosticsReadCount += 1;
+        const current = diagnosticsReadCount >= 2;
+        events.push({
+          type: current ? "diagnostics_current" : "diagnostics_stale",
+        });
+        return {
+          expression_weight_applied: true,
+          frame_applied_count: 1,
+          driver_result_id: current ? "safe_driver" : "stale_driver",
+          last_driver_result_id: current ? "safe_driver" : "stale_driver",
+        };
+      }
+      return 0;
+    },
+  });
+  try {
+    const result = await captureFrames(fake.page, tempDir, {
+      ...captureArgs(),
+      trigger: "expression-visible",
+      triggerAtMs: 0,
+      expressionDiagnosticsTimeoutMs: 100,
+      motionEventId: "safe_event",
+      stimulusInstanceId: "safe_instance",
+      driverResultId: "safe_driver",
+      scenarioId: "safe_scenario",
+      expressionProfile: "default",
+    });
+    assert.equal(
+      result.startProjectionVisualDiagnostics.frame_applied_count,
+      1,
+    );
+    const firstSendIndex = fake.events.findIndex(
+      (event) => event.type === "send",
+    );
+    const appliedIndex = fake.events.findIndex(
+      (event) => event.type === "diagnostics_current",
+    );
+    assert.ok(appliedIndex >= 0);
+    assert.ok(firstSendIndex > appliedIndex);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("expression capture fails closed without a screenshot or unready fallback when no frame applies", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "self-mirror-cdp-"));
+  const fake = createFakeCdpPage([], {
+    evaluateHandler(callback, payload) {
+      if (payload?.kind === "expression") return undefined;
+      const source = String(callback);
+      if (source.includes("__projectionVisualMotionStimulusResult")) {
+        return {
+          accepted: true,
+          status: "started",
+          reason_code: "motion_runtime_expression_frame_queued",
+          safe_visible_state: "expression_change_requested",
+          stimulus_id: "expression.visible.face.browser",
+          driver_result_id: "safe_driver",
+        };
+      }
+      if (source.includes("__projectionVisualInPageDiagnostics")) {
+        return {
+          expression_weight_applied: true,
+          frame_applied_count: 1,
+          driver_result_id: "permanent_mismatch",
+          last_driver_result_id: "permanent_mismatch",
+        };
+      }
+      return 0;
+    },
+  });
+  try {
+    await assert.rejects(
+      captureFrames(fake.page, tempDir, {
+        ...captureArgs(),
+        trigger: "expression-visible",
+        triggerAtMs: 0,
+        expressionDiagnosticsTimeoutMs: 10,
+        motionEventId: "safe_event",
+        stimulusInstanceId: "safe_instance",
+        driverResultId: "safe_driver",
+        scenarioId: "safe_scenario",
+        expressionProfile: "default",
+      }),
+      { message: "self_mirror_expression_frame_not_applied" },
+    );
+    assert.equal(
+      fake.events.filter((event) => event.type === "send").length,
+      0,
+    );
+    assert.deepEqual(await readdir(tempDir), []);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
 
 test("frame capture uses one page CDP session and writes PNG frames in exact order", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "self-mirror-cdp-"));
