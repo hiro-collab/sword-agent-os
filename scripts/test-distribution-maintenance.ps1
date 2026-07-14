@@ -3126,7 +3126,8 @@ function Test-EnvRenderFixtures {
     Set-Content -LiteralPath $centralTemplate -Value @(
       "TOKEN=central-token",
       "FIXTURE_TARGET__TOKEN=scoped-token",
-      "KEEP=central-keep"
+      "KEEP=central-keep",
+      "VOICEVOX_ENDPOINT=http://127.0.0.1:50021"
     ) -Encoding utf8
 
     Write-JsonFixture -Path $manifestPath -Value ([ordered]@{
@@ -3194,11 +3195,13 @@ function Test-EnvRenderFixtures {
     Set-Content -LiteralPath $targetTemplate -Value @(
       "TOKEN=template-token",
       "KEEP=template-keep",
-      "LOCAL_ONLY=template-local"
+      "LOCAL_ONLY=template-local",
+      "VOICEVOX_ENDPOINT="
     ) -Encoding utf8
     Set-Content -LiteralPath $localTargetTemplate -Value @(
       "TOKEN=local-template-token",
-      "KEEP=local-template-keep"
+      "KEEP=local-template-keep",
+      "VOICEVOX_SERVER_URL=http://127.0.0.1:50021"
     ) -Encoding utf8
     Set-Content -LiteralPath $configTemplate -Value "enabled: true" -Encoding utf8
     Write-JsonFixture -Path $manifestPath -Value ([ordered]@{
@@ -3242,10 +3245,18 @@ function Test-EnvRenderFixtures {
     Assert-PathPresent -Path $localTargetEnv
     Assert-PathPresent -Path $targetConfig
     Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "TOKEN=scoped-token" -Message "target env did not inherit scoped central value"
+    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "VOICEVOX_ENDPOINT=http://127\.0\.0\.1:50021" -Message "server TTS endpoint did not reach the central-owned target"
     Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $localTargetEnv) -Pattern "TOKEN=local-template-token" -Message "local-authoritative env should be copied from its own template"
+    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $localTargetEnv) -Pattern "VOICEVOX_SERVER_URL=http://127\.0\.0\.1:50021" -Message "AIT voice endpoint should come from its own local template"
 
     Set-Content -LiteralPath $targetEnv -Value "TOKEN=operator-override" -Encoding utf8
-    Set-Content -LiteralPath $localTargetEnv -Value "TOKEN=local-operator-value" -Encoding utf8
+    Set-Content -LiteralPath $localTargetEnv -Value @(
+      "# operator-owned comment must remain byte-identical",
+      "TOKEN=local-operator-value",
+      "VOICEVOX_SERVER_URL=http://127.0.0.1:59999",
+      "OPERATOR_EXTENSION=preserve-me"
+    ) -Encoding utf8
+    $localTargetOperatorHash = (Get-FileHash -LiteralPath $localTargetEnv -Algorithm SHA256).Hash
     Invoke-Checked -Command @(
       $PowerShellCommand,
       "-NoProfile",
@@ -3255,6 +3266,9 @@ function Test-EnvRenderFixtures {
       $manifestPath
     ) | Out-Null
     Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "TOKEN=operator-override" -Message "target env was overwritten without -Force"
+    if ((Get-FileHash -LiteralPath $localTargetEnv -Algorithm SHA256).Hash -cne $localTargetOperatorHash) {
+      throw "local-authoritative env bytes changed without -Force"
+    }
 
     Invoke-Checked -Command @(
       $PowerShellCommand,
@@ -3266,7 +3280,13 @@ function Test-EnvRenderFixtures {
       "-Force"
     ) | Out-Null
     Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "TOKEN=scoped-token" -Message "target env was not refreshed with scoped value under -Force"
+    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $targetEnv) -Pattern "VOICEVOX_ENDPOINT=http://127\.0\.0\.1:50021" -Message "server TTS endpoint was not refreshed from central env under -Force"
     Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $localTargetEnv) -Pattern "TOKEN=local-operator-value" -Message "local-authoritative env was overwritten under -Force"
+    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $localTargetEnv) -Pattern "VOICEVOX_SERVER_URL=http://127\.0\.0\.1:59999" -Message "local-authoritative AIT voice endpoint was overwritten under -Force"
+    Assert-TextMatch -Text (Get-Content -Raw -LiteralPath $localTargetEnv) -Pattern "OPERATOR_EXTENSION=preserve-me" -Message "local-authoritative operator extension was removed under -Force"
+    if ((Get-FileHash -LiteralPath $localTargetEnv -Algorithm SHA256).Hash -cne $localTargetOperatorHash) {
+      throw "local-authoritative env bytes changed under -Force"
+    }
 
     $outsideManifest = Join-Path $root "outside-manifest.json"
     Copy-Item -LiteralPath $manifestPath -Destination $outsideManifest

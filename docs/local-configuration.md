@@ -3,8 +3,8 @@
 Use this guide after installation when adding API keys, tokens, device
 settings, or local URLs.
 
-Sword Agent OS uses a central local env file and renders organ-specific `.env`
-files from it.
+Sword Agent OS uses a central local env file for shared/service settings and
+renders most organ-specific `.env` files from it.
 
 ```text
 local\env\sword-agent-os.env
@@ -12,6 +12,14 @@ local\env\sword-agent-os.env
 
 This file is not tracked by Git. Put secrets, local URLs, model names, and
 machine-specific device settings here.
+
+AITuberKit is the deliberate exception. Its browser, avatar, projection,
+speech-input, and voice-output settings are owned by this separate untracked
+file and are not overwritten from the central env:
+
+```text
+organs\expression\aituber-kit\.env
+```
 
 ## First Env Setup
 
@@ -41,7 +49,16 @@ if (-not (Test-Path local\env\sword-agent-os.env)) {
 notepad local\env\sword-agent-os.env
 ```
 
-4. Check the main values.
+4. Create and edit the AITuberKit env when it does not already exist.
+
+```powershell
+if (-not (Test-Path organs\expression\aituber-kit\.env)) {
+  Copy-Item organs\expression\aituber-kit\.env.example organs\expression\aituber-kit\.env
+}
+notepad organs\expression\aituber-kit\.env
+```
+
+5. Check the main values.
 
 Home Assistant values can wait if you are not using live appliances. LLM values
 can also wait if you only want a minimal no-live startup check.
@@ -55,9 +72,18 @@ can also wait if you only want a minimal no-live startup check.
 | Home Control config path | `HOME_CONTROL_CONFIG` | Selected full-schema private/live `home-control.yaml` or reviewed clone-local equivalent. |
 | appliance adapter | `THOUGHT_CORE_TOOLS_ADAPTER` | `mock` is no-live simulation. Use `home_control` only for live appliance action. |
 | Environment API token | `ENVIRONMENT_API_TOKEN` | Local protection for the Environment State API. It can be empty in the standard no-live setup. |
-| VOICEVOX URL | `VOICEVOX_SERVER_URL` | Speech synthesis endpoint. |
-| avatar path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | Browser path for an AITuber Kit public VRM. The sample is `/vrm/nikechan_v1.vrm`; custom licensed assets stay local under `public/vrm`. |
-| Thought Core endpoint | `THOUGHT_CORE_BASE_URL`, `NEXT_PUBLIC_THOUGHT_CORE_BASE_URL` | AITuber Kit to Thought Core connection. |
+| TTS service endpoint | `VOICEVOX_ENDPOINT` | Server-side tts-service VOICEVOX endpoint when that adapter is used. |
+| Thought Core endpoint | `THOUGHT_CORE_BASE_URL` | Server-side Thought Core connection. |
+
+AITuberKit values belong in `organs\expression\aituber-kit\.env`:
+
+| Item | Env | Purpose |
+| --- | --- | --- |
+| browser Thought Core endpoint | `NEXT_PUBLIC_THOUGHT_CORE_BASE_URL` | AITuberKit browser to Thought Core connection. |
+| avatar path | `NEXT_PUBLIC_SELECTED_VRM_PATH` | Browser path for an AITuberKit public VRM. Custom licensed assets stay local under `public/vrm`. |
+| voice output | `VOICEVOX_SERVER_URL`, `NEXT_PUBLIC_VOICEVOX_SPEAKER`, `NEXT_PUBLIC_VOICEVOX_SPEED` | AITuberKit voice engine, speaker, and delivery tuning. |
+| browser input | `NEXT_PUBLIC_SPEECH_RECOGNITION_MODE` | Ordinary browser input or an explicitly selected test mode. |
+| projection / framing | `NEXT_PUBLIC_CAMERA_HORIZONTAL_FOV`, character position/rotation keys | Local display and projector framing. |
 
 ## Secret Boundaries
 
@@ -91,7 +117,9 @@ defined.
 
 ## Render Env Files
 
-Render the central env into organ `.env` files:
+Render the central env into the non-AITuberKit organ `.env` files. If the
+AITuberKit `.env` is missing, the renderer may create it from its own public
+template; after creation it remains local-authoritative:
 
 ```powershell
 Set-Location $RepoRoot
@@ -99,14 +127,16 @@ pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard
 ```
 
 Existing organ `.env` files are not overwritten by default. Use `-Force` only
-when you want to regenerate them from the central env:
+when you want to regenerate central-env-owned targets. It still does not
+overwrite an existing AITuberKit `.env`:
 
 ```powershell
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 ```
 
 After adding Home Assistant token, `HOME_CONTROL_API_TOKEN`, or
-`ENVIRONMENT_API_TOKEN`, rerun with `-Force` before startup.
+`ENVIRONMENT_API_TOKEN`, rerun with `-Force` before startup. Restart AITuberKit
+after editing its own `.env`; central rendering is not its apply step.
 
 After a forced render, restart or rerun the selected stack/bridge check. Already
 running services do not prove they picked up the new env/config.
@@ -179,9 +209,16 @@ organs\expression\aituber-kit\.env
 organs\action\home-assistant-server\config\home-control.yaml
 ```
 
-Usually edit the central env. Edit organ-specific `.env` files directly only
-for debugging or temporary organ-specific values. Direct edits are overwritten
-the next time `render-env-files.ps1 -Force` runs.
+Usually edit the central env. AITuberKit is the deliberate exception:
+`organs/expression/aituber-kit/.env` is local-authoritative because avatar,
+browser input, display position, and voice tuning are operator-facing settings.
+Edit that file directly. `render-env-files.ps1 -Force` does not overwrite an
+existing AITuberKit `.env`.
+
+This workspace also keeps local Windows shortcuts under
+`local/env/env-shortcuts/` so each concrete `.env` can be opened without
+copying its settings back into the central env. The shortcut files and all
+local `.env` values remain untracked and must not be uploaded.
 
 Template references:
 
@@ -200,10 +237,10 @@ organs\expression\aituber-kit\.env.example
 | --- | --- |
 | Thought Core LLM settings | OpenAI-compatible base URL, model, and API key. |
 | Thought Core endpoint | Local Thought Core API URL. |
-| AITuber Kit settings | Projection Visual, voice output, and Thought Core connection. |
+| AITuber Kit settings | Local-authoritative Projection Visual, avatar, browser input, voice output, and browser Thought Core connection. |
 | Home Assistant settings | URL, long-lived token, local API token, and device mapping. |
 | Camera settings | Camera name or input used by MediaPipe / Camera Hub. |
-| VOICEVOX URL | Local speech synthesis endpoint. |
+| VOICEVOX URL | Central server-side TTS endpoint or AITuberKit-local voice endpoint, depending on the consuming organ. |
 
 Home Assistant is required for real appliance action. Without Home Assistant,
 you can still run many source/static checks, display-development flows, and

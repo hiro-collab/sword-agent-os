@@ -255,6 +255,7 @@ private proof artifacts, or license-sensitive assets.
 | Slot | Purpose | Required when | Public repo posture |
 | --- | --- | --- | --- |
 | central env | local keys and config | most runtime lanes | template only; actual env is local-only |
+| AITuberKit `.env` | browser input, avatar, projection framing, and AITuberKit voice selection/tuning | expression/display operator lane | local-authoritative; existing file is preserved under central `-Force`; never publish local values |
 | Home Assistant token | state and action bridge | Home Assistant dry-run/live | token never committed or printed |
 | local API token | local bridge auth | Home Assistant live bridge | token never committed or printed |
 | LLM API key | Thought Core real LLM response | LLM lane | key never committed or printed |

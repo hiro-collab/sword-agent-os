@@ -189,9 +189,21 @@ local\env\sword-agent-os.env
 存在しない場合は、テンプレートから作ります。
 
 ```powershell
-New-Item -ItemType Directory -Force local\env | Out-Null
-Copy-Item templates\env\sword-agent-os.env.example local\env\sword-agent-os.env
+if (-not (Test-Path local\env\sword-agent-os.env)) {
+  New-Item -ItemType Directory -Force local\env | Out-Null
+  Copy-Item templates\env\sword-agent-os.env.example local\env\sword-agent-os.env
+}
 notepad local\env\sword-agent-os.env
+```
+
+AITuberKit のアバター、ブラウザ入力、画角、音声設定は中央設定と分け、
+次のローカルファイルで管理します。既にある場合は上書きしません。
+
+```powershell
+if (-not (Test-Path organs\expression\aituber-kit\.env)) {
+  Copy-Item organs\expression\aituber-kit\.env.example organs\expression\aituber-kit\.env
+}
+notepad organs\expression\aituber-kit\.env
 ```
 
 よく使う設定:
@@ -201,15 +213,18 @@ notepad local\env\sword-agent-os.env
 | `THOUGHT_CORE_LLM_ENABLED=false` | AIサービスなしで確認する |
 | `THOUGHT_CORE_LLM_API_KEY` または `OPENAI_API_KEY` | AIサービスの応答を使う |
 | `THOUGHT_CORE_LLM_MODEL`, `THOUGHT_CORE_LLM_BASE_URL` | 使うAIモデルや接続先を選ぶ |
-| `VOICEVOX_SERVER_URL` | 音声合成を使う |
-| `NEXT_PUBLIC_SELECTED_VRM_PATH` | 表示するVRMを選ぶ |
+| 中央 env の `VOICEVOX_ENDPOINT` | サーバー側 tts-service で VOICEVOX adapter を使う |
+| AITuberKit `.env` の `VOICEVOX_SERVER_URL`, `NEXT_PUBLIC_VOICEVOX_*` | AITuberKit の声・話速を選ぶ |
+| AITuberKit `.env` の `NEXT_PUBLIC_SELECTED_VRM_PATH` | 表示するVRMを選ぶ |
 | `HOME_ASSISTANT_TOKEN` | Home Assistant の状態取得や操作に使う |
 | `HOME_CONTROL_API_TOKEN` | このPC上の家電連携ブリッジを守る |
 | `HOME_CONTROL_CONFIG` | 家電操作の設定ファイルを選ぶ |
 | `THOUGHT_CORE_TOOLS_ADAPTER=mock` | 家電操作を本物には送らず確認する |
 | `THOUGHT_CORE_TOOLS_ADAPTER=home_control` | Home Assistant 連携を使う |
 
-編集したら、各部品用の設定ファイルを作り直します。
+中央 env を編集したら、中央管理の各部品用設定を作り直します。
+この処理は既存の AITuberKit `.env` を上書きしません。AITuberKit の変更は
+そのプロセスを再起動して反映します。
 
 ```powershell
 .\scripts\render-env-files.ps1 -Profile standard -Force

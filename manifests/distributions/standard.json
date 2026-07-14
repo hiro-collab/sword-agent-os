@@ -80,7 +80,8 @@
       {
         "id": "aituber-kit",
         "template_path": "organs/expression/aituber-kit/.env.example",
-        "target_path": "organs/expression/aituber-kit/.env"
+        "target_path": "organs/expression/aituber-kit/.env",
+        "preserve_local": true
       }
     ],
     "local_config_templates": [
@@ -158,7 +159,7 @@
     },
     {
       "id": "avatar-assets",
-      "detail": "Selected VRM must resolve under organs/expression/aituber-kit/public/vrm. The tracked sample is /vrm/nikechan_v1.vrm; custom licensed assets stay local and use NEXT_PUBLIC_SELECTED_VRM_PATH=/vrm/<file>.vrm."
+      "detail": "Selected VRM must resolve under organs/expression/aituber-kit/public/vrm. The tracked sample is /vrm/nikechan_v1.vrm; custom licensed assets stay local and are selected in the local-authoritative organs/expression/aituber-kit/.env with NEXT_PUBLIC_SELECTED_VRM_PATH=/vrm/<file>.vrm."
     },
     {
       "id": "mediapipe-gesture-model",

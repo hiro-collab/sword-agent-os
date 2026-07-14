@@ -15,8 +15,9 @@ local machine paths in tracked files.
 | --- | --- | --- |
 | 使う AI サービスやモデルを変えたい | `local\env\sword-agent-os.env` の LLM 設定 | `docs/local-configuration.md` |
 | AI なしで起動確認したい | `THOUGHT_CORE_LLM_ENABLED=false` | `docs/operate.md` |
-| アバター / VRM を変えたい | `NEXT_PUBLIC_SELECTED_VRM_PATH` とローカル asset | `docs/local-configuration.md` |
-| 声 / TTS を変えたい | VOICEVOX / TTS の env 値 | `docs/local-configuration.md` |
+| アバター / VRM / 画角を変えたい | `organs\expression\aituber-kit\.env` の表示設定とローカル asset | `docs/local-configuration.md` |
+| AITuberKit の声を変えたい | `organs\expression\aituber-kit\.env` の VOICEVOX speaker / speed / tuning | `docs/local-configuration.md` |
+| サーバー側 TTS service を変えたい | 中央 env の `VOICEVOX_ENDPOINT` などの TTS service 設定 | `docs/local-configuration.md` |
 | 声 / アバターの安全な小ルートを試したい | no-live voice/avatar starter profile | `examples/starter-profiles/voice-avatar/README.md` |
 | アバターの visible-motion を見たい | Projection Visual / Self Mirror starter profile | `examples/starter-profiles/projection-visual/README.md` |
 | Home Assistant を外部環境につなぎたい | `HOME_ASSISTANT_TOKEN`, `HOME_CONTROL_API_TOKEN`, `HOME_CONTROL_CONFIG`, full-schema action row | `docs/home-assistant-setup.md` |

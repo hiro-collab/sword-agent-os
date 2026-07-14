@@ -126,9 +126,11 @@ notepad local\env\sword-agent-os.env
 pwsh -NoProfile -File .\scripts\render-env-files.ps1 -Profile standard -Force
 ```
 
-`-Force` は各 organ の既存 `.env` を中央 env から再生成します。実 token や
+`-Force` は中央 env が権限を持つ organ の既存 `.env` を再生成します。実 token や
 機器固有値を失わないよう、実行前に `local/env/sword-agent-os.env` 側へ必要な値が
-入っていることを確認してください。
+入っていることを確認してください。AITuberKit は例外で、既存の
+`organs/expression/aituber-kit/.env` は local-authoritative として保持されます。
+アバター、画角、ブラウザ入力、AITuberKit の声はそのファイルを直接編集します。
 
 ## Installer / Update Maintenance Smoke
 
