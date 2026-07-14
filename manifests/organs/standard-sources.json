@@ -13,7 +13,7 @@
       "version_source": "organs/speech-input/ai-talk-core/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/ai-talk-core.git",
       "branch": "main",
-      "commit": "598bf0d7fc30760c8d184164bf5ab886b7a397d3",
+      "commit": "ab3d51d401158349048f30e8b634439d7ddfa0c2",
       "adoption": "standard_candidate",
       "notes": "STT, browser recording, transcript, and handoff boundary."
     },
