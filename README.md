@@ -84,10 +84,13 @@ README に残すのは、初めて読む人が安全に最初の一歩を選ぶ�
 
 1. 必要なソフトと機器を用意する。
 2. このリポジトリを clone する。
-3. `gesture_model.pkl`、VRM、音声や動画などのローカル素材を指定場所に置く。
-4. `.env` がない状態で基本確認を行う。
-5. `.env` にAPIキーや Home Assistant の接続情報を書く。
-6. 標準サンプルの起動用バッチファイルを開き、Launch Manager から各画面を開く。
+3. `.env` と追加ローカル素材がない状態で、まず基本確認を行う。
+4. 使う機能に必要なローカル素材だけを置く。`gesture_model.pkl` はカメラでの
+   ジェスチャー認識、独自VRM・音声・動画はそれぞれの追加確認にだけ必要です。
+5. サーバー側のAPIキーや Home Assistant 接続は中央 env、ブラウザ側のVRM・
+   VOICEVOX音声設定は AITuberKit env に書く。両者は別の消費者を持つ正本です。
+6. 標準サンプルの起動用バッチファイルを開き、Launcher から Primary System Cell
+   と必要な画面を開く。
 7. 会話、音声入力、アバター、状態画面、家電操作を、用意できた範囲で試す。
 8. 起動したものを安全に停止できることを確認する。
 
@@ -166,10 +169,12 @@ Projection Visual の画角、照明、エフェクト、吹き出しは、opera
 各コマンドが何を確認するかは `docs/verification-commands.md` を見てください。
 失敗した時は `docs/troubleshooting.md` を見てください。
 
-## ユーザーに見せるデモ前の確認
+## Primary System Cell の実行前確認
 
 画面、音声、アバター、家電操作を人に見せる前に、preflight で
-「今その場で見せてよい範囲」を分けて確認します。
+「今その場で使ってよい範囲」を分けて確認します。次のスクリプトは互換名を
+残した事前検査であり、Fast Visible Demo や別の runtime mode を起動するものでは
+ありません。実際の会話・撮影は Launcher の Primary System Cell を使います。
 
 ```powershell
 .\scripts\run-visible-demo-preflight.ps1
