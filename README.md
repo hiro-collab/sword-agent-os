@@ -46,6 +46,25 @@ proof layer は「何を確認したか」を分けて残します。
 この README は入口です。細かい設定や安全上の決まりは、下の表にある
 専門文書に分けています。
 
+## 重要な注意と免責
+
+このプロジェクトは実験的なソフトウェアです。コードの相当部分は Codex などの
+AI支援ツールを用いて作成・変更されており、保守者による網羅的な行単位レビューや、
+独立した専門家によるセキュリティ監査は完了していません。構成の一貫性、正確性、
+安全性、可用性、特定目的への適合性、継続的な保守を保証しません。
+
+利用者は、コード、設定、依存関係、外部サービスとの接続、権限、データの保存先、
+マイク・カメラ・Home Assistant・家電などへの作用を自ら確認し、隔離された
+最小権限の環境で使用してください。本ソフトウェアは現状有姿で提供され、
+適用法令で認められる最大限の範囲で、開発者、保守者および貢献者は、利用または
+利用不能から生じる損害、データ損失、機器の誤動作、サービス停止その他の結果に
+ついて責任を負いません。
+
+このリポジトリが公開されていること自体は、利用、改変または再配布の許諾を
+意味しません。ルートに明示的な `LICENSE` が追加されるまでは、適用される
+著作権法に従ってください。セキュリティ上の前提と報告方法は `SECURITY.md` を
+参照してください。この記載は法的助言ではありません。
+
 <!-- front-door:thin-entry-rule -->
 ## 入口を薄く保つ基準
 
@@ -164,6 +183,7 @@ operator-confirmed switch、proof boundary は `docs/operate.md` と
 | Home Assistant の準備と家電操作の書き方 | `docs/home-assistant-setup.md`, `docs/add-home-device.md`, `docs/home-control-action-authoring.md` |
 | 家電操作で何を確認できたと言えるか | `docs/live-home-control-proof.md`, `docs/proof-layers.md` |
 | 確認コマンドと失敗時の見方 | `docs/verification-commands.md`, `docs/troubleshooting.md` |
+| セキュリティ上の前提、免責、脆弱性の報告 | `SECURITY.md` |
 | Codex保守担当のスレッド分割とモデル配分 | `governance/development/codex-threading.md`, `governance/development/codex-model-selection.md` |
 
 古い一回限りの報告、起動メモ、旧索引は、現在の正本ではありません。
