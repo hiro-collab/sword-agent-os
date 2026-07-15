@@ -138,9 +138,9 @@ Existing local frame configs can still be run directly:
   -ConfigPath .cache\agent-os\self-mirror\some-run\self_mirror_browser_config.json
 ```
 
-The analyzer implementation is owned by Self Mirror under this runtime package.
-The old Environment VSP import path is a deprecated compatibility shim during
-the migration window.
+The analyzer implementation and import path are owned by Self Mirror under this
+runtime package. Import it from `self_mirror_visual_analyzer`; the former
+Environment VSP compatibility import has been removed.
 
 ## First Cases
 
