@@ -69,7 +69,7 @@
       "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
       "fork_repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "fork_branch": "main",
-      "fork_commit": "22eb037bab01a7bec2ff1be396cfd837369003d6",
+      "fork_commit": "1ccdd35b6cb3c5465c23675d1291df694ed0ce23",
       "sword_adapter_version": "0.1.3",
       "patchset_id": "sword-aituberkit",
       "patchset_version": "0.1.3",
