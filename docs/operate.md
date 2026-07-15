@@ -93,6 +93,21 @@ restore/off unreadability is a proof limitation for command-stimulus routes
 unless the reviewed route explicitly requires those gates before command
 submission.
 
+## Camera input selection
+
+Use the Launcher's connected-camera list as the normal camera-input selector.
+`Refresh` enumerates local video inputs without starting Camera Hub or opening a
+capture device. The selected display name is stored only in the existing
+gitignored Launcher state and is passed to Camera Hub on an explicit stack
+start.
+
+If the selected camera is absent, Launcher keeps that selection and marks it
+missing; it must not silently substitute another camera. Refresh after reconnect
+and select the same device when it is available again. The advanced manual field
+is only a compatibility path for virtual or late-attached inputs that the local
+enumerator cannot report; its removal gate is complete enumeration coverage for
+those named consumers.
+
 ## ユーザーに見せるデモ前の確認
 
 ```powershell

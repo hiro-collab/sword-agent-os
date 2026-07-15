@@ -375,7 +375,7 @@
         "TouchDesigner UDP 127.0.0.1:9001",
         "local display GUI state"
       ],
-      "notes": "The .toe accepts home_control_magic JSON over UDP 9001 and renders the cube-vault background page. Use toeexpand for inspection."
+      "notes": "The .toe accepts home_control_magic JSON over UDP 9001. The canonical browser diagnostics client is /body-map-inspector; a local held .toe may still use the compatibility /cube-vault-background route until that asset is manually migrated and verified. Use toeexpand for inspection."
     }
   ]
 }

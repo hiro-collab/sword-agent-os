@@ -115,6 +115,11 @@ Launcher の `Demo settings` と demo-safe 候補の扱いは
 `docs/operate.md` を見てください。Start は家電操作や proof を実行しません。
 Proof は別の明示ルートで扱います。
 
+カメラ入力は Launcher の接続済みカメラ一覧から選び、必要なら `Refresh` で
+再取得します。選択は Git 管理外のローカル状態へ保存され、選んだ機器が一時的に
+見つからない時も別のカメラへ自動置換しません。詳しくは `docs/operate.md` の
+Camera input selection を見てください。
+
 ## 初回導入の確認
 
 最初の安全確認は次の流れです。

@@ -572,10 +572,10 @@
           "expect": "exists"
         },
         {
-          "id": "aituber_kit.projection_visual_context_source",
+          "id": "aituber_kit.body_map_inspector_source",
           "mode": "auto",
           "type": "path_exists",
-          "path": "organs/expression/aituber-kit/src/components/cubeVaultBackground.tsx",
+          "path": "organs/expression/aituber-kit/src/components/bodyMapInspector.tsx",
           "expect": "exists"
         },
         {

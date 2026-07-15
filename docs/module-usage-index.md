@@ -192,9 +192,11 @@ does not decide actions or interpret meaning.
 needed, treat it as a Body Schema / Body Display Projection consumer unless it
 is only doing offline diagnostic inspection.
 
-`cube-vault-background` is a legacy display/background route name. New code
-should treat it as a display client under `display.projection`, not as a state
-authority or Thought Core surface.
+The browser diagnostics route is `/body-map-inspector`. It is a display client
+under `display.projection`, not a state authority or Thought Core surface.
+`/cube-vault-background` is compatibility-required only for the current local
+held TouchDesigner scene. Remove that alias after the scene uses the canonical
+route and both tracked and local current-consumer checks return zero references.
 
 ## Action Path
 
