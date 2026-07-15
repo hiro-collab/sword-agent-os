@@ -108,7 +108,7 @@
           "id": "ai_talk_core.stop_owner",
           "mode": "auto",
           "type": "path_exists",
-          "path": "control-plane/core/scripts/stop-full-stack.ps1",
+          "path": "organs/speech-input/ai-talk-core/src/web/app.py",
           "expect": "exists"
         },
         {
