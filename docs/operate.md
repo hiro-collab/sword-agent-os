@@ -127,6 +127,39 @@ physical candidate is selected automatically; zero or multiple candidates fail
 closed and require an explicit `--mic-device`. This CLI selection does not
 change the browser's ordinary conversation input.
 
+## Projection calibration and speech bubble
+
+Open the canonical Projection Visual operator page and select `投影調整`. This
+single operator-only panel owns the local presentation settings. Passive and
+stage outputs render the selected result but do not show the adjustment button
+or controls. The values persist in this browser's local settings; they are not
+written to tracked defaults, `.env`, or VRM files.
+
+`Camera / Framing` provides a horizontal-FOV slider and exact numeric entry in
+the validated 20–90 degree range, plus 30 / 35 / 45 degree presets. The UI uses
+30 degrees as the distant-projection reference, 35 as the default, and 45 as
+the near-display reference. `現在の構図を固定` keeps the current camera distance;
+`モデル全体へ自動フィット` may change camera distance to fit the model, so use
+the same framing mode when comparing FOV values. `Layer / Light` contains the
+VRM lighting and Projection Effect controls.
+
+`Speech Bubble` has short and long Japanese previews. Adjust font size, line
+height, automatic or fixed width/height, normalized stage X/Y, tail side, and
+tail target X/Y. The safe-area clamp may change the realized placement without
+rewriting the selected values. Choose one timing policy:
+
+- `音声終了＋保持`: keep the bubble through speech and the configured hold.
+- `文字量から算出`: derive reading time up to the configured maximum.
+- `固定時間`: use the configured duration.
+- `次の発話まで`: keep it until another message replaces it.
+
+The minimum-visible-time guard applies independently so a short event cannot
+clear readable text immediately. `画角・外観を開いた時へ戻す` restores the
+snapshot taken when the panel opened; `画角・外観を既定値へ戻す` restores the
+product defaults. These controls are the current manual presentation authority.
+Future AI-selected bubble presentation must use the same bounded settings seam
+and remains a separate requirement.
+
 ## ユーザーに見せるデモ前の確認
 
 ```powershell

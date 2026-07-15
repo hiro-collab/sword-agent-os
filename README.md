@@ -145,6 +145,11 @@ OS とサイト権限側の既定入力を確認し、中央 `.env` に機器名
 保守用 CLI の DirectShow 録音は別経路で、物理候補が一意なら自動解決し、複数なら
 `--mic-device` の明示指定が必要です。詳しくは `docs/operate.md` を見てください。
 
+Projection Visual の画角、照明、エフェクト、吹き出しは、operator 画面の
+`投影調整` にまとめています。設定はこの端末だけに保存され、passive / stage には
+結果だけが反映されて操作 UI は出ません。画角の 30° / 35° / 45°、吹き出しの
+文字・大きさ・位置・喉・表示時間の調整方法は `docs/operate.md` を見てください。
+
 ## 初回導入の確認
 
 最初の安全確認は次の流れです。
@@ -180,7 +185,7 @@ operator-confirmed switch、proof boundary は `docs/operate.md` と
 | Need | Authority |
 | --- | --- |
 | 初めて使う人向けの導入と動作確認 | `docs/first-run-operator-guide.md` |
-| 日常の起動、停止、状態確認 | `docs/operate.md` |
+| 日常の起動、停止、入力機器、投影調整 | `docs/operate.md` |
 | 全体構成 | `docs/architecture.md` |
 | 使える機能の選び方 | `docs/capability-packs.md` |
 | `.env` やローカル設定 | `docs/customize.md`, `docs/local-configuration.md` |
