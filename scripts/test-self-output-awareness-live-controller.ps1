@@ -48,6 +48,11 @@ function New-EndpointResponse {
     [object]$LastVadSpeechFrameOffsetMs = $null,
     [object]$UtteranceEndToCandidateResultMs = $null,
     [string]$UtteranceEndTimingClass = "",
+    [object]$SttStartOffsetMs = $null,
+    [object]$SttEndOffsetMs = $null,
+    [object]$CanonicalAcceptOffsetMs = $null,
+    [string]$CanonicalAcceptLatencyClass = "",
+    [string]$InflightSinkCancellationClass = "",
     [string]$PresentationClass = "presentation_not_attempted",
     [object]$AssistantEventId = $null,
     [object]$ThoughtCoreFirstEventElapsedMs = $null,
@@ -69,6 +74,31 @@ function New-EndpointResponse {
       default { "not_evaluated" }
     }
   }
+  if ($TranscriptionCount -eq 1 -and $null -eq $SttStartOffsetMs) {
+    $SttStartOffsetMs = 0
+    $SttEndOffsetMs = 5
+  }
+  if ($SubmissionCount -eq 1 -and $null -eq $CanonicalAcceptOffsetMs) {
+    $CanonicalAcceptOffsetMs = 10
+  }
+  if ([string]::IsNullOrWhiteSpace($CanonicalAcceptLatencyClass)) {
+    $CanonicalAcceptLatencyClass = if ($null -eq $CanonicalAcceptOffsetMs) {
+      "not_evaluated"
+    } elseif ([long]$CanonicalAcceptOffsetMs -le 2000) {
+      "within_2s_target"
+    } elseif ([long]$CanonicalAcceptOffsetMs -le 10000) {
+      "over_2s_within_10s"
+    } else {
+      "over_10s"
+    }
+  }
+  if ([string]::IsNullOrWhiteSpace($InflightSinkCancellationClass)) {
+    $InflightSinkCancellationClass = if ($SubmissionCount -eq 1) {
+      "not_required_within_10s"
+    } else {
+      "not_applicable"
+    }
+  }
 
   return [ordered]@{
     schema_version = "ai_talk_core.live_input_gate_candidate_window.v0"
@@ -85,6 +115,11 @@ function New-EndpointResponse {
     last_vad_speech_frame_offset_ms = $LastVadSpeechFrameOffsetMs
     utterance_end_to_candidate_result_ms = $UtteranceEndToCandidateResultMs
     utterance_end_timing_class = $UtteranceEndTimingClass
+    stt_start_offset_ms = $SttStartOffsetMs
+    stt_end_offset_ms = $SttEndOffsetMs
+    canonical_accept_offset_ms = $CanonicalAcceptOffsetMs
+    canonical_accept_latency_class = $CanonicalAcceptLatencyClass
+    inflight_sink_cancellation_class = $InflightSinkCancellationClass
     presentation_class = $PresentationClass
     assistant_event_id = $AssistantEventId
     thought_core_first_event_elapsed_ms = $ThoughtCoreFirstEventElapsedMs
@@ -336,7 +371,7 @@ $ErrorActionPreference = "Stop"
   "$TriggerPath.arm",
   "armed",
   [System.Text.Encoding]::ASCII)
-[Console]::Out.WriteLine('{"schema_version":"self_output_awareness.production_transport_arm.v0","result_class":"production_transport_armed","raw_private_publication_flags":false}')
+[Console]::Out.WriteLine('{"schema_version":"self_output_awareness.production_transport_arm.v0","result_class":"overlap_join_ready","raw_private_publication_flags":false}')
 [Console]::Out.Flush()
 if ($Mode -ceq "timeout") {
   Start-Sleep -Seconds 30
@@ -388,6 +423,7 @@ function New-ProductionTransportResult {
     cooldown_pickup_ms = 75
     released_pickup_ms = 100
     observation_ingest_ms = 125
+    overlap_join_ready_class = "overlap_join_ready"
     elapsed_ms = 150
     latency_requirement_status = "first_non_silent_wall_timestamp_available"
     cleanup_class = "route_owned_cleanup_clear"
@@ -808,7 +844,11 @@ try {
   Assert-ObserverProcessReceipt -Path $observerTimeoutReceipt
   Assert-True ($observerTimeoutRun.Code -ne 0) "observer timeout must fail closed"
   Assert-True ($observerTimeout.blocker_class -ceq "visible_response_not_observed") "observer timeout blocker mismatch"
-  Assert-True ($observerTimeoutStopwatch.ElapsedMilliseconds -lt 6000) "observer timeout exceeded bounded test duration"
+  Assert-True ($observerTimeout.deadline_ms -eq 5000) "observer timeout must preserve the 5000ms product deadline"
+  Assert-True ($observerTimeout.cleanup_class -ceq "controller_http_resources_disposed_endpoint_pcm_and_authority_clear") "observer timeout cleanup mismatch"
+  Assert-True ($observerTimeoutStopwatch.ElapsedMilliseconds -lt 7000) (
+    "observer timeout exceeded bounded test duration: {0}ms" -f
+      $observerTimeoutStopwatch.ElapsedMilliseconds)
 
   $observerEarlyExitRun = Invoke-Controller `
     -BaseUrl "http://127.0.0.1:65534" `

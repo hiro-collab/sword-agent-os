@@ -626,6 +626,8 @@ $handoffPickupMs = $null
 $cooldownPickupMs = $null
 $releasedPickupMs = $null
 $observationIngestMs = $null
+$overlapJoinReadyClass = "not_ready"
+$overlapJoinReadySignalEmitted = $false
 $exitCode = 1
 $coreToken = ""
 
@@ -674,9 +676,6 @@ try {
     }
   }
   $baselineResponse = $null
-  try { [void](& $ArmedCallback) }
-  catch { Throw-Fixed -Class "transport_arm_failed" }
-
   $lease = $null
   $lifecyclePhase = "awaiting_handoff"
   $lifecycleCompleted = $false
@@ -732,6 +731,7 @@ try {
     $finalLifecycleState = [string]$step.lifecycle.lifecycle_state
     switch ($finalLifecycleState) {
       "handoff_accepted" {
+        $overlapJoinReadyClass = "not_ready"
         if ($null -ne $observerProcess) {
           $supersededObserver = $observerProcess
           $observerProcess = $null
@@ -745,6 +745,63 @@ try {
         $releasedPickupMs = $null
         $observerDeadline = [Math]::Min(10000, $RouteObserverWindowMs + 1500)
         $observerProcess = & $ObserverStarter -ObserverPath $observerPath -TargetPid $RouteControlledChromeRootPid -WindowMs $RouteObserverWindowMs -ObserverDeadlineMs $observerDeadline
+        if ($null -eq $observerProcess) {
+          Throw-Fixed -Class "observer_child_start_failed"
+        }
+        $remaining = $RouteDeadlineMs - [int]$routeStopwatch.ElapsedMilliseconds
+        if ($remaining -le 0 -or -not $observerProcess.WaitForExit($remaining)) {
+          Throw-Fixed -Class "whole_route_timeout"
+        }
+        $observerText = $observerProcess.StandardOutput.ReadToEnd().Trim()
+        $observerError = $observerProcess.StandardError.ReadToEnd()
+        if ($observerProcess.ExitCode -ne 0 -or -not [string]::IsNullOrWhiteSpace($observerError) -or [Text.Encoding]::UTF8.GetByteCount($observerText) -gt 32768) {
+          $observerText = ""
+          $observerError = ""
+          Throw-Fixed -Class "observer_child_failed"
+        }
+        try { $observerValue = $observerText | ConvertFrom-Json -Depth 12 }
+        catch { Throw-Fixed -Class "observer_result_invalid" }
+        finally {
+          $observerText = ""
+          $observerError = ""
+        }
+        $observerValue = Assert-ObserverResult -Value $observerValue -WindowMs $RouteObserverWindowMs
+        $observerResultClass = [string]$observerValue.result_class
+        $firstNonSilentFrameOffsetMs = [int]$observerValue.observation.first_non_silent_frame_offset_ms
+        $captureStartedAtUtcMs = [long]$observerValue.observation.capture_started_at_utc_ms
+        $observerCompletedAtUtcMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+        if (
+          $captureStartedAtUtcMs -lt ($routeStartedAtUtcMs - 1000) -or
+          $captureStartedAtUtcMs -gt ($observerCompletedAtUtcMs + 1000)
+        ) {
+          Throw-Fixed -Class "observer_result_invalid"
+        }
+        $firstNonSilentObservedAtUtcMs = Resolve-FirstNonSilentObservedAtUtcMs `
+          -CaptureStartedAtUtcMs $captureStartedAtUtcMs `
+          -FirstNonSilentFrameOffsetMs $firstNonSilentFrameOffsetMs `
+          -ObserverCompletedAtUtcMs $observerCompletedAtUtcMs
+
+        $observationPayload = New-SelfOutputObservationPayload -Lease $lease
+        $nowMonotonic = [double]$routeStopwatch.Elapsed.TotalMilliseconds
+        $observationWall = [DateTimeOffset]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        $observationEvent = New-CoreEventEnvelope -Event "audioSelfOutputObservationV0" -Payload $observationPayload -TurnId $turnId -Wall $observationWall -Monotonic $nowMonotonic
+        $remaining = $RouteDeadlineMs - [int]$routeStopwatch.ElapsedMilliseconds
+        if ($remaining -le 0) { Throw-Fixed -Class "whole_route_timeout" }
+        $observationIngestOutcomeClass = "dispatched_ack_pending"
+        $coreRequestCount += 1
+        $observationResponse = & $RequestInvoker -Uri $coreEndpoint -Method "POST" -Body $observationEvent -Token $coreToken -TimeoutMs $remaining -FailureClass "core_observation_ingest_failed"
+        [void](Assert-CoreAcknowledgement -Response $observationResponse -ExpectedEvent "audioSelfOutputObservationV0" -ExpectedTurnId $turnId -ExpectedWall $observationWall -ExpectedMonotonic $nowMonotonic -FailureClass "core_observation_ingest_failed")
+        $observationEvent.Clear()
+        $observationPayload.Clear()
+        $observationIngestCount += 1
+        $observationIngestOutcomeClass = "acknowledged"
+        $observationIngestMs = [int]$routeStopwatch.ElapsedMilliseconds
+        $overlapJoinReadyClass = "overlap_join_ready"
+        if (-not $overlapJoinReadySignalEmitted) {
+          try { [void](& $ArmedCallback) }
+          catch { Throw-Fixed -Class "transport_arm_failed" }
+          $overlapJoinReadySignalEmitted = $true
+        }
       }
       "cooldown" {
         if ($null -eq $cooldownPickupMs) {
@@ -759,55 +816,12 @@ try {
     $coreResponse = $null
   }
 
-  if ($null -eq $observerProcess) { Throw-Fixed -Class "observer_child_start_failed" }
-  $remaining = $RouteDeadlineMs - [int]$routeStopwatch.ElapsedMilliseconds
-  if ($remaining -le 0 -or -not $observerProcess.WaitForExit($remaining)) {
-    Throw-Fixed -Class "whole_route_timeout"
-  }
-  $observerText = $observerProcess.StandardOutput.ReadToEnd().Trim()
-  $observerError = $observerProcess.StandardError.ReadToEnd()
-  if ($observerProcess.ExitCode -ne 0 -or -not [string]::IsNullOrWhiteSpace($observerError) -or [Text.Encoding]::UTF8.GetByteCount($observerText) -gt 32768) {
-    $observerText = ""
-    $observerError = ""
-    Throw-Fixed -Class "observer_child_failed"
-  }
-  try { $observerValue = $observerText | ConvertFrom-Json -Depth 12 }
-  catch { Throw-Fixed -Class "observer_result_invalid" }
-  finally {
-    $observerText = ""
-    $observerError = ""
-  }
-  $observerValue = Assert-ObserverResult -Value $observerValue -WindowMs $RouteObserverWindowMs
-  $observerResultClass = [string]$observerValue.result_class
-  $firstNonSilentFrameOffsetMs = [int]$observerValue.observation.first_non_silent_frame_offset_ms
-  $captureStartedAtUtcMs = [long]$observerValue.observation.capture_started_at_utc_ms
-  $observerCompletedAtUtcMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
   if (
-    $captureStartedAtUtcMs -lt ($routeStartedAtUtcMs - 1000) -or
-    $captureStartedAtUtcMs -gt ($observerCompletedAtUtcMs + 1000)
+    $overlapJoinReadyClass -cne "overlap_join_ready" -or
+    $observationIngestCount -lt 1
   ) {
-    Throw-Fixed -Class "observer_result_invalid"
+    Throw-Fixed -Class "overlap_join_not_ready"
   }
-  $firstNonSilentObservedAtUtcMs = Resolve-FirstNonSilentObservedAtUtcMs `
-    -CaptureStartedAtUtcMs $captureStartedAtUtcMs `
-    -FirstNonSilentFrameOffsetMs $firstNonSilentFrameOffsetMs `
-    -ObserverCompletedAtUtcMs $observerCompletedAtUtcMs
-
-  $observationPayload = New-SelfOutputObservationPayload -Lease $lease
-  $nowMonotonic = [double]$routeStopwatch.Elapsed.TotalMilliseconds
-  $observationWall = [DateTimeOffset]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-  $observationEvent = New-CoreEventEnvelope -Event "audioSelfOutputObservationV0" -Payload $observationPayload -TurnId $turnId -Wall $observationWall -Monotonic $nowMonotonic
-  $remaining = $RouteDeadlineMs - [int]$routeStopwatch.ElapsedMilliseconds
-  if ($remaining -le 0) { Throw-Fixed -Class "whole_route_timeout" }
-  $observationIngestOutcomeClass = "dispatched_ack_pending"
-  $coreRequestCount += 1
-  $observationResponse = & $RequestInvoker -Uri $coreEndpoint -Method "POST" -Body $observationEvent -Token $coreToken -TimeoutMs $remaining -FailureClass "core_observation_ingest_failed"
-  [void](Assert-CoreAcknowledgement -Response $observationResponse -ExpectedEvent "audioSelfOutputObservationV0" -ExpectedTurnId $turnId -ExpectedWall $observationWall -ExpectedMonotonic $nowMonotonic -FailureClass "core_observation_ingest_failed")
-  $observationEvent.Clear()
-  $observationPayload.Clear()
-  $observationIngestCount = 1
-  $observationIngestOutcomeClass = "acknowledged"
-  $observationIngestMs = [int]$routeStopwatch.ElapsedMilliseconds
   $coreToken = ""
   $status = "completed"
   $resultClass = "production_self_output_transport_completed"
@@ -831,7 +845,8 @@ try {
     "lifecycle_stale_generation_replay",
     "observer_child_start_failed", "observer_child_failed",
     "observer_result_invalid", "core_observation_ingest_failed",
-    "transport_arm_failed", "whole_route_timeout", "cleanup_incomplete"
+    "transport_arm_failed", "overlap_join_not_ready",
+    "whole_route_timeout", "cleanup_incomplete"
   )
   $class = [string]$_.Exception.Message
   $blockerClass = if ($allowed -ccontains $class) { $class } else { "transport_failed" }
@@ -869,6 +884,7 @@ $result = [ordered]@{
   cooldown_pickup_ms = $cooldownPickupMs
   released_pickup_ms = $releasedPickupMs
   observation_ingest_ms = $observationIngestMs
+  overlap_join_ready_class = $overlapJoinReadyClass
   elapsed_ms = [int]$routeStopwatch.ElapsedMilliseconds
   latency_requirement_status = $(if ($null -ne $firstNonSilentObservedAtUtcMs) {
       "first_non_silent_wall_timestamp_available"
@@ -902,7 +918,7 @@ if ($MyInvocation.InvocationName -eq ".") { return }
 $armedCallback = $(if ($EmitArmSignal) {
     {
       [Console]::Out.WriteLine(
-        '{"schema_version":"self_output_awareness.production_transport_arm.v0","result_class":"production_transport_armed","raw_private_publication_flags":false}')
+        '{"schema_version":"self_output_awareness.production_transport_arm.v0","result_class":"overlap_join_ready","raw_private_publication_flags":false}')
       [Console]::Out.Flush()
     }
   } else {

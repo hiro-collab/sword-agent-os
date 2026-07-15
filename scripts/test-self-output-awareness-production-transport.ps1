@@ -583,8 +583,10 @@ Assert-Equal $emptyOverrideRoute.Value.cleanup_class "route_owned_cleanup_clear"
 
 $successHarness = New-ControlledRouteHarness -Mode "success"
 $armedCallback = {
-  Assert-Equal $successHarness.State.AitReadCount 1 "arm follows exactly one baseline read"
-  Assert-Equal $successHarness.State.ObserverStartCount 0 "arm precedes lifecycle observer start"
+  Assert-Equal $successHarness.State.AitReadCount 2 "ready follows baseline and handoff reads"
+  Assert-Equal $successHarness.State.ObserverStartCount 1 "ready follows one observer run"
+  Assert-Equal $successHarness.State.CoreBodies.Count 2 "ready follows handoff and observation acknowledgements"
+  Assert-Equal (@($successHarness.State.CoreBodies | ForEach-Object event) -join ",") "swordAgentSystemSpeechLifecycleV0,audioSelfOutputObservationV0" "ready proves the matching active join"
   $successHarness.State.ArmedCount += 1
 }.GetNewClosure()
 $successRoute = Invoke-ProductionTransportRoute `
@@ -604,9 +606,10 @@ Assert-Equal $successRoute.Value.lifecycle_ingest_outcome_class "acknowledged" "
 Assert-Equal $successRoute.Value.observation_ingest_count 1 "controlled success acknowledges one observation"
 Assert-Equal $successRoute.Value.observation_ingest_outcome_class "acknowledged" "controlled observation outcome acknowledged"
 Assert-Equal $successHarness.State.CoreBodies.Count 4 "controlled success sends exactly four Core requests"
-Assert-Equal (@($successHarness.State.CoreBodies | ForEach-Object event) -join ",") "swordAgentSystemSpeechLifecycleV0,swordAgentSystemSpeechLifecycleV0,swordAgentSystemSpeechLifecycleV0,audioSelfOutputObservationV0" "controlled success preserves Core event order"
+Assert-Equal (@($successHarness.State.CoreBodies | ForEach-Object event) -join ",") "swordAgentSystemSpeechLifecycleV0,audioSelfOutputObservationV0,swordAgentSystemSpeechLifecycleV0,swordAgentSystemSpeechLifecycleV0" "controlled success preserves overlap-ready Core event order"
 Assert-Equal $successHarness.State.ObserverStartCount 1 "controlled success starts one observer"
-Assert-Equal $successHarness.State.ArmedCount 1 "controlled success arms exactly once before the trigger"
+Assert-Equal $successHarness.State.ArmedCount 1 "controlled success reports overlap join exactly once"
+Assert-Equal $successRoute.Value.overlap_join_ready_class "overlap_join_ready" "controlled success reports the fixed overlap-ready class"
 Assert-Equal $successHarness.State.ObserverProcess.DisposeCount 1 "controlled success disposes observer"
 Assert-Equal $successRoute.Value.first_non_silent_observed_at_utc_ms `
   ($successHarness.State.LastObserverResult.observation.capture_started_at_utc_ms + 25) `
@@ -656,20 +659,24 @@ Assert-Equal $supersededRoute.Value.final_lifecycle_state "released" "superseded
 Assert-Equal $supersededHarness.State.ObserverStartCount 2 "superseded sequence starts one observer per owned generation window"
 Assert-Equal $supersededHarness.State.ObserverProcesses[0].DisposeCount 1 "superseded sequence discards the old generation observer"
 Assert-Equal $supersededHarness.State.ObserverProcesses[1].DisposeCount 1 "superseded sequence disposes the final generation observer"
-Assert-Equal $supersededHarness.State.CoreBodies.Count 6 "superseded sequence sends five lifecycle events plus one observation"
-$supersededLifecycleBodies = @($supersededHarness.State.CoreBodies | Select-Object -First 5)
+Assert-Equal $supersededRoute.Value.observation_ingest_count 2 "superseded sequence reports both acknowledged observations"
+Assert-Equal $supersededHarness.State.CoreBodies.Count 7 "superseded sequence sends five lifecycle events plus two observations"
+$supersededLifecycleBodies = @($supersededHarness.State.CoreBodies | Where-Object { $_.event -ceq "swordAgentSystemSpeechLifecycleV0" })
 Assert-Equal (@($supersededLifecycleBodies | ForEach-Object { $_.payload.lifecycle_state }) -join ",") "handoff_accepted,cooldown,handoff_accepted,cooldown,released" "superseded sequence preserves exact lifecycle order"
 Assert-Equal (@($supersededLifecycleBodies | ForEach-Object { $_.payload.speech_session_generation }) -join ",") "7,7,8,8,8" "superseded sequence preserves generation ownership"
-Assert-Equal $supersededHarness.State.CoreBodies[5].payload.speech_session_generation 8 "final observation uses the superseding generation"
-Assert-Equal $supersededHarness.State.CoreBodies[5].payload.system_speech_session_id "system-speech-session:sss_cccccccccccccccccccccccccccccccc" "final observation uses the superseding session"
-Assert-Equal $supersededHarness.State.CoreBodies[5].payload.playback_event_ref "playback-event:pe_dddddddddddddddddddddddddddddddd" "final observation uses the superseding playback ref"
+$supersededObservationBodies = @($supersededHarness.State.CoreBodies | Where-Object { $_.event -ceq "audioSelfOutputObservationV0" })
+Assert-Equal $supersededObservationBodies.Count 2 "superseded sequence retains one observation per owned generation"
+Assert-Equal $supersededObservationBodies[1].payload.speech_session_generation 8 "final observation uses the superseding generation"
+Assert-Equal $supersededObservationBodies[1].payload.system_speech_session_id "system-speech-session:sss_cccccccccccccccccccccccccccccccc" "final observation uses the superseding session"
+Assert-Equal $supersededObservationBodies[1].payload.playback_event_ref "playback-event:pe_dddddddddddddddddddddddddddddddd" "final observation uses the superseding playback ref"
 Assert-Equal ($supersededHarness.State.AitQueries -join ",") ",?after_ordinal=0,?after_ordinal=1,?after_ordinal=2,?after_ordinal=3,?after_ordinal=4" "superseded sequence consumes every retained ordinal once"
 
 $silentSupersededHarness = New-ControlledRouteHarness -Mode "superseded_generation_silent_new"
 $silentSupersededRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $silentSupersededHarness.RequestInvoker -ObserverStarter $silentSupersededHarness.ObserverStarter -SleepInvoker $silentSupersededHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
 Assert-Equal $silentSupersededRoute.Value.blocker_class "observer_result_invalid" "old-generation-only render cannot satisfy the superseding lease"
-Assert-Equal $silentSupersededRoute.Value.observation_ingest_count 0 "silent superseding generation publishes no observation"
-Assert-Equal $silentSupersededHarness.State.CoreBodies.Count 5 "silent superseding generation sends lifecycle only"
+Assert-Equal $silentSupersededRoute.Value.observation_ingest_count 1 "silent superseding generation preserves only the acknowledged old observation count"
+Assert-Equal $silentSupersededRoute.Value.overlap_join_ready_class "not_ready" "silent superseding generation cannot retain old-generation readiness"
+Assert-Equal $silentSupersededHarness.State.CoreBodies.Count 4 "silent superseding generation stops after the new handoff without publishing a new observation"
 Assert-Equal $silentSupersededHarness.State.ObserverProcesses[0].DisposeCount 1 "silent supersession still discards old positive observer"
 Assert-Equal $silentSupersededHarness.State.ObserverProcesses[1].DisposeCount 1 "silent supersession disposes current observer"
 
@@ -677,8 +684,8 @@ $overflowHarness = New-ControlledRouteHarness -Mode "history_overflow"
 $overflowRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $overflowHarness.RequestInvoker -ObserverStarter $overflowHarness.ObserverStarter -SleepInvoker $overflowHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
 Assert-Equal $overflowRoute.Value.blocker_class "lifecycle_transport_incomplete" "seventeenth lifecycle event fails closed"
 Assert-Equal $overflowRoute.Value.lifecycle_ingest_count 16 "bounded history acknowledges at most sixteen lifecycle events"
-Assert-Equal $overflowRoute.Value.observation_ingest_count 0 "bounded-history overflow publishes no observation"
-Assert-Equal $overflowHarness.State.CoreBodies.Count 16 "seventeenth lifecycle event is not dispatched"
+Assert-Equal $overflowRoute.Value.observation_ingest_count 8 "bounded-history overflow reports all eight acknowledged observations"
+Assert-Equal $overflowHarness.State.CoreBodies.Count 24 "bounded history sends sixteen lifecycle events and eight owned observations"
 Assert-Equal $overflowHarness.State.ObserverStartCount 8 "bounded history starts only the eight acknowledged generation observers"
 Assert-Equal @($overflowHarness.State.ObserverProcesses | Where-Object { $_.DisposeCount -ne 1 }).Count 0 "bounded-history overflow disposes every observer"
 
@@ -691,7 +698,8 @@ Assert-Equal $ordinalHarness.State.ObserverStartCount 0 "ordinal gap starts no o
 $leaseHarness = New-ControlledRouteHarness -Mode "lease_mismatch"
 $leaseRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $leaseHarness.RequestInvoker -ObserverStarter $leaseHarness.ObserverStarter -SleepInvoker $leaseHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
 Assert-Equal $leaseRoute.Value.blocker_class "lifecycle_lease_mismatch" "lease mismatch blocks route"
-Assert-Equal $leaseHarness.State.CoreBodies.Count 1 "lease mismatch stops after acknowledged handoff"
+Assert-Equal $leaseHarness.State.CoreBodies.Count 2 "lease mismatch stops after acknowledged handoff and its owned observation"
+Assert-Equal $leaseRoute.Value.observation_ingest_count 1 "lease mismatch preserves the acknowledged handoff observation count"
 Assert-Equal $leaseHarness.State.ObserverStartCount 1 "lease mismatch starts observer only after handoff"
 
 $staleHarness = New-ControlledRouteHarness -Mode "stale_replay"

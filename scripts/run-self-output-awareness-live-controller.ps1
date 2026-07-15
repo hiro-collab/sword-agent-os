@@ -28,6 +28,11 @@ $ExpectedResponseKeys = @(
   "last_vad_speech_frame_offset_ms",
   "utterance_end_to_candidate_result_ms",
   "utterance_end_timing_class",
+  "stt_start_offset_ms",
+  "stt_end_offset_ms",
+  "canonical_accept_offset_ms",
+  "canonical_accept_latency_class",
+  "inflight_sink_cancellation_class",
   "presentation_class",
   "assistant_event_id",
   "thought_core_first_event_elapsed_ms",
@@ -58,6 +63,18 @@ $AllowedPresentationClasses = @(
   "aituber_presentation_forwarded_timing_unavailable",
   "aituber_presentation_not_forwarded"
 )
+$AllowedCanonicalAcceptLatencyClasses = @(
+  "not_evaluated",
+  "within_2s_target",
+  "over_2s_within_10s",
+  "over_10s"
+)
+$AllowedInflightSinkCancellationClasses = @(
+  "not_applicable",
+  "pre_sink_over_10s_suppressed",
+  "not_required_within_10s",
+  "inflight_sink_cancellation_not_proven"
+)
 $AllowedScenarios = @(
   "self_output_or_ambiguous",
   "independent_current_session_user_speech"
@@ -72,7 +89,10 @@ $AllowedEndpointResultClasses = @(
   "scenario_expectation_not_met",
   "live_candidate_request_invalid",
   "live_candidate_window_busy",
+  "input_source_epoch_unavailable",
   "input_gate_capability_unavailable",
+  "speech_timing_observation_missing",
+  "voice_response_latency_over_10s",
   "private_transcription_not_accepted",
   "private_turn_sink_unavailable",
   "private_turn_sink_failed",
@@ -156,6 +176,11 @@ $endpointElapsedMs = 0
 $lastVadSpeechFrameOffsetMs = $null
 $utteranceEndToCandidateResultMs = $null
 $utteranceEndTimingClass = "not_evaluated"
+$sttStartOffsetMs = $null
+$sttEndOffsetMs = $null
+$canonicalAcceptOffsetMs = $null
+$canonicalAcceptLatencyClass = "not_evaluated"
+$inflightSinkCancellationClass = "not_applicable"
 $presentationClass = "presentation_not_attempted"
 $thoughtCoreFirstEventElapsedMs = $null
 $visibleResponseClass = "not_observed"
@@ -445,7 +470,7 @@ function Start-ProductionTransportChild {
     (@($arm.PSObject.Properties.Name | Sort-Object) -join ",") -cne
       (@($expectedArmKeys | Sort-Object) -join ",") -or
     $arm.schema_version -cne "self_output_awareness.production_transport_arm.v0" -or
-    $arm.result_class -cne "production_transport_armed" -or
+    $arm.result_class -cne "overlap_join_ready" -or
     $arm.raw_private_publication_flags -isnot [bool] -or
     [bool]$arm.raw_private_publication_flags
   ) {
@@ -493,6 +518,7 @@ function Complete-ProductionTransportChild {
     "observer_result_class", "first_non_silent_frame_offset_ms",
     "first_non_silent_observed_at_utc_ms", "handoff_pickup_ms",
     "cooldown_pickup_ms", "released_pickup_ms", "observation_ingest_ms",
+    "overlap_join_ready_class",
     "elapsed_ms", "latency_requirement_status", "cleanup_class",
     "route_owned_process_residue_count", "route_owned_request_residue_count",
     "route_owned_pipe_residue_count", "route_owned_temp_residue_count",
@@ -515,6 +541,7 @@ function Complete-ProductionTransportChild {
     $value.cleanup_class -cne "route_owned_cleanup_clear" -or
     $value.lifecycle_ingest_outcome_class -cne "acknowledged" -or
     $value.observation_ingest_outcome_class -cne "acknowledged" -or
+    $value.overlap_join_ready_class -cne "overlap_join_ready" -or
     $value.raw_private_publication_flags -isnot [bool] -or
     [bool]$value.raw_private_publication_flags
   ) {
@@ -770,6 +797,10 @@ try {
     $AllowedVadDecisionClasses -cnotcontains [string]$endpointResult.vad_decision_class -or
     $endpointResult.utterance_end_timing_class -isnot [string] -or
     $AllowedUtteranceEndTimingClasses -cnotcontains [string]$endpointResult.utterance_end_timing_class -or
+    $endpointResult.canonical_accept_latency_class -isnot [string] -or
+    $AllowedCanonicalAcceptLatencyClasses -cnotcontains [string]$endpointResult.canonical_accept_latency_class -or
+    $endpointResult.inflight_sink_cancellation_class -isnot [string] -or
+    $AllowedInflightSinkCancellationClasses -cnotcontains [string]$endpointResult.inflight_sink_cancellation_class -or
     $endpointResult.presentation_class -isnot [string] -or
     $AllowedPresentationClasses -cnotcontains [string]$endpointResult.presentation_class -or
     $endpointResult.raw_private_publication_flags -isnot [bool] -or
@@ -793,6 +824,11 @@ try {
   $presentationClass = [string]$endpointResult.presentation_class
   $assistantEventId = $endpointResult.assistant_event_id
   $thoughtCoreFirstEventElapsedValue = $endpointResult.thought_core_first_event_elapsed_ms
+  $sttStartValue = $endpointResult.stt_start_offset_ms
+  $sttEndValue = $endpointResult.stt_end_offset_ms
+  $canonicalAcceptValue = $endpointResult.canonical_accept_offset_ms
+  $canonicalLatencyClass = [string]$endpointResult.canonical_accept_latency_class
+  $inflightCancellationClass = [string]$endpointResult.inflight_sink_cancellation_class
   if ($timingClass -ceq "vad_speech_frame_available") {
     Assert-BoundedInteger -Value $lastFrameValue -Minimum 10 -Maximum $WindowMs
     Assert-BoundedInteger -Value $utteranceToResultValue -Minimum 0 -Maximum 20000
@@ -812,6 +848,39 @@ try {
       [string]$endpointResult.vad_decision_class -cne "speech_detected") -or
     ($timingClass -ceq "not_evaluated" -and
       [string]$endpointResult.vad_decision_class -cne "not_evaluated")
+  ) {
+    Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+  }
+
+  $hasSttTiming = $null -ne $sttStartValue -or $null -ne $sttEndValue
+  if ($hasSttTiming) {
+    Assert-BoundedInteger -Value $sttStartValue -Minimum 0 -Maximum 20000
+    Assert-BoundedInteger -Value $sttEndValue -Minimum 0 -Maximum 20000
+    if ([long]$sttStartValue -gt [long]$sttEndValue) {
+      Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+    }
+  }
+  if ($null -ne $canonicalAcceptValue) {
+    Assert-BoundedInteger -Value $canonicalAcceptValue -Minimum 0 -Maximum 20000
+    if (-not $hasSttTiming -or [long]$canonicalAcceptValue -lt [long]$sttEndValue) {
+      Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+    }
+    $expectedLatencyClass = if ([long]$canonicalAcceptValue -le 2000) {
+      "within_2s_target"
+    } elseif ([long]$canonicalAcceptValue -le 10000) {
+      "over_2s_within_10s"
+    } else {
+      "over_10s"
+    }
+    if ($canonicalLatencyClass -cne $expectedLatencyClass) {
+      Throw-Fixed -Class "live_controller_endpoint_response_invalid"
+    }
+  } elseif (
+    $canonicalLatencyClass -cne "not_evaluated" -and
+    -not (
+      $canonicalLatencyClass -ceq "over_10s" -and
+      $inflightCancellationClass -ceq "pre_sink_over_10s_suppressed"
+    )
   ) {
     Throw-Fixed -Class "live_controller_endpoint_response_invalid"
   }
@@ -850,6 +919,11 @@ try {
   $lastVadSpeechFrameOffsetMs = $lastFrameValue
   $utteranceEndToCandidateResultMs = $utteranceToResultValue
   $utteranceEndTimingClass = $timingClass
+  $sttStartOffsetMs = $sttStartValue
+  $sttEndOffsetMs = $sttEndValue
+  $canonicalAcceptOffsetMs = $canonicalAcceptValue
+  $canonicalAcceptLatencyClass = $canonicalLatencyClass
+  $inflightSinkCancellationClass = $inflightCancellationClass
   $thoughtCoreFirstEventElapsedMs = $thoughtCoreFirstEventElapsedValue
   $pcmCleanupCount = [int]$endpointResult.pcm_cleanup_count
   $privateAuthorityResidueCount = [int]$endpointResult.private_authority_residue_count
@@ -917,7 +991,11 @@ try {
       $transcriptionCount -ne 0 -or
       $submissionCount -ne 0 -or
       $turnInputCount -ne 0 -or
-      $presentationClass -cne "presentation_not_attempted"
+      $presentationClass -cne "presentation_not_attempted" -or
+      $hasSttTiming -or
+      $null -ne $canonicalAcceptValue -or
+      $canonicalLatencyClass -cne "not_evaluated" -or
+      $inflightCancellationClass -cne "not_applicable"
     ) {
       Throw-Fixed -Class "live_controller_endpoint_response_invalid"
     }
@@ -933,7 +1011,10 @@ try {
       $transcriptionCount -ne 1 -or
       $submissionCount -ne 1 -or
       $turnInputCount -ne 1 -or
-      $presentationClass -ceq "presentation_not_attempted"
+      $presentationClass -ceq "presentation_not_attempted" -or
+      -not $hasSttTiming -or
+      $null -eq $canonicalAcceptValue -or
+      $canonicalLatencyClass -ceq "not_evaluated"
     ) {
       Throw-Fixed -Class "live_controller_endpoint_response_invalid"
     }
@@ -1113,6 +1194,11 @@ $result = [ordered]@{
   last_vad_speech_frame_offset_ms = $lastVadSpeechFrameOffsetMs
   utterance_end_to_candidate_result_ms = $utteranceEndToCandidateResultMs
   utterance_end_timing_class = $utteranceEndTimingClass
+  stt_start_offset_ms = $sttStartOffsetMs
+  stt_end_offset_ms = $sttEndOffsetMs
+  canonical_accept_offset_ms = $canonicalAcceptOffsetMs
+  canonical_accept_latency_class = $canonicalAcceptLatencyClass
+  inflight_sink_cancellation_class = $inflightSinkCancellationClass
   presentation_class = $presentationClass
   thought_core_first_event_elapsed_ms = $thoughtCoreFirstEventElapsedMs
   visible_response_class = $visibleResponseClass
