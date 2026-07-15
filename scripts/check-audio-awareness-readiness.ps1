@@ -154,7 +154,7 @@ else {
     "scripts/check-audio-awareness-readiness.ps1",
     "manifests/body-plans/system-cell-v0.json",
     "manifests/driver-manifests/system-cell-v0.json",
-    "scripts/run-visible-demo-preflight.ps1",
+    "scripts/run-primary-system-cell-preflight.ps1",
     "contracts/README.md",
     "docs/audio-awareness.md",
     "docs/reference-surfaces.md",
@@ -367,7 +367,7 @@ else {
     $referenceSurfaces = Get-Content -Raw -LiteralPath (Resolve-RepoPath "docs/reference-surfaces.md")
     $moduleUsage = Get-Content -Raw -LiteralPath (Resolve-RepoPath "docs/module-usage-index.md")
     $runtimeReadme = Get-Content -Raw -LiteralPath (Resolve-RepoPath "runtime/README.md")
-    $preflight = Get-Content -Raw -LiteralPath (Resolve-RepoPath "scripts/run-visible-demo-preflight.ps1")
+    $preflight = Get-Content -Raw -LiteralPath (Resolve-RepoPath "scripts/run-primary-system-cell-preflight.ps1")
     $failures = @()
     if ($contractsReadme -notmatch "audio_awareness_summary/audio_awareness_summary\.v0\.schema\.json") { $failures += "contracts_readme:summary" }
     if ($contractsReadme -notmatch "audio_awareness_consumer_routes/audio_awareness_consumer_routes\.v0\.schema\.json") { $failures += "contracts_readme:routes" }

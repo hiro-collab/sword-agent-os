@@ -160,10 +160,10 @@ product defaults. These controls are the current manual presentation authority.
 Future AI-selected bubble presentation must use the same bounded settings seam
 and remains a separate requirement.
 
-## ユーザーに見せるデモ前の確認
+## Primary System Cell を人に見せる前の確認
 
 ```powershell
-.\scripts\run-visible-demo-preflight.ps1
+.\scripts\run-primary-system-cell-preflight.ps1
 ```
 
 The user-visible route preflight separates allowed local display/audio/action
@@ -176,7 +176,7 @@ Fold operator-observed screen, audio, and AC-control surface checks only with
 explicit switches:
 
 ```powershell
-.\scripts\run-visible-demo-preflight.ps1 `
+.\scripts\run-primary-system-cell-preflight.ps1 `
   -OperatorConfirmedAvatarForeground `
   -OperatorConfirmedChromeWindowHygiene `
   -OperatorConfirmedAudioHeard `
@@ -184,7 +184,7 @@ explicit switches:
   -OperatorConfirmedRestoreOffReadable
 ```
 
-Those switches are operator assertions for the demo preflight. They are not
+Those switches are operator assertions for the Primary System Cell preflight. They are not
 Home Control `/actions` proof, physical device proof, user-heard audio proof
 for another route, or release/readiness claim.
 

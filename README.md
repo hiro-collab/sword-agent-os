@@ -172,12 +172,12 @@ Projection Visual の画角、照明、エフェクト、吹き出しは、opera
 ## Primary System Cell の実行前確認
 
 画面、音声、アバター、家電操作を人に見せる前に、preflight で
-「今その場で使ってよい範囲」を分けて確認します。次のスクリプトは互換名を
-残した事前検査であり、Fast Visible Demo や別の runtime mode を起動するものでは
-ありません。実際の会話・撮影は Launcher の Primary System Cell を使います。
+「今その場で使ってよい範囲」を分けて確認します。次のスクリプトは事前検査であり、
+別の runtime mode を起動するものではありません。実際の会話・撮影は Launcher の
+Primary System Cell を使います。
 
 ```powershell
-.\scripts\run-visible-demo-preflight.ps1
+.\scripts\run-primary-system-cell-preflight.ps1
 ```
 
 既定では provider/network STT/TTS、マイク、カメラ、Home Assistant /

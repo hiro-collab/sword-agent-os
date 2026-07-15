@@ -151,7 +151,7 @@ function New-DailyConfidenceSmokeReport {
     "scripts\check-distribution-pins.ps1",
     "scripts\check-launch-readiness.ps1",
     "scripts\check-organ-readiness.ps1",
-    "scripts\run-visible-demo-preflight.ps1",
+    "scripts\run-primary-system-cell-preflight.ps1",
     "scripts\run-self-mirror-proof.ps1",
     "scripts\start-prepared-sample-browser-stt-operator.ps1",
     "scripts\start-home-control-bridge.ps1"

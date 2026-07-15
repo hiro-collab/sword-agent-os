@@ -432,7 +432,7 @@ $passes = @($rows | Where-Object { $_.status -eq "pass" })
 $infos = @($rows | Where-Object { $_.status -eq "info" -or $_.status -eq "not_evaluated" })
 
 $result = [PSCustomObject]@{
-  route_id = "DEMO-REPEATABILITY-FRESH-CLONE-CODEX-CLAUDE-READY-01"
+  route_id = "PRIMARY-SYSTEM-CELL-PRESENTATION-PREFLIGHT-01"
   entrypoint_class = "bounded_user_visible_route_preflight"
   default_safety = [PSCustomObject]@{
     provider_network_stt_tts = $false
@@ -489,7 +489,7 @@ if ($Json) {
   return
 }
 
-Write-Host "User-visible route preflight"
+Write-Host "Primary System Cell presentation preflight"
 Write-Host ("status={0}" -f $result.status)
 Write-Host ("rows={0} pass={1} hold={2}" -f $result.counts.rows, $result.counts.pass, $result.counts.hold)
 foreach ($row in $rows) {
