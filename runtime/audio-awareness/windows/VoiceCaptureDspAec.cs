@@ -36,6 +36,12 @@ namespace SwordAgentOS.AudioAwareness
         public int SinkWriteCount { get; set; }
         public int SinkReleaseCount { get; set; }
         public int CancelCount { get; set; }
+        public string NearEndDiscriminationClass { get; set; }
+        public int QualityMetricsAttemptCount { get; set; }
+        public int QualityMetricsValidCount { get; set; }
+        public int QualityMetricsTrustedCount { get; set; }
+        public int QualityMetricsAmbiguousCount { get; set; }
+        public int QualityMetricsCleanupFailureCount { get; set; }
         public bool RenderReferencePublished { get; set; }
         public bool RawAudioPersisted { get; set; }
         public bool TurnInputAuthority { get; set; }
@@ -59,6 +65,11 @@ namespace SwordAgentOS.AudioAwareness
         int CaptureStopAttemptCount { get; }
         int CaptureStopCount { get; }
         int ResourceReleaseCount { get; }
+        int QualityMetricsAttemptCount { get; }
+        int QualityMetricsValidCount { get; }
+        int QualityMetricsTrustedCount { get; }
+        int QualityMetricsAmbiguousCount { get; }
+        int QualityMetricsCleanupFailureCount { get; }
         Task ActivateAsync(CancellationToken cancellationToken);
         void Start();
         bool TryReadProcessedPcm(out byte[] processedPcm);
@@ -147,6 +158,10 @@ namespace SwordAgentOS.AudioAwareness
         public const int FrameDurationMs = 10;
         public const int FrameBytes =
             SampleRate * ChannelCount * (BitsPerSample / 8) * FrameDurationMs / 1000;
+        public const string NearEndDistinguishedClass =
+            "near_end_speech_distinguished_from_active_self_output";
+        public const string SelfOutputOrAmbiguousClass =
+            "self_output_or_ambiguous";
         internal const string VoiceCaptureDspClsid =
             "745057c7-f353-4f2d-a7ee-58434477730e";
         internal const string VoiceCapturePropertySet =
@@ -156,6 +171,7 @@ namespace SwordAgentOS.AudioAwareness
         internal const int PidFeatureMode = 5;
         internal const int PidNoiseSuppression = 8;
         internal const int PidAutomaticGainControl = 9;
+        internal const int PidQualityMetrics = 15;
         internal const int SingleChannelAec = 0;
         internal const int SingleChannelNsAgc = 5;
         private static readonly Regex PipeNamePattern = new Regex(
@@ -484,6 +500,25 @@ namespace SwordAgentOS.AudioAwareness
                 throw new VoiceCaptureDspException("live_aec_cleanup_failed");
             }
             if (failureClass == null &&
+                backend.QualityMetricsCleanupFailureCount != 0)
+            {
+                throw new VoiceCaptureDspException(
+                    "live_aec_quality_metrics_cleanup_failed");
+            }
+            if (failureClass == null &&
+                pipeLease.ProcessingModeClass == AecProcessingModeClass &&
+                !QualityMetricsCountsMatchWindow(
+                    packetCount,
+                    backend.QualityMetricsAttemptCount,
+                    backend.QualityMetricsValidCount,
+                    backend.QualityMetricsTrustedCount,
+                    backend.QualityMetricsAmbiguousCount,
+                    backend.QualityMetricsCleanupFailureCount))
+            {
+                throw new VoiceCaptureDspException(
+                    "live_aec_quality_metrics_invariant_failed");
+            }
+            if (failureClass == null &&
                 (backend.ActivateCount != 1 ||
                  backend.CaptureStartCount != 1 ||
                  backend.CaptureStopAttemptCount != 1 ||
@@ -520,6 +555,19 @@ namespace SwordAgentOS.AudioAwareness
                 SinkWriteCount = sink.WriteCount,
                 SinkReleaseCount = sink.ReleaseCount,
                 CancelCount = cancelCount,
+                NearEndDiscriminationClass = ClassifyNearEndQualityMetricsWindow(
+                    packetCount,
+                    backend.QualityMetricsAttemptCount,
+                    backend.QualityMetricsValidCount,
+                    backend.QualityMetricsTrustedCount,
+                    backend.QualityMetricsAmbiguousCount,
+                    backend.QualityMetricsCleanupFailureCount),
+                QualityMetricsAttemptCount = backend.QualityMetricsAttemptCount,
+                QualityMetricsValidCount = backend.QualityMetricsValidCount,
+                QualityMetricsTrustedCount = backend.QualityMetricsTrustedCount,
+                QualityMetricsAmbiguousCount = backend.QualityMetricsAmbiguousCount,
+                QualityMetricsCleanupFailureCount =
+                    backend.QualityMetricsCleanupFailureCount,
                 RenderReferencePublished = false,
                 RawAudioPersisted = false,
                 TurnInputAuthority = false
@@ -537,6 +585,61 @@ namespace SwordAgentOS.AudioAwareness
                     : "cwmaudioaec_unavailable",
                 OwnerClass = WindowsVoiceCaptureDspOwnerClass
             };
+        }
+
+        internal static string ClassifyNearEndQualityMetrics(
+            AecQualityMetrics metrics)
+        {
+            return metrics.ConvergenceFlag != 0 &&
+                metrics.DoubleTalkFlag != 0 &&
+                metrics.MicSilenceFlag == 0 &&
+                metrics.SpeakerMuteFlag == 0
+                    ? NearEndDistinguishedClass
+                    : SelfOutputOrAmbiguousClass;
+        }
+
+        internal static bool QualityMetricsCountsMatchWindow(
+            int packetCount,
+            int attemptCount,
+            int validCount,
+            int trustedCount,
+            int ambiguousCount,
+            int cleanupFailureCount)
+        {
+            return packetCount >= 0 &&
+                attemptCount == packetCount &&
+                validCount >= 0 &&
+                validCount <= attemptCount &&
+                trustedCount >= 0 &&
+                trustedCount <= validCount &&
+                ambiguousCount >= 0 &&
+                trustedCount + ambiguousCount == attemptCount &&
+                cleanupFailureCount >= 0 &&
+                cleanupFailureCount <= attemptCount;
+        }
+
+        internal static string ClassifyNearEndQualityMetricsWindow(
+            int packetCount,
+            int attemptCount,
+            int validCount,
+            int trustedCount,
+            int ambiguousCount,
+            int cleanupFailureCount)
+        {
+            return QualityMetricsCountsMatchWindow(
+                    packetCount,
+                    attemptCount,
+                    validCount,
+                    trustedCount,
+                    ambiguousCount,
+                    cleanupFailureCount) &&
+                packetCount > 0 &&
+                validCount == attemptCount &&
+                trustedCount == attemptCount &&
+                ambiguousCount == 0 &&
+                cleanupFailureCount == 0
+                    ? NearEndDistinguishedClass
+                    : SelfOutputOrAmbiguousClass;
         }
 
         private static void RevalidatePipeLease(
@@ -834,6 +937,7 @@ namespace SwordAgentOS.AudioAwareness
         private readonly string _processingModeClass;
         private object _dspObject;
         private IMediaObject _mediaObject;
+        private IPropertyStore _propertyStore;
         private ManagedMediaBuffer _outputBuffer;
         private bool _started;
         private bool _stopAttempted;
@@ -844,6 +948,11 @@ namespace SwordAgentOS.AudioAwareness
         public int CaptureStopAttemptCount { get; private set; }
         public int CaptureStopCount { get; private set; }
         public int ResourceReleaseCount { get; private set; }
+        public int QualityMetricsAttemptCount { get; private set; }
+        public int QualityMetricsValidCount { get; private set; }
+        public int QualityMetricsTrustedCount { get; private set; }
+        public int QualityMetricsAmbiguousCount { get; private set; }
+        public int QualityMetricsCleanupFailureCount { get; private set; }
 
         internal WindowsVoiceCaptureDspBackend(string processingModeClass)
         {
@@ -865,8 +974,8 @@ namespace SwordAgentOS.AudioAwareness
                     true);
                 _dspObject = Activator.CreateInstance(type);
                 _mediaObject = (IMediaObject)_dspObject;
-                IPropertyStore properties = (IPropertyStore)_dspObject;
-                ConfigureProperties(properties);
+                _propertyStore = (IPropertyStore)_dspObject;
+                ConfigureProperties(_propertyStore);
                 ConfigureOutputType(_mediaObject);
                 ActivateCount += 1;
                 return Task.CompletedTask;
@@ -939,6 +1048,7 @@ namespace SwordAgentOS.AudioAwareness
                 return false;
             }
             processedPcm = _outputBuffer.CopyCurrentBytes();
+            ObserveQualityMetrics();
             return true;
         }
 
@@ -976,6 +1086,7 @@ namespace SwordAgentOS.AudioAwareness
                 if (_outputBuffer != null) _outputBuffer.Dispose();
                 _outputBuffer = null;
                 _mediaObject = null;
+                _propertyStore = null;
                 VoiceCaptureDspAec.ReleaseComObject(_dspObject);
                 _dspObject = null;
                 ResourceReleaseCount += 1;
@@ -1062,6 +1173,79 @@ namespace SwordAgentOS.AudioAwareness
             finally
             {
                 Marshal.FreeHGlobal(formatPointer);
+            }
+        }
+
+        private void ObserveQualityMetrics()
+        {
+            IPropertyStore properties = _propertyStore;
+            if (properties == null ||
+                _processingModeClass != VoiceCaptureDspAec.AecProcessingModeClass)
+            {
+                return;
+            }
+
+            QualityMetricsAttemptCount += 1;
+            PropertyKey key = PropertyKey.Create(VoiceCaptureDspAec.PidQualityMetrics);
+            PropVariant value = default(PropVariant);
+            bool valueInitialized = false;
+            bool valid = false;
+            bool trusted = false;
+            try
+            {
+                int result = properties.GetValue(ref key, out value);
+                valueInitialized = result >= 0;
+                if (result < 0 || value.VariantType != 65 ||
+                    value.BlobValue.Size != Marshal.SizeOf(typeof(AecQualityMetrics)) ||
+                    value.BlobValue.Data == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                AecQualityMetrics metrics =
+                    (AecQualityMetrics)Marshal.PtrToStructure(
+                        value.BlobValue.Data,
+                        typeof(AecQualityMetrics));
+                valid = true;
+                trusted =
+                    VoiceCaptureDspAec.ClassifyNearEndQualityMetrics(metrics) ==
+                    VoiceCaptureDspAec.NearEndDistinguishedClass;
+            }
+            catch
+            {
+                // Missing or unreadable metrics remain fail-closed as ambiguous.
+            }
+            finally
+            {
+                bool cleanupSucceeded = true;
+                if (valueInitialized)
+                {
+                    try
+                    {
+                        cleanupSucceeded =
+                            NativeMethods.PropVariantClear(ref value) >= 0;
+                    }
+                    catch
+                    {
+                        cleanupSucceeded = false;
+                    }
+                    if (!cleanupSucceeded)
+                    {
+                        QualityMetricsCleanupFailureCount += 1;
+                    }
+                }
+                if (valid)
+                {
+                    QualityMetricsValidCount += 1;
+                }
+                if (trusted && cleanupSucceeded)
+                {
+                    QualityMetricsTrustedCount += 1;
+                }
+                else
+                {
+                    QualityMetricsAmbiguousCount += 1;
+                }
             }
         }
     }
@@ -1238,6 +1422,7 @@ namespace SwordAgentOS.AudioAwareness
         [FieldOffset(0)] internal ushort VariantType;
         [FieldOffset(8)] internal int IntValue;
         [FieldOffset(8)] internal short BoolValue;
+        [FieldOffset(8)] internal PropVariantBlob BlobValue;
 
         internal static PropVariant FromInt(int value)
         {
@@ -1252,6 +1437,37 @@ namespace SwordAgentOS.AudioAwareness
                 BoolValue = value ? (short)-1 : (short)0
             };
         }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct PropVariantBlob
+    {
+        internal uint Size;
+        internal IntPtr Data;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct AecQualityMetrics
+    {
+        internal long Timestamp;
+        internal byte ConvergenceFlag;
+        internal byte MicClippedFlag;
+        internal byte MicSilenceFlag;
+        internal byte PositiveFeedbackFlag;
+        internal byte SpeakerClippedFlag;
+        internal byte SpeakerMuteFlag;
+        internal byte GlitchFlag;
+        internal byte DoubleTalkFlag;
+        internal uint GlitchCount;
+        internal uint MicClipCount;
+        internal float Duration;
+        internal float TimestampVariance;
+        internal float TimestampDriftRate;
+        internal float VoiceLevel;
+        internal float NoiseLevel;
+        internal float EchoReturnLossEnhancement;
+        internal float AverageEchoReturnLossEnhancement;
+        internal uint Reserved;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 2)]
@@ -1273,5 +1489,8 @@ namespace SwordAgentOS.AudioAwareness
         internal static extern bool GetNamedPipeServerProcessId(
             SafePipeHandle pipe,
             out uint serverProcessId);
+
+        [DllImport("ole32.dll")]
+        internal static extern int PropVariantClear(ref PropVariant value);
     }
 }

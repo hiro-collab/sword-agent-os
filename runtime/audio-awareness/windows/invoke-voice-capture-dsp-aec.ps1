@@ -29,6 +29,8 @@ function ConvertTo-FailureClass {
     "live_aec_processed_packet_invalid",
     "live_aec_deadline_exceeded",
     "live_aec_cleanup_failed",
+    "live_aec_quality_metrics_cleanup_failed",
+    "live_aec_quality_metrics_invariant_failed",
     "live_aec_lifecycle_invariant_failed",
     "voice_capture_dsp_activation_failed",
     "voice_capture_dsp_configuration_failed",
@@ -62,6 +64,12 @@ function New-ClassOnlyOutput {
     [int]$SinkWriteCount = 0,
     [int]$SinkReleaseCount = 0,
     [int]$CancelCount = 0,
+    [string]$NearEndDiscriminationClass = "self_output_or_ambiguous",
+    [int]$QualityMetricsAttemptCount = 0,
+    [int]$QualityMetricsValidCount = 0,
+    [int]$QualityMetricsTrustedCount = 0,
+    [int]$QualityMetricsAmbiguousCount = 0,
+    [int]$QualityMetricsCleanupFailureCount = 0,
     [bool]$LiveCaptureUsed = $false,
     [bool]$ExactlyOneAecOwner = $false
   )
@@ -82,6 +90,12 @@ function New-ClassOnlyOutput {
       window_ms = $WindowMsValue
       packet_count = $PacketCount
       processed_byte_count = $ProcessedByteCount
+      near_end_discrimination_class = $NearEndDiscriminationClass
+      quality_metrics_attempt_count = $QualityMetricsAttemptCount
+      quality_metrics_valid_count = $QualityMetricsValidCount
+      quality_metrics_trusted_count = $QualityMetricsTrustedCount
+      quality_metrics_ambiguous_count = $QualityMetricsAmbiguousCount
+      quality_metrics_cleanup_failure_count = $QualityMetricsCleanupFailureCount
       live_capture_used = $LiveCaptureUsed
     }
     lifecycle = [ordered]@{
@@ -248,6 +262,12 @@ try {
       -SinkWriteCount $result.SinkWriteCount `
       -SinkReleaseCount $result.SinkReleaseCount `
       -CancelCount $result.CancelCount `
+      -NearEndDiscriminationClass $result.NearEndDiscriminationClass `
+      -QualityMetricsAttemptCount $result.QualityMetricsAttemptCount `
+      -QualityMetricsValidCount $result.QualityMetricsValidCount `
+      -QualityMetricsTrustedCount $result.QualityMetricsTrustedCount `
+      -QualityMetricsAmbiguousCount $result.QualityMetricsAmbiguousCount `
+      -QualityMetricsCleanupFailureCount $result.QualityMetricsCleanupFailureCount `
       -LiveCaptureUsed $true `
       -ExactlyOneAecOwner $true)
 } catch {

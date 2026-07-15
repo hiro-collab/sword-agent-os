@@ -113,6 +113,8 @@ namespace SwordAgentOS.AudioAwareness.Tests
                 }
                 _lastPacket = packet;
                 _packets.Enqueue(packet);
+                QualityMetricsAttemptCount = 1;
+                QualityMetricsAmbiguousCount = 1;
             }
         }
 
@@ -122,6 +124,11 @@ namespace SwordAgentOS.AudioAwareness.Tests
         public int CaptureStopCount { get; private set; }
         public int ResourceReleaseCount { get; private set; }
         public int DisposeCount { get; private set; }
+        public int QualityMetricsAttemptCount { get; set; }
+        public int QualityMetricsValidCount { get; set; }
+        public int QualityMetricsTrustedCount { get; set; }
+        public int QualityMetricsAmbiguousCount { get; set; }
+        public int QualityMetricsCleanupFailureCount { get; set; }
 
         public System.Threading.Tasks.Task ActivateAsync(
             System.Threading.CancellationToken cancellationToken)
@@ -589,6 +596,7 @@ namespace SwordAgentOS.AudioAwareness.Tests
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.PidFeatureMode,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.PidNoiseSuppression,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.PidAutomaticGainControl,
+                SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.PidQualityMetrics,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.SingleChannelAec,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.SingleChannelNsAgc,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.AecProcessingModeClass,
@@ -598,6 +606,61 @@ namespace SwordAgentOS.AudioAwareness.Tests
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.BitsPerSample,
                 SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.FrameDurationMs
                 ,SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.FrameBytes
+                ,SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.NearEndDistinguishedClass
+                ,SwordAgentOS.AudioAwareness.VoiceCaptureDspAec.SelfOutputOrAmbiguousClass
+            };
+        }
+
+        public static object[] QualityMetricsShape(
+            bool converged,
+            bool doubleTalk,
+            bool micSilent,
+            bool speakerMuted)
+        {
+            var metrics = new SwordAgentOS.AudioAwareness.AecQualityMetrics
+            {
+                ConvergenceFlag = converged ? (byte)1 : (byte)0,
+                DoubleTalkFlag = doubleTalk ? (byte)1 : (byte)0,
+                MicSilenceFlag = micSilent ? (byte)1 : (byte)0,
+                SpeakerMuteFlag = speakerMuted ? (byte)1 : (byte)0
+            };
+            return new object[]
+            {
+                SwordAgentOS.AudioAwareness.VoiceCaptureDspAec
+                    .ClassifyNearEndQualityMetrics(metrics),
+                System.Runtime.InteropServices.Marshal.SizeOf(
+                    typeof(SwordAgentOS.AudioAwareness.AecQualityMetrics)),
+                System.Runtime.InteropServices.Marshal.SizeOf(
+                    typeof(SwordAgentOS.AudioAwareness.PropVariantBlob))
+            };
+        }
+
+        public static object[] QualityMetricsWindow(
+            int packetCount,
+            int attemptCount,
+            int validCount,
+            int trustedCount,
+            int ambiguousCount,
+            int cleanupFailureCount)
+        {
+            return new object[]
+            {
+                SwordAgentOS.AudioAwareness.VoiceCaptureDspAec
+                    .ClassifyNearEndQualityMetricsWindow(
+                        packetCount,
+                        attemptCount,
+                        validCount,
+                        trustedCount,
+                        ambiguousCount,
+                        cleanupFailureCount),
+                SwordAgentOS.AudioAwareness.VoiceCaptureDspAec
+                    .QualityMetricsCountsMatchWindow(
+                        packetCount,
+                        attemptCount,
+                        validCount,
+                        trustedCount,
+                        ambiguousCount,
+                        cleanupFailureCount)
             };
         }
 
@@ -699,6 +762,12 @@ $capability = Invoke-Wrapper -Parameters @{ Compact = $true }
 Assert-Match $capability.Value.result_class '^voice_capture_dsp_' "fixed capability class"
 Assert-Equal $capability.Value.owner_class "windows_voice_capture_dsp" "one owner class"
 Assert-False $capability.Value.observation.live_capture_used "capability is no-live"
+Assert-Equal $capability.Value.observation.near_end_discrimination_class "self_output_or_ambiguous" "capability cannot distinguish near-end speech"
+Assert-Equal $capability.Value.observation.quality_metrics_attempt_count 0 "capability attempts no live metrics"
+Assert-Equal $capability.Value.observation.quality_metrics_valid_count 0 "capability validates no live metrics"
+Assert-Equal $capability.Value.observation.quality_metrics_trusted_count 0 "capability trusts no live metrics"
+Assert-Equal $capability.Value.observation.quality_metrics_ambiguous_count 0 "capability records no live ambiguity"
+Assert-Equal $capability.Value.observation.quality_metrics_cleanup_failure_count 0 "capability has no metric cleanup"
 Assert-Equal $capability.Value.lifecycle.cleanup_class "no_runtime_started" "capability cleanup"
 Assert-False $capability.Value.privacy.raw_audio_persisted "capability persists no audio"
 Assert-False $capability.Value.authority.exactly_one_aec_owner "capability does not claim verified AEC owner"
@@ -775,8 +844,36 @@ Assert-Equal $result.SinkReleaseCount 1 "sink releases once"
 Assert-False $result.RenderReferencePublished "render reference not published"
 Assert-False $result.RawAudioPersisted "raw audio not persisted"
 Assert-False $result.TurnInputAuthority "result has no TurnInput authority"
+Assert-Equal $result.NearEndDiscriminationClass "self_output_or_ambiguous" "missing metrics fail closed"
+Assert-Equal $result.QualityMetricsAttemptCount 1 "missing metrics attempt count"
+Assert-Equal $result.QualityMetricsValidCount 0 "missing metrics valid count"
+Assert-Equal $result.QualityMetricsTrustedCount 0 "missing metrics trusted count"
+Assert-Equal $result.QualityMetricsAmbiguousCount 1 "missing metrics ambiguity count"
+Assert-Equal $result.QualityMetricsCleanupFailureCount 0 "missing metrics cleanup count"
 Assert-True $sink.LastBufferWasCleared() "processed buffer cleared after sink write"
 Assert-Equal $backend.DisposeCount 1 "backend disposed once"
+
+$doubleTalkBackend = [SwordAgentOS.AudioAwareness.Tests.FakeVoiceCaptureDspBackend]::new(320, $false)
+$doubleTalkBackend.QualityMetricsValidCount = 1
+$doubleTalkBackend.QualityMetricsTrustedCount = 1
+$doubleTalkBackend.QualityMetricsAmbiguousCount = 0
+$doubleTalkSink = [SwordAgentOS.AudioAwareness.Tests.FakeTransientPcmSink]::new($false)
+$doubleTalk = [SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::Observe(
+  $doubleTalkBackend,
+  $doubleTalkSink,
+  $identity,
+  $lease,
+  0,
+  100,
+  1000,
+  [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
+Assert-Equal $doubleTalk.NearEndDiscriminationClass "near_end_speech_distinguished_from_active_self_output" "trusted double-talk class propagated"
+Assert-Equal $doubleTalk.QualityMetricsAttemptCount 1 "quality metric attempt count propagated"
+Assert-Equal $doubleTalk.QualityMetricsValidCount 1 "quality metric valid count propagated"
+Assert-Equal $doubleTalk.QualityMetricsTrustedCount 1 "quality metric trusted count propagated"
+Assert-Equal $doubleTalk.QualityMetricsAmbiguousCount 0 "quality metric ambiguity count propagated"
+Assert-Equal $doubleTalk.QualityMetricsCleanupFailureCount 0 "quality metric cleanup count propagated"
+Assert-False $doubleTalk.TurnInputAuthority "double-talk observation has no TurnInput authority"
 
 $invalidPackets = [ordered]@{
   oversize = 322
@@ -1035,15 +1132,96 @@ Assert-Equal $shape[3] 3 "source mode property id"
 Assert-Equal $shape[4] 5 "feature mode property id"
 Assert-Equal $shape[5] 8 "noise suppression property id"
 Assert-Equal $shape[6] 9 "automatic gain control property id"
-Assert-Equal $shape[7] 0 "single-channel AEC system mode"
-Assert-Equal $shape[8] 5 "single-channel NS/AGC system mode"
-Assert-Equal $shape[9] "windows_voice_capture_dsp_aec" "AEC processing class"
-Assert-Equal $shape[10] "windows_voice_capture_dsp_ns_agc" "NS/AGC processing class"
-Assert-Equal $shape[11] 16000 "output sample rate"
-Assert-Equal $shape[12] 1 "output channel count"
-Assert-Equal $shape[13] 16 "output bit depth"
-Assert-Equal $shape[14] 10 "bounded frame duration"
-Assert-Equal $shape[15] 320 "exact ten-millisecond frame bytes"
+Assert-Equal $shape[7] 15 "AEC quality metrics property id"
+Assert-Equal $shape[8] 0 "single-channel AEC system mode"
+Assert-Equal $shape[9] 5 "single-channel NS/AGC system mode"
+Assert-Equal $shape[10] "windows_voice_capture_dsp_aec" "AEC processing class"
+Assert-Equal $shape[11] "windows_voice_capture_dsp_ns_agc" "NS/AGC processing class"
+Assert-Equal $shape[12] 16000 "output sample rate"
+Assert-Equal $shape[13] 1 "output channel count"
+Assert-Equal $shape[14] 16 "output bit depth"
+Assert-Equal $shape[15] 10 "bounded frame duration"
+Assert-Equal $shape[16] 320 "exact ten-millisecond frame bytes"
+Assert-Equal $shape[17] "near_end_speech_distinguished_from_active_self_output" "trusted near-end class"
+Assert-Equal $shape[18] "self_output_or_ambiguous" "fail-closed near-end class"
+
+$trustedMetrics = [SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::QualityMetricsShape(
+  $true,
+  $true,
+  $false,
+  $false)
+Assert-Equal $trustedMetrics[0] "near_end_speech_distinguished_from_active_self_output" "converged double-talk distinguishes near-end speech"
+Assert-Equal $trustedMetrics[1] 56 "Windows SDK AEC quality metrics layout"
+Assert-Equal $trustedMetrics[2] $(if([IntPtr]::Size -eq 8){16}else{8}) "PROPVARIANT blob layout"
+foreach ($unsafeMetrics in @(
+  @($false, $true, $false, $false),
+  @($true, $false, $false, $false),
+  @($true, $true, $true, $false),
+  @($true, $true, $false, $true)
+)) {
+  $classification = [SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::QualityMetricsShape(
+    [bool]$unsafeMetrics[0],
+    [bool]$unsafeMetrics[1],
+    [bool]$unsafeMetrics[2],
+    [bool]$unsafeMetrics[3])
+  Assert-Equal $classification[0] "self_output_or_ambiguous" "incomplete quality evidence fails closed"
+}
+
+$trustedWindow = [SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::QualityMetricsWindow(
+  2, 2, 2, 2, 0, 0)
+Assert-True $trustedWindow[1] "trusted window count invariant"
+Assert-Equal $trustedWindow[0] "near_end_speech_distinguished_from_active_self_output" "all relevant reads distinguish near-end speech"
+
+$windowMutations = @(
+  @{ Name = "trusted then unsafe"; Counts = @(2, 2, 2, 1, 1, 0); Invariant = $true },
+  @{ Name = "trusted then missing"; Counts = @(2, 2, 1, 1, 1, 0); Invariant = $true },
+  @{ Name = "trusted then malformed"; Counts = @(2, 2, 1, 1, 1, 0); Invariant = $true },
+  @{ Name = "packet read mismatch"; Counts = @(2, 1, 1, 1, 0, 0); Invariant = $false },
+  @{ Name = "clear failure"; Counts = @(2, 2, 2, 1, 1, 1); Invariant = $true }
+)
+foreach ($mutation in $windowMutations) {
+  $counts = $mutation.Counts
+  $window = [SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::QualityMetricsWindow(
+    $counts[0], $counts[1], $counts[2], $counts[3], $counts[4], $counts[5])
+  Assert-Equal $window[1] $mutation.Invariant "$($mutation.Name) count invariant"
+  Assert-Equal $window[0] "self_output_or_ambiguous" "$($mutation.Name) fails closed"
+}
+
+$cleanupFailureBackend = [SwordAgentOS.AudioAwareness.Tests.FakeVoiceCaptureDspBackend]::new(320, $false)
+$cleanupFailureBackend.QualityMetricsValidCount = 1
+$cleanupFailureBackend.QualityMetricsTrustedCount = 1
+$cleanupFailureBackend.QualityMetricsAmbiguousCount = 0
+$cleanupFailureBackend.QualityMetricsCleanupFailureCount = 1
+$cleanupFailureSink = [SwordAgentOS.AudioAwareness.Tests.FakeTransientPcmSink]::new($false)
+$cleanupFailureClass = Get-FixedFailureClass {
+  [SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::Observe(
+    $cleanupFailureBackend,
+    $cleanupFailureSink,
+    $identity,
+    $lease,
+    0,
+    100,
+    1000,
+    [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
+}
+Assert-Equal $cleanupFailureClass "live_aec_quality_metrics_cleanup_failed" "metric clear failure is fixed and non-success"
+
+$metricMismatchBackend = [SwordAgentOS.AudioAwareness.Tests.FakeVoiceCaptureDspBackend]::new(320, $false)
+$metricMismatchBackend.QualityMetricsAttemptCount = 0
+$metricMismatchBackend.QualityMetricsAmbiguousCount = 0
+$metricMismatchSink = [SwordAgentOS.AudioAwareness.Tests.FakeTransientPcmSink]::new($false)
+$metricMismatchClass = Get-FixedFailureClass {
+  [SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::Observe(
+    $metricMismatchBackend,
+    $metricMismatchSink,
+    $identity,
+    $lease,
+    0,
+    100,
+    1000,
+    [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
+}
+Assert-Equal $metricMismatchClass "live_aec_quality_metrics_invariant_failed" "packet metric mismatch is fixed and non-success"
 
 Assert-Equal `
   ([SwordAgentOS.AudioAwareness.Tests.VoiceCaptureDspHarness]::LeaseProcessingMode(
@@ -1077,6 +1255,15 @@ Assert-Match $sourceText '_processingModeClass == VoiceCaptureDspAec\.NsAgcProce
 Assert-Match $sourceText 'SetIntProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidNoiseSuppression,\s*1\)' "noise suppression uses the required VT_I4 value"
 Assert-NotMatch $sourceText 'SetBoolProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidNoiseSuppression' "noise suppression is never encoded as VT_BOOL"
 Assert-Match $sourceText 'SetBoolProperty\(\s*properties,\s*VoiceCaptureDspAec\.PidAutomaticGainControl,\s*true\)' "automatic gain control retains the required VT_BOOL value"
+Assert-Match $sourceText 'metrics\.DoubleTalkFlag != 0' "official AEC double-talk signal is required"
+Assert-Match $sourceText 'metrics\.ConvergenceFlag != 0' "AEC convergence is required before distinction"
+Assert-Match $sourceText 'metrics\.MicSilenceFlag == 0' "silent microphone cannot become near-end speech"
+Assert-Match $sourceText 'metrics\.SpeakerMuteFlag == 0' "inactive render cannot become overlap proof"
+Assert-Match $sourceText 'PropVariantClear\(ref value\)' "quality metrics PROPVARIANT is released"
+Assert-Match $sourceText 'PropVariantClear\(ref value\) >= 0' "quality metrics release HRESULT is checked"
+Assert-Match $sourceText 'QualityMetricsCountsMatchWindow\(' "packet and metric counts share one window invariant"
+Assert-Match $sourceText 'live_aec_quality_metrics_cleanup_failed' "metric cleanup failure is fixed and non-success"
+Assert-Match $sourceText 'live_aec_quality_metrics_invariant_failed' "metric count mismatch is fixed and non-success"
 Assert-NotMatch $sourceText 'properties\.Commit\(' "transient Voice Capture DSP properties are applied without an unsupported commit"
 Assert-Match $sourceText 'ProcessOutput\(uint flags,\s*uint outputCount,\s*\[In, Out, MarshalAs\(UnmanagedType\.LPArray, SizeParamIndex = 1\)\]\s*DmoOutputDataBuffer\[\] output' "ProcessOutput marshals its bounded output array as an LPArray"
 Assert-NotMatch $sourceText 'WriteAllBytes|FileStream|\.wav|transcript' "source persists no audio or transcript"
