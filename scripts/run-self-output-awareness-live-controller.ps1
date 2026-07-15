@@ -121,6 +121,8 @@ $AllowedEndpointResultClasses = @(
   "live_aec_processed_packet_invalid",
   "live_aec_deadline_exceeded",
   "live_aec_cleanup_failed",
+  "live_aec_quality_metrics_cleanup_failed",
+  "live_aec_quality_metrics_invariant_failed",
   "live_aec_lifecycle_invariant_failed",
   "voice_capture_dsp_activation_failed",
   "voice_capture_dsp_configuration_failed",

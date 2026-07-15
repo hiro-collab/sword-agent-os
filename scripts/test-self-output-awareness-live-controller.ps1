@@ -1122,17 +1122,23 @@ try {
   Assert-True ($countRun.Code -ne 0) "count mismatch must fail closed"
   Assert-True ($countMismatch.blocker_class -ceq "live_controller_endpoint_response_invalid") "count mismatch blocker mismatch"
 
-  $fixedFailureResponse = New-EndpointResponse `
-    -ResultClass "voice_capture_dsp_start_failed" `
-    -ExpectationClass "not_evaluated" `
-    -SignalClass "not_evaluated" `
-    -VadDecisionClass "not_evaluated"
-  $fixedFailureServer = Start-TestServer -Response $fixedFailureResponse -StatusCode 503
-  $fixedFailureRun = Invoke-Controller -BaseUrl $fixedFailureServer.BaseUrl
-  [void](Complete-TestServer -Server $fixedFailureServer)
-  $fixedFailure = Assert-CommonResult -Run $fixedFailureRun
-  Assert-True ($fixedFailureRun.Code -ne 0) "fixed child failure must block"
-  Assert-True ($fixedFailure.blocker_class -ceq "voice_capture_dsp_start_failed") "fixed child failure class must survive"
+  foreach ($fixedFailureClass in @(
+      "voice_capture_dsp_start_failed",
+      "live_aec_quality_metrics_cleanup_failed",
+      "live_aec_quality_metrics_invariant_failed"
+    )) {
+    $fixedFailureResponse = New-EndpointResponse `
+      -ResultClass $fixedFailureClass `
+      -ExpectationClass "not_evaluated" `
+      -SignalClass "not_evaluated" `
+      -VadDecisionClass "not_evaluated"
+    $fixedFailureServer = Start-TestServer -Response $fixedFailureResponse -StatusCode 503
+    $fixedFailureRun = Invoke-Controller -BaseUrl $fixedFailureServer.BaseUrl
+    [void](Complete-TestServer -Server $fixedFailureServer)
+    $fixedFailure = Assert-CommonResult -Run $fixedFailureRun
+    Assert-True ($fixedFailureRun.Code -ne 0) "fixed child failure must block"
+    Assert-True ($fixedFailure.blocker_class -ceq $fixedFailureClass) "fixed child failure class must survive"
+  }
 
   $redirectServer = Start-TestServer `
     -Response $negativeResponse `
