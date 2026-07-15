@@ -97,9 +97,12 @@ submission.
 
 Use the Launcher's connected-camera list as the normal camera-input selector.
 `Refresh` enumerates local video inputs without starting Camera Hub or opening a
-capture device. The selected display name is stored only in the existing
-gitignored Launcher state and is passed to Camera Hub on an explicit stack
-start.
+capture device. The UI shows friendly labels, while Launcher resolves and stores
+an opaque local selection key in the existing gitignored state. Same-name
+cameras remain separate candidates. Raw local device identity stays on the
+Launcher server boundary and is not published in the API, command preview, or
+routine logs. The resolved selection is passed to Camera Hub only on an
+explicit stack start.
 
 If the selected camera is absent, Launcher keeps that selection and marks it
 missing; it must not silently substitute another camera. Refresh after reconnect
