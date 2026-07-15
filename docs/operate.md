@@ -111,6 +111,22 @@ is only a compatibility path for virtual or late-attached inputs that the local
 enumerator cannot report; its removal gate is complete enumeration coverage for
 those named consumers.
 
+## Microphone input selection
+
+Ordinary conversation uses the browser-managed speech path. Chrome's
+`SpeechRecognition` and microphone permission preflight use the current
+Chrome/Windows default input; the central `.env` does not select a microphone
+device for this path. After replacing a microphone, confirm the Windows default
+input and Chrome's site microphone permission. Do not add a DirectShow name to
+the central env as a substitute for that browser setting.
+
+The ai-talk-core `--mic` and `--mic-loop` commands are a separate
+compatibility/maintainer route. On Windows their `ffmpeg-dshow` backend excludes
+the prepared-sample virtual cable from automatic physical-device selection. One
+physical candidate is selected automatically; zero or multiple candidates fail
+closed and require an explicit `--mic-device`. This CLI selection does not
+change the browser's ordinary conversation input.
+
 ## ユーザーに見せるデモ前の確認
 
 ```powershell

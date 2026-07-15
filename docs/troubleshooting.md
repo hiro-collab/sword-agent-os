@@ -21,7 +21,7 @@ needs a precise failure classification.
 | カメラが動かない | 他アプリがカメラを掴んでいないか、カメラ名が合っているか確認します。 |
 | `model_not_found` / Camera Hub topics timeout | `gesture_model.pkl` がある場合は `organs/reflex/mediapipe-sword-sign/gesture_model.pkl` に置いたか確認します。ない場合は、Camera Hub / gesture proof は未準備として分け、カメラ不要の no-live / source-static 確認だけを先に進めます。これはローカル専用資材なので Git には入れません。 |
 | アバター / VRM が表示されない | `NEXT_PUBLIC_SELECTED_VRM_PATH` は AITuberKit の `public/vrm` 配下を指す `/vrm/<file>.vrm` です。`scripts/doctor-distribution.ps1 -Profile standard` で、選択中のVRMが現在の checkout に存在するか確認します。 |
-| マイクが反応しない | Chrome のマイク権限、入力欄の focus を確認します。 |
+| マイクを交換した / マイクが反応しない | 通常会話は中央 `.env` の機器名ではなく Chrome / Windows の既定入力を使います。Windows の既定入力、Chrome のサイト別マイク権限、入力欄の focus を確認します。ai-talk-core の `--mic` / `--mic-loop` は別の保守用 DirectShow 経路で、物理候補が複数の時だけ `--mic-device` を明示します。テスト用仮想ケーブルは通常の自動選択対象ではありません。 |
 | 家電操作が失敗する | Home Assistant URL / token、action catalog mapping を確認します。 |
 | API key や token を入れたのに家電が動かない | `THOUGHT_CORE_TOOLS_ADAPTER` が `mock` なら no-live simulation です。実家電へ送る場合だけ `home_control` に変更します。 |
 | Home Control bridge が `config_error` になる / `/actions` が 503 になる | bridge process に generated organ `.env` が読み込まれていない、token が placeholder/too-short、または `HOME_CONTROL_CONFIG` が意図した config を指していない可能性があります。`scripts/start-home-control-bridge.ps1 -CheckOnly` で secret 値を出さずに health、action count、`config_error_kind`、`cause_code` を確認します。bridge helper は organ-local `.uv-cache` を一時利用するので、通常は persistent `UV_CACHE_DIR` を変更しません。詳細分類は `docs/live-home-control-cause-trail.md` を見ます。 |
