@@ -7,6 +7,7 @@ param(
   [string]$CdpEndpoint = "",
   [int]$ControlledChromeRootPid = 0,
   [int]$AudioObserverWindowMs = 3000,
+  [switch]$EmitUserSpeechReadySignal,
   [switch]$Json
 )
 
@@ -673,6 +674,14 @@ function Set-Failure {
   $script:exitCode = 1
 }
 
+function New-UserSpeechReadySignal {
+  return [ordered]@{
+    schema_version = "self_output_awareness.live_controller_ready.v0"
+    result_class = "ready_for_user_speech"
+    raw_private_publication_flags = $false
+  }
+}
+
 function Get-RemainingRouteBudgetMs {
   $remainingMs = [long]$DeadlineMs - [long]$controllerStopwatch.ElapsedMilliseconds
   if ($remainingMs -le 0) {
@@ -697,7 +706,8 @@ try {
       $Scenario -cne "independent_current_session_user_speech" -or
       [string]::IsNullOrWhiteSpace($CdpEndpoint) -or
       $DeadlineMs -lt ($AudioObserverWindowMs + 1000)
-    ))
+    )) -or
+    ($EmitUserSpeechReadySignal -and $ControlledChromeRootPid -le 0)
   ) {
     Throw-Fixed -Class "live_controller_configuration_invalid"
   }
@@ -740,6 +750,13 @@ try {
       -ChromeRootPid $ControlledChromeRootPid `
       -ObserverWindowMs $AudioObserverWindowMs `
       -TimeoutMs $productionArmBudgetMs
+    if ($EmitUserSpeechReadySignal) {
+      $readySignal = New-UserSpeechReadySignal
+      [Console]::Error.WriteLine(($readySignal | ConvertTo-Json -Compress))
+      [Console]::Error.Flush()
+      $readySignal.Clear()
+      $readySignal = $null
+    }
   }
 
   $httpBudgetMs = Get-RemainingRouteBudgetMs

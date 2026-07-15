@@ -611,6 +611,19 @@ Initialize-TestObserverProcessFake
 Initialize-TestProductionTransportProcessFake
 . $ControllerPath
 $controllerSource = Get-Content -LiteralPath $ControllerPath -Raw
+$readySignal = New-UserSpeechReadySignal
+Assert-True ((@($readySignal.Keys | Sort-Object) -join ",") -ceq
+  "raw_private_publication_flags,result_class,schema_version") "ready signal keys must be exact"
+Assert-True ($readySignal.schema_version -ceq
+  "self_output_awareness.live_controller_ready.v0") "ready signal schema mismatch"
+Assert-True ($readySignal.result_class -ceq "ready_for_user_speech") "ready signal class mismatch"
+Assert-True ($readySignal.raw_private_publication_flags -is [bool] -and
+  -not [bool]$readySignal.raw_private_publication_flags) "ready signal privacy mismatch"
+$transportStartIndex = $controllerSource.IndexOf('Start-ProductionTransportChild')
+$readyWriteIndex = $controllerSource.IndexOf('[Console]::Error.WriteLine', $transportStartIndex)
+$candidateBudgetIndex = $controllerSource.IndexOf('$httpBudgetMs = Get-RemainingRouteBudgetMs', $readyWriteIndex)
+Assert-True ($transportStartIndex -ge 0 -and $readyWriteIndex -gt $transportStartIndex -and
+  $candidateBudgetIndex -gt $readyWriteIndex) "ready signal must follow the observed self-output join and precede the candidate request"
 Assert-True (Test-AcceptedJoinClass `
   -AcceptedJoinClass "active_self_output_overlap" `
   -ResultClass "independent_user_speech_turninput_accepted" `

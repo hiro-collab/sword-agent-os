@@ -21,6 +21,8 @@ const POLL_INTERVAL_MS = 50;
 const MIN_TIMEOUT_MS = 100;
 const MAX_TIMEOUT_MS = 30_000;
 const MESSAGE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/u;
+const FIXED_VOICE_TEST_PROMPT =
+  "音声重なりテスト用です。家電は操作せず、十五秒ほど、落ち着いた案内文だけを読み上げてください。";
 
 class ObserverError extends Error {
   constructor(resultClass) {
@@ -173,6 +175,46 @@ function cleanupExpression(stateKey) {
     state.maximumVisibleCounts.clear();
     delete globalThis[${encodedKey}];
     return { cleaned: true };
+  })()`;
+}
+
+function fixedVoiceTestInputExpression() {
+  const prompt = JSON.stringify(FIXED_VOICE_TEST_PROMPT);
+  return `(() => {
+    const textarea = document.querySelector('textarea');
+    if (!(textarea instanceof HTMLTextAreaElement) || textarea.disabled) {
+      return { inputReady: false };
+    }
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      'value'
+    )?.set;
+    if (typeof setter !== 'function') return { inputReady: false };
+    setter.call(textarea, ${prompt});
+    textarea.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      inputType: 'insertText',
+      data: null,
+    }));
+    return { inputReady: textarea.value.length > 0 };
+  })()`;
+}
+
+function fixedVoiceTestDispatchExpression() {
+  return `(() => {
+    const textarea = document.querySelector('textarea');
+    if (!(textarea instanceof HTMLTextAreaElement) || textarea.disabled) {
+      return { dispatched: false };
+    }
+    const event = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      bubbles: true,
+      cancelable: true,
+      shiftKey: false,
+    });
+    textarea.dispatchEvent(event);
+    return { dispatched: event.defaultPrevented === true };
   })()`;
 }
 
@@ -334,6 +376,22 @@ export async function connectCdp(
   }
 
   return {
+    async prepareFixedVoiceTestInput() {
+      const result = await send("Runtime.evaluate", {
+        expression: fixedVoiceTestInputExpression(),
+        returnByValue: true,
+        awaitPromise: false,
+      });
+      return result?.result?.value;
+    },
+    async dispatchFixedVoiceTestInput() {
+      const result = await send("Runtime.evaluate", {
+        expression: fixedVoiceTestDispatchExpression(),
+        returnByValue: true,
+        awaitPromise: false,
+      });
+      return result?.result?.value;
+    },
     async arm() {
       const result = await send("Runtime.evaluate", {
         expression: armExpression(stateKey),

@@ -312,6 +312,8 @@ test("CDP client injects only the bounded observer and never closes the browser 
       if (request.method === "Runtime.evaluate") {
         if (request.params.expression.includes("return { armed: true }")) value = { armed: true };
         else if (request.params.expression.includes("state.observer.disconnect")) value = { cleaned: true };
+        else if (request.params.expression.includes("家電は操作せず")) value = { inputReady: true };
+        else if (request.params.expression.includes("KeyboardEvent")) value = { dispatched: true };
         else {
           value = {
             initialMatchCount: 0,
@@ -336,13 +338,20 @@ test("CDP client injects only the bounded observer and never closes the browser 
     { WebSocketImpl: FakeWebSocket, timeoutMs: 100 },
   );
   await session.arm();
+  assert.equal(session.evaluate, undefined);
+  const prepared = await session.prepareFixedVoiceTestInput();
+  const dispatched = await session.dispatchFixedVoiceTestInput();
   const inspection = await session.inspect("safe-message-id");
   await session.close();
 
+  assert.deepEqual(prepared, { inputReady: true });
+  assert.deepEqual(dispatched, { dispatched: true });
   assert.equal(inspection.maximumVisibleMatchCount, 1);
   const methods = FakeWebSocket.instance.sent.map((request) => request.method);
   assert.deepEqual(methods, [
     "Runtime.enable",
+    "Runtime.evaluate",
+    "Runtime.evaluate",
     "Runtime.evaluate",
     "Runtime.evaluate",
     "Runtime.evaluate",
