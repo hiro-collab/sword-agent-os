@@ -17,6 +17,7 @@ $ExpectedResponseKeys = @(
   "schema_version",
   "result_class",
   "expectation_class",
+  "accepted_join_class",
   "capture_packet_count",
   "capture_byte_count",
   "signal_class",
@@ -78,6 +79,11 @@ $AllowedInflightSinkCancellationClasses = @(
 $AllowedScenarios = @(
   "self_output_or_ambiguous",
   "independent_current_session_user_speech"
+)
+$AllowedAcceptedJoinClasses = @(
+  "not_accepted",
+  "active_self_output_overlap",
+  "released_normal_input"
 )
 $SuccessfulResultClasses = @(
   "self_output_or_ambiguous_confirmed",
@@ -165,6 +171,7 @@ $controllerStatus = "error"
 $safeScenario = "invalid"
 $resultClass = "not_observed"
 $expectationClass = "not_evaluated"
+$acceptedJoinClass = "not_accepted"
 $capturePacketCount = 0
 $captureByteCount = 0
 $signalClass = "not_evaluated"
@@ -215,6 +222,31 @@ function Assert-ExactKeys {
   if (($actual -join "`n") -cne ($expected -join "`n")) {
     Throw-Fixed -Class "live_controller_endpoint_response_invalid"
   }
+}
+
+function Test-AcceptedJoinClass {
+  param(
+    [Parameter(Mandatory = $true)][string]$AcceptedJoinClass,
+    [Parameter(Mandatory = $true)][string]$ResultClass,
+    [Parameter(Mandatory = $true)][int]$ControlledChromeRootPid
+  )
+
+  if ($AllowedAcceptedJoinClasses -cnotcontains $AcceptedJoinClass) {
+    return $false
+  }
+  if ($ResultClass -ceq "self_output_or_ambiguous_confirmed") {
+    return $AcceptedJoinClass -ceq "not_accepted"
+  }
+  if ($ResultClass -ceq "independent_user_speech_turninput_accepted") {
+    if ($AcceptedJoinClass -ceq "not_accepted") {
+      return $false
+    }
+    return (
+      $ControlledChromeRootPid -eq 0 -or
+      $AcceptedJoinClass -ceq "active_self_output_overlap"
+    )
+  }
+  return $true
 }
 
 function Assert-BoundedInteger {
@@ -791,6 +823,11 @@ try {
     $AllowedEndpointResultClasses -cnotcontains [string]$endpointResult.result_class -or
     $endpointResult.expectation_class -isnot [string] -or
     @("matched", "mismatch", "not_evaluated") -cnotcontains [string]$endpointResult.expectation_class -or
+    $endpointResult.accepted_join_class -isnot [string] -or
+    -not (Test-AcceptedJoinClass `
+      -AcceptedJoinClass ([string]$endpointResult.accepted_join_class) `
+      -ResultClass ([string]$endpointResult.result_class) `
+      -ControlledChromeRootPid $ControlledChromeRootPid) -or
     $endpointResult.signal_class -isnot [string] -or
     $AllowedSignalClasses -cnotcontains [string]$endpointResult.signal_class -or
     $endpointResult.vad_decision_class -isnot [string] -or
@@ -908,6 +945,7 @@ try {
 
   $resultClass = [string]$endpointResult.result_class
   $expectationClass = [string]$endpointResult.expectation_class
+  $acceptedJoinClass = [string]$endpointResult.accepted_join_class
   $capturePacketCount = [int]$endpointResult.capture_packet_count
   $captureByteCount = [int]$endpointResult.capture_byte_count
   $signalClass = [string]$endpointResult.signal_class
@@ -1183,6 +1221,7 @@ $result = [ordered]@{
   scenario = $safeScenario
   result_class = $resultClass
   expectation_class = $expectationClass
+  accepted_join_class = $acceptedJoinClass
   capture_packet_count = $capturePacketCount
   capture_byte_count = $captureByteCount
   signal_class = $signalClass

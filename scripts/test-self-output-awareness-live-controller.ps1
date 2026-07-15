@@ -37,6 +37,7 @@ function New-EndpointResponse {
   param(
     [string]$ResultClass,
     [string]$ExpectationClass,
+    [string]$AcceptedJoinClass = "",
     [int]$CapturePacketCount = 0,
     [int]$CaptureByteCount = 0,
     [string]$SignalClass = "signal_above_floor",
@@ -99,11 +100,21 @@ function New-EndpointResponse {
       "not_applicable"
     }
   }
+  if ([string]::IsNullOrWhiteSpace($AcceptedJoinClass)) {
+    $AcceptedJoinClass = if (
+      $ResultClass -ceq "independent_user_speech_turninput_accepted"
+    ) {
+      "active_self_output_overlap"
+    } else {
+      "not_accepted"
+    }
+  }
 
   return [ordered]@{
     schema_version = "ai_talk_core.live_input_gate_candidate_window.v0"
     result_class = $ResultClass
     expectation_class = $ExpectationClass
+    accepted_join_class = $AcceptedJoinClass
     capture_packet_count = $CapturePacketCount
     capture_byte_count = $CaptureByteCount
     signal_class = $SignalClass
@@ -600,6 +611,26 @@ Initialize-TestObserverProcessFake
 Initialize-TestProductionTransportProcessFake
 . $ControllerPath
 $controllerSource = Get-Content -LiteralPath $ControllerPath -Raw
+Assert-True (Test-AcceptedJoinClass `
+  -AcceptedJoinClass "active_self_output_overlap" `
+  -ResultClass "independent_user_speech_turninput_accepted" `
+  -ControlledChromeRootPid 1) "controlled concurrent run must accept active overlap"
+Assert-True (-not (Test-AcceptedJoinClass `
+  -AcceptedJoinClass "released_normal_input" `
+  -ResultClass "independent_user_speech_turninput_accepted" `
+  -ControlledChromeRootPid 1)) "controlled concurrent run must reject released normal input"
+Assert-True (Test-AcceptedJoinClass `
+  -AcceptedJoinClass "released_normal_input" `
+  -ResultClass "independent_user_speech_turninput_accepted" `
+  -ControlledChromeRootPid 0) "standalone positive run may accept released normal input"
+Assert-True (Test-AcceptedJoinClass `
+  -AcceptedJoinClass "not_accepted" `
+  -ResultClass "self_output_or_ambiguous_confirmed" `
+  -ControlledChromeRootPid 0) "negative run must retain not-accepted join"
+Assert-True (-not (Test-AcceptedJoinClass `
+  -AcceptedJoinClass "active_self_output_overlap" `
+  -ResultClass "self_output_or_ambiguous_confirmed" `
+  -ControlledChromeRootPid 0)) "negative run must reject an accepted overlap claim"
 Assert-True ($controllerSource -match 'Start-ProductionTransportChild[\s\S]+\$endpointRequestStartedAtWallMs\s*=') "production transport must arm before the D1 request starts"
 Assert-True ($controllerSource -match 'Complete-ProductionTransportChild[\s\S]+first_non_silent_observed_at_utc_ms[\s\S]+utteranceEndToFirstAudioMs') "production result must feed the bounded first-audio delta"
 Assert-True ($controllerSource -match 'candidate_authority[\s\S]+acceptance_authority[\s\S]+turn_input_authority') "production result validation must retain false authority fields"
@@ -726,6 +757,7 @@ try {
   Assert-True ($negative.controller_status -ceq "completed") "negative scenario status mismatch"
   Assert-True ($negative.scenario -ceq "self_output_or_ambiguous") "negative result scenario mismatch"
   Assert-True ($negative.result_class -ceq "self_output_or_ambiguous_confirmed") "negative result mismatch"
+  Assert-True ($negative.accepted_join_class -ceq "not_accepted") "negative accepted-join class mismatch"
   Assert-True ($negative.signal_class -ceq "signal_above_floor") "negative signal class mismatch"
   Assert-True ($negative.vad_decision_class -ceq "speech_not_detected") "negative VAD class mismatch"
   Assert-True ($negative.transcription_count -eq 0) "negative scenario must not transcribe"
@@ -768,6 +800,7 @@ try {
   Assert-True ($positiveRun.Code -eq 0) "positive scenario should complete"
   Assert-True ($positive.controller_status -ceq "completed") "positive status mismatch"
   Assert-True ($positive.scenario -ceq "independent_current_session_user_speech") "positive result scenario mismatch"
+  Assert-True ($positive.accepted_join_class -ceq "active_self_output_overlap") "positive accepted-join class mismatch"
   Assert-True ($positive.signal_class -ceq "signal_above_floor") "positive signal class mismatch"
   Assert-True ($positive.vad_decision_class -ceq "speech_detected") "positive VAD class mismatch"
   Assert-True ($positive.transcription_count -eq 1) "positive scenario should transcribe once"
