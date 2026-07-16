@@ -71,6 +71,18 @@ foreach ($simulationIndex in 1..3) {
 $threeRunStopwatch.Stop()
 Assert-True ($threeRunStopwatch.ElapsedMilliseconds -lt 1000) "three machine-only sequencing simulations must finish immediately"
 
+$negativeOrder = [Collections.Generic.List[string]]::new()
+Invoke-UnattendedSelfOutputSequence `
+  -StartControllerAndWaitForSystemOutputTriggerReady { $negativeOrder.Add("listener") } `
+  -TriggerSystemOutput {
+    $negativeOrder.Add("system_output_dispatched_once")
+    return "system_output_dispatched_once"
+  } `
+  -WaitForSuppressionWindowReady { $negativeOrder.Add("suppression_window_ready") }
+Assert-Equal ($negativeOrder -join ",") `
+  "listener,system_output_dispatched_once,suppression_window_ready" `
+  "unattended negative sequence must start without user wait or cue"
+
 $earlyTriggerOrder = [Collections.Generic.List[string]]::new()
 Assert-FixedFailure {
   Invoke-UserSessionSequence `
@@ -322,18 +334,47 @@ $validControllerResult.raw_text_shared = $false
 $validControllerResult.private_identifier_shared = $false
 $validControllerResult.private_environment_shared = $false
 $validControllerResult.raw_private_publication_flags = $false
-$validatedControllerResult = Assert-ControllerSuccessResult -Value ([pscustomobject]$validControllerResult)
+$validatedControllerResult = Assert-ControllerSuccessResult `
+  -Value ([pscustomobject]$validControllerResult) -ExpectedMode "genuine_user_speech"
 Assert-Equal $validatedControllerResult.result_class "independent_user_speech_turninput_accepted" "canonical child result must validate"
+
+$negativeControllerResult = ([pscustomobject]$validControllerResult | ConvertTo-Json -Depth 8) | ConvertFrom-Json
+$negativeControllerResult.scenario = "self_output_or_ambiguous"
+$negativeControllerResult.result_class = "self_output_or_ambiguous_confirmed"
+$negativeControllerResult.accepted_join_class = "not_accepted"
+$negativeControllerResult.transcription_count = 0
+$negativeControllerResult.submission_count = 0
+$negativeControllerResult.thought_core_turninput_count = 0
+$negativeControllerResult.first_non_silent_audio_observation_class = "process_tree_render_observed"
+$negativeControllerResult.utterance_end_to_first_visible_ms = $null
+$negativeControllerResult.utterance_end_to_first_audio_ms = $null
+$validatedNegativeResult = Assert-ControllerSuccessResult `
+  -Value $negativeControllerResult -ExpectedMode "unattended_self_output_suppression"
+Assert-Equal $validatedNegativeResult.result_class "self_output_or_ambiguous_confirmed" `
+  "unattended negative child result must validate"
+$negativeControllerResult.thought_core_turninput_count = 1
+Assert-FixedFailure {
+  [void](Assert-ControllerSuccessResult -Value $negativeControllerResult `
+      -ExpectedMode "unattended_self_output_suppression")
+} "live_controller_result_invalid" "negative mode must reject any TurnInput"
+$negativeControllerResult.thought_core_turninput_count = 0
+$negativeControllerResult.utterance_end_to_first_audio_ms = 1
+Assert-FixedFailure {
+  [void](Assert-ControllerSuccessResult -Value $negativeControllerResult `
+      -ExpectedMode "unattended_self_output_suppression")
+} "live_controller_result_invalid" "negative mode must reject fabricated utterance latency"
 
 $extraFieldResult = ([pscustomobject]$validControllerResult | ConvertTo-Json -Depth 8) | ConvertFrom-Json
 $extraFieldResult | Add-Member -NotePropertyName raw_transcript -NotePropertyValue "must-not-pass"
 Assert-FixedFailure {
-  [void](Assert-ControllerSuccessResult -Value $extraFieldResult)
+  [void](Assert-ControllerSuccessResult -Value $extraFieldResult `
+      -ExpectedMode "genuine_user_speech")
 } "live_controller_result_invalid" "extra raw child field must fail closed"
 $privateFlagResult = ([pscustomobject]$validControllerResult | ConvertTo-Json -Depth 8) | ConvertFrom-Json
 $privateFlagResult.private_identifier_shared = $true
 Assert-FixedFailure {
-  [void](Assert-ControllerSuccessResult -Value $privateFlagResult)
+  [void](Assert-ControllerSuccessResult -Value $privateFlagResult `
+      -ExpectedMode "genuine_user_speech")
 } "live_controller_result_invalid" "private child publication flag must fail closed"
 
 $launcherMutationCount = 0

@@ -1,6 +1,8 @@
 param(
   [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
-  [Parameter(Mandatory = $true)][string]$UserStartEventName,
+  [ValidateSet("genuine_user_speech", "unattended_self_output_suppression")]
+  [string]$TestMode = "genuine_user_speech",
+  [string]$UserStartEventName = "",
   [ValidateRange(30, 1800)][int]$UserStartHoldSeconds = 900,
   [ValidateRange(30, 300)][int]$InfrastructureDeadlineSeconds = 180,
   [ValidateRange(30, 120)][int]$CleanupStopTimeoutSeconds = 70,
@@ -714,6 +716,7 @@ function Get-EarlyControllerBlockerClass {
   $scenarioClass = [string]$value.scenario
   $scenarioValid = (
     $scenarioClass -ceq "independent_current_session_user_speech" -or
+    $scenarioClass -ceq "self_output_or_ambiguous" -or
     ($blockerClass -ceq "live_controller_configuration_invalid" -and
       $scenarioClass -ceq "invalid"))
   if (
@@ -806,19 +809,22 @@ function Test-IntegerValue {
 }
 
 function Assert-ControllerSuccessResult {
-  param([Parameter(Mandatory = $true)]$Value)
+  param(
+    [Parameter(Mandatory = $true)]$Value,
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("genuine_user_speech", "unattended_self_output_suppression")]
+    [string]$ExpectedMode
+  )
   $expectedKeys = Get-ExpectedControllerResultKeys
-  if (
+  $commonInvalid = (
     $null -eq $Value -or
     (@($Value.PSObject.Properties.Name | Sort-Object) -join ",") -cne
       (@($expectedKeys | Sort-Object) -join ",") -or
     [string]$Value.schema_version -cne "self_output_awareness.live_controller.v0" -or
     [string]$Value.controller_status -cne "completed" -or
-    [string]$Value.scenario -cne "independent_current_session_user_speech" -or
-    [string]$Value.result_class -cne "independent_user_speech_turninput_accepted" -or
-    -not (Test-IntegerValue $Value.transcription_count) -or [long]$Value.transcription_count -ne 1 -or
-    -not (Test-IntegerValue $Value.submission_count) -or [long]$Value.submission_count -ne 1 -or
-    -not (Test-IntegerValue $Value.thought_core_turninput_count) -or [long]$Value.thought_core_turninput_count -ne 1 -or
+    -not (Test-IntegerValue $Value.transcription_count) -or
+    -not (Test-IntegerValue $Value.submission_count) -or
+    -not (Test-IntegerValue $Value.thought_core_turninput_count) -or
     -not (Test-IntegerValue $Value.route_owned_process_residue_count) -or [long]$Value.route_owned_process_residue_count -ne 0 -or
     -not (Test-IntegerValue $Value.route_owned_temp_residue_count) -or [long]$Value.route_owned_temp_residue_count -ne 0 -or
     -not (Test-IntegerValue $Value.route_owned_request_residue_count) -or [long]$Value.route_owned_request_residue_count -ne 0 -or
@@ -829,7 +835,28 @@ function Assert-ControllerSuccessResult {
     $Value.private_identifier_shared -isnot [bool] -or [bool]$Value.private_identifier_shared -or
     $Value.private_environment_shared -isnot [bool] -or [bool]$Value.private_environment_shared -or
     $Value.raw_private_publication_flags -isnot [bool] -or [bool]$Value.raw_private_publication_flags
-  ) { Throw-Fixed -Class "live_controller_result_invalid" }
+  )
+  if ($commonInvalid) { Throw-Fixed -Class "live_controller_result_invalid" }
+
+  $modeValid = if ($ExpectedMode -ceq "genuine_user_speech") {
+    [string]$Value.scenario -ceq "independent_current_session_user_speech" -and
+    [string]$Value.result_class -ceq "independent_user_speech_turninput_accepted" -and
+    [long]$Value.transcription_count -eq 1 -and
+    [long]$Value.submission_count -eq 1 -and
+    [long]$Value.thought_core_turninput_count -eq 1
+  } else {
+    [string]$Value.scenario -ceq "self_output_or_ambiguous" -and
+    [string]$Value.result_class -ceq "self_output_or_ambiguous_confirmed" -and
+    [string]$Value.accepted_join_class -ceq "not_accepted" -and
+    [long]$Value.transcription_count -eq 0 -and
+    [long]$Value.submission_count -eq 0 -and
+    [long]$Value.thought_core_turninput_count -eq 0 -and
+    [string]$Value.first_non_silent_audio_observation_class -ceq
+      "process_tree_render_observed" -and
+    $null -eq $Value.utterance_end_to_first_visible_ms -and
+    $null -eq $Value.utterance_end_to_first_audio_ms
+  }
+  if (-not $modeValid) { Throw-Fixed -Class "live_controller_result_invalid" }
   return $Value
 }
 
@@ -850,6 +877,20 @@ function Invoke-UserSessionSequence {
   if ($dispatch -cne "system_output_dispatched_once") { Throw-Fixed -Class "test_ui_dispatch_not_ready" }
   [void](& $WaitForUserSpeechReady)
   [void](& $PublishUserCue)
+}
+
+function Invoke-UnattendedSelfOutputSequence {
+  param(
+    [Parameter(Mandatory = $true)][scriptblock]$StartControllerAndWaitForSystemOutputTriggerReady,
+    [Parameter(Mandatory = $true)][scriptblock]$TriggerSystemOutput,
+    [Parameter(Mandatory = $true)][scriptblock]$WaitForSuppressionWindowReady
+  )
+  [void](& $StartControllerAndWaitForSystemOutputTriggerReady)
+  $dispatch = & $TriggerSystemOutput
+  if ($dispatch -cne "system_output_dispatched_once") {
+    Throw-Fixed -Class "test_ui_dispatch_not_ready"
+  }
+  [void](& $WaitForSuppressionWindowReady)
 }
 
 function New-ExclusiveUserStartEvent {
@@ -878,7 +919,12 @@ $tokenChanged = $false
 $launcherOwnershipProven = $false
 $routePorts = @(3000, 8000, 8554, 8765, 8770, 8776, 8787, 8788, 8790, 8799, 8889, 18787, 9222)
 try {
-  if ($UserStartEventName -cnotmatch "^[A-Za-z0-9][A-Za-z0-9_.-]{7,95}$") {
+  if (
+    ($TestMode -ceq "genuine_user_speech" -and
+      $UserStartEventName -cnotmatch "^[A-Za-z0-9][A-Za-z0-9_.-]{7,95}$") -or
+    ($TestMode -ceq "unattended_self_output_suppression" -and
+      -not [string]::IsNullOrWhiteSpace($UserStartEventName))
+  ) {
     Throw-Fixed -Class "user_start_event_invalid"
   }
   if (-not (Test-Path -LiteralPath $pwshPath -PathType Leaf)) {
@@ -1040,76 +1086,111 @@ try {
 
   $controllerOut = Join-Path $runRoot "controller.out.json"
   $controllerErr = Join-Path $runRoot "controller.err.log"
-  $userStartEvent = New-ExclusiveUserStartEvent -Name $UserStartEventName
+  if ($TestMode -ceq "genuine_user_speech") {
+    $userStartEvent = New-ExclusiveUserStartEvent -Name $UserStartEventName
+  }
+  $controllerArguments = @(
+    "-NoLogo", "-NoProfile", "-File",
+    (Join-Path $resolvedRepo "scripts\run-self-output-awareness-live-controller.ps1"),
+    "-BaseUrl", "http://127.0.0.1:8000", "-AitBaseUrl", "http://127.0.0.1:3000",
+    "-WindowMs", "3000", "-DeadlineMs", "10000",
+    "-ControlledChromeRootPid", [string]$chromeProcess.Id,
+    "-AudioObserverWindowMs", "3000", "-PreparationDeadlineMs", "10000"
+  )
+  if ($TestMode -ceq "genuine_user_speech") {
+    $controllerArguments += @(
+      "-Scenario", "independent_current_session_user_speech",
+      "-CdpEndpoint", "http://127.0.0.1:9222",
+      "-UserStartEventName", $UserStartEventName,
+      "-UserStartHoldMs", [string]($UserStartHoldSeconds * 1000),
+      "-EmitUserSpeechReadySignal"
+    )
+  } else {
+    $controllerArguments += @(
+      "-Scenario", "self_output_or_ambiguous",
+      "-EmitSelfOutputSuppressionReadySignal"
+    )
+  }
+  $startControllerAndWait = {
+    $script:controllerProcess = Start-OwnedProcessSuspended -Job $ownedJob `
+      -FilePath $pwshPath -ArgumentList $controllerArguments `
+      -StandardOutputPath $controllerOut -StandardErrorPath $controllerErr
+    $script:controllerIdentity = New-OwnedRootIdentity -Process $controllerProcess
+    Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
+      -ErrorPath $controllerErr `
+      -ExpectedSchema "self_output_awareness.system_output_trigger_ready.v0" `
+      -ExpectedClass "ready_for_system_output_trigger" `
+      -RouteStopwatch $preparationStopwatch -RouteDeadlineMs $preparationDeadlineMs
+  }
+  $triggerSystemOutput = {
+    $dispatchTimeoutMs = [Math]::Min(5000, (Get-RemainingBudgetMs `
+        -Stopwatch $postStartStopwatch -DeadlineMs $postStartDeadlineMs `
+        -FailureClass "post_start_deadline_exceeded"))
+    $uiResult = (& node (Join-Path $resolvedRepo "scripts\drive-primary-system-cell-test-ui.mjs") `
+      --cdp-endpoint http://127.0.0.1:9222 --timeout-ms $dispatchTimeoutMs) | ConvertFrom-Json
+    if (
+      [string]$uiResult.result_class -cne "test_ui_seed_dispatched" -or
+      [int]$uiResult.ui_dispatch_count -ne 1
+    ) { Throw-Fixed -Class "test_ui_dispatch_not_ready" }
+    return "system_output_dispatched_once"
+  }
 
-  Invoke-UserSessionSequence `
-    -PublishSessionReady {
-      Write-Class ([ordered]@{
-        schema_version = "primary_system_cell_speech_test_prepare.v1"
-        result_class = "ready_for_user_session_start"
-        saved_camera_selection_class = "selected_available"
-        launcher_service_count = 9
-        input_availability_class = "enabled"
-        projection_owner_class = [string]$ownerPrepare.result_class
-        user_clock_started = $false
-        test_dispatch_count = 0
-      })
-    } `
-    -WaitForUserStart {
-      $holdStopwatch = [Diagnostics.Stopwatch]::StartNew()
-      [void](Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
-        -ErrorPath $controllerErr `
-        -ExpectedSchema "self_output_awareness.user_start_received.v0" `
-        -ExpectedClass "user_start_received" -RouteStopwatch $holdStopwatch `
-        -RouteDeadlineMs ($UserStartHoldSeconds * 1000) -FailureClass "prepared_hold_expired")
-      $script:postStartStopwatch = [Diagnostics.Stopwatch]::StartNew()
-      $script:postStartDeadlineMs = 10000
-      return "user_start_received"
-    } `
-    -StartControllerAndWaitForSystemOutputTriggerReady {
-      $script:controllerProcess = Start-OwnedProcessSuspended -Job $ownedJob -FilePath $pwshPath -ArgumentList @(
-        "-NoLogo", "-NoProfile", "-File", (Join-Path $resolvedRepo "scripts\run-self-output-awareness-live-controller.ps1"),
-        "-BaseUrl", "http://127.0.0.1:8000", "-AitBaseUrl", "http://127.0.0.1:3000",
-        "-Scenario", "independent_current_session_user_speech", "-WindowMs", "3000",
-        "-DeadlineMs", "10000", "-ControlledChromeRootPid", [string]$chromeProcess.Id,
-        "-CdpEndpoint", "http://127.0.0.1:9222", "-AudioObserverWindowMs", "3000",
-        "-PreparationDeadlineMs", "10000", "-UserStartEventName", $UserStartEventName,
-        "-UserStartHoldMs", [string]($UserStartHoldSeconds * 1000), "-EmitUserSpeechReadySignal"
-      ) -StandardOutputPath $controllerOut -StandardErrorPath $controllerErr
-      $script:controllerIdentity = New-OwnedRootIdentity -Process $controllerProcess
-      Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
-        -ErrorPath $controllerErr `
-        -ExpectedSchema "self_output_awareness.system_output_trigger_ready.v0" `
-        -ExpectedClass "ready_for_system_output_trigger" `
-        -RouteStopwatch $preparationStopwatch -RouteDeadlineMs $preparationDeadlineMs
-    } `
-    -TriggerSystemOutput {
-      $dispatchTimeoutMs = [Math]::Min(5000, (Get-RemainingBudgetMs `
-          -Stopwatch $postStartStopwatch -DeadlineMs $postStartDeadlineMs `
-          -FailureClass "post_start_deadline_exceeded"))
-      $uiResult = (& node (Join-Path $resolvedRepo "scripts\drive-primary-system-cell-test-ui.mjs") `
-        --cdp-endpoint http://127.0.0.1:9222 --timeout-ms $dispatchTimeoutMs) | ConvertFrom-Json
-      if (
-        [string]$uiResult.result_class -cne "test_ui_seed_dispatched" -or
-        [int]$uiResult.ui_dispatch_count -ne 1
-      ) { Throw-Fixed -Class "test_ui_dispatch_not_ready" }
-      return "system_output_dispatched_once"
-    } `
-    -WaitForUserSpeechReady {
-      Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
-        -ErrorPath $controllerErr `
-        -ExpectedSchema "self_output_awareness.live_controller_ready.v0" `
-        -ExpectedClass "ready_for_user_speech" `
-        -RouteStopwatch $postStartStopwatch -RouteDeadlineMs $postStartDeadlineMs
-    } `
-    -PublishUserCue {
-      Write-Class ([ordered]@{
-        schema_version = "primary_system_cell_speech_test_cue.v1"
-        result_class = "issue_user_cue_now"
-        user_clock_started = $true
-        test_dispatch_count = 1
-      })
-    }
+  if ($TestMode -ceq "genuine_user_speech") {
+    Invoke-UserSessionSequence `
+      -PublishSessionReady {
+        Write-Class ([ordered]@{
+          schema_version = "primary_system_cell_speech_test_prepare.v1"
+          result_class = "ready_for_user_session_start"
+          saved_camera_selection_class = "selected_available"
+          launcher_service_count = 9
+          input_availability_class = "enabled"
+          projection_owner_class = [string]$ownerPrepare.result_class
+          user_clock_started = $false
+          test_dispatch_count = 0
+        })
+      } `
+      -WaitForUserStart {
+        $holdStopwatch = [Diagnostics.Stopwatch]::StartNew()
+        [void](Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
+          -ErrorPath $controllerErr `
+          -ExpectedSchema "self_output_awareness.user_start_received.v0" `
+          -ExpectedClass "user_start_received" -RouteStopwatch $holdStopwatch `
+          -RouteDeadlineMs ($UserStartHoldSeconds * 1000) -FailureClass "prepared_hold_expired")
+        $script:postStartStopwatch = [Diagnostics.Stopwatch]::StartNew()
+        $script:postStartDeadlineMs = 10000
+        return "user_start_received"
+      } `
+      -StartControllerAndWaitForSystemOutputTriggerReady $startControllerAndWait `
+      -TriggerSystemOutput $triggerSystemOutput `
+      -WaitForUserSpeechReady {
+        Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
+          -ErrorPath $controllerErr `
+          -ExpectedSchema "self_output_awareness.live_controller_ready.v0" `
+          -ExpectedClass "ready_for_user_speech" `
+          -RouteStopwatch $postStartStopwatch -RouteDeadlineMs $postStartDeadlineMs
+      } `
+      -PublishUserCue {
+        Write-Class ([ordered]@{
+          schema_version = "primary_system_cell_speech_test_cue.v1"
+          result_class = "issue_user_cue_now"
+          user_clock_started = $true
+          test_dispatch_count = 1
+        })
+      }
+  } else {
+    $postStartStopwatch = [Diagnostics.Stopwatch]::StartNew()
+    $postStartDeadlineMs = 10000
+    Invoke-UnattendedSelfOutputSequence `
+      -StartControllerAndWaitForSystemOutputTriggerReady $startControllerAndWait `
+      -TriggerSystemOutput $triggerSystemOutput `
+      -WaitForSuppressionWindowReady {
+        Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
+          -ErrorPath $controllerErr `
+          -ExpectedSchema "self_output_awareness.live_controller_ready.v0" `
+          -ExpectedClass "ready_for_self_output_suppression_window" `
+          -RouteStopwatch $postStartStopwatch -RouteDeadlineMs $postStartDeadlineMs
+      }
+  }
 
   if (-not $controllerProcess.WaitForExit(12000)) { Throw-Fixed -Class "live_controller_did_not_finish" }
   if ($controllerProcess.ExitCode -ne 0) { Throw-Fixed -Class "live_controller_failed" }
@@ -1119,7 +1200,8 @@ try {
   if ([string]::IsNullOrWhiteSpace($resultText)) { Throw-Fixed -Class "live_controller_result_missing" }
   try { $controllerResult = $resultText | ConvertFrom-Json }
   catch { Throw-Fixed -Class "live_controller_result_invalid" }
-  $controllerResult = Assert-ControllerSuccessResult -Value $controllerResult
+  $controllerResult = Assert-ControllerSuccessResult -Value $controllerResult `
+    -ExpectedMode $TestMode
   $terminalClass = [string]$controllerResult.result_class
   Write-Class ([ordered]@{
     schema_version = "primary_system_cell_speech_test_terminal.v1"
@@ -1128,6 +1210,9 @@ try {
     transcription_count = [int]$controllerResult.transcription_count
     submission_count = [int]$controllerResult.submission_count
     thought_core_turninput_count = [int]$controllerResult.thought_core_turninput_count
+    first_non_silent_audio_observation_class =
+      [string]$controllerResult.first_non_silent_audio_observation_class
+    utterance_end_to_first_audio_ms = $controllerResult.utterance_end_to_first_audio_ms
     cleanup_class = [string]$controllerResult.cleanup_class
   })
 } catch {

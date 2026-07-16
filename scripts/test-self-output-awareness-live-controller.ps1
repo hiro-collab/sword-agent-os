@@ -492,16 +492,18 @@ function New-ProductionTransportProcessFactory {
     [Parameter(Mandatory = $true)][string]$Mode
   )
 
+  $capturedPwshPath = [string]$pwsh.Source
+  $capturedTransportPath = [string]$fakeProductionTransportPath
   return {
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $pwsh.Source
+    $startInfo.FileName = $capturedPwshPath
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
     $startInfo.RedirectStandardOutput = $true
     $startInfo.RedirectStandardError = $true
     [void]$startInfo.Environment.Remove("AI_TALK_CORE_WEB_TOKEN")
     foreach ($argument in @(
-        "-NoProfile", "-File", $fakeProductionTransportPath,
+        "-NoProfile", "-File", $capturedTransportPath,
         "-TriggerPath", $TriggerPath,
         "-ResultPath", $ResultPath,
         "-Mode", $Mode
@@ -527,7 +529,8 @@ function Invoke-Controller {
     [bool]$ProvideToken = $true,
     [string]$ObserverMode = "",
     [string]$ObserverReceiptPath = "",
-    [string]$ObserverPidReceiptPath = ""
+    [string]$ObserverPidReceiptPath = "",
+    [bool]$EmitSelfOutputSuppressionReadySignal = $false
   )
 
   $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -550,6 +553,9 @@ function Invoke-Controller {
     "-Json"
   )) {
     [void]$startInfo.ArgumentList.Add($argument)
+  }
+  if ($EmitSelfOutputSuppressionReadySignal) {
+    [void]$startInfo.ArgumentList.Add("-EmitSelfOutputSuppressionReadySignal")
   }
   if ($ProvideToken) {
     $startInfo.Environment["AI_TALK_CORE_WEB_TOKEN"] = $privateToken
@@ -697,6 +703,8 @@ $userStartReceivedStatement = '$userStartReceivedSignal = New-UserStartReceivedS
 $overlapWaitStatement = 'Wait-ProductionTransportOverlapReady `'
 $userClockStatement = '$userPhaseStopwatch = [System.Diagnostics.Stopwatch]::StartNew()'
 $userReadyStatement = '$readySignal = New-UserSpeechReadySignal'
+$negativeReadyStatement = '$readySignal = New-SelfOutputSuppressionReadySignal'
+$routeOperationElapsedStatement = '$routeOperationElapsedMs = [long]$(if ($null -ne $userPhaseStopwatch)'
 foreach ($exactMainStatement in @(
     $transportStartStatement,
     $triggerReadyStatement,
@@ -705,7 +713,9 @@ foreach ($exactMainStatement in @(
     $userStartReceivedStatement,
     $overlapWaitStatement,
     $userClockStatement,
-    $userReadyStatement
+    $userReadyStatement,
+    $negativeReadyStatement,
+    $routeOperationElapsedStatement
   )) {
   Assert-True (($controllerSource.Split($exactMainStatement).Count - 1) -eq 1) `
     "main-path preparation statement must occur exactly once: $exactMainStatement"
@@ -728,6 +738,21 @@ Assert-True ($transportStartIndex -ge 0 -and $triggerReadyIndex -gt $transportSt
   $overlapWaitIndex -gt $userStartReceivedIndex -and $userClockIndex -gt $overlapWaitIndex -and
   $userReadyIndex -gt $userClockIndex -and $candidateBudgetIndex -gt $userReadyIndex) `
   "listener, held user start, visible observer, overlap join, user clock, user-ready, and candidate request order must be exact"
+$negativeReady = New-SelfOutputSuppressionReadySignal
+Assert-True (
+  (@($negativeReady.Keys | Sort-Object) -join ",") -ceq
+    "raw_private_publication_flags,result_class,schema_version" -and
+  $negativeReady.schema_version -ceq "self_output_awareness.live_controller_ready.v0" -and
+  $negativeReady.result_class -ceq "ready_for_self_output_suppression_window" -and
+  $negativeReady.raw_private_publication_flags -is [bool] -and
+  -not [bool]$negativeReady.raw_private_publication_flags
+) "negative ready signal must remain fixed and nonpublishing"
+Assert-True ($controllerSource -match
+  'EmitUserSpeechReadySignal\s+-or\s+\$EmitSelfOutputSuppressionReadySignal[\s\S]+New-SystemOutputTriggerReadySignal') `
+  "both controlled modes must expose one system-output trigger readiness signal"
+Assert-True ($controllerSource -match
+  'self_output_or_ambiguous[\s\S]+firstNonSilentAudioObservationClass[\s\S]+utteranceEndToFirstAudioMs') `
+  "negative process-tree audio observation must remain separate from utterance-derived latency"
 Assert-True (Test-AcceptedJoinClass `
   -AcceptedJoinClass "active_self_output_overlap" `
   -ResultClass "independent_user_speech_turninput_accepted" `
@@ -1139,6 +1164,12 @@ try {
   Assert-True ($sharedDeadlineRun.Code -ne 0) "combined arm and HTTP delay must fail closed"
   Assert-True ($sharedDeadline.blocker_class -ceq "whole_route_timeout") "shared deadline blocker mismatch"
   Assert-True ($sharedDeadline.controller_elapsed_ms -le 5100) "controller renewed the route deadline across blocking phases"
+  Assert-True (
+    $controllerSource.IndexOf($routeOperationElapsedStatement, [StringComparison]::Ordinal) -lt
+      $controllerSource.IndexOf(
+        'foreach ($resource in @($response, $content, $request, $client, $cancellation, $handler))',
+        [StringComparison]::Ordinal)
+  ) "controller elapsed time must freeze before bounded cleanup"
   Assert-True ($sharedDeadlineStopwatch.ElapsedMilliseconds -lt 6500) "shared deadline test exceeded its bounded wall duration"
 
   $presentationFailureResponse = New-EndpointResponse `

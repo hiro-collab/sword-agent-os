@@ -11,6 +11,7 @@ param(
   [string]$UserStartEventName = "",
   [int]$UserStartHoldMs = 0,
   [switch]$EmitUserSpeechReadySignal,
+  [switch]$EmitSelfOutputSuppressionReadySignal,
   [switch]$Json
 )
 
@@ -158,6 +159,7 @@ $AllowedControllerFailureClasses = @(
 
 $controllerStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $userPhaseStopwatch = $null
+$routeOperationElapsedMs = $null
 $handler = $null
 $client = $null
 $request = $null
@@ -752,6 +754,14 @@ function New-UserSpeechReadySignal {
   }
 }
 
+function New-SelfOutputSuppressionReadySignal {
+  return [ordered]@{
+    schema_version = "self_output_awareness.live_controller_ready.v0"
+    result_class = "ready_for_self_output_suppression_window"
+    raw_private_publication_flags = $false
+  }
+}
+
 function New-SystemOutputTriggerReadySignal {
   return [ordered]@{
     schema_version = "self_output_awareness.system_output_trigger_ready.v0"
@@ -825,17 +835,26 @@ try {
     $AudioObserverWindowMs -lt 100 -or
     $AudioObserverWindowMs -gt 5000 -or
     ($ControlledChromeRootPid -gt 0 -and (
-      $Scenario -cne "independent_current_session_user_speech" -or
-      [string]::IsNullOrWhiteSpace($CdpEndpoint) -or
+      ($Scenario -ceq "independent_current_session_user_speech" -and
+        [string]::IsNullOrWhiteSpace($CdpEndpoint)) -or
+      ($Scenario -ceq "self_output_or_ambiguous" -and
+        -not [string]::IsNullOrWhiteSpace($CdpEndpoint)) -or
       $PreparationDeadlineMs -lt ($AudioObserverWindowMs + 1000)
     )) -or
-    ($EmitUserSpeechReadySignal -and $ControlledChromeRootPid -le 0) -or
+    (($EmitUserSpeechReadySignal -or $EmitSelfOutputSuppressionReadySignal) -and
+      $ControlledChromeRootPid -le 0) -or
+    ($EmitUserSpeechReadySignal -and $EmitSelfOutputSuppressionReadySignal) -or
+    ($EmitUserSpeechReadySignal -and
+      $Scenario -cne "independent_current_session_user_speech") -or
+    ($EmitSelfOutputSuppressionReadySignal -and
+      $Scenario -cne "self_output_or_ambiguous") -or
     ((-not [string]::IsNullOrWhiteSpace($UserStartEventName)) -ne ($UserStartHoldMs -gt 0)) -or
     ((-not [string]::IsNullOrWhiteSpace($UserStartEventName)) -and (
       $UserStartEventName -cnotmatch "^[A-Za-z0-9][A-Za-z0-9_.-]{7,95}$" -or
       $UserStartHoldMs -lt 1000 -or
       $UserStartHoldMs -gt 1800000 -or
-      -not $EmitUserSpeechReadySignal
+      -not $EmitUserSpeechReadySignal -or
+      $Scenario -cne "independent_current_session_user_speech"
     ))
   ) {
     Throw-Fixed -Class "live_controller_configuration_invalid"
@@ -890,7 +909,7 @@ try {
       -RouteDeadlineMs $productionRouteDeadlineMs `
       -StartGateEventName $(if ($startGateEnabled) { $UserStartEventName } else { "" }) `
       -StartGateHoldMs $(if ($startGateEnabled) { $UserStartHoldMs } else { 0 })
-    if ($EmitUserSpeechReadySignal) {
+    if ($EmitUserSpeechReadySignal -or $EmitSelfOutputSuppressionReadySignal) {
       $systemTriggerReadySignal = New-SystemOutputTriggerReadySignal
       [Console]::Error.WriteLine(($systemTriggerReadySignal | ConvertTo-Json -Compress))
       [Console]::Error.Flush()
@@ -925,6 +944,12 @@ try {
     $userPhaseStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     if ($EmitUserSpeechReadySignal) {
       $readySignal = New-UserSpeechReadySignal
+      [Console]::Error.WriteLine(($readySignal | ConvertTo-Json -Compress))
+      [Console]::Error.Flush()
+      $readySignal.Clear()
+      $readySignal = $null
+    } elseif ($EmitSelfOutputSuppressionReadySignal) {
+      $readySignal = New-SelfOutputSuppressionReadySignal
       [Console]::Error.WriteLine(($readySignal | ConvertTo-Json -Compress))
       [Console]::Error.Flush()
       $readySignal.Clear()
@@ -1311,16 +1336,23 @@ try {
       -RouteDeadlineMs $productionRouteDeadlineMs
     $productionTransportProcess.Dispose()
     $productionTransportProcess = $null
-    if ($null -eq $utteranceEndWallMs) {
+    $firstAudioWallMs = [long]$productionObservation.first_non_silent_observed_at_utc_ms
+    $firstNonSilentAudioObservationClass = [string]$productionObservation.observer_result_class
+    if ($Scenario -ceq "independent_current_session_user_speech") {
+      if ($null -eq $utteranceEndWallMs) {
+        Throw-Fixed -Class "production_transport_not_completed"
+      }
+      $audioDelta = Resolve-UtteranceEndToFirstAudioMs `
+        -UtteranceEndWallMs $utteranceEndWallMs `
+        -FirstAudioWallMs $firstAudioWallMs `
+        -RouteDeadlineMs $DeadlineMs
+      $utteranceEndToFirstAudioMs = [int]$audioDelta
+    } elseif (
+      $Scenario -cne "self_output_or_ambiguous" -or
+      $null -ne $utteranceEndWallMs
+    ) {
       Throw-Fixed -Class "production_transport_not_completed"
     }
-    $firstAudioWallMs = [long]$productionObservation.first_non_silent_observed_at_utc_ms
-    $audioDelta = Resolve-UtteranceEndToFirstAudioMs `
-      -UtteranceEndWallMs $utteranceEndWallMs `
-      -FirstAudioWallMs $firstAudioWallMs `
-      -RouteDeadlineMs $DeadlineMs
-    $firstNonSilentAudioObservationClass = [string]$productionObservation.observer_result_class
-    $utteranceEndToFirstAudioMs = [int]$audioDelta
     $productionObservation = $null
   }
   $deadlineClass = "within_deadline"
@@ -1341,6 +1373,11 @@ try {
   }
   Set-Failure -Class $failureClass
 } finally {
+  $routeOperationElapsedMs = [long]$(if ($null -ne $userPhaseStopwatch) {
+      $userPhaseStopwatch.ElapsedMilliseconds
+    } else {
+      $controllerStopwatch.ElapsedMilliseconds
+    })
   foreach ($resource in @($response, $content, $request, $client, $cancellation, $handler)) {
     if ($null -ne $resource) {
       try {
@@ -1393,11 +1430,7 @@ $controllerElapsedMs = [Math]::Min(
   20000,
   [Math]::Max(
     0,
-    [int]$(if ($null -ne $userPhaseStopwatch) {
-        $userPhaseStopwatch.ElapsedMilliseconds
-      } else {
-        $controllerStopwatch.ElapsedMilliseconds
-      })))
+    [int]$routeOperationElapsedMs))
 if ($endpointResponseObserved -and $cleanupClass -ceq "controller_http_resources_disposed_no_request_started") {
   $cleanupClass = "controller_http_resources_disposed_endpoint_cleanup_unverified"
 } elseif ($requestStarted -and -not $endpointResponseObserved) {
