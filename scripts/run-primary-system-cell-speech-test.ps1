@@ -522,10 +522,13 @@ try {
   try {
     if (-not `$child.Start()) { exit 1 }
     if (`$redirect) {
-      `$standardOutputStream = [IO.File]::Open(
-        `$standardOutputPath, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::Read)
-      `$standardErrorStream = [IO.File]::Open(
-        `$standardErrorPath, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::Read)
+      `$streamOptions = [IO.FileOptions]::Asynchronous -bor [IO.FileOptions]::WriteThrough
+      `$standardOutputStream = [IO.FileStream]::new(
+        `$standardOutputPath, [IO.FileMode]::Create, [IO.FileAccess]::Write,
+        [IO.FileShare]::Read, 1, `$streamOptions)
+      `$standardErrorStream = [IO.FileStream]::new(
+        `$standardErrorPath, [IO.FileMode]::Create, [IO.FileAccess]::Write,
+        [IO.FileShare]::Read, 1, `$streamOptions)
       `$standardOutputCopy = `$child.StandardOutput.BaseStream.CopyToAsync(`$standardOutputStream)
       `$standardErrorCopy = `$child.StandardError.BaseStream.CopyToAsync(`$standardErrorStream)
     }

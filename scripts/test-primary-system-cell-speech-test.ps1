@@ -403,6 +403,9 @@ try {
   $nestedCommand = @'
 Write-Output "job-parent-output"
 [Console]::Error.WriteLine("job-parent-error")
+[Console]::Out.Flush()
+[Console]::Error.Flush()
+Start-Sleep -Milliseconds 2000
 [void](Start-Process -FilePath "C:\Program Files\PowerShell\7\pwsh.exe" -ArgumentList @("-NoProfile", "-Command", "Start-Sleep -Seconds 30"))
 '@
   $encodedNestedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($nestedCommand))
@@ -412,6 +415,28 @@ Write-Output "job-parent-output"
     -FilePath "C:\Program Files\PowerShell\7\pwsh.exe" `
     -ArgumentList @("-NoProfile", "-EncodedCommand", $encodedNestedCommand) `
     -StandardOutputPath $jobOutputPath -StandardErrorPath $jobErrorPath
+  $streamingStopwatch = [Diagnostics.Stopwatch]::StartNew()
+  $streamingVisible = $false
+  while ($streamingStopwatch.ElapsedMilliseconds -lt 1500 -and -not $jobParent.HasExited) {
+    $outputText = $(if (Test-Path -LiteralPath $jobOutputPath) {
+        Get-Content -Raw -LiteralPath $jobOutputPath -ErrorAction SilentlyContinue
+      } else { "" })
+    $errorText = $(if (Test-Path -LiteralPath $jobErrorPath) {
+        Get-Content -Raw -LiteralPath $jobErrorPath -ErrorAction SilentlyContinue
+      } else { "" })
+    if (
+      -not [string]::IsNullOrWhiteSpace($outputText) -and
+      -not [string]::IsNullOrWhiteSpace($errorText) -and
+      $outputText.Trim() -ceq "job-parent-output" -and
+      $errorText.Trim() -ceq "job-parent-error"
+    ) {
+      $streamingVisible = $true
+      break
+    }
+    Start-Sleep -Milliseconds 20
+  }
+  Assert-True $streamingVisible "atomic wrapper output must be readable while the owned child is still alive"
+  Assert-True (-not $jobParent.HasExited) "streaming visibility must precede child exit"
   Assert-True $jobParent.WaitForExit(5000) "Job parent must exit after creating its child"
   Assert-Equal (Get-Content -Raw -LiteralPath $jobOutputPath).Trim() "job-parent-output" "atomic wrapper must preserve standard output redirection"
   Assert-Equal (Get-Content -Raw -LiteralPath $jobErrorPath).Trim() "job-parent-error" "atomic wrapper must preserve standard error redirection"
