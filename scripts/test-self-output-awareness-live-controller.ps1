@@ -12,6 +12,7 @@ $privateResponseMarker = "PRIVATE_TRANSCRIPT_SENTINEL"
 $assertions = 0
 $jobs = [System.Collections.Generic.List[object]]::new()
 $productionProcess = $null
+$delayedArmProcess = $null
 $caseProcess = $null
 
 function Assert-True {
@@ -307,11 +308,21 @@ import fs from "node:fs";
 
 const mode = process.env.SWORD_TEST_OBSERVER_MODE || "success";
 const receiptPath = process.env.SWORD_TEST_OBSERVER_RECEIPT || "";
+const pidReceiptPath = process.env.SWORD_TEST_OBSERVER_PID_RECEIPT || "";
+if (pidReceiptPath) {
+  fs.writeFileSync(pidReceiptPath, String(process.pid), {
+    encoding: "ascii",
+    flag: "wx",
+  });
+}
 if (mode === "early_exit") {
   process.exit(4);
 }
 if (mode === "delayed_arm") {
   await new Promise((resolve) => setTimeout(resolve, 500));
+}
+if (mode === "over_preparation_arm") {
+  await new Promise((resolve) => setTimeout(resolve, 1500));
 }
 
 process.stdout.write('{"schema_version":"primary_system_cell_visible_response_observer_arm.v1","result_class":"observer_armed","raw_private_publication_flags":false}\n');
@@ -378,6 +389,9 @@ param(
   [Parameter(Mandatory = $true)][string]$Mode
 )
 $ErrorActionPreference = "Stop"
+if ($Mode -ceq "delayed_arm") {
+  Start-Sleep -Milliseconds 5500
+}
 [System.IO.File]::WriteAllText(
   "$TriggerPath.arm",
   "armed",
@@ -493,9 +507,11 @@ function Invoke-Controller {
     [string]$CdpEndpoint = "",
     [int]$ControlledChromeRootPid = 0,
     [int]$AudioObserverWindowMs = 3000,
+    [int]$PreparationDeadlineMs = 20000,
     [bool]$ProvideToken = $true,
     [string]$ObserverMode = "",
-    [string]$ObserverReceiptPath = ""
+    [string]$ObserverReceiptPath = "",
+    [string]$ObserverPidReceiptPath = ""
   )
 
   $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -514,6 +530,7 @@ function Invoke-Controller {
     "-CdpEndpoint", $CdpEndpoint,
     "-ControlledChromeRootPid", [string]$ControlledChromeRootPid,
     "-AudioObserverWindowMs", [string]$AudioObserverWindowMs,
+    "-PreparationDeadlineMs", [string]$PreparationDeadlineMs,
     "-Json"
   )) {
     [void]$startInfo.ArgumentList.Add($argument)
@@ -528,6 +545,7 @@ function Invoke-Controller {
     $startInfo.Environment["NODE_OPTIONS"] = "--import=$fakeObserverModuleUri"
     $startInfo.Environment["SWORD_TEST_OBSERVER_MODE"] = $ObserverMode
     $startInfo.Environment["SWORD_TEST_OBSERVER_RECEIPT"] = $ObserverReceiptPath
+    $startInfo.Environment["SWORD_TEST_OBSERVER_PID_RECEIPT"] = $ObserverPidReceiptPath
   }
 
   $process = [System.Diagnostics.Process]::new()
@@ -645,6 +663,8 @@ Assert-True (-not (Test-AcceptedJoinClass `
   -ResultClass "self_output_or_ambiguous_confirmed" `
   -ControlledChromeRootPid 0)) "negative run must reject an accepted overlap claim"
 Assert-True ($controllerSource -match 'Start-ProductionTransportChild[\s\S]+\$endpointRequestStartedAtWallMs\s*=') "production transport must arm before the D1 request starts"
+Assert-True ($controllerSource -match '\$userPhaseStopwatch\s*=\s*\[System\.Diagnostics\.Stopwatch\]::StartNew\(\)[\s\S]+\$httpBudgetMs\s*=\s*Get-RemainingRouteBudgetMs') "post-ready route budget must start after the observed self-output join"
+Assert-True ($controllerSource -match 'Get-RemainingPreparationBudgetMs[\s\S]+\$PreparationDeadlineMs[\s\S]+Start-ProductionTransportChild') "preparation must use its own bounded deadline"
 Assert-True ($controllerSource -match 'Complete-ProductionTransportChild[\s\S]+first_non_silent_observed_at_utc_ms[\s\S]+utteranceEndToFirstAudioMs') "production result must feed the bounded first-audio delta"
 Assert-True ($controllerSource -match 'candidate_authority[\s\S]+acceptance_authority[\s\S]+turn_input_authority') "production result validation must retain false authority fields"
 
@@ -668,7 +688,8 @@ try {
     -AiTalkCoreEndpoint ([System.Uri]"http://127.0.0.1:8000/") `
     -ChromeRootPid 1 `
     -ObserverWindowMs 1000 `
-    -TimeoutMs 3000 `
+    -ArmTimeoutMs 3000 `
+    -RouteDeadlineMs 10000 `
     -ProcessFactory $productionFactory
   Assert-True ([System.IO.File]::Exists("$productionTriggerPath.arm")) "production child must report arm before the D1 trigger"
   Assert-True (-not [System.IO.File]::Exists($productionTriggerPath)) "D1 trigger must remain absent when child becomes armed"
@@ -684,6 +705,35 @@ try {
   $productionProcess.Dispose()
   $productionProcess = $null
   Assert-True ($productionValue.first_non_silent_observed_at_utc_ms -eq $fixedFirstAudioWallMs) "production child result must preserve the fixed first-audio wall"
+
+  $delayedArmTriggerPath = Join-Path $tempRoot "production-delayed-arm.trigger"
+  $delayedArmFactory = New-ProductionTransportProcessFactory `
+    -TriggerPath $delayedArmTriggerPath `
+    -ResultPath $productionResultPath `
+    -Mode "delayed_arm"
+  $delayedArmStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+  $delayedArmProcess = Start-ProductionTransportChild `
+    -AitEndpoint ([System.Uri]"http://127.0.0.1:3000/") `
+    -AiTalkCoreEndpoint ([System.Uri]"http://127.0.0.1:8000/") `
+    -ChromeRootPid 1 `
+    -ObserverWindowMs 1000 `
+    -ArmTimeoutMs 6000 `
+    -RouteDeadlineMs 10000 `
+    -ProcessFactory $delayedArmFactory
+  $delayedArmStopwatch.Stop()
+  Assert-True ($delayedArmStopwatch.ElapsedMilliseconds -ge 5000) "production arm must tolerate a real response beyond the former five-second cap"
+  Assert-True ($delayedArmStopwatch.ElapsedMilliseconds -lt 6500) "production arm delay must stay bounded"
+  [System.IO.File]::WriteAllText(
+    $delayedArmTriggerPath,
+    "triggered",
+    [System.Text.Encoding]::ASCII)
+  $delayedArmValue = Complete-ProductionTransportChild `
+    -Process $delayedArmProcess `
+    -TimeoutMs 3000 `
+    -RouteDeadlineMs 10000
+  $delayedArmProcess.Dispose()
+  $delayedArmProcess = $null
+  Assert-True ($delayedArmValue.result_class -ceq "production_self_output_transport_completed") "delayed production arm must complete through the normal fixed result"
   $fixedAudioDelta = Resolve-UtteranceEndToFirstAudioMs `
     -UtteranceEndWallMs $fixedUtteranceEndWallMs `
     -FirstAudioWallMs $fixedFirstAudioWallMs `
@@ -729,7 +779,8 @@ try {
       -AiTalkCoreEndpoint ([System.Uri]"http://127.0.0.1:8000/") `
       -ChromeRootPid 1 `
       -ObserverWindowMs 1000 `
-      -TimeoutMs 1000 `
+      -ArmTimeoutMs 1000 `
+      -RouteDeadlineMs 10000 `
       -ProcessFactory $caseFactory
     $caseProcessId = $caseProcess.Id
     if ($mode -cne "timeout") {
@@ -905,6 +956,28 @@ try {
   $observerEarlyExit = Assert-CommonResult -Run $observerEarlyExitRun
   Assert-True ($observerEarlyExitRun.Code -ne 0) "observer early exit must fail closed"
   Assert-True ($observerEarlyExit.blocker_class -ceq "visible_response_observer_unavailable") "observer early-exit blocker mismatch"
+
+  $observerPreparationPidReceipt = Join-Path $tempRoot "observer-preparation.pid"
+  $observerPreparationStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+  $observerPreparationRun = Invoke-Controller `
+    -BaseUrl "http://127.0.0.1:65534" `
+    -Scenario "independent_current_session_user_speech" `
+    -DeadlineMs 5000 `
+    -PreparationDeadlineMs 1000 `
+    -CdpEndpoint "http://127.0.0.1:9222/" `
+    -ObserverMode "over_preparation_arm" `
+    -ObserverPidReceiptPath $observerPreparationPidReceipt
+  $observerPreparationStopwatch.Stop()
+  $observerPreparation = Assert-CommonResult -Run $observerPreparationRun
+  Assert-True ($observerPreparationRun.Code -ne 0) "observer arm beyond preparation must fail closed"
+  Assert-True ($observerPreparation.blocker_class -ceq "visible_response_observer_unavailable") "observer preparation blocker mismatch"
+  Assert-True ($observerPreparation.route_owned_process_residue_count -eq 0) "observer preparation timeout must leave zero child residue"
+  Assert-True ($observerPreparationStopwatch.ElapsedMilliseconds -lt 2500) "observer preparation timeout exceeded its bounded wall duration"
+  Assert-True ([System.IO.File]::Exists($observerPreparationPidReceipt)) "observer preparation PID receipt missing"
+  $observerPreparationPid = [int]([System.IO.File]::ReadAllText(
+      $observerPreparationPidReceipt,
+      [System.Text.Encoding]::ASCII))
+  Assert-True ($null -eq (Get-Process -Id $observerPreparationPid -ErrorAction SilentlyContinue)) "observer preparation timeout left a live child process"
 
   $sharedDeadlineReceipt = Join-Path $tempRoot "observer-shared-deadline.receipt.json"
   $sharedDeadlineServer = Start-TestServer -Response $positiveResponse -DelayMs 4500
@@ -1214,12 +1287,13 @@ try {
     -BaseUrl "http://127.0.0.1:65534" `
     -Scenario "independent_current_session_user_speech" `
     -DeadlineMs 3500 `
+    -PreparationDeadlineMs 3500 `
     -CdpEndpoint "http://127.0.0.1:9222/" `
     -ControlledChromeRootPid 1 `
     -AudioObserverWindowMs 3000
   $audioDeadline = Assert-CommonResult -Run $audioDeadlineRun
-  Assert-True ($audioDeadlineRun.Code -ne 0) "audio join without one shared child budget must fail before child start"
-  Assert-True ($audioDeadline.blocker_class -ceq "live_controller_configuration_invalid") "audio shared-budget blocker mismatch"
+  Assert-True ($audioDeadlineRun.Code -ne 0) "audio join without enough preparation budget must fail before child start"
+  Assert-True ($audioDeadline.blocker_class -ceq "live_controller_configuration_invalid") "audio preparation-budget blocker mismatch"
 
   $invalidScenarioMarker = "PRIVATE_INVALID_SCENARIO_SENTINEL"
   $invalidScenarioRun = Invoke-Controller `
@@ -1235,7 +1309,7 @@ try {
   Write-Output ("assertions={0}" -f $assertions)
   Write-Output "raw_private_publication_flags=false"
 } finally {
-  foreach ($ownedProcess in @($productionProcess, $caseProcess)) {
+  foreach ($ownedProcess in @($productionProcess, $delayedArmProcess, $caseProcess)) {
     if ($null -ne $ownedProcess) {
       [void](Stop-ProductionTransportChild -Process $ownedProcess)
     }

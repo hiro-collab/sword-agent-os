@@ -7,6 +7,7 @@ param(
   [string]$CdpEndpoint = "",
   [int]$ControlledChromeRootPid = 0,
   [int]$AudioObserverWindowMs = 3000,
+  [int]$PreparationDeadlineMs = 20000,
   [switch]$EmitUserSpeechReadySignal,
   [switch]$Json
 )
@@ -152,6 +153,7 @@ $AllowedControllerFailureClasses = @(
 )
 
 $controllerStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+$userPhaseStopwatch = $null
 $handler = $null
 $client = $null
 $request = $null
@@ -299,10 +301,32 @@ function Resolve-LoopbackCdpUri {
   return $uri
 }
 
+function Stop-VisibleResponseObserverChild {
+  param([Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process)
+
+  $clear = $true
+  try {
+    if (-not $Process.HasExited) {
+      try { $Process.StandardInput.Close() } catch {}
+      if (-not $Process.WaitForExit(250)) {
+        $Process.Kill($true)
+        if (-not $Process.WaitForExit(2000)) {
+          $clear = $false
+        }
+      }
+    }
+  } catch {
+    $clear = $false
+  }
+  try { $Process.Dispose() } catch { $clear = $false }
+  return $clear
+}
+
 function Start-VisibleResponseObserver {
   param(
     [Parameter(Mandatory = $true)][System.Uri]$Endpoint,
-    [Parameter(Mandatory = $true)][int]$TimeoutMs
+    [Parameter(Mandatory = $true)][int]$ArmTimeoutMs,
+    [Parameter(Mandatory = $true)][int]$RouteDeadlineMs
   )
 
   $node = Get-Command node -CommandType Application -ErrorAction SilentlyContinue
@@ -328,7 +352,7 @@ function Start-VisibleResponseObserver {
   [void]$startInfo.ArgumentList.Add($Endpoint.AbsoluteUri)
   [void]$startInfo.ArgumentList.Add("--message-id-stdin")
   [void]$startInfo.ArgumentList.Add("--timeout-ms")
-  [void]$startInfo.ArgumentList.Add([string]$TimeoutMs)
+  [void]$startInfo.ArgumentList.Add([string]$RouteDeadlineMs)
 
   $process = [System.Diagnostics.Process]::new()
   $process.StartInfo = $startInfo
@@ -337,21 +361,24 @@ function Start-VisibleResponseObserver {
     Throw-Fixed -Class "visible_response_observer_unavailable"
   }
   $armTask = $process.StandardOutput.ReadLineAsync()
-  if (-not $armTask.Wait([Math]::Min(5000, $TimeoutMs))) {
-    try { $process.Kill($true) } catch {}
-    $process.Dispose()
+  if (-not $armTask.Wait([Math]::Max(1, $ArmTimeoutMs))) {
+    if (-not (Stop-VisibleResponseObserverChild -Process $process)) {
+      Throw-Fixed -Class "cleanup_incomplete"
+    }
     Throw-Fixed -Class "visible_response_observer_unavailable"
   }
   try {
     $arm = $armTask.Result | ConvertFrom-Json
   } catch {
-    try { $process.Kill($true) } catch {}
-    $process.Dispose()
+    if (-not (Stop-VisibleResponseObserverChild -Process $process)) {
+      Throw-Fixed -Class "cleanup_incomplete"
+    }
     Throw-Fixed -Class "visible_response_observer_unavailable"
   }
   if ($null -eq $arm) {
-    try { if (-not $process.HasExited) { $process.Kill($true) } } catch {}
-    $process.Dispose()
+    if (-not (Stop-VisibleResponseObserverChild -Process $process)) {
+      Throw-Fixed -Class "cleanup_incomplete"
+    }
     Throw-Fixed -Class "visible_response_observer_unavailable"
   }
   $armKeys = @($arm.PSObject.Properties.Name | Sort-Object)
@@ -362,8 +389,9 @@ function Start-VisibleResponseObserver {
     $arm.raw_private_publication_flags -isnot [bool] -or
     [bool]$arm.raw_private_publication_flags
   ) {
-    try { $process.Kill($true) } catch {}
-    $process.Dispose()
+    if (-not (Stop-VisibleResponseObserverChild -Process $process)) {
+      Throw-Fixed -Class "cleanup_incomplete"
+    }
     Throw-Fixed -Class "visible_response_observer_unavailable"
   }
   return $process
@@ -428,7 +456,8 @@ function Start-ProductionTransportChild {
     [Parameter(Mandatory = $true)][System.Uri]$AiTalkCoreEndpoint,
     [Parameter(Mandatory = $true)][int]$ChromeRootPid,
     [Parameter(Mandatory = $true)][int]$ObserverWindowMs,
-    [Parameter(Mandatory = $true)][int]$TimeoutMs,
+    [Parameter(Mandatory = $true)][int]$ArmTimeoutMs,
+    [Parameter(Mandatory = $true)][int]$RouteDeadlineMs,
     [AllowNull()][scriptblock]$ProcessFactory = $null
   )
 
@@ -467,7 +496,7 @@ function Start-ProductionTransportChild {
         "-AiTalkCoreBaseUrl", $AiTalkCoreEndpoint.AbsoluteUri,
         "-ControlledChromeRootPid", [string]$ChromeRootPid,
         "-ObserverWindowMs", [string]$ObserverWindowMs,
-        "-DeadlineMs", [string]$TimeoutMs,
+        "-DeadlineMs", [string]$RouteDeadlineMs,
         "-EmitArmSignal", "-Json"
       )) {
       [void]$startInfo.ArgumentList.Add($argument)
@@ -485,7 +514,7 @@ function Start-ProductionTransportChild {
     Throw-Fixed -Class "production_transport_unavailable"
   }
   $armTask = $process.StandardOutput.ReadLineAsync()
-  if (-not $armTask.Wait([Math]::Min(5000, $TimeoutMs))) {
+  if (-not $armTask.Wait([Math]::Max(1, $ArmTimeoutMs))) {
     if (-not (Stop-ProductionTransportChild -Process $process)) {
       Throw-Fixed -Class "cleanup_incomplete"
     }
@@ -683,7 +712,21 @@ function New-UserSpeechReadySignal {
 }
 
 function Get-RemainingRouteBudgetMs {
-  $remainingMs = [long]$DeadlineMs - [long]$controllerStopwatch.ElapsedMilliseconds
+  $elapsedMs = $(if ($null -ne $userPhaseStopwatch) {
+      [long]$userPhaseStopwatch.ElapsedMilliseconds
+    } else {
+      [long]$controllerStopwatch.ElapsedMilliseconds
+    })
+  $remainingMs = [long]$DeadlineMs - $elapsedMs
+  if ($remainingMs -le 0) {
+    Throw-Fixed -Class "whole_route_timeout"
+  }
+  return [int][Math]::Min([int]::MaxValue, $remainingMs)
+}
+
+function Get-RemainingPreparationBudgetMs {
+  $remainingMs = [long]$PreparationDeadlineMs -
+    [long]$controllerStopwatch.ElapsedMilliseconds
   if ($remainingMs -le 0) {
     Throw-Fixed -Class "whole_route_timeout"
   }
@@ -699,13 +742,15 @@ try {
     $WindowMs -gt 3000 -or
     $DeadlineMs -lt ($WindowMs + 200) -or
     $DeadlineMs -gt 10000 -or
+    $PreparationDeadlineMs -lt 1000 -or
+    $PreparationDeadlineMs -gt 20000 -or
     $ControlledChromeRootPid -lt 0 -or
     $AudioObserverWindowMs -lt 100 -or
     $AudioObserverWindowMs -gt 5000 -or
     ($ControlledChromeRootPid -gt 0 -and (
       $Scenario -cne "independent_current_session_user_speech" -or
       [string]::IsNullOrWhiteSpace($CdpEndpoint) -or
-      $DeadlineMs -lt ($AudioObserverWindowMs + 1000)
+      $PreparationDeadlineMs -lt ($AudioObserverWindowMs + 1000)
     )) -or
     ($EmitUserSpeechReadySignal -and $ControlledChromeRootPid -le 0)
   ) {
@@ -733,23 +778,32 @@ try {
   $endpointUri = [System.Uri]::new($baseUri, "/api/live-input-gate/candidate-window")
 
   if ($null -ne $cdpUri) {
-    $observerArmBudgetMs = Get-RemainingRouteBudgetMs
+    $observerArmBudgetMs = Get-RemainingPreparationBudgetMs
+    $observerRouteDeadlineMs = [Math]::Min(
+      30000,
+      $PreparationDeadlineMs + $DeadlineMs)
     $visibleObserverProcess = Start-VisibleResponseObserver `
       -Endpoint $cdpUri `
-      -TimeoutMs $observerArmBudgetMs
+      -ArmTimeoutMs $observerArmBudgetMs `
+      -RouteDeadlineMs $observerRouteDeadlineMs
   }
 
   if ($ControlledChromeRootPid -gt 0) {
-    $productionArmBudgetMs = Get-RemainingRouteBudgetMs
+    $productionArmBudgetMs = Get-RemainingPreparationBudgetMs
     if ($productionArmBudgetMs -lt ($AudioObserverWindowMs + 1000)) {
       Throw-Fixed -Class "whole_route_timeout"
     }
+    $productionRouteDeadlineMs = [Math]::Min(
+      30000,
+      $PreparationDeadlineMs + $DeadlineMs)
     $productionTransportProcess = Start-ProductionTransportChild `
       -AitEndpoint $aitUri `
       -AiTalkCoreEndpoint $baseUri `
       -ChromeRootPid $ControlledChromeRootPid `
       -ObserverWindowMs $AudioObserverWindowMs `
-      -TimeoutMs $productionArmBudgetMs
+      -ArmTimeoutMs $productionArmBudgetMs `
+      -RouteDeadlineMs $productionRouteDeadlineMs
+    $userPhaseStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     if ($EmitUserSpeechReadySignal) {
       $readySignal = New-UserSpeechReadySignal
       [Console]::Error.WriteLine(($readySignal | ConvertTo-Json -Compress))
@@ -1135,7 +1189,7 @@ try {
     $productionObservation = Complete-ProductionTransportChild `
       -Process $productionTransportProcess `
       -TimeoutMs $remainingProductionMs `
-      -RouteDeadlineMs $DeadlineMs
+      -RouteDeadlineMs $productionRouteDeadlineMs
     $productionTransportProcess.Dispose()
     $productionTransportProcess = $null
     if ($null -eq $utteranceEndWallMs) {
@@ -1213,7 +1267,18 @@ try {
 }
 
 $controllerStopwatch.Stop()
-$controllerElapsedMs = [Math]::Min(20000, [Math]::Max(0, [int]$controllerStopwatch.ElapsedMilliseconds))
+if ($null -ne $userPhaseStopwatch) {
+  $userPhaseStopwatch.Stop()
+}
+$controllerElapsedMs = [Math]::Min(
+  20000,
+  [Math]::Max(
+    0,
+    [int]$(if ($null -ne $userPhaseStopwatch) {
+        $userPhaseStopwatch.ElapsedMilliseconds
+      } else {
+        $controllerStopwatch.ElapsedMilliseconds
+      })))
 if ($endpointResponseObserved -and $cleanupClass -ceq "controller_http_resources_disposed_no_request_started") {
   $cleanupClass = "controller_http_resources_disposed_endpoint_cleanup_unverified"
 } elseif ($requestStarted -and -not $endpointResponseObserved) {

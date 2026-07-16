@@ -615,6 +615,20 @@ Assert-Equal $successRoute.Value.first_non_silent_observed_at_utc_ms `
   ($successHarness.State.LastObserverResult.observation.capture_started_at_utc_ms + 25) `
   "controlled success returns the derived first non-silent wall"
 
+$longDeadlineHarness = New-ControlledRouteHarness -Mode "success"
+$longDeadlineRoute = Invoke-ProductionTransportRoute `
+  -RouteAitBaseUrl "http://127.0.0.1:3000" `
+  -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" `
+  -RouteControlledChromeRootPid 1 `
+  -RouteObserverWindowMs 1000 `
+  -RouteDeadlineMs 30000 `
+  -RequestInvoker $longDeadlineHarness.RequestInvoker `
+  -ObserverStarter $longDeadlineHarness.ObserverStarter `
+  -SleepInvoker $longDeadlineHarness.SleepInvoker `
+  -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $longDeadlineRoute.ExitCode 0 "preparation plus user phase deadline remains supported"
+Assert-Equal $longDeadlineHarness.State.ArmedCount 0 "long deadline does not invent an arm callback"
+
 $futureWallHarness = New-ControlledRouteHarness -Mode "future_derived_wall"
 $futureWallRoute = Invoke-ProductionTransportRoute `
   -RouteAitBaseUrl "http://127.0.0.1:3000" `

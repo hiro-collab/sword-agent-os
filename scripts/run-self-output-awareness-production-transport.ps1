@@ -637,7 +637,7 @@ try {
     $RouteObserverWindowMs -lt 100 -or
     $RouteObserverWindowMs -gt 5000 -or
     $RouteDeadlineMs -lt $RouteObserverWindowMs + 1000 -or
-    $RouteDeadlineMs -gt 15000
+    $RouteDeadlineMs -gt 30000
   ) {
     Throw-Fixed -Class "transport_configuration_invalid"
   }
