@@ -230,6 +230,7 @@ function New-ControlledRouteHarness {
     AitQueries = [Collections.ArrayList]::new()
     CoreBodies = [Collections.ArrayList]::new()
     ObserverStartCount = 0
+    ListenerReadyCount = 0
     ArmedCount = 0
     LastObserverResult = $null
     ObserverProcess = $null
@@ -582,6 +583,12 @@ Assert-Equal $emptyOverrideHarness.State.ObserverStartCount 0 "empty override st
 Assert-Equal $emptyOverrideRoute.Value.cleanup_class "route_owned_cleanup_clear" "empty override cleanup remains clear"
 
 $successHarness = New-ControlledRouteHarness -Mode "success"
+$listenerReadyCallback = {
+  Assert-Equal $successHarness.State.AitReadCount 1 "listener ready follows the baseline read only"
+  Assert-Equal $successHarness.State.ObserverStartCount 0 "listener ready precedes observer startup"
+  Assert-Equal $successHarness.State.CoreBodies.Count 0 "listener ready precedes Core publication"
+  $successHarness.State.ListenerReadyCount += 1
+}.GetNewClosure()
 $armedCallback = {
   Assert-Equal $successHarness.State.AitReadCount 2 "ready follows baseline and handoff reads"
   Assert-Equal $successHarness.State.ObserverStartCount 1 "ready follows one observer run"
@@ -598,6 +605,7 @@ $successRoute = Invoke-ProductionTransportRoute `
   -RequestInvoker $successHarness.RequestInvoker `
   -ObserverStarter $successHarness.ObserverStarter `
   -SleepInvoker $successHarness.SleepInvoker `
+  -ListenerReadyCallback $listenerReadyCallback `
   -ArmedCallback $armedCallback `
   -CoreTokenOverride "fixed-test-core-token"
 Assert-Equal $successRoute.ExitCode 0 "controlled success route exits clear"
@@ -608,12 +616,32 @@ Assert-Equal $successRoute.Value.observation_ingest_outcome_class "acknowledged"
 Assert-Equal $successHarness.State.CoreBodies.Count 4 "controlled success sends exactly four Core requests"
 Assert-Equal (@($successHarness.State.CoreBodies | ForEach-Object event) -join ",") "swordAgentSystemSpeechLifecycleV0,audioSelfOutputObservationV0,swordAgentSystemSpeechLifecycleV0,swordAgentSystemSpeechLifecycleV0" "controlled success preserves overlap-ready Core event order"
 Assert-Equal $successHarness.State.ObserverStartCount 1 "controlled success starts one observer"
+Assert-Equal $successHarness.State.ListenerReadyCount 1 "controlled success reports listener readiness exactly once"
 Assert-Equal $successHarness.State.ArmedCount 1 "controlled success reports overlap join exactly once"
 Assert-Equal $successRoute.Value.overlap_join_ready_class "overlap_join_ready" "controlled success reports the fixed overlap-ready class"
 Assert-Equal $successHarness.State.ObserverProcess.DisposeCount 1 "controlled success disposes observer"
 Assert-Equal $successRoute.Value.first_non_silent_observed_at_utc_ms `
   ($successHarness.State.LastObserverResult.observation.capture_started_at_utc_ms + 25) `
   "controlled success returns the derived first non-silent wall"
+
+$listenerFailureHarness = New-ControlledRouteHarness -Mode "success"
+$listenerFailureRoute = Invoke-ProductionTransportRoute `
+  -RouteAitBaseUrl "http://127.0.0.1:3000" `
+  -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" `
+  -RouteControlledChromeRootPid 1 `
+  -RouteObserverWindowMs 1000 `
+  -RouteDeadlineMs 3000 `
+  -RequestInvoker $listenerFailureHarness.RequestInvoker `
+  -ObserverStarter $listenerFailureHarness.ObserverStarter `
+  -SleepInvoker $listenerFailureHarness.SleepInvoker `
+  -ListenerReadyCallback { throw "fixed-listener-failure" } `
+  -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $listenerFailureRoute.ExitCode 1 "listener callback failure exits closed"
+Assert-Equal $listenerFailureRoute.Value.blocker_class "transport_listener_ready_failed" "listener callback failure uses a fixed class"
+Assert-Equal $listenerFailureHarness.State.AitReadCount 1 "listener callback failure occurs after the baseline read"
+Assert-Equal $listenerFailureHarness.State.CoreBodies.Count 0 "listener callback failure publishes no Core event"
+Assert-Equal $listenerFailureHarness.State.ObserverStartCount 0 "listener callback failure starts no observer"
+Assert-Equal $listenerFailureRoute.Value.cleanup_class "route_owned_cleanup_clear" "listener callback failure cleanup remains clear"
 
 $longDeadlineHarness = New-ControlledRouteHarness -Mode "success"
 $longDeadlineRoute = Invoke-ProductionTransportRoute `

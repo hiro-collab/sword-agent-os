@@ -12,7 +12,7 @@ $privateResponseMarker = "PRIVATE_TRANSCRIPT_SENTINEL"
 $assertions = 0
 $jobs = [System.Collections.Generic.List[object]]::new()
 $productionProcess = $null
-$delayedArmProcess = $null
+$delayedListenerProcess = $null
 $caseProcess = $null
 
 function Assert-True {
@@ -389,23 +389,39 @@ param(
   [Parameter(Mandatory = $true)][string]$Mode
 )
 $ErrorActionPreference = "Stop"
-if ($Mode -ceq "delayed_arm") {
+if ($Mode -ceq "delayed_listener") {
   Start-Sleep -Milliseconds 5500
+}
+[System.IO.File]::WriteAllText(
+  "$TriggerPath.listener",
+  "listening",
+  [System.Text.Encoding]::ASCII)
+[Console]::Out.WriteLine($(if ($Mode -ceq "bad_listener") {
+  '{"schema_version":"invalid"}'
+} else {
+  '{"schema_version":"self_output_awareness.production_transport_listener.v0","result_class":"waiting_for_self_output","raw_private_publication_flags":false}'
+}))
+[Console]::Out.Flush()
+if ($Mode -ceq "bad_listener") { exit 7 }
+$deadline = [System.Diagnostics.Stopwatch]::StartNew()
+while (-not [System.IO.File]::Exists($TriggerPath)) {
+  if ($deadline.ElapsedMilliseconds -gt 5000) { exit 6 }
+  Start-Sleep -Milliseconds 10
 }
 [System.IO.File]::WriteAllText(
   "$TriggerPath.arm",
   "armed",
   [System.Text.Encoding]::ASCII)
-[Console]::Out.WriteLine('{"schema_version":"self_output_awareness.production_transport_arm.v0","result_class":"overlap_join_ready","raw_private_publication_flags":false}')
+[Console]::Out.WriteLine($(if ($Mode -ceq "bad_arm") {
+  '{"schema_version":"invalid"}'
+} else {
+  '{"schema_version":"self_output_awareness.production_transport_arm.v0","result_class":"overlap_join_ready","raw_private_publication_flags":false}'
+}))
 [Console]::Out.Flush()
+if ($Mode -ceq "bad_arm") { exit 8 }
 if ($Mode -ceq "timeout") {
   Start-Sleep -Seconds 30
   exit 5
-}
-$deadline = [System.Diagnostics.Stopwatch]::StartNew()
-while (-not [System.IO.File]::Exists($TriggerPath)) {
-  if ($deadline.ElapsedMilliseconds -gt 5000) { exit 6 }
-  Start-Sleep -Milliseconds 10
 }
 if ($Mode -ceq "stderr") {
   [Console]::Error.WriteLine("fixed_child_failure")
@@ -637,11 +653,40 @@ Assert-True ($readySignal.schema_version -ceq
 Assert-True ($readySignal.result_class -ceq "ready_for_user_speech") "ready signal class mismatch"
 Assert-True ($readySignal.raw_private_publication_flags -is [bool] -and
   -not [bool]$readySignal.raw_private_publication_flags) "ready signal privacy mismatch"
-$transportStartIndex = $controllerSource.IndexOf('Start-ProductionTransportChild')
-$readyWriteIndex = $controllerSource.IndexOf('[Console]::Error.WriteLine', $transportStartIndex)
-$candidateBudgetIndex = $controllerSource.IndexOf('$httpBudgetMs = Get-RemainingRouteBudgetMs', $readyWriteIndex)
-Assert-True ($transportStartIndex -ge 0 -and $readyWriteIndex -gt $transportStartIndex -and
-  $candidateBudgetIndex -gt $readyWriteIndex) "ready signal must follow the observed self-output join and precede the candidate request"
+$systemTriggerReadySignal = New-SystemOutputTriggerReadySignal
+Assert-True ((@($systemTriggerReadySignal.Keys | Sort-Object) -join ",") -ceq
+  "raw_private_publication_flags,result_class,schema_version") "system-output trigger signal keys must be exact"
+Assert-True ($systemTriggerReadySignal.schema_version -ceq
+  "self_output_awareness.system_output_trigger_ready.v0") "system-output trigger signal schema mismatch"
+Assert-True ($systemTriggerReadySignal.result_class -ceq
+  "ready_for_system_output_trigger") "system-output trigger signal class mismatch"
+Assert-True ($systemTriggerReadySignal.raw_private_publication_flags -is [bool] -and
+  -not [bool]$systemTriggerReadySignal.raw_private_publication_flags) "system-output trigger signal privacy mismatch"
+$transportStartStatement = '$productionTransportProcess = Start-ProductionTransportChild'
+$triggerReadyStatement = '$systemTriggerReadySignal = New-SystemOutputTriggerReadySignal'
+$overlapWaitStatement = 'Wait-ProductionTransportOverlapReady `'
+$userClockStatement = '$userPhaseStopwatch = [System.Diagnostics.Stopwatch]::StartNew()'
+$userReadyStatement = '$readySignal = New-UserSpeechReadySignal'
+foreach ($exactMainStatement in @(
+    $transportStartStatement,
+    $triggerReadyStatement,
+    $overlapWaitStatement,
+    $userClockStatement,
+    $userReadyStatement
+  )) {
+  Assert-True (($controllerSource.Split($exactMainStatement).Count - 1) -eq 1) `
+    "main-path preparation statement must occur exactly once: $exactMainStatement"
+}
+$transportStartIndex = $controllerSource.IndexOf($transportStartStatement)
+$triggerReadyIndex = $controllerSource.IndexOf($triggerReadyStatement, $transportStartIndex)
+$overlapWaitIndex = $controllerSource.IndexOf($overlapWaitStatement, $triggerReadyIndex)
+$userClockIndex = $controllerSource.IndexOf($userClockStatement, $overlapWaitIndex)
+$userReadyIndex = $controllerSource.IndexOf($userReadyStatement, $userClockIndex)
+$candidateBudgetIndex = $controllerSource.IndexOf('$httpBudgetMs = Get-RemainingRouteBudgetMs', $userReadyIndex)
+Assert-True ($transportStartIndex -ge 0 -and $triggerReadyIndex -gt $transportStartIndex -and
+  $overlapWaitIndex -gt $triggerReadyIndex -and $userClockIndex -gt $overlapWaitIndex -and
+  $userReadyIndex -gt $userClockIndex -and $candidateBudgetIndex -gt $userReadyIndex) `
+  "listener, system-output trigger, overlap join, user clock, user-ready, and candidate request order must be exact"
 Assert-True (Test-AcceptedJoinClass `
   -AcceptedJoinClass "active_self_output_overlap" `
   -ResultClass "independent_user_speech_turninput_accepted" `
@@ -662,7 +707,7 @@ Assert-True (-not (Test-AcceptedJoinClass `
   -AcceptedJoinClass "active_self_output_overlap" `
   -ResultClass "self_output_or_ambiguous_confirmed" `
   -ControlledChromeRootPid 0)) "negative run must reject an accepted overlap claim"
-Assert-True ($controllerSource -match 'Start-ProductionTransportChild[\s\S]+\$endpointRequestStartedAtWallMs\s*=') "production transport must arm before the D1 request starts"
+Assert-True ($controllerSource -match 'Start-ProductionTransportChild[\s\S]+Wait-ProductionTransportOverlapReady[\s\S]+\$endpointRequestStartedAtWallMs\s*=') "production transport must observe the overlap join before the D1 request starts"
 Assert-True ($controllerSource -match '\$userPhaseStopwatch\s*=\s*\[System\.Diagnostics\.Stopwatch\]::StartNew\(\)[\s\S]+\$httpBudgetMs\s*=\s*Get-RemainingRouteBudgetMs') "post-ready route budget must start after the observed self-output join"
 Assert-True ($controllerSource -match 'Get-RemainingPreparationBudgetMs[\s\S]+\$PreparationDeadlineMs[\s\S]+Start-ProductionTransportChild') "preparation must use its own bounded deadline"
 Assert-True ($controllerSource -match 'Complete-ProductionTransportChild[\s\S]+first_non_silent_observed_at_utc_ms[\s\S]+utteranceEndToFirstAudioMs') "production result must feed the bounded first-audio delta"
@@ -673,67 +718,82 @@ try {
   $fixedFirstAudioWallMs = $fixedNowUtcMs - 100
   $fixedUtteranceEndWallMs = $fixedFirstAudioWallMs - 250
   $productionResultPath = Join-Path $tempRoot "production-success.json"
-  $productionTriggerPath = Join-Path $tempRoot "production-success.trigger"
   [System.IO.File]::WriteAllText(
     $productionResultPath,
     (New-ProductionTransportResult `
       -FirstAudioWallMs $fixedFirstAudioWallMs | ConvertTo-Json -Depth 6 -Compress),
     [System.Text.UTF8Encoding]::new($false))
-  $productionFactory = New-ProductionTransportProcessFactory `
-    -TriggerPath $productionTriggerPath `
-    -ResultPath $productionResultPath `
-    -Mode "success"
-  $productionProcess = Start-ProductionTransportChild `
-    -AitEndpoint ([System.Uri]"http://127.0.0.1:3000/") `
-    -AiTalkCoreEndpoint ([System.Uri]"http://127.0.0.1:8000/") `
-    -ChromeRootPid 1 `
-    -ObserverWindowMs 1000 `
-    -ArmTimeoutMs 3000 `
-    -RouteDeadlineMs 10000 `
-    -ProcessFactory $productionFactory
-  Assert-True ([System.IO.File]::Exists("$productionTriggerPath.arm")) "production child must report arm before the D1 trigger"
-  Assert-True (-not [System.IO.File]::Exists($productionTriggerPath)) "D1 trigger must remain absent when child becomes armed"
-  Assert-True (-not $productionProcess.HasExited) "armed production child must still await the trigger"
-  [System.IO.File]::WriteAllText(
-    $productionTriggerPath,
-    "triggered",
-    [System.Text.Encoding]::ASCII)
-  $productionValue = Complete-ProductionTransportChild `
-    -Process $productionProcess `
-    -TimeoutMs 3000 `
-    -RouteDeadlineMs 10000
-  $productionProcess.Dispose()
-  $productionProcess = $null
-  Assert-True ($productionValue.first_non_silent_observed_at_utc_ms -eq $fixedFirstAudioWallMs) "production child result must preserve the fixed first-audio wall"
+  $threeRunStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+  foreach ($simulationIndex in 1..3) {
+    $productionTriggerPath = Join-Path $tempRoot "production-success-$simulationIndex.trigger"
+    $productionFactory = New-ProductionTransportProcessFactory `
+      -TriggerPath $productionTriggerPath `
+      -ResultPath $productionResultPath `
+      -Mode "success"
+    $listenerStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $productionProcess = Start-ProductionTransportChild `
+      -AitEndpoint ([System.Uri]"http://127.0.0.1:3000/") `
+      -AiTalkCoreEndpoint ([System.Uri]"http://127.0.0.1:8000/") `
+      -ChromeRootPid 1 `
+      -ObserverWindowMs 1000 `
+      -ArmTimeoutMs 3000 `
+      -RouteDeadlineMs 10000 `
+      -ProcessFactory $productionFactory
+    $listenerStopwatch.Stop()
+    Assert-True ($listenerStopwatch.ElapsedMilliseconds -lt 2000) "simulation $simulationIndex listener readiness must be immediate"
+    Assert-True ([System.IO.File]::Exists("$productionTriggerPath.listener")) "simulation $simulationIndex must report listener readiness"
+    Assert-True (-not [System.IO.File]::Exists("$productionTriggerPath.arm")) "simulation $simulationIndex must not report overlap before the system-output trigger"
+    Assert-True (-not [System.IO.File]::Exists($productionTriggerPath)) "simulation $simulationIndex trigger must remain absent while listener waits"
+    Assert-True (-not $productionProcess.HasExited) "simulation $simulationIndex listener must remain ready"
+    [System.IO.File]::WriteAllText(
+      $productionTriggerPath,
+      "triggered",
+      [System.Text.Encoding]::ASCII)
+    $overlapStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    Wait-ProductionTransportOverlapReady -Process $productionProcess -TimeoutMs 2000
+    $overlapStopwatch.Stop()
+    Assert-True ($overlapStopwatch.ElapsedMilliseconds -lt 1000) "simulation $simulationIndex overlap readiness must follow the trigger promptly"
+    Assert-True ([System.IO.File]::Exists("$productionTriggerPath.arm")) "simulation $simulationIndex must report overlap after the trigger"
+    $productionValue = Complete-ProductionTransportChild `
+      -Process $productionProcess `
+      -TimeoutMs 3000 `
+      -RouteDeadlineMs 10000
+    $productionProcess.Dispose()
+    $productionProcess = $null
+    Assert-True ($productionValue.first_non_silent_observed_at_utc_ms -eq $fixedFirstAudioWallMs) "simulation $simulationIndex must preserve the fixed first-audio wall"
+  }
+  $threeRunStopwatch.Stop()
+  Assert-True ($threeRunStopwatch.ElapsedMilliseconds -lt 6000) "three preparation simulations must complete in seconds"
 
-  $delayedArmTriggerPath = Join-Path $tempRoot "production-delayed-arm.trigger"
-  $delayedArmFactory = New-ProductionTransportProcessFactory `
-    -TriggerPath $delayedArmTriggerPath `
+  $delayedListenerTriggerPath = Join-Path $tempRoot "production-delayed-listener.trigger"
+  $delayedListenerFactory = New-ProductionTransportProcessFactory `
+    -TriggerPath $delayedListenerTriggerPath `
     -ResultPath $productionResultPath `
-    -Mode "delayed_arm"
-  $delayedArmStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-  $delayedArmProcess = Start-ProductionTransportChild `
+    -Mode "delayed_listener"
+  $delayedListenerStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+  $delayedListenerProcess = Start-ProductionTransportChild `
     -AitEndpoint ([System.Uri]"http://127.0.0.1:3000/") `
     -AiTalkCoreEndpoint ([System.Uri]"http://127.0.0.1:8000/") `
     -ChromeRootPid 1 `
     -ObserverWindowMs 1000 `
     -ArmTimeoutMs 6000 `
     -RouteDeadlineMs 10000 `
-    -ProcessFactory $delayedArmFactory
-  $delayedArmStopwatch.Stop()
-  Assert-True ($delayedArmStopwatch.ElapsedMilliseconds -ge 5000) "production arm must tolerate a real response beyond the former five-second cap"
-  Assert-True ($delayedArmStopwatch.ElapsedMilliseconds -lt 6500) "production arm delay must stay bounded"
+    -ProcessFactory $delayedListenerFactory
+  $delayedListenerStopwatch.Stop()
+  Assert-True ($delayedListenerStopwatch.ElapsedMilliseconds -ge 5000) "production listener must tolerate a real response beyond the former five-second cap"
+  Assert-True ($delayedListenerStopwatch.ElapsedMilliseconds -lt 6500) "production listener delay must stay bounded"
   [System.IO.File]::WriteAllText(
-    $delayedArmTriggerPath,
+    $delayedListenerTriggerPath,
     "triggered",
     [System.Text.Encoding]::ASCII)
-  $delayedArmValue = Complete-ProductionTransportChild `
-    -Process $delayedArmProcess `
+  Wait-ProductionTransportOverlapReady -Process $delayedListenerProcess -TimeoutMs 2000
+  $delayedListenerValue = Complete-ProductionTransportChild `
+    -Process $delayedListenerProcess `
     -TimeoutMs 3000 `
     -RouteDeadlineMs 10000
-  $delayedArmProcess.Dispose()
-  $delayedArmProcess = $null
-  Assert-True ($delayedArmValue.result_class -ceq "production_self_output_transport_completed") "delayed production arm must complete through the normal fixed result"
+  $delayedListenerProcess.Dispose()
+  $delayedListenerProcess = $null
+  Assert-True ($delayedListenerValue.result_class -ceq "production_self_output_transport_completed") "delayed production listener must complete through the normal fixed result"
   $fixedAudioDelta = Resolve-UtteranceEndToFirstAudioMs `
     -UtteranceEndWallMs $fixedUtteranceEndWallMs `
     -FirstAudioWallMs $fixedFirstAudioWallMs `
@@ -762,6 +822,49 @@ try {
       -ObservedNowUtcMs $fixedNowUtcMs
   } "production_transport_not_completed" "future first-audio wall must fail closed at Parent"
 
+  $badListenerTriggerPath = Join-Path $tempRoot "production-bad-listener.trigger"
+  $badListenerFactory = New-ProductionTransportProcessFactory `
+    -TriggerPath $badListenerTriggerPath `
+    -ResultPath $productionResultPath `
+    -Mode "bad_listener"
+  Assert-FixedFailure {
+    Start-ProductionTransportChild `
+      -AitEndpoint ([System.Uri]"http://127.0.0.1:3000/") `
+      -AiTalkCoreEndpoint ([System.Uri]"http://127.0.0.1:8000/") `
+      -ChromeRootPid 1 `
+      -ObserverWindowMs 1000 `
+      -ArmTimeoutMs 1000 `
+      -RouteDeadlineMs 10000 `
+      -ProcessFactory $badListenerFactory
+  } "production_transport_unavailable" "malformed listener readiness must fail closed before the system-output trigger"
+  Assert-True (-not [System.IO.File]::Exists($badListenerTriggerPath)) "malformed listener readiness must not create a trigger"
+
+  $badArmTriggerPath = Join-Path $tempRoot "production-bad-arm.trigger"
+  $badArmFactory = New-ProductionTransportProcessFactory `
+    -TriggerPath $badArmTriggerPath `
+    -ResultPath $productionResultPath `
+    -Mode "bad_arm"
+  $caseProcess = Start-ProductionTransportChild `
+    -AitEndpoint ([System.Uri]"http://127.0.0.1:3000/") `
+    -AiTalkCoreEndpoint ([System.Uri]"http://127.0.0.1:8000/") `
+    -ChromeRootPid 1 `
+    -ObserverWindowMs 1000 `
+    -ArmTimeoutMs 1000 `
+    -RouteDeadlineMs 10000 `
+    -ProcessFactory $badArmFactory
+  $badArmProcessId = $caseProcess.Id
+  [System.IO.File]::WriteAllText(
+    $badArmTriggerPath,
+    "triggered",
+    [System.Text.Encoding]::ASCII)
+  Assert-FixedFailure {
+    Wait-ProductionTransportOverlapReady -Process $caseProcess -TimeoutMs 1000
+  } "production_transport_unavailable" "malformed overlap readiness must fail closed"
+  Assert-True (Stop-ProductionTransportChild -Process $caseProcess) "malformed overlap readiness cleanup must be exact"
+  $caseProcess = $null
+  Start-Sleep -Milliseconds 20
+  Assert-True ($null -eq (Get-Process -Id $badArmProcessId -ErrorAction SilentlyContinue)) "malformed overlap readiness must leave zero process residue"
+
   foreach ($mode in @("bad_output", "stderr", "timeout")) {
     $caseTriggerPath = Join-Path $tempRoot "production-$mode.trigger"
     $caseResultPath = Join-Path $tempRoot "production-$mode.json"
@@ -783,12 +886,11 @@ try {
       -RouteDeadlineMs 10000 `
       -ProcessFactory $caseFactory
     $caseProcessId = $caseProcess.Id
-    if ($mode -cne "timeout") {
-      [System.IO.File]::WriteAllText(
-        $caseTriggerPath,
-        "triggered",
-        [System.Text.Encoding]::ASCII)
-    }
+    [System.IO.File]::WriteAllText(
+      $caseTriggerPath,
+      "triggered",
+      [System.Text.Encoding]::ASCII)
+    Wait-ProductionTransportOverlapReady -Process $caseProcess -TimeoutMs 1000
     $expectedFailure = $(if ($mode -ceq "timeout") {
         "whole_route_timeout"
       } else {
@@ -1309,7 +1411,7 @@ try {
   Write-Output ("assertions={0}" -f $assertions)
   Write-Output "raw_private_publication_flags=false"
 } finally {
-  foreach ($ownedProcess in @($productionProcess, $delayedArmProcess, $caseProcess)) {
+  foreach ($ownedProcess in @($productionProcess, $delayedListenerProcess, $caseProcess)) {
     if ($null -ne $ownedProcess) {
       [void](Stop-ProductionTransportChild -Process $ownedProcess)
     }

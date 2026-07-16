@@ -602,6 +602,7 @@ param(
   [scriptblock]$RequestInvoker = ${function:Invoke-JsonRequest},
   [scriptblock]$ObserverStarter = ${function:Start-ObserverChild},
   [scriptblock]$SleepInvoker = { param([int]$Milliseconds) Start-Sleep -Milliseconds $Milliseconds },
+  [scriptblock]$ListenerReadyCallback = {},
   [scriptblock]$ArmedCallback = {},
   [AllowNull()][string]$CoreTokenOverride = $null
 )
@@ -676,6 +677,8 @@ try {
     }
   }
   $baselineResponse = $null
+  try { [void](& $ListenerReadyCallback) }
+  catch { Throw-Fixed -Class "transport_listener_ready_failed" }
   $lease = $null
   $lifecyclePhase = "awaiting_handoff"
   $lifecycleCompleted = $false
@@ -845,7 +848,7 @@ try {
     "lifecycle_stale_generation_replay",
     "observer_child_start_failed", "observer_child_failed",
     "observer_result_invalid", "core_observation_ingest_failed",
-    "transport_arm_failed", "overlap_join_not_ready",
+    "transport_listener_ready_failed", "transport_arm_failed", "overlap_join_not_ready",
     "whole_route_timeout", "cleanup_incomplete"
   )
   $class = [string]$_.Exception.Message
@@ -915,6 +918,15 @@ return [pscustomobject]@{
 
 if ($MyInvocation.InvocationName -eq ".") { return }
 
+$listenerReadyCallback = $(if ($EmitArmSignal) {
+    {
+      [Console]::Out.WriteLine(
+        '{"schema_version":"self_output_awareness.production_transport_listener.v0","result_class":"waiting_for_self_output","raw_private_publication_flags":false}')
+      [Console]::Out.Flush()
+    }
+  } else {
+    {}
+  })
 $armedCallback = $(if ($EmitArmSignal) {
     {
       [Console]::Out.WriteLine(
@@ -930,6 +942,7 @@ $execution = Invoke-ProductionTransportRoute `
   -RouteControlledChromeRootPid $ControlledChromeRootPid `
   -RouteObserverWindowMs $ObserverWindowMs `
   -RouteDeadlineMs $DeadlineMs `
+  -ListenerReadyCallback $listenerReadyCallback `
   -ArmedCallback $armedCallback
 $convertParameters = @{ Depth = 6 }
 if ($Json) { $convertParameters.Compress = $true }

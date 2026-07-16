@@ -513,20 +513,51 @@ function Start-ProductionTransportChild {
     $process.Dispose()
     Throw-Fixed -Class "production_transport_unavailable"
   }
-  $armTask = $process.StandardOutput.ReadLineAsync()
-  if (-not $armTask.Wait([Math]::Max(1, $ArmTimeoutMs))) {
+  $listenerTask = $process.StandardOutput.ReadLineAsync()
+  if (-not $listenerTask.Wait([Math]::Max(1, $ArmTimeoutMs))) {
     if (-not (Stop-ProductionTransportChild -Process $process)) {
       Throw-Fixed -Class "cleanup_incomplete"
     }
     Throw-Fixed -Class "production_transport_unavailable"
   }
-  try { $arm = $armTask.Result | ConvertFrom-Json }
+  try { $listener = $listenerTask.Result | ConvertFrom-Json }
   catch {
     if (-not (Stop-ProductionTransportChild -Process $process)) {
       Throw-Fixed -Class "cleanup_incomplete"
     }
     Throw-Fixed -Class "production_transport_unavailable"
   }
+  $expectedListenerKeys = @(
+    "schema_version", "result_class", "raw_private_publication_flags")
+  if (
+    $null -eq $listener -or
+    (@($listener.PSObject.Properties.Name | Sort-Object) -join ",") -cne
+      (@($expectedListenerKeys | Sort-Object) -join ",") -or
+    $listener.schema_version -cne "self_output_awareness.production_transport_listener.v0" -or
+    $listener.result_class -cne "waiting_for_self_output" -or
+    $listener.raw_private_publication_flags -isnot [bool] -or
+    [bool]$listener.raw_private_publication_flags
+  ) {
+    if (-not (Stop-ProductionTransportChild -Process $process)) {
+      Throw-Fixed -Class "cleanup_incomplete"
+    }
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  return $process
+}
+
+function Wait-ProductionTransportOverlapReady {
+  param(
+    [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
+    [Parameter(Mandatory = $true)][int]$TimeoutMs
+  )
+
+  $armTask = $Process.StandardOutput.ReadLineAsync()
+  if (-not $armTask.Wait([Math]::Max(1, $TimeoutMs))) {
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  try { $arm = $armTask.Result | ConvertFrom-Json }
+  catch { Throw-Fixed -Class "production_transport_unavailable" }
   $expectedArmKeys = @(
     "schema_version", "result_class", "raw_private_publication_flags")
   if (
@@ -538,12 +569,8 @@ function Start-ProductionTransportChild {
     $arm.raw_private_publication_flags -isnot [bool] -or
     [bool]$arm.raw_private_publication_flags
   ) {
-    if (-not (Stop-ProductionTransportChild -Process $process)) {
-      Throw-Fixed -Class "cleanup_incomplete"
-    }
     Throw-Fixed -Class "production_transport_unavailable"
   }
-  return $process
 }
 
 function Complete-ProductionTransportChild {
@@ -711,6 +738,14 @@ function New-UserSpeechReadySignal {
   }
 }
 
+function New-SystemOutputTriggerReadySignal {
+  return [ordered]@{
+    schema_version = "self_output_awareness.system_output_trigger_ready.v0"
+    result_class = "ready_for_system_output_trigger"
+    raw_private_publication_flags = $false
+  }
+}
+
 function Get-RemainingRouteBudgetMs {
   $elapsedMs = $(if ($null -ne $userPhaseStopwatch) {
       [long]$userPhaseStopwatch.ElapsedMilliseconds
@@ -803,6 +838,17 @@ try {
       -ObserverWindowMs $AudioObserverWindowMs `
       -ArmTimeoutMs $productionArmBudgetMs `
       -RouteDeadlineMs $productionRouteDeadlineMs
+    if ($EmitUserSpeechReadySignal) {
+      $systemTriggerReadySignal = New-SystemOutputTriggerReadySignal
+      [Console]::Error.WriteLine(($systemTriggerReadySignal | ConvertTo-Json -Compress))
+      [Console]::Error.Flush()
+      $systemTriggerReadySignal.Clear()
+      $systemTriggerReadySignal = $null
+    }
+    $overlapReadyBudgetMs = Get-RemainingPreparationBudgetMs
+    Wait-ProductionTransportOverlapReady `
+      -Process $productionTransportProcess `
+      -TimeoutMs $overlapReadyBudgetMs
     $userPhaseStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     if ($EmitUserSpeechReadySignal) {
       $readySignal = New-UserSpeechReadySignal
