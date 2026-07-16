@@ -272,7 +272,7 @@ test("a hanging dispatch-session close is bounded and replaces success", async (
   assert.equal(result.result_class, "test_ui_cleanup_incomplete");
   assert.equal(result.cleanup_class, "test_ui_cleanup_incomplete");
   assert.equal(result.ui_dispatch_count, 1);
-  assert.equal(result.elapsed_ms >= 450 && result.elapsed_ms <= 800, true);
+  assert.equal(result.elapsed_ms >= 2_400 && result.elapsed_ms <= 2_900, true);
   assertFixedOutput(result);
 });
 
@@ -434,7 +434,7 @@ test("a hanging owner-session close is bounded and never reports ready", async (
   assert.equal(result.result_class, "test_ui_cleanup_incomplete");
   assert.equal(result.cleanup_class, "test_ui_cleanup_incomplete");
   assert.equal(result.ui_dispatch_count, 0);
-  assert.equal(result.elapsed_ms >= 450 && result.elapsed_ms <= 800, true);
+  assert.equal(result.elapsed_ms >= 2_400 && result.elapsed_ms <= 2_900, true);
   assertFixedOutput(result);
 });
 

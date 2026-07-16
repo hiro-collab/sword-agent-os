@@ -11,7 +11,10 @@ import {
 
 const MIN_TIMEOUT_MS = 500;
 const MAX_TIMEOUT_MS = 10_000;
-const CLEANUP_TIMEOUT_MS = 500;
+// connectCdp.close() owns one bounded Runtime.evaluate cleanup (<=1s) followed
+// by one bounded WebSocket close handshake (<=1s). Keep a small scheduling
+// margin while retaining a fixed cleanup-only ceiling.
+const CLEANUP_TIMEOUT_MS = 2_500;
 const MAX_TARGET_LIST_BYTES = 256 * 1024;
 const FIXED_PROJECTION_VISUAL_URL = "http://127.0.0.1:3000/projection-visual/";
 const RESULT_KEYS = Object.freeze([
