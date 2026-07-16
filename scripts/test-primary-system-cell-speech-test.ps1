@@ -523,8 +523,10 @@ Write-Output "job-parent-output"
 [Console]::Out.Flush()
 [Console]::Error.Flush()
 Start-Sleep -Milliseconds 2000
-[void](Start-Process -FilePath "C:\Program Files\PowerShell\7\pwsh.exe" -ArgumentList @("-NoProfile", "-Command", "Start-Sleep -Seconds 30"))
+[void](Start-Process -FilePath "C:\Program Files\PowerShell\7\pwsh.exe" -ArgumentList @("-NoProfile", "-Command", "Start-Sleep -Seconds 30") -WindowStyle Hidden)
 '@
+  Assert-True ($nestedCommand -match 'Start-Process[\s\S]+Start-Sleep -Seconds 30[\s\S]+-WindowStyle\s+Hidden') `
+    "nested Job cleanup helper must never create a visible terminal window"
   $encodedNestedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($nestedCommand))
   $jobOutputPath = Join-Path $tempRoot "job-parent.out.log"
   $jobErrorPath = Join-Path $tempRoot "job-parent.err.log"
