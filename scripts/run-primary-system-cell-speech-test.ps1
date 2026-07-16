@@ -1094,7 +1094,7 @@ try {
     } catch { $null }
   })
   Assert-PortOwnedByRoot -Port 9222 -RootIdentity $chromeIdentity
-  $ownerTimeoutMs = [Math]::Min(10000, (Get-RemainingBudgetMs `
+  $ownerTimeoutMs = [Math]::Min(20000, (Get-RemainingBudgetMs `
       -Stopwatch $preparationStopwatch -DeadlineMs $preparationDeadlineMs `
       -FailureClass "projection_owner_not_ready"))
   $ownerPrepare = (& node (Join-Path $resolvedRepo "scripts\drive-primary-system-cell-test-ui.mjs") `

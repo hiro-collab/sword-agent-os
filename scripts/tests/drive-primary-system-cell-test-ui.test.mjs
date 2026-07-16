@@ -428,6 +428,58 @@ test("owner preparation arms only after the fixed input is hydrated", async () =
   assertFixedOutput(result);
 });
 
+test("owner preparation has a bounded 20 second cold-start budget only", async () => {
+  const accepted = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 20_000,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => fakeSession(),
+  });
+  assert.equal(accepted.result_class, "projection_owner_ready");
+  assertFixedOutput(accepted);
+
+  let connectCount = 0;
+  const rejected = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 20_001,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => {
+      connectCount += 1;
+      return fakeSession();
+    },
+  });
+  assert.equal(rejected.result_class, "test_ui_configuration_invalid");
+  assert.equal(connectCount, 0);
+  assertFixedOutput(rejected);
+});
+
+test("ordinary UI dispatch remains bounded to 10 seconds", async () => {
+  const accepted = await drivePrimarySystemCellTestUi({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 10_000,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => fakeSession(),
+  });
+  assert.equal(accepted.result_class, "test_ui_seed_dispatched");
+  assert.equal(accepted.ui_dispatch_count, 1);
+  assertFixedOutput(accepted);
+
+  let connectCount = 0;
+  const rejected = await drivePrimarySystemCellTestUi({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 10_001,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => {
+      connectCount += 1;
+      return fakeSession();
+    },
+  });
+  assert.equal(rejected.result_class, "test_ui_configuration_invalid");
+  assert.equal(rejected.ui_dispatch_count, 0);
+  assert.equal(connectCount, 0);
+  assertFixedOutput(rejected);
+});
+
 test("owner preparation fails closed and cleans up when input never hydrates", async () => {
   let currentTime = 0;
   const session = fakeSession({ inputReady: false });

@@ -10,7 +10,8 @@ import {
 } from "./observe-primary-system-cell-visible-response.mjs";
 
 const MIN_TIMEOUT_MS = 500;
-const MAX_TIMEOUT_MS = 10_000;
+const MAX_TEST_UI_TIMEOUT_MS = 10_000;
+const MAX_OWNER_PREPARATION_TIMEOUT_MS = 20_000;
 // connectCdp.close() owns one bounded Runtime.evaluate cleanup (<=1s) followed
 // by one bounded WebSocket close handshake (<=1s). Keep a small scheduling
 // margin while retaining a fixed cleanup-only ceiling.
@@ -263,7 +264,7 @@ export async function ensurePrimarySystemCellProjectionOwner({
     if (
       !Number.isInteger(timeoutMs) ||
       timeoutMs < MIN_TIMEOUT_MS ||
-      timeoutMs > MAX_TIMEOUT_MS ||
+      timeoutMs > MAX_OWNER_PREPARATION_TIMEOUT_MS ||
       typeof fetchImpl !== "function" ||
       typeof connectImpl !== "function"
     ) {
@@ -381,7 +382,7 @@ export async function drivePrimarySystemCellTestUi({
     if (
       !Number.isInteger(timeoutMs) ||
       timeoutMs < MIN_TIMEOUT_MS ||
-      timeoutMs > MAX_TIMEOUT_MS ||
+      timeoutMs > MAX_TEST_UI_TIMEOUT_MS ||
       typeof fetchImpl !== "function" ||
       typeof connectImpl !== "function"
     ) {

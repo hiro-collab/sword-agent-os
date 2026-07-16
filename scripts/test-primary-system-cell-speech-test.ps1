@@ -199,6 +199,10 @@ Assert-True ($source -match 'Get-RequiredLauncherServices[\s\S]+launcher_service
 Assert-True ($source -match 'input_availability_class\s+-ceq\s+"enabled"') "canonical body-state readiness field must remain exact"
 Assert-True ($source -match 'projection_owner_prepare_class\s*=\s*Resolve-ProjectionOwnerErrorDetailClass') "owner preparation blocker must expose only its normalized fixed child class"
 Assert-True ($source -match 'Resolve-ProjectionOwnerPrepareClass[\s\S]+projection_owner_prepare_failed') "owner preparation diagnostic must fail closed on unknown child classes"
+Assert-True (
+  ($source -match '\$ownerTimeoutMs\s*=\s*\[Math\]::Min\(20000,') -and
+  ($source -match '--prepare-owner[\s\S]{0,180}--timeout-ms\s+\$ownerTimeoutMs')
+) "owner preparation alone must receive the bounded 20 second cold-start budget"
 Assert-True ($source -match '/health"[\s\S]{0,180}-Headers\s+@\{\s*"X-AI-Core-Token"\s*=\s*\$env:AI_TALK_CORE_WEB_TOKEN') "token-protected health must use the canonical per-run token"
 Assert-True ($source -match '/api/self-output-awareness-transport/"[\s\S]{0,300}Test-AitLifecyclePreflightResponse') "exact AIT lifecycle endpoint must be warm and validated before controller start"
 Assert-True ($source.IndexOf('/api/self-output-awareness-transport/') -lt $source.IndexOf('$script:controllerProcess = Start-OwnedProcessSuspended')) "AIT lifecycle preflight must precede controller process start"
