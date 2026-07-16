@@ -12,6 +12,7 @@ import {
 const MIN_TIMEOUT_MS = 500;
 const MAX_TIMEOUT_MS = 10_000;
 const MAX_TARGET_LIST_BYTES = 256 * 1024;
+const FIXED_PROJECTION_VISUAL_URL = "http://127.0.0.1:3000/projection-visual/";
 const RESULT_KEYS = Object.freeze([
   "schema_version",
   "result_class",
@@ -96,6 +97,149 @@ async function fetchTargets(endpoint, fetchImpl, timeoutMs) {
   }
 }
 
+async function createFixedProjectionOwnerTarget(endpoint, fetchImpl, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    // Chrome's fixed endpoint treats the complete query as the target URL.
+    // Keep the URL module-owned so callers cannot create arbitrary pages.
+    const targetCreateUrl = `${endpoint.origin}/json/new?${FIXED_PROJECTION_VISUAL_URL}`;
+    const response = await fetchImpl(targetCreateUrl, {
+      method: "PUT",
+      redirect: "error",
+      signal: controller.signal,
+    });
+    if (!response?.ok) throw new TestUiDriverError("projection_owner_target_create_failed");
+    const text = await response.text();
+    if (Buffer.byteLength(text, "utf8") > MAX_TARGET_LIST_BYTES) {
+      throw new TestUiDriverError("projection_owner_target_create_failed");
+    }
+    let created;
+    try {
+      created = JSON.parse(text);
+    } catch {
+      throw new TestUiDriverError("projection_owner_target_create_failed");
+    }
+    if (!created || created.type !== "page") {
+      throw new TestUiDriverError("projection_owner_target_create_failed");
+    }
+  } catch (error) {
+    if (error instanceof TestUiDriverError) throw error;
+    throw new TestUiDriverError("projection_owner_target_create_failed");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function projectionOwnerState(targets) {
+  try {
+    selectFixedProjectionVisualTarget(targets);
+    return "ready";
+  } catch (error) {
+    if (error?.message === "projection_owner_page_missing") return "missing";
+    throw error;
+  }
+}
+
+function selectFixedProjectionVisualTarget(targets) {
+  const target = selectProjectionVisualTarget(targets);
+  let targetUrl;
+  try {
+    targetUrl = new URL(target.url);
+  } catch {
+    throw new TestUiDriverError("projection_owner_target_invalid");
+  }
+  const fixedUrl = new URL(FIXED_PROJECTION_VISUAL_URL);
+  const normalizedPath = targetUrl.pathname.replace(/\/+$/u, "") || "/";
+  const fixedPath = fixedUrl.pathname.replace(/\/+$/u, "") || "/";
+  if (
+    targetUrl.origin !== fixedUrl.origin ||
+    normalizedPath !== fixedPath ||
+    targetUrl.search ||
+    targetUrl.hash
+  ) {
+    throw new TestUiDriverError("projection_owner_target_invalid");
+  }
+  return target;
+}
+
+function remainingPreparationBudget(deadline, now) {
+  const remaining = Math.floor(deadline - now());
+  if (!Number.isFinite(remaining) || remaining <= 0) {
+    throw new TestUiDriverError("projection_owner_prepare_timeout");
+  }
+  return remaining;
+}
+
+export async function ensurePrimarySystemCellProjectionOwner({
+  cdpEndpoint,
+  timeoutMs = 5_000,
+  fetchImpl = globalThis.fetch,
+  now = () => performance.now(),
+  sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+} = {}) {
+  const startedAt = now();
+  let resultClass = "projection_owner_prepare_failed";
+  try {
+    const endpoint = parseLoopbackCdpEndpoint(cdpEndpoint);
+    if (
+      !Number.isInteger(timeoutMs) ||
+      timeoutMs < MIN_TIMEOUT_MS ||
+      timeoutMs > MAX_TIMEOUT_MS ||
+      typeof fetchImpl !== "function"
+    ) {
+      throw new TestUiDriverError("test_ui_configuration_invalid");
+    }
+    const deadline = startedAt + timeoutMs;
+    let targets = await fetchTargets(
+      endpoint,
+      fetchImpl,
+      remainingPreparationBudget(deadline, now),
+    );
+    if (projectionOwnerState(targets) === "ready") {
+      resultClass = "projection_owner_ready";
+    } else {
+      await createFixedProjectionOwnerTarget(
+        endpoint,
+        fetchImpl,
+        remainingPreparationBudget(deadline, now),
+      );
+      while (true) {
+        targets = await fetchTargets(
+          endpoint,
+          fetchImpl,
+          remainingPreparationBudget(deadline, now),
+        );
+        if (projectionOwnerState(targets) === "ready") {
+          resultClass = "projection_owner_created";
+          break;
+        }
+        const remaining = remainingPreparationBudget(deadline, now);
+        await sleep(Math.min(50, remaining));
+      }
+    }
+  } catch (error) {
+    const safeClasses = new Set([
+      "test_ui_configuration_invalid",
+      "cdp_endpoint_unavailable",
+      "cdp_target_list_invalid",
+      "projection_owner_page_missing",
+      "projection_owner_page_multiple",
+      "projection_owner_target_invalid",
+      "projection_owner_target_create_failed",
+      "projection_owner_prepare_timeout",
+    ]);
+    resultClass = safeClasses.has(error?.message) ? error.message : "projection_owner_prepare_failed";
+  }
+  return createResult(
+    resultClass,
+    0,
+    startedAt,
+    now,
+    "no_cdp_session_created",
+  );
+}
+
 export async function drivePrimarySystemCellTestUi({
   cdpEndpoint,
   timeoutMs = 5_000,
@@ -121,7 +265,7 @@ export async function drivePrimarySystemCellTestUi({
       throw new TestUiDriverError("test_ui_configuration_invalid");
     }
     const targets = await fetchTargets(endpoint, fetchImpl, timeoutMs);
-    const target = selectProjectionVisualTarget(targets);
+    const target = selectFixedProjectionVisualTarget(targets);
     session = await connectImpl(target.webSocketDebuggerUrl, { timeoutMs });
     if (
       typeof session?.arm !== "function" ||
@@ -173,7 +317,7 @@ export async function drivePrimarySystemCellTestUi({
 }
 
 export function parseArgs(argv) {
-  const args = { cdpEndpoint: null, timeoutMs: 5_000 };
+  const args = { cdpEndpoint: null, timeoutMs: 5_000, prepareOwner: false };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     const readValue = () => {
@@ -183,6 +327,7 @@ export function parseArgs(argv) {
     };
     if (argument === "--cdp-endpoint") args.cdpEndpoint = readValue();
     else if (argument === "--timeout-ms") args.timeoutMs = Number(readValue());
+    else if (argument === "--prepare-owner") args.prepareOwner = true;
     else throw new TestUiDriverError("test_ui_configuration_invalid");
   }
   return args;
@@ -191,7 +336,10 @@ export function parseArgs(argv) {
 async function main() {
   let result;
   try {
-    result = await drivePrimarySystemCellTestUi(parseArgs(process.argv.slice(2)));
+    const args = parseArgs(process.argv.slice(2));
+    result = args.prepareOwner
+      ? await ensurePrimarySystemCellProjectionOwner(args)
+      : await drivePrimarySystemCellTestUi(args);
   } catch {
     result = createResult(
       "test_ui_configuration_invalid",
@@ -202,7 +350,11 @@ async function main() {
     );
   }
   process.stdout.write(`${JSON.stringify(result)}\n`);
-  process.exitCode = result.result_class === "test_ui_seed_dispatched" ? 0 : 1;
+  process.exitCode = new Set([
+    "test_ui_seed_dispatched",
+    "projection_owner_ready",
+    "projection_owner_created",
+  ]).has(result.result_class) ? 0 : 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
