@@ -398,6 +398,36 @@ test("owner preparation waits for hydrated fixed input before declaring ready", 
   assertFixedOutput(result);
 });
 
+test("owner preparation arms only after the fixed input is hydrated", async () => {
+  const operations = [];
+  let prepareCount = 0;
+  const session = {
+    prepareFixedVoiceTestInput: async () => {
+      operations.push("prepare_fixed_voice_test_input");
+      prepareCount += 1;
+      return { inputReady: prepareCount >= 2 };
+    },
+    arm: async () => { operations.push("arm"); },
+    close: async () => { operations.push("close"); },
+  };
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    now: () => 0,
+    sleep: async () => {},
+  });
+  assert.equal(result.result_class, "projection_owner_ready");
+  assert.deepEqual(operations, [
+    "prepare_fixed_voice_test_input",
+    "prepare_fixed_voice_test_input",
+    "arm",
+    "close",
+  ]);
+  assertFixedOutput(result);
+});
+
 test("owner preparation fails closed and cleans up when input never hydrates", async () => {
   let currentTime = 0;
   const session = fakeSession({ inputReady: false });

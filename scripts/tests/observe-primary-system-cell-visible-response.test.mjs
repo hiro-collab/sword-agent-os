@@ -362,7 +362,14 @@ test("CDP client injects only the bounded observer and never closes the browser 
 });
 
 test("CDP close returns fixed cleanup classes and always attempts one socket close", async (t) => {
-  for (const mode of ["page_command", "page_state", "socket", "page_command_socket"]) {
+  for (const mode of [
+    "unarmed",
+    "arm_response_lost",
+    "page_command",
+    "page_state",
+    "socket",
+    "page_command_socket",
+  ]) {
     await t.test(mode, async () => {
       class CleanupWebSocket {
         static OPEN = 1;
@@ -374,6 +381,7 @@ test("CDP close returns fixed cleanup classes and always attempts one socket clo
           this.readyState = CleanupWebSocket.OPEN;
           this.listeners = new Map();
           this.closeCount = 0;
+          this.sentMethods = [];
           queueMicrotask(() => this.emit("open", {}));
         }
 
@@ -391,6 +399,14 @@ test("CDP close returns fixed cleanup classes and always attempts one socket clo
 
         send(serialized) {
           const request = JSON.parse(serialized);
+          this.sentMethods.push(request.method);
+          if (
+            mode === "arm_response_lost" &&
+            request.method === "Runtime.evaluate" &&
+            request.params.expression.includes("return { armed: true }")
+          ) {
+            return;
+          }
           if (
             mode.startsWith("page_command") &&
             request.method === "Runtime.evaluate" &&
@@ -424,6 +440,23 @@ test("CDP close returns fixed cleanup classes and always attempts one socket clo
         "ws://127.0.0.1:9222/devtools/page/opaque",
         { WebSocketImpl: CleanupWebSocket, timeoutMs: 50 },
       );
+      if (mode === "unarmed") {
+        await session.close();
+        assert.equal(CleanupWebSocket.instance.closeCount, 1);
+        assert.deepEqual(CleanupWebSocket.instance.sentMethods, ["Runtime.enable"]);
+        return;
+      }
+      if (mode === "arm_response_lost") {
+        await assert.rejects(session.arm(), { message: "cdp_command_timeout" });
+        await session.close();
+        assert.equal(CleanupWebSocket.instance.closeCount, 1);
+        assert.deepEqual(CleanupWebSocket.instance.sentMethods, [
+          "Runtime.enable",
+          "Runtime.evaluate",
+          "Runtime.evaluate",
+        ]);
+        return;
+      }
       await session.arm();
       await assert.rejects(
         session.close(),

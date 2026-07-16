@@ -307,7 +307,6 @@ export async function ensurePrimarySystemCellProjectionOwner({
     ) {
       throw new TestUiDriverError("test_ui_cdp_session_invalid");
     }
-    await awaitWithinPreparationDeadline(() => session.arm(), deadline, now);
     while (true) {
       const inputResult = await awaitWithinPreparationDeadline(
         () => session.prepareFixedVoiceTestInput(),
@@ -315,12 +314,13 @@ export async function ensurePrimarySystemCellProjectionOwner({
         now,
       );
       if (inputResult?.inputReady === true) {
-        resultClass = ownerResultClass;
         break;
       }
       const remaining = remainingPreparationBudget(deadline, now);
       await sleep(Math.min(50, remaining));
     }
+    await awaitWithinPreparationDeadline(() => session.arm(), deadline, now);
+    resultClass = ownerResultClass;
   } catch (error) {
     const safeClasses = new Set([
       "test_ui_configuration_invalid",

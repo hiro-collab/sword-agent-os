@@ -299,6 +299,8 @@ export async function connectCdp(
   const pending = new Map();
   let nextId = 1;
   let closeCount = 0;
+  let armAttempted = false;
+  let armConfirmed = false;
 
   try {
     await new Promise((resolve, reject) => {
@@ -393,6 +395,7 @@ export async function connectCdp(
       return result?.result?.value;
     },
     async arm() {
+      armAttempted = true;
       const result = await send("Runtime.evaluate", {
         expression: armExpression(stateKey),
         returnByValue: true,
@@ -401,6 +404,7 @@ export async function connectCdp(
       if (result?.result?.value?.armed !== true) {
         throw new ObserverError("cdp_observer_arm_failed");
       }
+      armConfirmed = true;
     },
     async inspect(messageId) {
       const result = await send("Runtime.evaluate", {
@@ -416,19 +420,22 @@ export async function connectCdp(
       if (ws.readyState === WebSocketImpl.CLOSED) {
         throw new ObserverError("observer_cleanup_incomplete");
       }
-      let pageCleanupClear = false;
+      const pageCleanupRequired = armAttempted || armConfirmed;
+      let pageCleanupClear = !pageCleanupRequired;
       let pageCleanupCommandFailed = false;
       let socketCleanupFailed = false;
       try {
-        try {
-          const cleanupResult = await send("Runtime.evaluate", {
-            expression: cleanupExpression(stateKey),
-            returnByValue: true,
-            awaitPromise: false,
-          });
-          pageCleanupClear = cleanupResult?.result?.value?.cleaned === true;
-        } catch {
-          pageCleanupCommandFailed = true;
+        if (pageCleanupRequired) {
+          try {
+            const cleanupResult = await send("Runtime.evaluate", {
+              expression: cleanupExpression(stateKey),
+              returnByValue: true,
+              awaitPromise: false,
+            });
+            pageCleanupClear = cleanupResult?.result?.value?.cleaned === true;
+          } catch {
+            pageCleanupCommandFailed = true;
+          }
         }
       } finally {
         try {
