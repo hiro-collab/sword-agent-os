@@ -171,6 +171,32 @@ function remainingPreparationBudget(deadline, now) {
   return remaining;
 }
 
+function remainingTestUiBudget(deadline, now) {
+  const remaining = Math.floor(deadline - now());
+  if (!Number.isFinite(remaining) || remaining <= 0) {
+    throw new TestUiDriverError("test_ui_input_unavailable");
+  }
+  return remaining;
+}
+
+async function awaitWithinTestUiDeadline(operation, deadline, now) {
+  const remaining = remainingTestUiBudget(deadline, now);
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(operation),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new TestUiDriverError("test_ui_input_unavailable")),
+          Math.max(1, Math.ceil(remaining)),
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function ensurePrimarySystemCellProjectionOwner({
   cdpEndpoint,
   timeoutMs = 5_000,
@@ -264,9 +290,16 @@ export async function drivePrimarySystemCellTestUi({
     ) {
       throw new TestUiDriverError("test_ui_configuration_invalid");
     }
-    const targets = await fetchTargets(endpoint, fetchImpl, timeoutMs);
+    const deadline = startedAt + timeoutMs;
+    const targets = await fetchTargets(
+      endpoint,
+      fetchImpl,
+      remainingTestUiBudget(deadline, now),
+    );
     const target = selectFixedProjectionVisualTarget(targets);
-    session = await connectImpl(target.webSocketDebuggerUrl, { timeoutMs });
+    session = await connectImpl(target.webSocketDebuggerUrl, {
+      timeoutMs: remainingTestUiBudget(deadline, now),
+    });
     if (
       typeof session?.arm !== "function" ||
       typeof session?.prepareFixedVoiceTestInput !== "function" ||
@@ -275,13 +308,23 @@ export async function drivePrimarySystemCellTestUi({
     ) {
       throw new TestUiDriverError("test_ui_cdp_session_invalid");
     }
-    await session.arm();
-    const inputResult = await session.prepareFixedVoiceTestInput();
-    if (inputResult?.inputReady !== true) {
-      throw new TestUiDriverError("test_ui_input_unavailable");
+    await awaitWithinTestUiDeadline(() => session.arm(), deadline, now);
+    while (true) {
+      const inputResult = await awaitWithinTestUiDeadline(
+        () => session.prepareFixedVoiceTestInput(),
+        deadline,
+        now,
+      );
+      if (inputResult?.inputReady === true) break;
+      const remaining = remainingTestUiBudget(deadline, now);
+      await sleep(Math.min(50, remaining));
     }
-    await sleep(50);
-    const dispatchResult = await session.dispatchFixedVoiceTestInput();
+    await sleep(Math.min(50, remainingTestUiBudget(deadline, now)));
+    const dispatchResult = await awaitWithinTestUiDeadline(
+      () => session.dispatchFixedVoiceTestInput(),
+      deadline,
+      now,
+    );
     if (dispatchResult?.dispatched !== true) {
       throw new TestUiDriverError("test_ui_dispatch_rejected");
     }

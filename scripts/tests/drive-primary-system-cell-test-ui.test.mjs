@@ -39,18 +39,32 @@ function preparingFetch({ initialTargets = [], finalTargets = [TARGET], createOk
   };
 }
 
-function fakeSession({ inputReady = true, dispatched = true, closeFails = false } = {}) {
+function fakeSession({
+  inputReady = true,
+  inputReadySequence = null,
+  dispatched = true,
+  prepareHangs = false,
+  dispatchHangs = false,
+  closeFails = false,
+} = {}) {
   const operations = [];
   let armCount = 0;
   let closeCount = 0;
+  let inputReadyIndex = 0;
   return {
     arm: async () => { armCount += 1; },
     prepareFixedVoiceTestInput: async () => {
       operations.push("prepare_fixed_voice_test_input");
-      return { inputReady };
+      if (prepareHangs) return new Promise(() => {});
+      const ready = Array.isArray(inputReadySequence)
+        ? inputReadySequence[Math.min(inputReadyIndex, inputReadySequence.length - 1)]
+        : inputReady;
+      inputReadyIndex += 1;
+      return { inputReady: ready };
     },
     dispatchFixedVoiceTestInput: async () => {
       operations.push("dispatch_fixed_voice_test_input");
+      if (dispatchHangs) return new Promise(() => {});
       return { dispatched };
     },
     close: async () => {
@@ -104,7 +118,6 @@ test("fails closed for missing, ambiguous, and rejected owner UI", async (t) => 
   const cases = [
     { name: "missing", targets: [], expected: "projection_owner_page_missing" },
     { name: "multiple", targets: [TARGET, { ...TARGET }], expected: "projection_owner_page_multiple" },
-    { name: "input", targets: [TARGET], session: fakeSession({ inputReady: false }), expected: "test_ui_input_unavailable" },
     { name: "dispatch", targets: [TARGET], session: fakeSession({ dispatched: false }), expected: "test_ui_dispatch_rejected" },
   ];
   for (const entry of cases) {
@@ -121,6 +134,115 @@ test("fails closed for missing, ambiguous, and rejected owner UI", async (t) => 
       assertFixedOutput(result);
     });
   }
+});
+
+test("waits for UI hydration under one deadline and dispatches exactly once", async () => {
+  let currentTime = 0;
+  const session = fakeSession({ inputReadySequence: [false, false, true] });
+  const result = await drivePrimarySystemCellTestUi({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    now: () => currentTime,
+    sleep: async (milliseconds) => { currentTime += milliseconds; },
+  });
+  assert.equal(result.result_class, "test_ui_seed_dispatched");
+  assert.equal(result.ui_dispatch_count, 1);
+  assert.deepEqual(session.stats().operations, [
+    "prepare_fixed_voice_test_input",
+    "prepare_fixed_voice_test_input",
+    "prepare_fixed_voice_test_input",
+    "dispatch_fixed_voice_test_input",
+  ]);
+  assertFixedOutput(result);
+});
+
+test("target discovery and CDP connection consume the same UI deadline", async () => {
+  let currentTime = 0;
+  let connectTimeoutMs = null;
+  const result = await drivePrimarySystemCellTestUi({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: async () => {
+      currentTime = 150;
+      return { ok: true, text: async () => JSON.stringify([TARGET]) };
+    },
+    connectImpl: async (_url, options) => {
+      connectTimeoutMs = options.timeoutMs;
+      return fakeSession();
+    },
+    now: () => currentTime,
+    sleep: async (milliseconds) => { currentTime += milliseconds; },
+  });
+  assert.equal(result.result_class, "test_ui_seed_dispatched");
+  assert.equal(connectTimeoutMs, 350);
+  assert.equal(result.elapsed_ms, 200);
+  assertFixedOutput(result);
+});
+
+test("never-ready UI exhausts the shared deadline without dispatch", async () => {
+  let currentTime = 0;
+  const session = fakeSession({ inputReady: false });
+  const result = await drivePrimarySystemCellTestUi({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    now: () => currentTime,
+    sleep: async (milliseconds) => { currentTime += milliseconds; },
+  });
+  assert.equal(result.result_class, "test_ui_input_unavailable");
+  assert.equal(result.ui_dispatch_count, 0);
+  assert.equal(result.elapsed_ms, 500);
+  assert.equal(
+    session.stats().operations.filter((operation) =>
+      operation === "prepare_fixed_voice_test_input").length,
+    10,
+  );
+  assert.equal(
+    session.stats().operations.includes("dispatch_fixed_voice_test_input"),
+    false,
+  );
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
+test("a pending hydration check is bounded, closes once, and never dispatches", async () => {
+  const session = fakeSession({ prepareHangs: true });
+  const result = await drivePrimarySystemCellTestUi({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    sleep: async () => {},
+  });
+  assert.equal(result.result_class, "test_ui_input_unavailable");
+  assert.equal(result.ui_dispatch_count, 0);
+  assert.equal(result.elapsed_ms >= 450 && result.elapsed_ms <= 750, true);
+  assert.deepEqual(session.stats().operations, ["prepare_fixed_voice_test_input"]);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
+test("a pending dispatch is bounded and the CDP session closes once", async () => {
+  const session = fakeSession({ dispatchHangs: true });
+  const result = await drivePrimarySystemCellTestUi({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    sleep: async () => {},
+  });
+  assert.equal(result.result_class, "test_ui_input_unavailable");
+  assert.equal(result.ui_dispatch_count, 0);
+  assert.equal(result.elapsed_ms >= 450 && result.elapsed_ms <= 750, true);
+  assert.deepEqual(session.stats().operations, [
+    "prepare_fixed_voice_test_input",
+    "dispatch_fixed_voice_test_input",
+  ]);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
 });
 
 test("cleanup failure replaces a successful dispatch", async () => {
