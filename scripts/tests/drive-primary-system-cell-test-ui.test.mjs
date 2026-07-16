@@ -46,6 +46,7 @@ function fakeSession({
   prepareHangs = false,
   dispatchHangs = false,
   closeFails = false,
+  closeErrorClass = null,
   closeHangs = false,
   onClose = null,
 } = {}) {
@@ -72,6 +73,7 @@ function fakeSession({
     close: async () => {
       closeCount += 1;
       if (closeFails) throw new Error("private cleanup detail");
+      if (closeErrorClass) throw new Error(closeErrorClass);
       if (closeHangs) return new Promise(() => {});
       onClose?.();
     },
@@ -259,6 +261,27 @@ test("cleanup failure replaces a successful dispatch", async () => {
   assert.equal(result.result_class, "test_ui_cleanup_incomplete");
   assert.equal(result.cleanup_class, "test_ui_cleanup_incomplete");
   assertFixedOutput(result);
+});
+
+test("fixed CDP cleanup stages survive without raw cleanup details", async (t) => {
+  const cases = new Map([
+    ["observer_page_cleanup_command_failed", "test_ui_page_cleanup_command_failed"],
+    ["observer_page_cleanup_state_invalid", "test_ui_page_cleanup_state_invalid"],
+    ["observer_socket_cleanup_incomplete", "test_ui_socket_cleanup_incomplete"],
+  ]);
+  for (const [childClass, expectedClass] of cases) {
+    await t.test(expectedClass, async () => {
+      const result = await ensurePrimarySystemCellProjectionOwner({
+        cdpEndpoint: "http://127.0.0.1:9222/",
+        fetchImpl: fakeFetch(),
+        connectImpl: async () => fakeSession({ closeErrorClass: childClass }),
+      });
+      assert.equal(result.result_class, expectedClass);
+      assert.equal(result.cleanup_class, expectedClass);
+      assert.equal(result.ui_dispatch_count, 0);
+      assertFixedOutput(result);
+    });
+  }
 });
 
 test("a hanging dispatch-session close is bounded and replaces success", async () => {

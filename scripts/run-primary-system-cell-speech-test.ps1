@@ -298,7 +298,8 @@ function Resolve-ProjectionOwnerPrepareClass {
     "projection_owner_page_missing", "projection_owner_page_multiple",
     "projection_owner_target_invalid", "projection_owner_target_create_failed",
     "projection_owner_prepare_timeout", "projection_owner_prepare_failed",
-    "test_ui_cleanup_incomplete"
+    "test_ui_cleanup_incomplete", "test_ui_page_cleanup_command_failed",
+    "test_ui_page_cleanup_state_invalid", "test_ui_socket_cleanup_incomplete"
   )
   if ($null -eq $Value) { return "projection_owner_prepare_failed" }
   $resultClassProperty = $Value.PSObject.Properties["result_class"]

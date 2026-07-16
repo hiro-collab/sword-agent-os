@@ -417,17 +417,35 @@ export async function connectCdp(
         throw new ObserverError("observer_cleanup_incomplete");
       }
       let pageCleanupClear = false;
+      let pageCleanupCommandFailed = false;
+      let socketCleanupFailed = false;
       try {
-        const cleanupResult = await send("Runtime.evaluate", {
-          expression: cleanupExpression(stateKey),
-          returnByValue: true,
-          awaitPromise: false,
-        });
-        pageCleanupClear = cleanupResult?.result?.value?.cleaned === true;
+        try {
+          const cleanupResult = await send("Runtime.evaluate", {
+            expression: cleanupExpression(stateKey),
+            returnByValue: true,
+            awaitPromise: false,
+          });
+          pageCleanupClear = cleanupResult?.result?.value?.cleaned === true;
+        } catch {
+          pageCleanupCommandFailed = true;
+        }
       } finally {
-        await closeOwnedSocket(ws, WebSocketImpl);
+        try {
+          await closeOwnedSocket(ws, WebSocketImpl, Math.min(timeoutMs, 1_000));
+        } catch {
+          socketCleanupFailed = true;
+        }
       }
-      if (!pageCleanupClear) throw new ObserverError("observer_cleanup_incomplete");
+      if (socketCleanupFailed) {
+        throw new ObserverError("observer_socket_cleanup_incomplete");
+      }
+      if (pageCleanupCommandFailed) {
+        throw new ObserverError("observer_page_cleanup_command_failed");
+      }
+      if (!pageCleanupClear) {
+        throw new ObserverError("observer_page_cleanup_state_invalid");
+      }
     },
   };
 }

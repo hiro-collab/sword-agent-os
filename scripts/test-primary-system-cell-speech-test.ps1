@@ -48,6 +48,17 @@ Assert-Equal `
     })) `
   "projection_owner_prepare_timeout" `
   "fixed owner preparation class must survive parent normalization"
+foreach ($cleanupClass in @(
+    "test_ui_page_cleanup_command_failed",
+    "test_ui_page_cleanup_state_invalid",
+    "test_ui_socket_cleanup_incomplete")) {
+  Assert-Equal `
+    (Resolve-ProjectionOwnerPrepareClass -Value ([pscustomobject]@{
+        result_class = $cleanupClass
+      })) `
+    $cleanupClass `
+    "fixed owner preparation cleanup stage must survive parent normalization"
+}
 Assert-Equal `
   (Resolve-ProjectionOwnerPrepareClass -Value ([pscustomobject]@{
       result_class = "private dynamic detail"

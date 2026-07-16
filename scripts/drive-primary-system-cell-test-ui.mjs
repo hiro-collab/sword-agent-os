@@ -236,6 +236,15 @@ async function closeCdpSessionWithinCleanupBound(session) {
   }
 }
 
+function normalizeCdpCleanupFailure(error) {
+  const classes = new Map([
+    ["observer_page_cleanup_command_failed", "test_ui_page_cleanup_command_failed"],
+    ["observer_page_cleanup_state_invalid", "test_ui_page_cleanup_state_invalid"],
+    ["observer_socket_cleanup_incomplete", "test_ui_socket_cleanup_incomplete"],
+  ]);
+  return classes.get(error?.message) ?? "test_ui_cleanup_incomplete";
+}
+
 export async function ensurePrimarySystemCellProjectionOwner({
   cdpEndpoint,
   timeoutMs = 5_000,
@@ -330,9 +339,9 @@ export async function ensurePrimarySystemCellProjectionOwner({
       try {
         await closeCdpSessionWithinCleanupBound(session);
         cleanupClass = "cdp_session_released";
-      } catch {
-        cleanupClass = "test_ui_cleanup_incomplete";
-        resultClass = "test_ui_cleanup_incomplete";
+      } catch (error) {
+        cleanupClass = normalizeCdpCleanupFailure(error);
+        resultClass = cleanupClass;
       }
     }
   }
@@ -436,9 +445,9 @@ export async function drivePrimarySystemCellTestUi({
       try {
         await closeCdpSessionWithinCleanupBound(session);
         cleanupClass = "cdp_session_released";
-      } catch {
-        cleanupClass = "test_ui_cleanup_incomplete";
-        resultClass = "test_ui_cleanup_incomplete";
+      } catch (error) {
+        cleanupClass = normalizeCdpCleanupFailure(error);
+        resultClass = cleanupClass;
       }
     } else {
       cleanupClass = "no_cdp_session_created";

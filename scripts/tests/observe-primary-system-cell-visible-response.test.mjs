@@ -361,6 +361,86 @@ test("CDP client injects only the bounded observer and never closes the browser 
   assert.equal(FakeWebSocket.instance.readyState, FakeWebSocket.CLOSED);
 });
 
+test("CDP close returns fixed cleanup classes and always attempts one socket close", async (t) => {
+  for (const mode of ["page_command", "page_state", "socket", "page_command_socket"]) {
+    await t.test(mode, async () => {
+      class CleanupWebSocket {
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+
+        constructor() {
+          CleanupWebSocket.instance = this;
+          this.readyState = CleanupWebSocket.OPEN;
+          this.listeners = new Map();
+          this.closeCount = 0;
+          queueMicrotask(() => this.emit("open", {}));
+        }
+
+        addEventListener(name, callback, options = {}) {
+          const listeners = this.listeners.get(name) ?? [];
+          listeners.push({ callback, once: options.once === true });
+          this.listeners.set(name, listeners);
+        }
+
+        emit(name, event) {
+          const listeners = [...(this.listeners.get(name) ?? [])];
+          this.listeners.set(name, listeners.filter((listener) => !listener.once));
+          for (const listener of listeners) listener.callback(event);
+        }
+
+        send(serialized) {
+          const request = JSON.parse(serialized);
+          if (
+            mode.startsWith("page_command") &&
+            request.method === "Runtime.evaluate" &&
+            request.params.expression.includes("state.observer.disconnect")
+          ) {
+            return;
+          }
+          let value = {};
+          if (request.method === "Runtime.evaluate") {
+            if (request.params.expression.includes("return { armed: true }")) {
+              value = { armed: true };
+            } else if (request.params.expression.includes("state.observer.disconnect")) {
+              value = { cleaned: mode !== "page_state" };
+            }
+          }
+          queueMicrotask(() => this.emit("message", {
+            data: JSON.stringify({ id: request.id, result: { result: { value } } }),
+          }));
+        }
+
+        close() {
+          this.closeCount += 1;
+          this.readyState = CleanupWebSocket.CLOSING;
+          if (mode.includes("socket")) return;
+          this.readyState = CleanupWebSocket.CLOSED;
+          queueMicrotask(() => this.emit("close", {}));
+        }
+      }
+
+      const session = await connectCdp(
+        "ws://127.0.0.1:9222/devtools/page/opaque",
+        { WebSocketImpl: CleanupWebSocket, timeoutMs: 50 },
+      );
+      await session.arm();
+      await assert.rejects(
+        session.close(),
+        {
+          message: {
+            page_command: "observer_page_cleanup_command_failed",
+            page_state: "observer_page_cleanup_state_invalid",
+            socket: "observer_socket_cleanup_incomplete",
+            page_command_socket: "observer_socket_cleanup_incomplete",
+          }[mode],
+        },
+      );
+      assert.equal(CleanupWebSocket.instance.closeCount, 1);
+    });
+  }
+});
+
 test("CDP bootstrap error and timeout each close the owned socket once", async (t) => {
   for (const mode of ["error", "timeout"]) {
     await t.test(mode, async () => {
