@@ -140,6 +140,8 @@ Assert-True ($source -match 'selection_class\s+-cne\s+"selected_available"[\s\S]
 Assert-True ($source -match 'Get-RequiredLauncherServices[\s\S]+launcher_service_count\s*=\s*9') "Launcher boundary must remain exactly nine services"
 Assert-True ($source -match 'input_availability_class\s+-ceq\s+"enabled"') "canonical body-state readiness field must remain exact"
 Assert-True ($source -match '/health"[\s\S]{0,180}-Headers\s+@\{\s*"X-AI-Core-Token"\s*=\s*\$env:AI_TALK_CORE_WEB_TOKEN') "token-protected health must use the canonical per-run token"
+Assert-True ($source -match '/api/self-output-awareness-transport/"[\s\S]{0,300}Test-AitLifecyclePreflightResponse') "exact AIT lifecycle endpoint must be warm and validated before controller start"
+Assert-True ($source.IndexOf('/api/self-output-awareness-transport/') -lt $source.IndexOf('$script:controllerProcess = Start-OwnedProcessSuspended')) "AIT lifecycle preflight must precede controller process start"
 Assert-True ($source -match 'api/stop[\s\S]+api/shutdown[\s\S]+TerminateAndWait') "standard stop must precede Job-owned process cleanup"
 Assert-True ($source -match 'CleanupStopTimeoutSeconds\s*=\s*70[\s\S]+api/stop[\s\S]{0,240}-TimeoutMs\s+\(\$CleanupStopTimeoutSeconds\s*\*\s*1000\)') "standard stop must receive the bounded launcher-compatible timeout"
 Assert-True ($source -match '\$stopResult\.ok\s+-isnot\s+\[bool\][\s\S]{0,120}cleanup_incomplete') "non-successful standard stop response must fail cleanup closed"
@@ -156,6 +158,30 @@ Assert-True ($source -match 'Get-RemainingBudgetMs[\s\S]+preparationStopwatch[\s
 Assert-True ($source -match 'Get-ListeningOwnerPids[\s\S]+Assert-PortsClear[\s\S]+Assert-PortOwnedByRoot') "fixed ports must fail closed and match launched lineage"
 Assert-True ($source -match 'SetEnvironmentVariable\("AI_TALK_CORE_WEB_TOKEN", \$previousCoreToken, "Process"\)') "process token must be restored on cleanup"
 Assert-True (-not $source.Contains("PRIVATE_")) "tracked runner must not contain a private marker"
+
+$emptyLifecyclePreflight = [pscustomobject]@{
+  ok = $true
+  result_class = "lifecycle_transport_empty"
+  transport = $null
+  raw_private_publication_flags = $false
+}
+Assert-True (Test-AitLifecyclePreflightResponse -Value $emptyLifecyclePreflight) "empty lifecycle response must be a valid warm preflight"
+$currentLifecyclePreflight = $emptyLifecyclePreflight.PSObject.Copy()
+$currentLifecyclePreflight.transport = [pscustomobject]@{
+  transition_ordinal = 1
+  private_payload = "must-not-pass"
+}
+$currentLifecyclePreflight.result_class = "lifecycle_transport_current"
+Assert-True (-not (Test-AitLifecyclePreflightResponse -Value $currentLifecyclePreflight)) "non-empty or private-bearing lifecycle must fail the clean-start preflight"
+$mismatchedLifecyclePreflight = $emptyLifecyclePreflight.PSObject.Copy()
+$mismatchedLifecyclePreflight.result_class = "lifecycle_transport_current"
+Assert-True (-not (Test-AitLifecyclePreflightResponse -Value $mismatchedLifecyclePreflight)) "transport/class mismatch must fail preflight"
+$privateLifecyclePreflight = $emptyLifecyclePreflight.PSObject.Copy()
+$privateLifecyclePreflight.raw_private_publication_flags = $true
+Assert-True (-not (Test-AitLifecyclePreflightResponse -Value $privateLifecyclePreflight)) "private-bearing lifecycle response must fail preflight"
+$extraLifecyclePreflight = $emptyLifecyclePreflight.PSObject.Copy()
+$extraLifecyclePreflight | Add-Member -NotePropertyName extra -NotePropertyValue $true
+Assert-True (-not (Test-AitLifecyclePreflightResponse -Value $extraLifecyclePreflight)) "extra lifecycle envelope field must fail preflight"
 
 $rootIdentity = [pscustomobject]@{ ProcessId = 100; CreationIdentity = "1000" }
 $processRows = @(
@@ -329,6 +355,46 @@ $jobParent = $null
 $outsideProcess = $null
 [void][IO.Directory]::CreateDirectory($tempRoot)
 [IO.File]::WriteAllText((Join-Path $tempRoot ".owned-run"), $outerRunId, [Text.Encoding]::ASCII)
+$earlyControllerPath = Join-Path $tempRoot "early-controller.json"
+$earlyControllerResult = ([pscustomobject]$validControllerResult | ConvertTo-Json -Depth 8) | ConvertFrom-Json
+$earlyControllerResult.controller_status = "error"
+$earlyControllerResult.result_class = "not_completed"
+$earlyControllerResult.blocker_class = "production_transport_unavailable"
+$earlyControllerResult.cleanup_class = "controller_http_resources_disposed_no_request_started"
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($earlyControllerResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath) `
+  "production_transport_unavailable" "safe early controller result must retain its fixed blocker"
+$earlyControllerResult.scenario = "invalid"
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($earlyControllerResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-True ($null -eq (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath)) `
+  "invalid scenario must not pair with a production transport blocker"
+$earlyControllerResult.blocker_class = "live_controller_configuration_invalid"
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($earlyControllerResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath) `
+  "live_controller_configuration_invalid" "configuration failure may retain the controller's safe invalid scenario"
+$earlyControllerResult.scenario = "independent_current_session_user_speech"
+$earlyControllerResult.blocker_class = "unbounded_private_failure"
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($earlyControllerResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-True ($null -eq (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath)) `
+  "unknown early controller blocker must fail closed to the generic parent class"
+$oversizeControllerPath = Join-Path $tempRoot "oversize-controller.json"
+[IO.File]::WriteAllText($oversizeControllerPath, ("x" * 16385), [Text.Encoding]::ASCII)
+Assert-True ($null -eq (Get-EarlyControllerBlockerClass -OutputPath $oversizeControllerPath)) `
+  "oversize early controller output must be rejected before JSON materialization"
+Assert-True ($source -match 'Process\.HasExited[\s\S]{0,220}Get-EarlyControllerBlockerClass') `
+  "controller exit must consume the safe child-result contract before generic classification"
 try {
   $job = [SwordAgentOS.Runtime.OwnedProcessJob]::new()
   $outsideProcess = Start-Process -FilePath "C:\Program Files\PowerShell\7\pwsh.exe" `

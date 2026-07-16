@@ -668,9 +668,72 @@ function Get-RequiredLauncherServices {
   )
 }
 
+function Test-AitLifecyclePreflightResponse {
+  param([AllowNull()]$Value)
+  if ($null -eq $Value -or $Value -isnot [psobject]) { return $false }
+  $expectedKeys = @(
+    "ok", "result_class", "transport", "raw_private_publication_flags")
+  if (
+    (@($Value.PSObject.Properties.Name | Sort-Object) -join ",") -cne
+      (@($expectedKeys | Sort-Object) -join ",") -or
+    $Value.ok -isnot [bool] -or -not [bool]$Value.ok -or
+    $Value.raw_private_publication_flags -isnot [bool] -or
+    [bool]$Value.raw_private_publication_flags
+  ) { return $false }
+  return (
+    $null -eq $Value.transport -and
+    [string]$Value.result_class -ceq "lifecycle_transport_empty")
+}
+
+function Get-EarlyControllerBlockerClass {
+  param([Parameter(Mandatory = $true)][string]$OutputPath)
+  if (-not (Test-Path -LiteralPath $OutputPath -PathType Leaf)) { return $null }
+  try { $file = Get-Item -LiteralPath $OutputPath -Force -ErrorAction Stop }
+  catch { return $null }
+  if ($file.Length -gt 16384) { return $null }
+  $text = (Get-Content -Raw -LiteralPath $OutputPath -ErrorAction SilentlyContinue).Trim()
+  if (
+    [string]::IsNullOrWhiteSpace($text) -or
+    [Text.Encoding]::UTF8.GetByteCount($text) -gt 16384
+  ) { return $null }
+  try { $value = $text | ConvertFrom-Json } catch { return $null }
+  $expectedKeys = Get-ExpectedControllerResultKeys
+  $allowed = @(
+    "live_controller_configuration_invalid", "live_controller_token_unavailable",
+    "live_controller_endpoint_unreachable", "live_controller_endpoint_access_denied",
+    "live_controller_endpoint_not_found", "live_controller_endpoint_response_invalid",
+    "live_controller_endpoint_cleanup_incomplete", "visible_response_observer_unavailable",
+    "visible_response_not_observed", "production_transport_unavailable",
+    "production_transport_not_completed", "user_start_event_unavailable",
+    "prepared_hold_expired", "live_controller_failed", "whole_route_timeout",
+    "cleanup_incomplete")
+  $blockerClass = [string]$value.blocker_class
+  $scenarioClass = [string]$value.scenario
+  $scenarioValid = (
+    $scenarioClass -ceq "independent_current_session_user_speech" -or
+    ($blockerClass -ceq "live_controller_configuration_invalid" -and
+      $scenarioClass -ceq "invalid"))
+  if (
+    (@($value.PSObject.Properties.Name | Sort-Object) -join ",") -cne
+      (@($expectedKeys | Sort-Object) -join ",") -or
+    [string]$value.schema_version -cne "self_output_awareness.live_controller.v0" -or
+    [string]$value.controller_status -cne "error" -or
+    -not $scenarioValid -or
+    $blockerClass -cnotin $allowed -or
+    $value.raw_audio_shared -isnot [bool] -or [bool]$value.raw_audio_shared -or
+    $value.raw_text_shared -isnot [bool] -or [bool]$value.raw_text_shared -or
+    $value.private_identifier_shared -isnot [bool] -or [bool]$value.private_identifier_shared -or
+    $value.private_environment_shared -isnot [bool] -or [bool]$value.private_environment_shared -or
+    $value.raw_private_publication_flags -isnot [bool] -or
+    [bool]$value.raw_private_publication_flags
+  ) { return $null }
+  return $blockerClass
+}
+
 function Wait-ControllerSignal {
   param(
     [Parameter(Mandatory = $true)][Diagnostics.Process]$Process,
+    [Parameter(Mandatory = $true)][string]$OutputPath,
     [Parameter(Mandatory = $true)][string]$ErrorPath,
     [Parameter(Mandatory = $true)][string]$ExpectedSchema,
     [Parameter(Mandatory = $true)][string]$ExpectedClass,
@@ -680,7 +743,13 @@ function Wait-ControllerSignal {
   )
   return Wait-Until -RouteStopwatch $RouteStopwatch -RouteDeadlineMs $RouteDeadlineMs `
     -FailureClass $FailureClass -Condition {
-    if ($Process.HasExited) { Throw-Fixed -Class "live_controller_exited_before_signal" }
+    if ($Process.HasExited) {
+      $earlyBlocker = Get-EarlyControllerBlockerClass -OutputPath $OutputPath
+      if (-not [string]::IsNullOrWhiteSpace($earlyBlocker)) {
+        Throw-Fixed -Class $earlyBlocker
+      }
+      Throw-Fixed -Class "live_controller_exited_before_signal"
+    }
     if (-not (Test-Path -LiteralPath $ErrorPath -PathType Leaf)) { return $null }
     $matches = @()
     foreach ($line in @(Get-Content -LiteralPath $ErrorPath -ErrorAction SilentlyContinue)) {
@@ -953,6 +1022,19 @@ try {
     Throw-Fixed -Class "projection_owner_not_ready"
   }
 
+  [void](Wait-Until -RouteStopwatch $preparationStopwatch `
+    -RouteDeadlineMs $preparationDeadlineMs -FailureClass "ait_lifecycle_transport_not_ready" -Condition {
+    try {
+      $remainingMs = Get-RemainingBudgetMs -Stopwatch $preparationStopwatch `
+        -DeadlineMs $preparationDeadlineMs -FailureClass "ait_lifecycle_transport_not_ready"
+      $preflight = Invoke-LoopbackJson `
+        -Uri "http://127.0.0.1:3000/api/self-output-awareness-transport/" `
+        -TimeoutMs $remainingMs
+      if (Test-AitLifecyclePreflightResponse -Value $preflight) { return "ready" }
+    } catch [InvalidOperationException] { throw } catch {}
+    return $null
+  })
+
   $controllerOut = Join-Path $runRoot "controller.out.json"
   $controllerErr = Join-Path $runRoot "controller.err.log"
   $userStartEvent = New-ExclusiveUserStartEvent -Name $UserStartEventName
@@ -972,7 +1054,8 @@ try {
     } `
     -WaitForUserStart {
       $holdStopwatch = [Diagnostics.Stopwatch]::StartNew()
-      [void](Wait-ControllerSignal -Process $controllerProcess -ErrorPath $controllerErr `
+      [void](Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
+        -ErrorPath $controllerErr `
         -ExpectedSchema "self_output_awareness.user_start_received.v0" `
         -ExpectedClass "user_start_received" -RouteStopwatch $holdStopwatch `
         -RouteDeadlineMs ($UserStartHoldSeconds * 1000) -FailureClass "prepared_hold_expired")
@@ -991,7 +1074,8 @@ try {
         "-UserStartHoldMs", [string]($UserStartHoldSeconds * 1000), "-EmitUserSpeechReadySignal"
       ) -StandardOutputPath $controllerOut -StandardErrorPath $controllerErr
       $script:controllerIdentity = New-OwnedRootIdentity -Process $controllerProcess
-      Wait-ControllerSignal -Process $controllerProcess -ErrorPath $controllerErr `
+      Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
+        -ErrorPath $controllerErr `
         -ExpectedSchema "self_output_awareness.system_output_trigger_ready.v0" `
         -ExpectedClass "ready_for_system_output_trigger" `
         -RouteStopwatch $preparationStopwatch -RouteDeadlineMs $preparationDeadlineMs
@@ -1009,7 +1093,8 @@ try {
       return "system_output_dispatched_once"
     } `
     -WaitForUserSpeechReady {
-      Wait-ControllerSignal -Process $controllerProcess -ErrorPath $controllerErr `
+      Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
+        -ErrorPath $controllerErr `
         -ExpectedSchema "self_output_awareness.live_controller_ready.v0" `
         -ExpectedClass "ready_for_user_speech" `
         -RouteStopwatch $postStartStopwatch -RouteDeadlineMs $postStartDeadlineMs
@@ -1054,13 +1139,21 @@ try {
     "launcher_primary_profile_not_selected", "saved_camera_selection_missing",
     "saved_camera_selection_not_exactly_available",
     "launcher_nine_service_boundary_not_ready", "canonical_input_gate_not_ready",
+    "ait_lifecycle_transport_not_ready",
     "controlled_chrome_unavailable", "controlled_chrome_cdp_unavailable",
     "projection_owner_not_ready", "live_controller_signal_unavailable",
     "live_controller_exited_before_signal", "live_controller_signal_duplicated",
     "user_start_not_received", "prepared_hold_expired", "test_ui_dispatch_not_ready",
     "live_controller_did_not_finish", "live_controller_failed",
     "live_controller_result_missing", "live_controller_result_invalid",
-    "preparation_deadline_exceeded", "post_start_deadline_exceeded"
+    "preparation_deadline_exceeded", "post_start_deadline_exceeded",
+    "live_controller_configuration_invalid", "live_controller_token_unavailable",
+    "live_controller_endpoint_unreachable", "live_controller_endpoint_access_denied",
+    "live_controller_endpoint_not_found", "live_controller_endpoint_response_invalid",
+    "live_controller_endpoint_cleanup_incomplete", "visible_response_observer_unavailable",
+    "visible_response_not_observed", "production_transport_unavailable",
+    "production_transport_not_completed", "user_start_event_unavailable",
+    "whole_route_timeout"
   )
   $candidateBlocker = [string]$_.Exception.Message
   $blockerClass = $(if ($candidateBlocker -cin $allowedBlockers) {
