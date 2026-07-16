@@ -46,6 +46,8 @@ function fakeSession({
   prepareHangs = false,
   dispatchHangs = false,
   closeFails = false,
+  closeHangs = false,
+  onClose = null,
 } = {}) {
   const operations = [];
   let armCount = 0;
@@ -70,6 +72,8 @@ function fakeSession({
     close: async () => {
       closeCount += 1;
       if (closeFails) throw new Error("private cleanup detail");
+      if (closeHangs) return new Promise(() => {});
+      onClose?.();
     },
     stats: () => ({ armCount, closeCount, operations }),
   };
@@ -257,30 +261,56 @@ test("cleanup failure replaces a successful dispatch", async () => {
   assertFixedOutput(result);
 });
 
+test("a hanging dispatch-session close is bounded and replaces success", async () => {
+  const result = await drivePrimarySystemCellTestUi({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 1_000,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => fakeSession({ closeHangs: true }),
+    sleep: async () => {},
+  });
+  assert.equal(result.result_class, "test_ui_cleanup_incomplete");
+  assert.equal(result.cleanup_class, "test_ui_cleanup_incomplete");
+  assert.equal(result.ui_dispatch_count, 1);
+  assert.equal(result.elapsed_ms >= 450 && result.elapsed_ms <= 800, true);
+  assertFixedOutput(result);
+});
+
 test("prepares exactly one fixed projection owner without an arbitrary URL surface", async () => {
   const prepared = preparingFetch();
+  const session = fakeSession();
   const result = await ensurePrimarySystemCellProjectionOwner({
     cdpEndpoint: "http://127.0.0.1:9222/",
     fetchImpl: prepared.fetchImpl,
+    connectImpl: async () => session,
     now: () => 1_000,
     sleep: async () => {},
   });
   assert.equal(result.result_class, "projection_owner_created");
+  assert.equal(result.cleanup_class, "cdp_session_released");
   assert.equal(result.ui_dispatch_count, 0);
   assert.deepEqual(prepared.calls.map(({ method }) => method), ["GET", "PUT", "GET"]);
   assert.equal(prepared.calls[1].url, "http://127.0.0.1:9222/json/new?http://127.0.0.1:3000/projection-visual/");
+  assert.equal(session.stats().armCount, 1);
+  assert.deepEqual(session.stats().operations, ["prepare_fixed_voice_test_input"]);
+  assert.equal(session.stats().closeCount, 1);
   assertFixedOutput(result);
 });
 
 test("owner preparation is idempotent and fails closed for ambiguity or create failure", async (t) => {
   await t.test("existing owner", async () => {
     const prepared = preparingFetch({ initialTargets: [TARGET] });
+    const session = fakeSession();
     const result = await ensurePrimarySystemCellProjectionOwner({
       cdpEndpoint: "http://localhost:9222/",
       fetchImpl: prepared.fetchImpl,
+      connectImpl: async () => session,
     });
     assert.equal(result.result_class, "projection_owner_ready");
     assert.deepEqual(prepared.calls.map(({ method }) => method), ["GET"]);
+    assert.equal(session.stats().armCount, 1);
+    assert.deepEqual(session.stats().operations, ["prepare_fixed_voice_test_input"]);
+    assert.equal(session.stats().closeCount, 1);
     assertFixedOutput(result);
   });
   await t.test("ambiguous owner", async () => {
@@ -288,6 +318,7 @@ test("owner preparation is idempotent and fails closed for ambiguity or create f
     const result = await ensurePrimarySystemCellProjectionOwner({
       cdpEndpoint: "http://127.0.0.1:9222/",
       fetchImpl: prepared.fetchImpl,
+      connectImpl: async () => fakeSession(),
     });
     assert.equal(result.result_class, "projection_owner_page_multiple");
     assert.deepEqual(prepared.calls.map(({ method }) => method), ["GET"]);
@@ -302,6 +333,7 @@ test("owner preparation is idempotent and fails closed for ambiguity or create f
     const result = await ensurePrimarySystemCellProjectionOwner({
       cdpEndpoint: "http://127.0.0.1:9222/",
       fetchImpl: prepared.fetchImpl,
+      connectImpl: async () => fakeSession(),
     });
     assert.equal(result.result_class, "projection_owner_target_invalid");
     assert.deepEqual(prepared.calls.map(({ method }) => method), ["GET"]);
@@ -312,9 +344,131 @@ test("owner preparation is idempotent and fails closed for ambiguity or create f
     const result = await ensurePrimarySystemCellProjectionOwner({
       cdpEndpoint: "http://127.0.0.1:9222/",
       fetchImpl: prepared.fetchImpl,
+      connectImpl: async () => fakeSession(),
     });
     assert.equal(result.result_class, "projection_owner_target_create_failed");
     assert.deepEqual(prepared.calls.map(({ method }) => method), ["GET", "PUT"]);
+    assertFixedOutput(result);
+  });
+});
+
+test("owner preparation waits for hydrated fixed input before declaring ready", async () => {
+  let currentTime = 0;
+  const session = fakeSession({ inputReadySequence: [false, false, true] });
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    now: () => currentTime,
+    sleep: async (milliseconds) => { currentTime += milliseconds; },
+  });
+  assert.equal(result.result_class, "projection_owner_ready");
+  assert.equal(result.elapsed_ms, 100);
+  assert.equal(result.cleanup_class, "cdp_session_released");
+  assert.deepEqual(session.stats().operations, [
+    "prepare_fixed_voice_test_input",
+    "prepare_fixed_voice_test_input",
+    "prepare_fixed_voice_test_input",
+  ]);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
+test("owner preparation fails closed and cleans up when input never hydrates", async () => {
+  let currentTime = 0;
+  const session = fakeSession({ inputReady: false });
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    now: () => currentTime,
+    sleep: async (milliseconds) => { currentTime += milliseconds; },
+  });
+  assert.equal(result.result_class, "projection_owner_prepare_timeout");
+  assert.equal(result.ui_dispatch_count, 0);
+  assert.equal(result.elapsed_ms, 500);
+  assert.equal(result.cleanup_class, "cdp_session_released");
+  assert.equal(session.stats().operations.length, 10);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
+test("a pending owner hydration check is bounded and cleaned up", async () => {
+  const session = fakeSession({ prepareHangs: true });
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    sleep: async () => {},
+  });
+  assert.equal(result.result_class, "projection_owner_prepare_timeout");
+  assert.equal(result.ui_dispatch_count, 0);
+  assert.equal(result.elapsed_ms >= 450 && result.elapsed_ms <= 750, true);
+  assert.equal(result.cleanup_class, "cdp_session_released");
+  assert.deepEqual(session.stats().operations, ["prepare_fixed_voice_test_input"]);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
+test("owner input preparation cleanup failure replaces readiness", async () => {
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => fakeSession({ closeFails: true }),
+  });
+  assert.equal(result.result_class, "test_ui_cleanup_incomplete");
+  assert.equal(result.cleanup_class, "test_ui_cleanup_incomplete");
+  assertFixedOutput(result);
+});
+
+test("a hanging owner-session close is bounded and never reports ready", async () => {
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 1_000,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => fakeSession({ closeHangs: true }),
+  });
+  assert.equal(result.result_class, "test_ui_cleanup_incomplete");
+  assert.equal(result.cleanup_class, "test_ui_cleanup_incomplete");
+  assert.equal(result.ui_dispatch_count, 0);
+  assert.equal(result.elapsed_ms >= 450 && result.elapsed_ms <= 800, true);
+  assertFixedOutput(result);
+});
+
+test("slow successful cleanup cannot preserve owner or dispatch readiness past deadline", async (t) => {
+  await t.test("owner preparation", async () => {
+    let currentTime = 0;
+    const result = await ensurePrimarySystemCellProjectionOwner({
+      cdpEndpoint: "http://127.0.0.1:9222/",
+      timeoutMs: 500,
+      fetchImpl: fakeFetch(),
+      connectImpl: async () => fakeSession({ onClose: () => { currentTime = 600; } }),
+      now: () => currentTime,
+    });
+    assert.equal(result.result_class, "projection_owner_prepare_timeout");
+    assert.equal(result.cleanup_class, "cdp_session_released");
+    assert.equal(result.ui_dispatch_count, 0);
+    assert.equal(result.elapsed_ms, 600);
+    assertFixedOutput(result);
+  });
+
+  await t.test("input dispatch", async () => {
+    let currentTime = 0;
+    const result = await drivePrimarySystemCellTestUi({
+      cdpEndpoint: "http://127.0.0.1:9222/",
+      timeoutMs: 500,
+      fetchImpl: fakeFetch(),
+      connectImpl: async () => fakeSession({ onClose: () => { currentTime = 600; } }),
+      now: () => currentTime,
+      sleep: async () => {},
+    });
+    assert.equal(result.result_class, "test_ui_input_unavailable");
+    assert.equal(result.cleanup_class, "cdp_session_released");
+    assert.equal(result.ui_dispatch_count, 1);
+    assert.equal(result.elapsed_ms, 600);
     assertFixedOutput(result);
   });
 });

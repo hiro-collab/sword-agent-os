@@ -11,6 +11,7 @@ import {
 
 const MIN_TIMEOUT_MS = 500;
 const MAX_TIMEOUT_MS = 10_000;
+const CLEANUP_TIMEOUT_MS = 500;
 const MAX_TARGET_LIST_BYTES = 256 * 1024;
 const FIXED_PROJECTION_VISUAL_URL = "http://127.0.0.1:3000/projection-visual/";
 const RESULT_KEYS = Object.freeze([
@@ -55,12 +56,12 @@ function parseLoopbackCdpEndpoint(value) {
   return endpoint;
 }
 
-function createResult(resultClass, dispatchCount, startedAt, now, cleanupClass) {
+function createResult(resultClass, dispatchCount, startedAt, finishedAt, cleanupClass) {
   const result = {
     schema_version: "primary_system_cell_test_ui_driver.v0",
     result_class: resultClass,
     ui_dispatch_count: dispatchCount,
-    elapsed_ms: Math.max(0, Math.round(now() - startedAt)),
+    elapsed_ms: Math.max(0, Math.round(finishedAt - startedAt)),
     cleanup_class: cleanupClass,
     raw_private_publication_flags: false,
   };
@@ -171,6 +172,24 @@ function remainingPreparationBudget(deadline, now) {
   return remaining;
 }
 
+async function awaitWithinPreparationDeadline(operation, deadline, now) {
+  const remaining = remainingPreparationBudget(deadline, now);
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(operation),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new TestUiDriverError("projection_owner_prepare_timeout")),
+          Math.max(1, Math.ceil(remaining)),
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function remainingTestUiBudget(deadline, now) {
   const remaining = Math.floor(deadline - now());
   if (!Number.isFinite(remaining) || remaining <= 0) {
@@ -197,34 +216,55 @@ async function awaitWithinTestUiDeadline(operation, deadline, now) {
   }
 }
 
+async function closeCdpSessionWithinCleanupBound(session) {
+  let timer;
+  try {
+    await Promise.race([
+      Promise.resolve().then(() => session.close()),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new TestUiDriverError("test_ui_cleanup_incomplete")),
+          CLEANUP_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function ensurePrimarySystemCellProjectionOwner({
   cdpEndpoint,
   timeoutMs = 5_000,
   fetchImpl = globalThis.fetch,
+  connectImpl = connectCdp,
   now = () => performance.now(),
   sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
 } = {}) {
   const startedAt = now();
+  let deadline = null;
+  let session = null;
   let resultClass = "projection_owner_prepare_failed";
+  let cleanupClass = "no_cdp_session_created";
   try {
     const endpoint = parseLoopbackCdpEndpoint(cdpEndpoint);
     if (
       !Number.isInteger(timeoutMs) ||
       timeoutMs < MIN_TIMEOUT_MS ||
       timeoutMs > MAX_TIMEOUT_MS ||
-      typeof fetchImpl !== "function"
+      typeof fetchImpl !== "function" ||
+      typeof connectImpl !== "function"
     ) {
       throw new TestUiDriverError("test_ui_configuration_invalid");
     }
-    const deadline = startedAt + timeoutMs;
+    deadline = startedAt + timeoutMs;
+    let ownerResultClass = "projection_owner_ready";
     let targets = await fetchTargets(
       endpoint,
       fetchImpl,
       remainingPreparationBudget(deadline, now),
     );
-    if (projectionOwnerState(targets) === "ready") {
-      resultClass = "projection_owner_ready";
-    } else {
+    if (projectionOwnerState(targets) !== "ready") {
       await createFixedProjectionOwnerTarget(
         endpoint,
         fetchImpl,
@@ -237,16 +277,42 @@ export async function ensurePrimarySystemCellProjectionOwner({
           remainingPreparationBudget(deadline, now),
         );
         if (projectionOwnerState(targets) === "ready") {
-          resultClass = "projection_owner_created";
+          ownerResultClass = "projection_owner_created";
           break;
         }
         const remaining = remainingPreparationBudget(deadline, now);
         await sleep(Math.min(50, remaining));
       }
     }
+    const target = selectFixedProjectionVisualTarget(targets);
+    session = await connectImpl(target.webSocketDebuggerUrl, {
+      timeoutMs: remainingPreparationBudget(deadline, now),
+    });
+    if (
+      typeof session?.arm !== "function" ||
+      typeof session?.prepareFixedVoiceTestInput !== "function" ||
+      typeof session?.close !== "function"
+    ) {
+      throw new TestUiDriverError("test_ui_cdp_session_invalid");
+    }
+    await awaitWithinPreparationDeadline(() => session.arm(), deadline, now);
+    while (true) {
+      const inputResult = await awaitWithinPreparationDeadline(
+        () => session.prepareFixedVoiceTestInput(),
+        deadline,
+        now,
+      );
+      if (inputResult?.inputReady === true) {
+        resultClass = ownerResultClass;
+        break;
+      }
+      const remaining = remainingPreparationBudget(deadline, now);
+      await sleep(Math.min(50, remaining));
+    }
   } catch (error) {
     const safeClasses = new Set([
       "test_ui_configuration_invalid",
+      "test_ui_cdp_session_invalid",
       "cdp_endpoint_unavailable",
       "cdp_target_list_invalid",
       "projection_owner_page_missing",
@@ -256,13 +322,31 @@ export async function ensurePrimarySystemCellProjectionOwner({
       "projection_owner_prepare_timeout",
     ]);
     resultClass = safeClasses.has(error?.message) ? error.message : "projection_owner_prepare_failed";
+  } finally {
+    if (session) {
+      try {
+        await closeCdpSessionWithinCleanupBound(session);
+        cleanupClass = "cdp_session_released";
+      } catch {
+        cleanupClass = "test_ui_cleanup_incomplete";
+        resultClass = "test_ui_cleanup_incomplete";
+      }
+    }
+  }
+  const finishedAt = now();
+  if (
+    deadline !== null &&
+    finishedAt > deadline &&
+    (resultClass === "projection_owner_ready" || resultClass === "projection_owner_created")
+  ) {
+    resultClass = "projection_owner_prepare_timeout";
   }
   return createResult(
     resultClass,
     0,
     startedAt,
-    now,
-    "no_cdp_session_created",
+    finishedAt,
+    cleanupClass,
   );
 }
 
@@ -275,6 +359,7 @@ export async function drivePrimarySystemCellTestUi({
   sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
 } = {}) {
   const startedAt = now();
+  let deadline = null;
   let session = null;
   let resultClass = "test_ui_driver_failed";
   let dispatchCount = 0;
@@ -290,7 +375,7 @@ export async function drivePrimarySystemCellTestUi({
     ) {
       throw new TestUiDriverError("test_ui_configuration_invalid");
     }
-    const deadline = startedAt + timeoutMs;
+    deadline = startedAt + timeoutMs;
     const targets = await fetchTargets(
       endpoint,
       fetchImpl,
@@ -346,7 +431,7 @@ export async function drivePrimarySystemCellTestUi({
   } finally {
     if (session) {
       try {
-        await session.close();
+        await closeCdpSessionWithinCleanupBound(session);
         cleanupClass = "cdp_session_released";
       } catch {
         cleanupClass = "test_ui_cleanup_incomplete";
@@ -356,7 +441,15 @@ export async function drivePrimarySystemCellTestUi({
       cleanupClass = "no_cdp_session_created";
     }
   }
-  return createResult(resultClass, dispatchCount, startedAt, now, cleanupClass);
+  const finishedAt = now();
+  if (
+    deadline !== null &&
+    finishedAt > deadline &&
+    resultClass === "test_ui_seed_dispatched"
+  ) {
+    resultClass = "test_ui_input_unavailable";
+  }
+  return createResult(resultClass, dispatchCount, startedAt, finishedAt, cleanupClass);
 }
 
 export function parseArgs(argv) {
