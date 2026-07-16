@@ -42,6 +42,8 @@ function preparingFetch({ initialTargets = [], finalTargets = [TARGET], createOk
 function fakeSession({
   inputReady = true,
   inputReadySequence = null,
+  reloadHangs = false,
+  reloadCompleteSequence = null,
   dispatched = true,
   prepareHangs = false,
   armHangs = false,
@@ -54,6 +56,8 @@ function fakeSession({
   const operations = [];
   let armCount = 0;
   let closeCount = 0;
+  let reloadCount = 0;
+  let reloadCompleteIndex = 0;
   let inputReadyIndex = 0;
   return {
     arm: async () => {
@@ -67,7 +71,24 @@ function fakeSession({
         ? inputReadySequence[Math.min(inputReadyIndex, inputReadySequence.length - 1)]
         : inputReady;
       inputReadyIndex += 1;
-      return { inputReady: ready };
+      return typeof ready === "object" && ready !== null
+        ? ready
+        : { inputReady: ready, pageReloadRequired: false };
+    },
+    reloadFixedOwner: async () => {
+      operations.push("reload_fixed_owner");
+      reloadCount += 1;
+      if (reloadHangs) return new Promise(() => {});
+    },
+    isFixedOwnerReloadComplete: async () => {
+      operations.push("check_fixed_owner_reload");
+      const complete = Array.isArray(reloadCompleteSequence)
+        ? reloadCompleteSequence[
+          Math.min(reloadCompleteIndex, reloadCompleteSequence.length - 1)
+        ]
+        : true;
+      reloadCompleteIndex += 1;
+      return { reloadComplete: complete };
     },
     dispatchFixedVoiceTestInput: async () => {
       operations.push("dispatch_fixed_voice_test_input");
@@ -81,7 +102,7 @@ function fakeSession({
       if (closeHangs) return new Promise(() => {});
       onClose?.();
     },
-    stats: () => ({ armCount, closeCount, operations }),
+    stats: () => ({ armCount, closeCount, reloadCount, operations }),
   };
 }
 
@@ -402,6 +423,128 @@ test("owner preparation waits for hydrated fixed input before declaring ready", 
   assertFixedOutput(result);
 });
 
+test("owner preparation reloads one complete empty fixed page before hydration", async () => {
+  let currentTime = 0;
+  const session = fakeSession({
+    inputReadySequence: [
+      { inputReady: false, pageReloadRequired: true },
+      { inputReady: true, pageReloadRequired: false },
+    ],
+    reloadCompleteSequence: [false, false, true],
+  });
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    now: () => currentTime,
+    sleep: async (milliseconds) => { currentTime += milliseconds; },
+  });
+  assert.equal(result.result_class, "projection_owner_ready");
+  assert.equal(result.elapsed_ms, 100);
+  assert.equal(result.cleanup_class, "cdp_session_released");
+  assert.deepEqual(session.stats().operations, [
+    "prepare_fixed_voice_test_input",
+    "reload_fixed_owner",
+    "check_fixed_owner_reload",
+    "check_fixed_owner_reload",
+    "check_fixed_owner_reload",
+    "prepare_fixed_voice_test_input",
+  ]);
+  assert.equal(session.stats().reloadCount, 1);
+  assert.equal(session.stats().armCount, 1);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
+test("owner preparation never reloads a complete empty fixed page twice", async () => {
+  let currentTime = 0;
+  const session = fakeSession({
+    inputReadySequence: [{
+      inputReady: false,
+      pageReloadRequired: true,
+    }],
+  });
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    now: () => currentTime,
+    sleep: async (milliseconds) => { currentTime += milliseconds; },
+  });
+  assert.equal(result.result_class, "projection_owner_input_hydration_timeout");
+  assert.equal(result.elapsed_ms, 500);
+  assert.equal(result.cleanup_class, "cdp_session_released");
+  assert.equal(session.stats().reloadCount, 1);
+  assert.equal(
+    session.stats().operations.filter((operation) => operation === "reload_fixed_owner").length,
+    1,
+  );
+  assert.equal(session.stats().armCount, 0);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
+test("owner preparation times out and never arms while reload completion stays false", async () => {
+  let currentTime = 0;
+  const session = fakeSession({
+    inputReadySequence: [{
+      inputReady: false,
+      pageReloadRequired: true,
+    }],
+    reloadCompleteSequence: [false],
+  });
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    now: () => currentTime,
+    sleep: async (milliseconds) => { currentTime += milliseconds; },
+  });
+  assert.equal(result.result_class, "projection_owner_input_hydration_timeout");
+  assert.equal(result.elapsed_ms, 500);
+  assert.equal(result.cleanup_class, "cdp_session_released");
+  assert.equal(session.stats().reloadCount, 1);
+  assert.equal(
+    session.stats().operations.filter(
+      (operation) => operation === "check_fixed_owner_reload"
+    ).length,
+    10,
+  );
+  assert.equal(session.stats().armCount, 0);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
+test("owner preparation does not reload when the fixed page reports no empty-root condition", async () => {
+  let currentTime = 0;
+  const session = fakeSession({
+    inputReadySequence: [
+      { inputReady: false, pageReloadRequired: false },
+      { inputReady: true, pageReloadRequired: false },
+    ],
+  });
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    now: () => currentTime,
+    sleep: async (milliseconds) => { currentTime += milliseconds; },
+  });
+  assert.equal(result.result_class, "projection_owner_ready");
+  assert.equal(session.stats().reloadCount, 0);
+  assert.deepEqual(session.stats().operations, [
+    "prepare_fixed_voice_test_input",
+    "prepare_fixed_voice_test_input",
+  ]);
+  assert.equal(session.stats().armCount, 1);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
 test("owner preparation arms only after the fixed input is hydrated", async () => {
   const operations = [];
   let prepareCount = 0;
@@ -410,6 +553,11 @@ test("owner preparation arms only after the fixed input is hydrated", async () =
       operations.push("prepare_fixed_voice_test_input");
       prepareCount += 1;
       return { inputReady: prepareCount >= 2 };
+    },
+    reloadFixedOwner: async () => { operations.push("reload_fixed_owner"); },
+    isFixedOwnerReloadComplete: async () => {
+      operations.push("check_fixed_owner_reload");
+      return { reloadComplete: true };
     },
     arm: async () => { operations.push("arm"); },
     close: async () => { operations.push("close"); },

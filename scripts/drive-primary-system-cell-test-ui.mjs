@@ -313,10 +313,13 @@ export async function ensurePrimarySystemCellProjectionOwner({
     if (
       typeof session?.arm !== "function" ||
       typeof session?.prepareFixedVoiceTestInput !== "function" ||
+      typeof session?.reloadFixedOwner !== "function" ||
+      typeof session?.isFixedOwnerReloadComplete !== "function" ||
       typeof session?.close !== "function"
     ) {
       throw new TestUiDriverError("test_ui_cdp_session_invalid");
     }
+    let reloadAttempted = false;
     while (true) {
       const inputResult = await awaitWithinPreparationDeadline(
         () => session.prepareFixedVoiceTestInput(),
@@ -326,6 +329,33 @@ export async function ensurePrimarySystemCellProjectionOwner({
       );
       if (inputResult?.inputReady === true) {
         break;
+      }
+      if (inputResult?.pageReloadRequired === true && !reloadAttempted) {
+        reloadAttempted = true;
+        await awaitWithinPreparationDeadline(
+          () => session.reloadFixedOwner(),
+          deadline,
+          now,
+          "projection_owner_input_hydration_timeout",
+        );
+        while (true) {
+          const reloadResult = await awaitWithinPreparationDeadline(
+            () => session.isFixedOwnerReloadComplete(),
+            deadline,
+            now,
+            "projection_owner_input_hydration_timeout",
+          );
+          if (reloadResult?.reloadComplete === true) {
+            break;
+          }
+          const remaining = remainingPreparationBudget(
+            deadline,
+            now,
+            "projection_owner_input_hydration_timeout",
+          );
+          await sleep(Math.min(50, remaining));
+        }
+        continue;
       }
       const remaining = remainingPreparationBudget(
         deadline,

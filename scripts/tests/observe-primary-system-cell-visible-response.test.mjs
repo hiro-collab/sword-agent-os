@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   connectCdp,
+  fixedOwnerPageReloadRequired,
   observeVisibleResponse,
   parseArgs,
   selectProjectionVisualTarget,
@@ -76,6 +77,29 @@ test("selects exactly one loopback Projection Visual owner page", () => {
     () => selectProjectionVisualTarget([{ ...TARGET, webSocketDebuggerUrl: "ws://example.com/devtools/page/1" }]),
     (error) => error.message === "projection_owner_target_invalid",
   );
+});
+
+test("requests a fixed owner reload only for a complete empty Projection document", () => {
+  assert.equal(fixedOwnerPageReloadRequired({
+    documentReadyState: "loading",
+    projectionRootPresent: false,
+    textareaPresent: false,
+  }), false);
+  assert.equal(fixedOwnerPageReloadRequired({
+    documentReadyState: "complete",
+    projectionRootPresent: true,
+    textareaPresent: false,
+  }), false);
+  assert.equal(fixedOwnerPageReloadRequired({
+    documentReadyState: "complete",
+    projectionRootPresent: false,
+    textareaPresent: true,
+  }), false);
+  assert.equal(fixedOwnerPageReloadRequired({
+    documentReadyState: "complete",
+    projectionRootPresent: false,
+    textareaPresent: false,
+  }), true);
 });
 
 test("observes one new visible message without returning content or endpoints", async () => {
@@ -312,7 +336,15 @@ test("CDP client injects only the bounded observer and never closes the browser 
       if (request.method === "Runtime.evaluate") {
         if (request.params.expression.includes("return { armed: true }")) value = { armed: true };
         else if (request.params.expression.includes("state.observer.disconnect")) value = { cleaned: true };
-        else if (request.params.expression.includes("家電は操作せず")) value = { inputReady: true };
+        else if (request.params.expression.includes("家電は操作せず")) {
+          value = { inputReady: true, pageReloadRequired: false };
+        }
+        else if (request.params.expression.includes("Object.defineProperty")) {
+          value = { marked: true };
+        }
+        else if (request.params.expression.includes("reloadComplete")) {
+          value = { reloadComplete: true };
+        }
         else if (request.params.expression.includes("KeyboardEvent")) value = { dispatched: true };
         else {
           value = {
@@ -340,25 +372,117 @@ test("CDP client injects only the bounded observer and never closes the browser 
   await session.arm();
   assert.equal(session.evaluate, undefined);
   const prepared = await session.prepareFixedVoiceTestInput();
+  await session.reloadFixedOwner();
+  const reloadState = await session.isFixedOwnerReloadComplete();
   const dispatched = await session.dispatchFixedVoiceTestInput();
   const inspection = await session.inspect("safe-message-id");
   await session.close();
 
-  assert.deepEqual(prepared, { inputReady: true });
+  assert.deepEqual(prepared, { inputReady: true, pageReloadRequired: false });
+  assert.deepEqual(reloadState, { reloadComplete: true });
   assert.deepEqual(dispatched, { dispatched: true });
   assert.equal(inspection.maximumVisibleMatchCount, 1);
-  const methods = FakeWebSocket.instance.sent.map((request) => request.method);
+  const requests = FakeWebSocket.instance.sent;
+  const methods = requests.map((request) => request.method);
   assert.deepEqual(methods, [
     "Runtime.enable",
     "Runtime.evaluate",
     "Runtime.evaluate",
     "Runtime.evaluate",
+    "Page.reload",
+    "Runtime.evaluate",
+    "Runtime.evaluate",
     "Runtime.evaluate",
     "Runtime.evaluate",
   ]);
+  assert.equal(requests[3].method, "Runtime.evaluate");
+  assert.equal(requests[3].params.expression.includes("Object.defineProperty"), true);
+  assert.deepEqual(requests[4], {
+    id: 5,
+    method: "Page.reload",
+    params: {},
+  });
   assert.equal(methods.includes("Browser.close"), false);
   assert.equal(methods.includes("Page.close"), false);
   assert.equal(FakeWebSocket.instance.readyState, FakeWebSocket.CLOSED);
+});
+
+test("reload completion CDP errors and timeouts fail closed without leaking details", async (t) => {
+  for (const mode of ["error", "timeout"]) {
+    await t.test(mode, async () => {
+      class ReloadTransitionWebSocket {
+        static OPEN = 1;
+        static CLOSED = 3;
+
+        constructor() {
+          this.readyState = ReloadTransitionWebSocket.OPEN;
+          this.listeners = new Map();
+          this.closeCount = 0;
+          ReloadTransitionWebSocket.instance = this;
+          queueMicrotask(() => this.emit("open", {}));
+        }
+
+        addEventListener(name, callback, options = {}) {
+          const listeners = this.listeners.get(name) ?? [];
+          listeners.push({ callback, once: options.once === true });
+          this.listeners.set(name, listeners);
+        }
+
+        emit(name, event) {
+          const listeners = [...(this.listeners.get(name) ?? [])];
+          this.listeners.set(name, listeners.filter((listener) => !listener.once));
+          for (const listener of listeners) listener.callback(event);
+        }
+
+        send(serialized) {
+          const request = JSON.parse(serialized);
+          if (
+            request.method === "Runtime.evaluate" &&
+            request.params.expression.includes("reloadComplete")
+          ) {
+            if (mode === "timeout") return;
+            queueMicrotask(() => this.emit("message", {
+              data: JSON.stringify({
+                id: request.id,
+                error: {
+                  message: "private execution context detail",
+                  data: "ws://private.invalid",
+                },
+              }),
+            }));
+            return;
+          }
+          let value = {};
+          if (
+            request.method === "Runtime.evaluate" &&
+            request.params.expression.includes("Object.defineProperty")
+          ) {
+            value = { marked: true };
+          }
+          queueMicrotask(() => this.emit("message", {
+            data: JSON.stringify({ id: request.id, result: { result: { value } } }),
+          }));
+        }
+
+        close() {
+          this.closeCount += 1;
+          this.readyState = ReloadTransitionWebSocket.CLOSED;
+          queueMicrotask(() => this.emit("close", {}));
+        }
+      }
+
+      const session = await connectCdp(
+        "ws://127.0.0.1:9222/devtools/page/opaque",
+        { WebSocketImpl: ReloadTransitionWebSocket, timeoutMs: 20 },
+      );
+      await session.reloadFixedOwner();
+      const completion = await session.isFixedOwnerReloadComplete();
+      await session.close();
+      assert.deepEqual(completion, { reloadComplete: false });
+      assert.equal(ReloadTransitionWebSocket.instance.closeCount, 1);
+      assert.equal(JSON.stringify(completion).includes("private"), false);
+    });
+  }
 });
 
 test("CDP close returns fixed cleanup classes and always attempts one socket close", async (t) => {

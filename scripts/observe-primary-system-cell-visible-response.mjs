@@ -23,6 +23,7 @@ const MAX_TIMEOUT_MS = 30_000;
 const MESSAGE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/u;
 const FIXED_VOICE_TEST_PROMPT =
   "音声重なりテスト用です。家電は操作せず、十五秒ほど、落ち着いた案内文だけを読み上げてください。";
+const FIXED_OWNER_RELOAD_MARKER = "__swordPrimarySystemCellReloadGeneration";
 
 class ObserverError extends Error {
   constructor(resultClass) {
@@ -178,26 +179,72 @@ function cleanupExpression(stateKey) {
   })()`;
 }
 
+export function fixedOwnerPageReloadRequired({
+  documentReadyState,
+  projectionRootPresent,
+  textareaPresent,
+}) {
+  return (
+    documentReadyState === "complete" &&
+    projectionRootPresent === false &&
+    textareaPresent === false
+  );
+}
+
 function fixedVoiceTestInputExpression() {
   const prompt = JSON.stringify(FIXED_VOICE_TEST_PROMPT);
+  const reloadRequiredClassifier = `(${fixedOwnerPageReloadRequired.toString()})`;
   return `(() => {
     const textarea = document.querySelector('textarea');
+    const pageReloadRequired = ${reloadRequiredClassifier}({
+      documentReadyState: document.readyState,
+      projectionRootPresent:
+        document.querySelector('[data-projection-visual-mode]') !== null,
+      textareaPresent: textarea !== null,
+    });
     if (!(textarea instanceof HTMLTextAreaElement) || textarea.disabled) {
-      return { inputReady: false };
+      return { inputReady: false, pageReloadRequired };
     }
     const setter = Object.getOwnPropertyDescriptor(
       HTMLTextAreaElement.prototype,
       'value'
     )?.set;
-    if (typeof setter !== 'function') return { inputReady: false };
+    if (typeof setter !== 'function') {
+      return { inputReady: false, pageReloadRequired: false };
+    }
     setter.call(textarea, ${prompt});
     textarea.dispatchEvent(new InputEvent('input', {
       bubbles: true,
       inputType: 'insertText',
       data: null,
     }));
-    return { inputReady: textarea.value.length > 0 };
+    return {
+      inputReady: textarea.value.length > 0,
+      pageReloadRequired: false,
+    };
   })()`;
+}
+
+function fixedOwnerReloadMarkerExpression() {
+  const encodedMarker = JSON.stringify(FIXED_OWNER_RELOAD_MARKER);
+  return `(() => {
+    Object.defineProperty(globalThis, ${encodedMarker}, {
+      value: true,
+      configurable: true,
+      enumerable: false,
+      writable: false,
+    });
+    return { marked: globalThis[${encodedMarker}] === true };
+  })()`;
+}
+
+function fixedOwnerReloadCompletionExpression() {
+  const encodedMarker = JSON.stringify(FIXED_OWNER_RELOAD_MARKER);
+  return `(() => ({
+    reloadComplete:
+      globalThis[${encodedMarker}] !== true &&
+      document.readyState !== 'loading',
+  }))()`;
 }
 
 function fixedVoiceTestDispatchExpression() {
@@ -385,6 +432,35 @@ export async function connectCdp(
         awaitPromise: false,
       });
       return result?.result?.value;
+    },
+    async reloadFixedOwner() {
+      const markerResult = await send("Runtime.evaluate", {
+        expression: fixedOwnerReloadMarkerExpression(),
+        returnByValue: true,
+        awaitPromise: false,
+      });
+      if (markerResult?.result?.value?.marked !== true) {
+        throw new ObserverError("cdp_reload_marker_invalid");
+      }
+      await send("Page.reload");
+    },
+    async isFixedOwnerReloadComplete() {
+      try {
+        const result = await send("Runtime.evaluate", {
+          expression: fixedOwnerReloadCompletionExpression(),
+          returnByValue: true,
+          awaitPromise: false,
+        });
+        return result?.result?.value;
+      } catch (error) {
+        if (
+          error?.message === "cdp_command_failed" ||
+          error?.message === "cdp_command_timeout"
+        ) {
+          return { reloadComplete: false };
+        }
+        throw error;
+      }
     },
     async dispatchFixedVoiceTestInput() {
       const result = await send("Runtime.evaluate", {
