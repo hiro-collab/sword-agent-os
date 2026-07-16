@@ -3,6 +3,7 @@ param(
   [Parameter(Mandatory = $true)][string]$UserStartEventName,
   [ValidateRange(30, 1800)][int]$UserStartHoldSeconds = 900,
   [ValidateRange(30, 300)][int]$InfrastructureDeadlineSeconds = 180,
+  [ValidateRange(30, 120)][int]$CleanupStopTimeoutSeconds = 70,
   [switch]$Json
 )
 
@@ -333,7 +334,7 @@ function Invoke-LoopbackJson {
     [ValidateSet("GET", "POST")][string]$Method = "GET",
     [AllowNull()][object]$Body = $null,
     [hashtable]$Headers = @{},
-    [ValidateRange(1, 30000)][int]$TimeoutMs = 5000
+    [ValidateRange(1, 120000)][int]$TimeoutMs = 5000
   )
   $arguments = @{
     Uri = $Uri
@@ -796,6 +797,7 @@ if ($MyInvocation.InvocationName -eq ".") { return }
 $terminalClass = "not_started"
 $blockerClass = $null
 $cleanupClass = "cleanup_not_started"
+$cleanupFailureClass = $null
 $routeExitCode = 0
 $resolvedRepo = $null
 $ownedBase = $null
@@ -912,7 +914,9 @@ try {
     try {
       $remainingMs = Get-RemainingBudgetMs -Stopwatch $preparationStopwatch `
         -DeadlineMs $preparationDeadlineMs -FailureClass "canonical_input_gate_not_ready"
-      [void](Invoke-LoopbackJson -Uri "http://127.0.0.1:8000/health" -TimeoutMs $remainingMs)
+      [void](Invoke-LoopbackJson -Uri "http://127.0.0.1:8000/health" `
+        -Headers @{ "X-AI-Core-Token" = $env:AI_TALK_CORE_WEB_TOKEN } `
+        -TimeoutMs $remainingMs)
       $body = Invoke-LoopbackJson -Uri "http://127.0.0.1:8000/api/input-gate/body-state" `
         -Headers @{ "X-AI-Core-Token" = $env:AI_TALK_CORE_WEB_TOKEN } `
         -TimeoutMs (Get-RemainingBudgetMs -Stopwatch $preparationStopwatch `
@@ -1074,27 +1078,52 @@ try {
   $launcherMutationOwnershipClear = $true
   if ($stackStarted -and $launcherOwnershipProven) {
     try {
-      [void](Invoke-OwnedLauncherMutation -RootIdentity $launcherIdentity -MutationInvoker {
-          Invoke-LoopbackJson -Uri "http://127.0.0.1:8799/api/stop" -Method POST -Body @{}
-        })
-    } catch { $launcherMutationOwnershipClear = $false }
+      $stopResult = Invoke-OwnedLauncherMutation -RootIdentity $launcherIdentity -MutationInvoker {
+        Invoke-LoopbackJson -Uri "http://127.0.0.1:8799/api/stop" -Method POST -Body @{} `
+          -TimeoutMs ($CleanupStopTimeoutSeconds * 1000)
+      }
+      if ($stopResult.ok -isnot [bool] -or -not [bool]$stopResult.ok) {
+        Throw-Fixed -Class "cleanup_incomplete"
+      }
+    } catch {
+      $launcherMutationOwnershipClear = $false
+      $cleanupFailureClass = "launcher_standard_stop_failed"
+    }
   }
   if ($launcherStarted -and $launcherOwnershipProven) {
     try {
-      [void](Invoke-OwnedLauncherMutation -RootIdentity $launcherIdentity -MutationInvoker {
-          Invoke-LoopbackJson -Uri "http://127.0.0.1:8799/api/shutdown" -Method POST -Body @{}
-        })
-    } catch { $launcherMutationOwnershipClear = $false }
+      $shutdownResult = Invoke-OwnedLauncherMutation -RootIdentity $launcherIdentity -MutationInvoker {
+        Invoke-LoopbackJson -Uri "http://127.0.0.1:8799/api/shutdown" -Method POST -Body @{} `
+          -TimeoutMs 5000
+      }
+      if ($shutdownResult.ok -isnot [bool] -or -not [bool]$shutdownResult.ok) {
+        Throw-Fixed -Class "cleanup_incomplete"
+      }
+    } catch {
+      $launcherMutationOwnershipClear = $false
+      if ($null -eq $cleanupFailureClass) {
+        $cleanupFailureClass = "launcher_shutdown_failed"
+      }
+    }
   }
   if ($null -ne $userStartEvent) { $userStartEvent.Dispose() }
   try {
     if ($null -ne $ownedJob) {
-      if (-not $ownedJob.TerminateAndWait(5000)) { Throw-Fixed -Class "cleanup_incomplete" }
-      if ($ownedJob.ActiveProcessCount -ne 0) { Throw-Fixed -Class "cleanup_incomplete" }
+      if (-not $ownedJob.TerminateAndWait(5000)) {
+        if ($null -eq $cleanupFailureClass) { $cleanupFailureClass = "owned_job_cleanup_failed" }
+        Throw-Fixed -Class "cleanup_incomplete"
+      }
+      if ($ownedJob.ActiveProcessCount -ne 0) {
+        if ($null -eq $cleanupFailureClass) { $cleanupFailureClass = "owned_job_cleanup_failed" }
+        Throw-Fixed -Class "cleanup_incomplete"
+      }
       $ownedJob.Dispose()
       $ownedJob = $null
     }
-    Assert-PortsClear -Ports $routePorts
+    try { Assert-PortsClear -Ports $routePorts } catch {
+      if ($null -eq $cleanupFailureClass) { $cleanupFailureClass = "route_port_cleanup_failed" }
+      throw
+    }
     if (-not $launcherMutationOwnershipClear) { Throw-Fixed -Class "cleanup_incomplete" }
     if ($tokenChanged) {
       [Environment]::SetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", $previousCoreToken, "Process")
@@ -1102,11 +1131,18 @@ try {
       $previousCoreToken = $null
     }
     if ($null -ne $runRoot -and $null -ne $ownedBase) {
-      Remove-OwnedRunRoot -Path $runRoot -OwnedBase $ownedBase -RunId $ownedRunId
+      try {
+        Remove-OwnedRunRoot -Path $runRoot -OwnedBase $ownedBase -RunId $ownedRunId
+      } catch {
+        if ($null -eq $cleanupFailureClass) { $cleanupFailureClass = "run_root_cleanup_failed" }
+        throw
+      }
     }
     $cleanupClass = "route_owned_processes_and_temp_cleared"
+    $cleanupFailureClass = $null
   } catch {
     $cleanupClass = "cleanup_incomplete"
+    if ($null -eq $cleanupFailureClass) { $cleanupFailureClass = "cleanup_unclassified" }
     if ($terminalClass -cne "preparation_or_live_blocked") {
       $terminalClass = "preparation_or_live_blocked"
       $blockerClass = "cleanup_incomplete"
@@ -1127,6 +1163,7 @@ try {
     schema_version = "primary_system_cell_speech_test_cleanup.v1"
     result_class = "preparation_route_cleanup_completed"
     cleanup_class = $cleanupClass
+    cleanup_failure_class = $cleanupFailureClass
     terminal_class = $terminalClass
     blocker_class = $blockerClass
   })

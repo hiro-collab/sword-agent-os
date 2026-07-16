@@ -139,7 +139,17 @@ Assert-True ($source -match 'Invoke-UserSessionSequence[\s\S]+StartControllerAnd
 Assert-True ($source -match 'selection_class\s+-cne\s+"selected_available"[\s\S]+selected_match[\s\S]+device_start_count[\s\S]+capture_count') "saved camera selection must fail closed without substitution or capture"
 Assert-True ($source -match 'Get-RequiredLauncherServices[\s\S]+launcher_service_count\s*=\s*9') "Launcher boundary must remain exactly nine services"
 Assert-True ($source -match 'input_availability_class\s+-ceq\s+"enabled"') "canonical body-state readiness field must remain exact"
+Assert-True ($source -match '/health"[\s\S]{0,180}-Headers\s+@\{\s*"X-AI-Core-Token"\s*=\s*\$env:AI_TALK_CORE_WEB_TOKEN') "token-protected health must use the canonical per-run token"
 Assert-True ($source -match 'api/stop[\s\S]+api/shutdown[\s\S]+TerminateAndWait') "standard stop must precede Job-owned process cleanup"
+Assert-True ($source -match 'CleanupStopTimeoutSeconds\s*=\s*70[\s\S]+api/stop[\s\S]{0,240}-TimeoutMs\s+\(\$CleanupStopTimeoutSeconds\s*\*\s*1000\)') "standard stop must receive the bounded launcher-compatible timeout"
+Assert-True ($source -match '\$stopResult\.ok\s+-isnot\s+\[bool\][\s\S]{0,120}cleanup_incomplete') "non-successful standard stop response must fail cleanup closed"
+Assert-True ($source -match 'cleanup_failure_class\s*=\s*\$cleanupFailureClass') "cleanup output must publish only the fixed failure class"
+foreach ($cleanupFailure in @(
+    "launcher_standard_stop_failed", "launcher_shutdown_failed",
+    "owned_job_cleanup_failed", "route_port_cleanup_failed",
+    "run_root_cleanup_failed", "cleanup_unclassified")) {
+  Assert-True ($source.Contains('"' + $cleanupFailure + '"')) "cleanup failure class must remain fixed: $cleanupFailure"
+}
 Assert-True ($source -match 'route_owned_processes_and_temp_cleared') "successful cleanup class must remain fixed"
 Assert-True ($source -match 'controllerProcess\.ExitCode\s+-ne\s+0[\s\S]+live_controller_failed') "nonzero controller completion must fail the runner"
 Assert-True ($source -match 'Get-RemainingBudgetMs[\s\S]+preparationStopwatch[\s\S]+postStartStopwatch') "preparation and post-start must use separate non-renewing clocks"
