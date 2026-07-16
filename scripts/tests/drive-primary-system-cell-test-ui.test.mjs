@@ -44,6 +44,7 @@ function fakeSession({
   inputReadySequence = null,
   dispatched = true,
   prepareHangs = false,
+  armHangs = false,
   dispatchHangs = false,
   closeFails = false,
   closeErrorClass = null,
@@ -55,7 +56,10 @@ function fakeSession({
   let closeCount = 0;
   let inputReadyIndex = 0;
   return {
-    arm: async () => { armCount += 1; },
+    arm: async () => {
+      armCount += 1;
+      if (armHangs) return new Promise(() => {});
+    },
     prepareFixedVoiceTestInput: async () => {
       operations.push("prepare_fixed_voice_test_input");
       if (prepareHangs) return new Promise(() => {});
@@ -480,7 +484,7 @@ test("ordinary UI dispatch remains bounded to 10 seconds", async () => {
   assertFixedOutput(rejected);
 });
 
-test("owner preparation fails closed and cleans up when input never hydrates", async () => {
+test("owner preparation classifies input hydration timeout and cleans up", async () => {
   let currentTime = 0;
   const session = fakeSession({ inputReady: false });
   const result = await ensurePrimarySystemCellProjectionOwner({
@@ -491,7 +495,7 @@ test("owner preparation fails closed and cleans up when input never hydrates", a
     now: () => currentTime,
     sleep: async (milliseconds) => { currentTime += milliseconds; },
   });
-  assert.equal(result.result_class, "projection_owner_prepare_timeout");
+  assert.equal(result.result_class, "projection_owner_input_hydration_timeout");
   assert.equal(result.ui_dispatch_count, 0);
   assert.equal(result.elapsed_ms, 500);
   assert.equal(result.cleanup_class, "cdp_session_released");
@@ -500,7 +504,7 @@ test("owner preparation fails closed and cleans up when input never hydrates", a
   assertFixedOutput(result);
 });
 
-test("a pending owner hydration check is bounded and cleaned up", async () => {
+test("a pending owner hydration check has a fixed stage and is cleaned up", async () => {
   const session = fakeSession({ prepareHangs: true });
   const result = await ensurePrimarySystemCellProjectionOwner({
     cdpEndpoint: "http://127.0.0.1:9222/",
@@ -509,11 +513,29 @@ test("a pending owner hydration check is bounded and cleaned up", async () => {
     connectImpl: async () => session,
     sleep: async () => {},
   });
-  assert.equal(result.result_class, "projection_owner_prepare_timeout");
+  assert.equal(result.result_class, "projection_owner_input_hydration_timeout");
   assert.equal(result.ui_dispatch_count, 0);
   assert.equal(result.elapsed_ms >= 450 && result.elapsed_ms <= 750, true);
   assert.equal(result.cleanup_class, "cdp_session_released");
   assert.deepEqual(session.stats().operations, ["prepare_fixed_voice_test_input"]);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
+test("a pending owner observer arm has a fixed stage and is cleaned up", async () => {
+  const session = fakeSession({ armHangs: true });
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    sleep: async () => {},
+  });
+  assert.equal(result.result_class, "projection_owner_observer_arm_timeout");
+  assert.equal(result.ui_dispatch_count, 0);
+  assert.equal(result.elapsed_ms >= 450 && result.elapsed_ms <= 750, true);
+  assert.equal(result.cleanup_class, "cdp_session_released");
+  assert.equal(session.stats().armCount, 1);
   assert.equal(session.stats().closeCount, 1);
   assertFixedOutput(result);
 });

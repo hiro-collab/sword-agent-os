@@ -168,23 +168,32 @@ function selectFixedProjectionVisualTarget(targets) {
   return target;
 }
 
-function remainingPreparationBudget(deadline, now) {
+function remainingPreparationBudget(
+  deadline,
+  now,
+  timeoutClass = "projection_owner_prepare_timeout",
+) {
   const remaining = Math.floor(deadline - now());
   if (!Number.isFinite(remaining) || remaining <= 0) {
-    throw new TestUiDriverError("projection_owner_prepare_timeout");
+    throw new TestUiDriverError(timeoutClass);
   }
   return remaining;
 }
 
-async function awaitWithinPreparationDeadline(operation, deadline, now) {
-  const remaining = remainingPreparationBudget(deadline, now);
+async function awaitWithinPreparationDeadline(
+  operation,
+  deadline,
+  now,
+  timeoutClass = "projection_owner_prepare_timeout",
+) {
+  const remaining = remainingPreparationBudget(deadline, now, timeoutClass);
   let timer;
   try {
     return await Promise.race([
       Promise.resolve().then(operation),
       new Promise((_, reject) => {
         timer = setTimeout(
-          () => reject(new TestUiDriverError("projection_owner_prepare_timeout")),
+          () => reject(new TestUiDriverError(timeoutClass)),
           Math.max(1, Math.ceil(remaining)),
         );
       }),
@@ -313,14 +322,24 @@ export async function ensurePrimarySystemCellProjectionOwner({
         () => session.prepareFixedVoiceTestInput(),
         deadline,
         now,
+        "projection_owner_input_hydration_timeout",
       );
       if (inputResult?.inputReady === true) {
         break;
       }
-      const remaining = remainingPreparationBudget(deadline, now);
+      const remaining = remainingPreparationBudget(
+        deadline,
+        now,
+        "projection_owner_input_hydration_timeout",
+      );
       await sleep(Math.min(50, remaining));
     }
-    await awaitWithinPreparationDeadline(() => session.arm(), deadline, now);
+    await awaitWithinPreparationDeadline(
+      () => session.arm(),
+      deadline,
+      now,
+      "projection_owner_observer_arm_timeout",
+    );
     resultClass = ownerResultClass;
   } catch (error) {
     const safeClasses = new Set([
@@ -333,6 +352,8 @@ export async function ensurePrimarySystemCellProjectionOwner({
       "projection_owner_target_invalid",
       "projection_owner_target_create_failed",
       "projection_owner_prepare_timeout",
+      "projection_owner_input_hydration_timeout",
+      "projection_owner_observer_arm_timeout",
     ]);
     resultClass = safeClasses.has(error?.message) ? error.message : "projection_owner_prepare_failed";
   } finally {

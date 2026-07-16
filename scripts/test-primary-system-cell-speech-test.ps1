@@ -48,6 +48,16 @@ Assert-Equal `
     })) `
   "projection_owner_prepare_timeout" `
   "fixed owner preparation class must survive parent normalization"
+foreach ($stageClass in @(
+    "projection_owner_input_hydration_timeout",
+    "projection_owner_observer_arm_timeout")) {
+  Assert-Equal `
+    (Resolve-ProjectionOwnerPrepareClass -Value ([pscustomobject]@{
+        result_class = $stageClass
+      })) `
+    $stageClass `
+    "fixed owner preparation timeout stage must survive parent normalization"
+}
 foreach ($cleanupClass in @(
     "test_ui_page_cleanup_command_failed",
     "test_ui_page_cleanup_state_invalid",

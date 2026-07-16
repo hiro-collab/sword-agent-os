@@ -297,7 +297,8 @@ function Resolve-ProjectionOwnerPrepareClass {
     "cdp_endpoint_unavailable", "cdp_target_list_invalid",
     "projection_owner_page_missing", "projection_owner_page_multiple",
     "projection_owner_target_invalid", "projection_owner_target_create_failed",
-    "projection_owner_prepare_timeout", "projection_owner_prepare_failed",
+    "projection_owner_prepare_timeout", "projection_owner_input_hydration_timeout",
+    "projection_owner_observer_arm_timeout", "projection_owner_prepare_failed",
     "test_ui_cleanup_incomplete", "test_ui_page_cleanup_command_failed",
     "test_ui_page_cleanup_state_invalid", "test_ui_socket_cleanup_incomplete"
   )
