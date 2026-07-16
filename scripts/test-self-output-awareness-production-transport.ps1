@@ -624,6 +624,48 @@ Assert-Equal $successRoute.Value.first_non_silent_observed_at_utc_ms `
   ($successHarness.State.LastObserverResult.observation.capture_started_at_utc_ms + 25) `
   "controlled success returns the derived first non-silent wall"
 
+$gatedHarness = New-ControlledRouteHarness -Mode "success"
+$gatedOrder = [Collections.Generic.List[string]]::new()
+$gatedRoute = Invoke-ProductionTransportRoute `
+  -RouteAitBaseUrl "http://127.0.0.1:3000" `
+  -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" `
+  -RouteControlledChromeRootPid 1 `
+  -RouteObserverWindowMs 1000 `
+  -RouteDeadlineMs 3000 `
+  -RequestInvoker $gatedHarness.RequestInvoker `
+  -ObserverStarter $gatedHarness.ObserverStarter `
+  -SleepInvoker $gatedHarness.SleepInvoker `
+  -ListenerReadyCallback {
+    Assert-Equal $gatedHarness.State.AitReadCount 1 "gated listener readiness follows only the baseline"
+    $gatedOrder.Add("listener")
+  }.GetNewClosure() `
+  -RouteStartGateEnabled $true `
+  -StartGateWaiter {
+    Assert-Equal $gatedHarness.State.AitReadCount 1 "gated route must not poll lifecycle before release"
+    $gatedOrder.Add("gate")
+  }.GetNewClosure() `
+  -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $gatedRoute.ExitCode 0 "released gated route exits clear"
+Assert-Equal ($gatedOrder -join ",") "listener,gate" "listener must arm before the held start gate is released"
+
+$gateName = "production-transport-start-gate-" + [guid]::NewGuid().ToString("N")
+$createdNew = $false
+$gateEvent = [Threading.EventWaitHandle]::new(
+  $false, [Threading.EventResetMode]::ManualReset, $gateName, [ref]$createdNew)
+try {
+  Assert-True $createdNew "test start gate must have one owner"
+  Assert-True $gateEvent.Set() "test start gate must accept a signal"
+  Wait-ForStartGateEvent -Name $gateName -HoldMs 1000
+} finally {
+  $gateEvent.Dispose()
+}
+Assert-FixedFailure {
+  Wait-ForStartGateEvent -Name ("missing-gate-" + [guid]::NewGuid().ToString("N")) -HoldMs 1000
+} "start_gate_unavailable" "missing start gate must fail closed"
+Assert-FixedFailure {
+  Wait-ForStartGateEvent -Name "short" -HoldMs 999
+} "start_gate_configuration_invalid" "invalid start gate configuration must fail closed"
+
 $listenerFailureHarness = New-ControlledRouteHarness -Mode "success"
 $listenerFailureRoute = Invoke-ProductionTransportRoute `
   -RouteAitBaseUrl "http://127.0.0.1:3000" `

@@ -8,6 +8,8 @@ param(
   [int]$ControlledChromeRootPid = 0,
   [int]$AudioObserverWindowMs = 3000,
   [int]$PreparationDeadlineMs = 20000,
+  [string]$UserStartEventName = "",
+  [int]$UserStartHoldMs = 0,
   [switch]$EmitUserSpeechReadySignal,
   [switch]$Json
 )
@@ -147,6 +149,8 @@ $AllowedControllerFailureClasses = @(
   "visible_response_not_observed",
   "production_transport_unavailable",
   "production_transport_not_completed",
+  "user_start_event_unavailable",
+  "prepared_hold_expired",
   "live_controller_failed",
   "whole_route_timeout",
   "cleanup_incomplete"
@@ -458,6 +462,8 @@ function Start-ProductionTransportChild {
     [Parameter(Mandatory = $true)][int]$ObserverWindowMs,
     [Parameter(Mandatory = $true)][int]$ArmTimeoutMs,
     [Parameter(Mandatory = $true)][int]$RouteDeadlineMs,
+    [string]$StartGateEventName = "",
+    [int]$StartGateHoldMs = 0,
     [AllowNull()][scriptblock]$ProcessFactory = $null
   )
 
@@ -500,6 +506,14 @@ function Start-ProductionTransportChild {
         "-EmitArmSignal", "-Json"
       )) {
       [void]$startInfo.ArgumentList.Add($argument)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($StartGateEventName)) {
+      foreach ($argument in @(
+          "-StartGateEventName", $StartGateEventName,
+          "-StartGateHoldMs", [string]$StartGateHoldMs
+        )) {
+        [void]$startInfo.ArgumentList.Add($argument)
+      }
     }
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
@@ -746,6 +760,34 @@ function New-SystemOutputTriggerReadySignal {
   }
 }
 
+function New-UserStartReceivedSignal {
+  return [ordered]@{
+    schema_version = "self_output_awareness.user_start_received.v0"
+    result_class = "user_start_received"
+    raw_private_publication_flags = $false
+  }
+}
+
+function Wait-ForUserStartEvent {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][int]$HoldMs
+  )
+  if (
+    $Name -cnotmatch "^[A-Za-z0-9][A-Za-z0-9_.-]{7,95}$" -or
+    $HoldMs -lt 1000 -or
+    $HoldMs -gt 1800000
+  ) { Throw-Fixed -Class "live_controller_configuration_invalid" }
+  $event = $null
+  try {
+    try { $event = [Threading.EventWaitHandle]::OpenExisting($Name) }
+    catch { Throw-Fixed -Class "user_start_event_unavailable" }
+    if (-not $event.WaitOne($HoldMs)) { Throw-Fixed -Class "prepared_hold_expired" }
+  } finally {
+    if ($null -ne $event) { $event.Dispose() }
+  }
+}
+
 function Get-RemainingRouteBudgetMs {
   $elapsedMs = $(if ($null -ne $userPhaseStopwatch) {
       [long]$userPhaseStopwatch.ElapsedMilliseconds
@@ -787,7 +829,14 @@ try {
       [string]::IsNullOrWhiteSpace($CdpEndpoint) -or
       $PreparationDeadlineMs -lt ($AudioObserverWindowMs + 1000)
     )) -or
-    ($EmitUserSpeechReadySignal -and $ControlledChromeRootPid -le 0)
+    ($EmitUserSpeechReadySignal -and $ControlledChromeRootPid -le 0) -or
+    ((-not [string]::IsNullOrWhiteSpace($UserStartEventName)) -ne ($UserStartHoldMs -gt 0)) -or
+    ((-not [string]::IsNullOrWhiteSpace($UserStartEventName)) -and (
+      $UserStartEventName -cnotmatch "^[A-Za-z0-9][A-Za-z0-9_.-]{7,95}$" -or
+      $UserStartHoldMs -lt 1000 -or
+      $UserStartHoldMs -gt 1800000 -or
+      -not $EmitUserSpeechReadySignal
+    ))
   ) {
     Throw-Fixed -Class "live_controller_configuration_invalid"
   }
@@ -812,7 +861,8 @@ try {
 
   $endpointUri = [System.Uri]::new($baseUri, "/api/live-input-gate/candidate-window")
 
-  if ($null -ne $cdpUri) {
+  $startGateEnabled = -not [string]::IsNullOrWhiteSpace($UserStartEventName)
+  if ($null -ne $cdpUri -and -not $startGateEnabled) {
     $observerArmBudgetMs = Get-RemainingPreparationBudgetMs
     $observerRouteDeadlineMs = [Math]::Min(
       30000,
@@ -837,13 +887,36 @@ try {
       -ChromeRootPid $ControlledChromeRootPid `
       -ObserverWindowMs $AudioObserverWindowMs `
       -ArmTimeoutMs $productionArmBudgetMs `
-      -RouteDeadlineMs $productionRouteDeadlineMs
+      -RouteDeadlineMs $productionRouteDeadlineMs `
+      -StartGateEventName $(if ($startGateEnabled) { $UserStartEventName } else { "" }) `
+      -StartGateHoldMs $(if ($startGateEnabled) { $UserStartHoldMs } else { 0 })
     if ($EmitUserSpeechReadySignal) {
       $systemTriggerReadySignal = New-SystemOutputTriggerReadySignal
       [Console]::Error.WriteLine(($systemTriggerReadySignal | ConvertTo-Json -Compress))
       [Console]::Error.Flush()
       $systemTriggerReadySignal.Clear()
       $systemTriggerReadySignal = $null
+    }
+    if ($startGateEnabled) {
+      Wait-ForUserStartEvent -Name $UserStartEventName -HoldMs $UserStartHoldMs
+      $controllerStopwatch.Restart()
+    }
+    if ($null -ne $cdpUri -and $startGateEnabled) {
+      $observerArmBudgetMs = Get-RemainingPreparationBudgetMs
+      $observerRouteDeadlineMs = [Math]::Min(
+        30000,
+        $PreparationDeadlineMs + $DeadlineMs)
+      $visibleObserverProcess = Start-VisibleResponseObserver `
+        -Endpoint $cdpUri `
+        -ArmTimeoutMs $observerArmBudgetMs `
+        -RouteDeadlineMs $observerRouteDeadlineMs
+    }
+    if ($startGateEnabled -and $EmitUserSpeechReadySignal) {
+      $userStartReceivedSignal = New-UserStartReceivedSignal
+      [Console]::Error.WriteLine(($userStartReceivedSignal | ConvertTo-Json -Compress))
+      [Console]::Error.Flush()
+      $userStartReceivedSignal.Clear()
+      $userStartReceivedSignal = $null
     }
     $overlapReadyBudgetMs = Get-RemainingPreparationBudgetMs
     Wait-ProductionTransportOverlapReady `

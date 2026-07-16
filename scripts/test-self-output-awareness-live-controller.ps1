@@ -662,14 +662,47 @@ Assert-True ($systemTriggerReadySignal.result_class -ceq
   "ready_for_system_output_trigger") "system-output trigger signal class mismatch"
 Assert-True ($systemTriggerReadySignal.raw_private_publication_flags -is [bool] -and
   -not [bool]$systemTriggerReadySignal.raw_private_publication_flags) "system-output trigger signal privacy mismatch"
+$userStartReceivedSignal = New-UserStartReceivedSignal
+Assert-True ((@($userStartReceivedSignal.Keys | Sort-Object) -join ",") -ceq
+  "raw_private_publication_flags,result_class,schema_version") "user-start signal keys must be exact"
+Assert-True ($userStartReceivedSignal.schema_version -ceq
+  "self_output_awareness.user_start_received.v0") "user-start signal schema mismatch"
+Assert-True ($userStartReceivedSignal.result_class -ceq "user_start_received") "user-start signal class mismatch"
+Assert-True ($userStartReceivedSignal.raw_private_publication_flags -is [bool] -and
+  -not [bool]$userStartReceivedSignal.raw_private_publication_flags) "user-start signal privacy mismatch"
+
+$userStartEventName = "live-controller-user-start-" + [guid]::NewGuid().ToString("N")
+$createdUserStartEvent = $false
+$userStartEvent = [Threading.EventWaitHandle]::new(
+  $false, [Threading.EventResetMode]::ManualReset, $userStartEventName, [ref]$createdUserStartEvent)
+try {
+  Assert-True $createdUserStartEvent "controller test start event must have one owner"
+  Assert-True $userStartEvent.Set() "controller test start event must accept a signal"
+  Wait-ForUserStartEvent -Name $userStartEventName -HoldMs 1000
+} finally {
+  $userStartEvent.Dispose()
+}
+Assert-FixedFailure {
+  Wait-ForUserStartEvent -Name ("missing-user-start-" + [guid]::NewGuid().ToString("N")) -HoldMs 1000
+} "user_start_event_unavailable" "missing controller start event must fail closed"
+Assert-FixedFailure {
+  Wait-ForUserStartEvent -Name "short" -HoldMs 999
+} "live_controller_configuration_invalid" "invalid controller start event must fail closed"
+
 $transportStartStatement = '$productionTransportProcess = Start-ProductionTransportChild'
 $triggerReadyStatement = '$systemTriggerReadySignal = New-SystemOutputTriggerReadySignal'
+$userStartWaitStatement = 'Wait-ForUserStartEvent -Name $UserStartEventName'
+$preparationRestartStatement = '$controllerStopwatch.Restart()'
+$userStartReceivedStatement = '$userStartReceivedSignal = New-UserStartReceivedSignal'
 $overlapWaitStatement = 'Wait-ProductionTransportOverlapReady `'
 $userClockStatement = '$userPhaseStopwatch = [System.Diagnostics.Stopwatch]::StartNew()'
 $userReadyStatement = '$readySignal = New-UserSpeechReadySignal'
 foreach ($exactMainStatement in @(
     $transportStartStatement,
     $triggerReadyStatement,
+    $userStartWaitStatement,
+    $preparationRestartStatement,
+    $userStartReceivedStatement,
     $overlapWaitStatement,
     $userClockStatement,
     $userReadyStatement
@@ -679,14 +712,22 @@ foreach ($exactMainStatement in @(
 }
 $transportStartIndex = $controllerSource.IndexOf($transportStartStatement)
 $triggerReadyIndex = $controllerSource.IndexOf($triggerReadyStatement, $transportStartIndex)
-$overlapWaitIndex = $controllerSource.IndexOf($overlapWaitStatement, $triggerReadyIndex)
+$userStartWaitIndex = $controllerSource.IndexOf($userStartWaitStatement, $triggerReadyIndex)
+$preparationRestartIndex = $controllerSource.IndexOf($preparationRestartStatement, $userStartWaitIndex)
+$visibleObserverIndex = $controllerSource.IndexOf('$visibleObserverProcess = Start-VisibleResponseObserver', $preparationRestartIndex)
+$userStartReceivedIndex = $controllerSource.IndexOf($userStartReceivedStatement, $visibleObserverIndex)
+$overlapWaitIndex = $controllerSource.IndexOf($overlapWaitStatement, $userStartReceivedIndex)
 $userClockIndex = $controllerSource.IndexOf($userClockStatement, $overlapWaitIndex)
 $userReadyIndex = $controllerSource.IndexOf($userReadyStatement, $userClockIndex)
 $candidateBudgetIndex = $controllerSource.IndexOf('$httpBudgetMs = Get-RemainingRouteBudgetMs', $userReadyIndex)
 Assert-True ($transportStartIndex -ge 0 -and $triggerReadyIndex -gt $transportStartIndex -and
-  $overlapWaitIndex -gt $triggerReadyIndex -and $userClockIndex -gt $overlapWaitIndex -and
+  $userStartWaitIndex -gt $triggerReadyIndex -and
+  $preparationRestartIndex -gt $userStartWaitIndex -and
+  $visibleObserverIndex -gt $preparationRestartIndex -and
+  $userStartReceivedIndex -gt $visibleObserverIndex -and
+  $overlapWaitIndex -gt $userStartReceivedIndex -and $userClockIndex -gt $overlapWaitIndex -and
   $userReadyIndex -gt $userClockIndex -and $candidateBudgetIndex -gt $userReadyIndex) `
-  "listener, system-output trigger, overlap join, user clock, user-ready, and candidate request order must be exact"
+  "listener, held user start, visible observer, overlap join, user clock, user-ready, and candidate request order must be exact"
 Assert-True (Test-AcceptedJoinClass `
   -AcceptedJoinClass "active_self_output_overlap" `
   -ResultClass "independent_user_speech_turninput_accepted" `

@@ -5,6 +5,8 @@ param(
   [int]$ControlledChromeRootPid = 0,
   [int]$ObserverWindowMs = 3000,
   [int]$DeadlineMs = 10000,
+  [string]$StartGateEventName = "",
+  [int]$StartGateHoldMs = 0,
   [switch]$EmitArmSignal,
   [switch]$Json
 )
@@ -63,6 +65,26 @@ $ObserverKeys = @(
 function Throw-Fixed {
   param([Parameter(Mandatory)][string]$Class)
   throw [System.InvalidOperationException]::new($Class)
+}
+
+function Wait-ForStartGateEvent {
+  param(
+    [Parameter(Mandatory)][string]$Name,
+    [Parameter(Mandatory)][int]$HoldMs
+  )
+  if (
+    $Name -cnotmatch "^[A-Za-z0-9][A-Za-z0-9_.-]{7,95}$" -or
+    $HoldMs -lt 1000 -or
+    $HoldMs -gt 1800000
+  ) { Throw-Fixed -Class "start_gate_configuration_invalid" }
+  $event = $null
+  try {
+    try { $event = [Threading.EventWaitHandle]::OpenExisting($Name) }
+    catch { Throw-Fixed -Class "start_gate_unavailable" }
+    if (-not $event.WaitOne($HoldMs)) { Throw-Fixed -Class "start_gate_expired" }
+  } finally {
+    if ($null -ne $event) { $event.Dispose() }
+  }
 }
 
 function Assert-ExactKeys {
@@ -604,6 +626,8 @@ param(
   [scriptblock]$SleepInvoker = { param([int]$Milliseconds) Start-Sleep -Milliseconds $Milliseconds },
   [scriptblock]$ListenerReadyCallback = {},
   [scriptblock]$ArmedCallback = {},
+  [bool]$RouteStartGateEnabled = $false,
+  [scriptblock]$StartGateWaiter = {},
   [AllowNull()][string]$CoreTokenOverride = $null
 )
 $routeStopwatch = [Diagnostics.Stopwatch]::StartNew()
@@ -679,6 +703,13 @@ try {
   $baselineResponse = $null
   try { [void](& $ListenerReadyCallback) }
   catch { Throw-Fixed -Class "transport_listener_ready_failed" }
+  if ($RouteStartGateEnabled) {
+    try { [void](& $StartGateWaiter) }
+    catch [InvalidOperationException] { throw }
+    catch { Throw-Fixed -Class "start_gate_unavailable" }
+    $routeStopwatch.Restart()
+    $routeStartedAtUtcMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  }
   $lease = $null
   $lifecyclePhase = "awaiting_handoff"
   $lifecycleCompleted = $false
@@ -848,7 +879,8 @@ try {
     "lifecycle_stale_generation_replay",
     "observer_child_start_failed", "observer_child_failed",
     "observer_result_invalid", "core_observation_ingest_failed",
-    "transport_listener_ready_failed", "transport_arm_failed", "overlap_join_not_ready",
+    "transport_listener_ready_failed", "start_gate_configuration_invalid",
+    "start_gate_unavailable", "start_gate_expired", "transport_arm_failed", "overlap_join_not_ready",
     "whole_route_timeout", "cleanup_incomplete"
   )
   $class = [string]$_.Exception.Message
@@ -918,6 +950,15 @@ return [pscustomobject]@{
 
 if ($MyInvocation.InvocationName -eq ".") { return }
 
+$startGateEnabled = (
+  -not [string]::IsNullOrWhiteSpace($StartGateEventName) -or
+  $StartGateHoldMs -gt 0)
+$startGateWaiter = $(if ($startGateEnabled) {
+    { Wait-ForStartGateEvent -Name $StartGateEventName -HoldMs $StartGateHoldMs }
+  } else {
+    {}
+  })
+
 $listenerReadyCallback = $(if ($EmitArmSignal) {
     {
       [Console]::Out.WriteLine(
@@ -943,7 +984,9 @@ $execution = Invoke-ProductionTransportRoute `
   -RouteObserverWindowMs $ObserverWindowMs `
   -RouteDeadlineMs $DeadlineMs `
   -ListenerReadyCallback $listenerReadyCallback `
-  -ArmedCallback $armedCallback
+  -ArmedCallback $armedCallback `
+  -RouteStartGateEnabled $startGateEnabled `
+  -StartGateWaiter $startGateWaiter
 $convertParameters = @{ Depth = 6 }
 if ($Json) { $convertParameters.Compress = $true }
 $execution.Value | ConvertTo-Json @convertParameters
