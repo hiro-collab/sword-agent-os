@@ -42,6 +42,41 @@ Assert-ParserClear -Path $RunPath
 . $RunPath -UserStartEventName "test-dot-source-event"
 $source = Get-Content -Raw -LiteralPath $RunPath
 
+Assert-Equal `
+  (Resolve-ProjectionOwnerPrepareClass -Value ([pscustomobject]@{
+      result_class = "projection_owner_prepare_timeout"
+    })) `
+  "projection_owner_prepare_timeout" `
+  "fixed owner preparation class must survive parent normalization"
+Assert-Equal `
+  (Resolve-ProjectionOwnerPrepareClass -Value ([pscustomobject]@{
+      result_class = "private dynamic detail"
+    })) `
+  "projection_owner_prepare_failed" `
+  "unapproved owner preparation detail must collapse to a fixed class"
+Assert-Equal `
+  (Resolve-ProjectionOwnerPrepareClass -Value $null) `
+  "projection_owner_prepare_failed" `
+  "missing owner preparation detail must fail closed"
+Assert-Equal `
+  (Resolve-ProjectionOwnerPrepareClass -Value ([pscustomobject]@{
+      another_class = "projection_owner_ready"
+    })) `
+  "projection_owner_prepare_failed" `
+  "missing result_class property must fail closed"
+Assert-Equal `
+  (Resolve-ProjectionOwnerErrorDetailClass `
+    -BlockerClass "projection_owner_not_ready" `
+    -PrepareClass "projection_owner_prepare_timeout") `
+  "projection_owner_prepare_timeout" `
+  "owner preparation blocker must retain the normalized fixed child class"
+Assert-Equal `
+  (Resolve-ProjectionOwnerErrorDetailClass `
+    -BlockerClass "canonical_input_gate_not_ready" `
+    -PrepareClass "projection_owner_prepare_timeout") `
+  $null `
+  "unrelated blockers must not publish an owner preparation detail"
+
 $requiredOrder = @(
   "system_output_listener_ready",
   "session_ready_published",
@@ -151,6 +186,8 @@ Assert-True ($source -match 'Invoke-UserSessionSequence[\s\S]+StartControllerAnd
 Assert-True ($source -match 'selection_class\s+-cne\s+"selected_available"[\s\S]+selected_match[\s\S]+device_start_count[\s\S]+capture_count') "saved camera selection must fail closed without substitution or capture"
 Assert-True ($source -match 'Get-RequiredLauncherServices[\s\S]+launcher_service_count\s*=\s*9') "Launcher boundary must remain exactly nine services"
 Assert-True ($source -match 'input_availability_class\s+-ceq\s+"enabled"') "canonical body-state readiness field must remain exact"
+Assert-True ($source -match 'projection_owner_prepare_class\s*=\s*Resolve-ProjectionOwnerErrorDetailClass') "owner preparation blocker must expose only its normalized fixed child class"
+Assert-True ($source -match 'Resolve-ProjectionOwnerPrepareClass[\s\S]+projection_owner_prepare_failed') "owner preparation diagnostic must fail closed on unknown child classes"
 Assert-True ($source -match '/health"[\s\S]{0,180}-Headers\s+@\{\s*"X-AI-Core-Token"\s*=\s*\$env:AI_TALK_CORE_WEB_TOKEN') "token-protected health must use the canonical per-run token"
 Assert-True ($source -match '/api/self-output-awareness-transport/"[\s\S]{0,300}Test-AitLifecyclePreflightResponse') "exact AIT lifecycle endpoint must be warm and validated before controller start"
 Assert-True ($source.IndexOf('/api/self-output-awareness-transport/') -lt $source.IndexOf('$script:controllerProcess = Start-OwnedProcessSuspended')) "AIT lifecycle preflight must precede controller process start"

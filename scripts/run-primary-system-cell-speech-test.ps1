@@ -289,6 +289,36 @@ function Throw-Fixed {
   throw [InvalidOperationException]::new($Class)
 }
 
+function Resolve-ProjectionOwnerPrepareClass {
+  param([AllowNull()]$Value)
+  $allowed = @(
+    "projection_owner_ready", "projection_owner_created",
+    "test_ui_configuration_invalid", "test_ui_cdp_session_invalid",
+    "cdp_endpoint_unavailable", "cdp_target_list_invalid",
+    "projection_owner_page_missing", "projection_owner_page_multiple",
+    "projection_owner_target_invalid", "projection_owner_target_create_failed",
+    "projection_owner_prepare_timeout", "projection_owner_prepare_failed",
+    "test_ui_cleanup_incomplete"
+  )
+  if ($null -eq $Value) { return "projection_owner_prepare_failed" }
+  $resultClassProperty = $Value.PSObject.Properties["result_class"]
+  if ($null -eq $resultClassProperty) { return "projection_owner_prepare_failed" }
+  $candidate = [string]$resultClassProperty.Value
+  if ($candidate -cin $allowed) { return $candidate }
+  return "projection_owner_prepare_failed"
+}
+
+function Resolve-ProjectionOwnerErrorDetailClass {
+  param(
+    [AllowNull()][string]$BlockerClass,
+    [AllowNull()][string]$PrepareClass
+  )
+  if ($BlockerClass -cne "projection_owner_not_ready") { return $null }
+  return Resolve-ProjectionOwnerPrepareClass -Value ([pscustomobject]@{
+      result_class = $PrepareClass
+    })
+}
+
 function Write-Class {
   param([Parameter(Mandatory = $true)][Collections.IDictionary]$Value)
   $Value.raw_private_publication_flags = $false
@@ -909,6 +939,7 @@ if ($MyInvocation.InvocationName -eq ".") { return }
 
 $terminalClass = "not_started"
 $blockerClass = $null
+$projectionOwnerPrepareClass = $null
 $cleanupClass = "cleanup_not_started"
 $cleanupFailureClass = $null
 $routeExitCode = 0
@@ -1067,7 +1098,8 @@ try {
       -FailureClass "projection_owner_not_ready"))
   $ownerPrepare = (& node (Join-Path $resolvedRepo "scripts\drive-primary-system-cell-test-ui.mjs") `
     --prepare-owner --cdp-endpoint http://127.0.0.1:9222 --timeout-ms $ownerTimeoutMs) | ConvertFrom-Json
-  if ([string]$ownerPrepare.result_class -cnotin @("projection_owner_ready", "projection_owner_created")) {
+  $projectionOwnerPrepareClass = Resolve-ProjectionOwnerPrepareClass -Value $ownerPrepare
+  if ($projectionOwnerPrepareClass -cnotin @("projection_owner_ready", "projection_owner_created")) {
     Throw-Fixed -Class "projection_owner_not_ready"
   }
 
@@ -1253,6 +1285,8 @@ try {
     schema_version = "primary_system_cell_speech_test_error.v1"
     result_class = $terminalClass
     blocker_class = $blockerClass
+    projection_owner_prepare_class = Resolve-ProjectionOwnerErrorDetailClass `
+      -BlockerClass $blockerClass -PrepareClass $projectionOwnerPrepareClass
     test_dispatch_count = 0
   })
 } finally {
