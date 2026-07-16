@@ -400,7 +400,7 @@ test("CDP client injects only the bounded observer and never closes the browser 
   assert.deepEqual(requests[4], {
     id: 5,
     method: "Page.reload",
-    params: {},
+    params: { ignoreCache: true },
   });
   assert.equal(methods.includes("Browser.close"), false);
   assert.equal(methods.includes("Page.close"), false);

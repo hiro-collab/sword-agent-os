@@ -442,7 +442,7 @@ export async function connectCdp(
       if (markerResult?.result?.value?.marked !== true) {
         throw new ObserverError("cdp_reload_marker_invalid");
       }
-      await send("Page.reload");
+      await send("Page.reload", { ignoreCache: true });
     },
     async isFixedOwnerReloadComplete() {
       try {
