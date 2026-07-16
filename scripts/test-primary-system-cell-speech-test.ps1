@@ -213,6 +213,20 @@ Assert-True (
   ($source -match '\$ownerTimeoutMs\s*=\s*\[Math\]::Min\(20000,') -and
   ($source -match '--prepare-owner[\s\S]{0,180}--timeout-ms\s+\$ownerTimeoutMs')
 ) "owner preparation alone must receive the bounded 20 second cold-start budget"
+Assert-True ($source -match '"--new-window",\s*"about:blank"') `
+  "controlled Chrome must start inert before the fixed owner creates Projection Visual"
+Assert-True (-not ($source -match '"--new-window",\s*"http://127\.0\.0\.1:3000/projection-visual/"')) `
+  "controlled Chrome startup must not race AIT hydration by opening Projection Visual early"
+$chromeLaunchIndex = $source.IndexOf('"--new-window", "about:blank"')
+$cdpReadyIndex = $source.IndexOf('Invoke-LoopbackJson -Uri "http://127.0.0.1:9222/json/version"')
+$cdpOwnershipIndex = $source.IndexOf('Assert-PortOwnedByRoot -Port 9222 -RootIdentity $chromeIdentity')
+$ownerPrepareIndex = $source.IndexOf('--prepare-owner')
+Assert-True (
+  ($chromeLaunchIndex -ge 0) -and
+  ($cdpReadyIndex -gt $chromeLaunchIndex) -and
+  ($cdpOwnershipIndex -gt $cdpReadyIndex) -and
+  ($ownerPrepareIndex -gt $cdpOwnershipIndex)
+) "fixed owner preparation must follow inert Chrome launch, CDP readiness, and exact port ownership proof"
 Assert-True ($source -match '/health"[\s\S]{0,180}-Headers\s+@\{\s*"X-AI-Core-Token"\s*=\s*\$env:AI_TALK_CORE_WEB_TOKEN') "token-protected health must use the canonical per-run token"
 Assert-True ($source -match '/api/self-output-awareness-transport/"[\s\S]{0,300}Test-AitLifecyclePreflightResponse') "exact AIT lifecycle endpoint must be warm and validated before controller start"
 Assert-True ($source.IndexOf('/api/self-output-awareness-transport/') -lt $source.IndexOf('$script:controllerProcess = Start-OwnedProcessSuspended')) "AIT lifecycle preflight must precede controller process start"

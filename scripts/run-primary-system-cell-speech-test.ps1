@@ -1083,7 +1083,7 @@ try {
   $chromeProcess = Start-OwnedProcessSuspended -Job $ownedJob -FilePath $chromeExecutable -ArgumentList @(
     "--remote-debugging-port=9222", "--remote-debugging-address=127.0.0.1",
     "--user-data-dir=$(Join-Path $runRoot 'chrome-profile')", "--no-first-run",
-    "--no-default-browser-check", "--new-window", "http://127.0.0.1:3000/projection-visual/"
+    "--no-default-browser-check", "--new-window", "about:blank"
   )
   $chromeIdentity = New-OwnedRootIdentity -Process $chromeProcess
   [void](Wait-Until -RouteStopwatch $preparationStopwatch `
