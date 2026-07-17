@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RunPath = Join-Path $RepoRoot "scripts\run-primary-system-cell-speech-test.ps1"
+$ControllerRunPath = Join-Path $RepoRoot "scripts\run-self-output-awareness-live-controller.ps1"
 $assertions = 0
 $outerRunId = [guid]::NewGuid().ToString("N")
 $tempBase = [IO.Path]::GetTempPath()
@@ -39,8 +40,61 @@ function Assert-ParserClear {
 }
 
 Assert-ParserClear -Path $RunPath
+Assert-ParserClear -Path $ControllerRunPath
 . $RunPath -UserStartEventName "test-dot-source-event"
 $source = Get-Content -Raw -LiteralPath $RunPath
+$controllerTokens = $null
+$controllerParseErrors = $null
+$controllerAst = [Management.Automation.Language.Parser]::ParseFile(
+  $ControllerRunPath,
+  [ref]$controllerTokens,
+  [ref]$controllerParseErrors)
+Assert-Equal @($controllerParseErrors).Count 0 `
+  "controller source must parse before vocabulary comparison"
+$endpointVocabularyAssignments = @(
+  $controllerAst.FindAll({
+      param($node)
+      $node -is [Management.Automation.Language.AssignmentStatementAst] -and
+      $node.Left -is [Management.Automation.Language.VariableExpressionAst] -and
+      $node.Left.VariablePath.UserPath -ceq "AllowedEndpointResultClasses"
+    }, $true)
+)
+Assert-Equal $endpointVocabularyAssignments.Count 1 `
+  "controller endpoint result vocabulary must have one source authority"
+$controllerEndpointResultClasses = @(
+  $endpointVocabularyAssignments[0].Right.FindAll({
+      param($node)
+      $node -is [Management.Automation.Language.StringConstantExpressionAst]
+    }, $true) |
+    ForEach-Object { [string]$_.Value }
+)
+$successfulControllerResultClasses = @(
+  "self_output_or_ambiguous_confirmed",
+  "independent_user_speech_turninput_accepted")
+$controllerBlockedResultClasses = @(
+  $controllerEndpointResultClasses |
+    Where-Object { $successfulControllerResultClasses -cnotcontains $_ })
+$parentBlockedResultClasses = @(Get-AllowedControllerBlockedResultClasses)
+$controllerBlockedSet = [Collections.Generic.HashSet[string]]::new(
+  [StringComparer]::Ordinal)
+$parentBlockedSet = [Collections.Generic.HashSet[string]]::new(
+  [StringComparer]::Ordinal)
+foreach ($className in $controllerBlockedResultClasses) {
+  [void]$controllerBlockedSet.Add($className)
+}
+foreach ($className in $parentBlockedResultClasses) {
+  [void]$parentBlockedSet.Add($className)
+}
+Assert-Equal $controllerBlockedSet.Count $controllerBlockedResultClasses.Count `
+  "controller blocked result vocabulary must not contain duplicates"
+Assert-Equal $parentBlockedSet.Count $parentBlockedResultClasses.Count `
+  "parent blocked result vocabulary must not contain duplicates"
+Assert-Equal $parentBlockedSet.Count $controllerBlockedSet.Count `
+  "parent blocked result vocabulary must equal controller non-success vocabulary"
+foreach ($className in $controllerBlockedSet) {
+  Assert-True $parentBlockedSet.Contains($className) `
+    "parent blocked result vocabulary drifted from controller source"
+}
 
 $genuineLauncherContract = Get-LauncherRouteContract -Mode "genuine_user_speech"
 Assert-Equal $genuineLauncherContract.profile_id "thought-core-v0" `
@@ -468,6 +522,7 @@ Assert-True ($source -match 'cleanup_failure_class\s*=\s*\$cleanupFailureClass')
 foreach ($cleanupFailure in @(
     "launcher_standard_stop_failed", "launcher_shutdown_failed",
     "owned_job_cleanup_failed", "route_port_cleanup_failed",
+    "route_port_inspection_failed",
     "run_root_cleanup_failed", "cleanup_unclassified")) {
   Assert-True ($source.Contains('"' + $cleanupFailure + '"')) "cleanup failure class must remain fixed: $cleanupFailure"
 }
@@ -736,6 +791,64 @@ Assert-Equal (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath) 
   "production_transport_unavailable" "safe early controller result must retain its fixed blocker"
 Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
   "production_transport_unavailable" "safe early controller result must propagate through the nonzero-exit resolver"
+$canonicalBlockedResult = (
+  [pscustomobject]$validControllerResult | ConvertTo-Json -Depth 8
+) | ConvertFrom-Json
+$canonicalBlockedResult.controller_status = "blocked"
+$canonicalBlockedResult.scenario = "self_output_or_ambiguous"
+$canonicalBlockedResult.result_class = "scenario_expectation_not_met"
+$canonicalBlockedResult.blocker_class = "scenario_expectation_not_met"
+$canonicalBlockedResult.transcription_count = 0
+$canonicalBlockedResult.submission_count = 0
+$canonicalBlockedResult.thought_core_turninput_count = 0
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($canonicalBlockedResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath) `
+  "scenario_expectation_not_met" `
+  "canonical blocked endpoint result must preserve its fixed blocker"
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "scenario_expectation_not_met" `
+  "canonical blocked endpoint result must propagate through the nonzero resolver"
+
+$blockedStatusMismatch = (
+  $canonicalBlockedResult | ConvertTo-Json -Depth 8
+) | ConvertFrom-Json
+$blockedStatusMismatch.blocker_class = "live_candidate_window_busy"
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($blockedStatusMismatch | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
+  "blocked result and blocker mismatch must fail closed"
+
+$unknownBlockedResult = (
+  $canonicalBlockedResult | ConvertTo-Json -Depth 8
+) | ConvertFrom-Json
+$unknownBlockedResult.result_class = "unknown_endpoint_result_fixture"
+$unknownBlockedResult.blocker_class = "unknown_endpoint_result_fixture"
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($unknownBlockedResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
+  "unknown blocked result must fail closed without value publication"
+
+$privateBlockedResult = (
+  $canonicalBlockedResult | ConvertTo-Json -Depth 8
+) | ConvertFrom-Json
+$privateBlockedResult.private_identifier_shared = $true
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($privateBlockedResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
+  "private blocked result must fail closed without payload publication"
+
 $timeoutPhaseCases = @(
   [ordered]@{
     blocker = "candidate_window_http_timeout"
@@ -1171,6 +1284,71 @@ Assert-Equal $recoveredJob.DisposeCalls 1 "recovery must dispose the owned Job o
 Assert-True (-not (Test-Path -LiteralPath $recoveredFixture.RunRoot)) `
   "recovery must remove the isolated state and exact marked run root"
 
+$transientPortFixture = New-OwnedCleanupFixture
+$transientPortJob = New-FakeOwnedCleanupJob
+$transientPortProbe = [pscustomobject]@{ Calls = 0 }
+$transientPortVerifier = {
+  param($Ports)
+  $transientPortProbe.Calls += 1
+  if ($transientPortProbe.Calls -eq 1) {
+    Throw-Fixed -Class "route_port_preexisting"
+  }
+}.GetNewClosure()
+$transientPortCleanup = Complete-OwnedRouteCleanup `
+  -OwnedJob $transientPortJob -Ports @(3000, 8799) `
+  -RunRoot $transientPortFixture.RunRoot -OwnedBase $transientPortFixture.OwnedBase `
+  -RunId $transientPortFixture.RunId `
+  -LauncherCleanupFailureClass "launcher_standard_stop_failed" `
+  -PortsClearVerifier $transientPortVerifier -JobCleanupBudgetMs 50 `
+  -PortSettlementWaiter { param($DelayMs) }
+Assert-Equal $transientPortCleanup.cleanup_class `
+  "route_owned_processes_and_temp_cleared_by_owned_job_recovery" `
+  "transient listener must succeed only after a final clear sample within the existing budget"
+Assert-Equal $transientPortProbe.Calls 2 `
+  "transient listener must be followed by exactly one clear sample"
+Assert-True (-not (Test-Path -LiteralPath $transientPortFixture.RunRoot)) `
+  "final clear sample must permit guarded owned-root removal"
+
+$expiredSettlementFixture = New-OwnedCleanupFixture
+$expiredSettlementJob = New-FakeOwnedCleanupJob
+$expiredSettlementProbe = [pscustomobject]@{ Calls = 0 }
+$expiredSettlementVerifier = {
+  param($Ports)
+  $expiredSettlementProbe.Calls += 1
+  if ($expiredSettlementProbe.Calls -eq 1) {
+    Throw-Fixed -Class "route_port_preexisting"
+  }
+}.GetNewClosure()
+$expiredSettlementWaiterProbe = [pscustomobject]@{ Calls = 0 }
+$expiredSettlementWaiter = {
+  param($DelayMs)
+  $expiredSettlementWaiterProbe.Calls += 1
+  Start-Sleep -Milliseconds ($DelayMs + 20)
+}.GetNewClosure()
+$expiredSettlementCleanup = Complete-OwnedRouteCleanup `
+  -OwnedJob $expiredSettlementJob -Ports @(3000, 8799) `
+  -RunRoot $expiredSettlementFixture.RunRoot `
+  -OwnedBase $expiredSettlementFixture.OwnedBase `
+  -RunId $expiredSettlementFixture.RunId `
+  -LauncherCleanupFailureClass "launcher_standard_stop_failed" `
+  -PortsClearVerifier $expiredSettlementVerifier -JobCleanupBudgetMs 50 `
+  -PortSettlementWaiter $expiredSettlementWaiter
+Assert-Equal $expiredSettlementCleanup.cleanup_class "cleanup_incomplete" `
+  "a hypothetical clear after the existing Job cleanup budget must not be accepted"
+Assert-Equal $expiredSettlementCleanup.cleanup_failure_class `
+  "route_port_cleanup_failed" `
+  "budget expiry must retain the immediately preceding fixed port failure"
+Assert-Equal $expiredSettlementProbe.Calls 1 `
+  "budget expiry after the waiter must suppress the hypothetical clear probe"
+Assert-Equal $expiredSettlementWaiterProbe.Calls 1 `
+  "boundary fixture must consume the exact remaining settlement opportunity once"
+Assert-Equal $expiredSettlementJob.TerminateCalls 1 `
+  "budget expiry must not repeat owned Job termination"
+Assert-Equal $expiredSettlementJob.DisposeCalls 1 `
+  "budget expiry must not repeat owned Job disposal"
+Assert-True (Test-Path -LiteralPath $expiredSettlementFixture.RunRoot) `
+  "budget expiry must retain the guarded owned run root"
+
 foreach ($failureCase in @(
     [pscustomobject]@{
       Name = "terminate"
@@ -1197,11 +1375,36 @@ foreach ($failureCase in @(
       InvalidMarker = $false
     },
     [pscustomobject]@{
-      Name = "port inspection"
+      Name = "persistent port"
       Job = (New-FakeOwnedCleanupJob)
-      PortVerifier = { param($Ports) throw "injected port detail" }
+      PortVerifier = {
+        param($Ports)
+        Throw-Fixed -Class "route_port_preexisting"
+      }
       RootRemover = $null
       ExpectedFailure = "route_port_cleanup_failed"
+      JobCleanupBudgetMs = 5
+      InvalidMarker = $false
+    },
+    [pscustomobject]@{
+      Name = "port inspection"
+      Job = (New-FakeOwnedCleanupJob)
+      PortVerifier = {
+        param($Ports)
+        Throw-Fixed -Class "cleanup_incomplete"
+      }
+      RootRemover = $null
+      ExpectedFailure = "route_port_inspection_failed"
+      JobCleanupBudgetMs = 5
+      InvalidMarker = $false
+    },
+    [pscustomobject]@{
+      Name = "unclassifiable port verifier"
+      Job = (New-FakeOwnedCleanupJob)
+      PortVerifier = { param($Ports) throw "injected unclassified verifier detail" }
+      RootRemover = $null
+      ExpectedFailure = "cleanup_unclassified"
+      JobCleanupBudgetMs = 5
       InvalidMarker = $false
     },
     [pscustomobject]@{
@@ -1231,10 +1434,13 @@ foreach ($failureCase in @(
     LauncherCleanupFailureClass = "launcher_standard_stop_failed"
     PortsClearVerifier = $failureCase.PortVerifier
   }
-  if ($null -ne $failureCase.RootRemover) {
-    $cleanupArgs.RunRootRemover = $failureCase.RootRemover
-  }
-  $failedCleanup = Complete-OwnedRouteCleanup @cleanupArgs
+    if ($null -ne $failureCase.RootRemover) {
+      $cleanupArgs.RunRootRemover = $failureCase.RootRemover
+    }
+    if ($null -ne $failureCase.PSObject.Properties["JobCleanupBudgetMs"]) {
+      $cleanupArgs.JobCleanupBudgetMs = [int]$failureCase.JobCleanupBudgetMs
+    }
+    $failedCleanup = Complete-OwnedRouteCleanup @cleanupArgs
   Assert-Equal $failedCleanup.cleanup_class "cleanup_incomplete" `
     "$($failureCase.Name) invariant failure must remain incomplete"
   Assert-Equal $failedCleanup.cleanup_failure_class $failureCase.ExpectedFailure `

@@ -712,6 +712,11 @@ function Complete-OwnedRouteCleanup {
       param($ExpectedPorts)
       Assert-PortsClear -Ports $ExpectedPorts
     },
+    [ValidateRange(1, 5000)][int]$JobCleanupBudgetMs = 5000,
+    [scriptblock]$PortSettlementWaiter = {
+      param($DelayMs)
+      Start-Sleep -Milliseconds $DelayMs
+    },
     [scriptblock]$RunRootRemover = {
       param($Path, $Base, $Id)
       Remove-OwnedRunRoot -Path $Path -OwnedBase $Base -RunId $Id
@@ -741,9 +746,10 @@ function Complete-OwnedRouteCleanup {
   $hasCompleteRootRecoveryProof = $hasRunRoot -and $hasOwnedBase -and $hasRunId
 
   $jobDisposed = $false
+  $jobCleanupStopwatch = [Diagnostics.Stopwatch]::StartNew()
   try {
     if ($null -ne $OwnedJob) {
-      if (-not $OwnedJob.TerminateAndWait(5000)) {
+      if (-not $OwnedJob.TerminateAndWait($JobCleanupBudgetMs)) {
         Throw-Fixed -Class "cleanup_incomplete"
       }
       if ($OwnedJob.ActiveProcessCount -ne 0) {
@@ -753,6 +759,7 @@ function Complete-OwnedRouteCleanup {
       $jobDisposed = $true
     }
   } catch {
+    $jobCleanupStopwatch.Stop()
     return [pscustomobject]@{
       cleanup_class = "cleanup_incomplete"
       cleanup_failure_class = "owned_job_cleanup_failed"
@@ -760,11 +767,39 @@ function Complete-OwnedRouteCleanup {
     }
   }
 
-  try { [void](& $PortsClearVerifier $Ports) }
-  catch {
+  $portFailureClass = $null
+  do {
+    try {
+      [void](& $PortsClearVerifier $Ports)
+      $portFailureClass = $null
+      break
+    } catch {
+      $fixedPortFailure = [string]$_.Exception.Message
+      $portFailureClass = $(switch ($fixedPortFailure) {
+          "route_port_preexisting" { "route_port_cleanup_failed" }
+          "cleanup_incomplete" { "route_port_inspection_failed" }
+          default { "cleanup_unclassified" }
+        })
+    }
+    if (-not $jobDisposed) { break }
+    $remainingSettlementMs = $JobCleanupBudgetMs -
+      [int]$jobCleanupStopwatch.ElapsedMilliseconds
+    if ($remainingSettlementMs -le 0) { break }
+    try {
+      [void](& $PortSettlementWaiter ([Math]::Min(50, $remainingSettlementMs)))
+    } catch {
+      $portFailureClass = "cleanup_unclassified"
+      break
+    }
+    if ([int]$jobCleanupStopwatch.ElapsedMilliseconds -ge $JobCleanupBudgetMs) {
+      break
+    }
+  } while ($true)
+  $jobCleanupStopwatch.Stop()
+  if ($null -ne $portFailureClass) {
     return [pscustomobject]@{
       cleanup_class = "cleanup_incomplete"
-      cleanup_failure_class = "route_port_cleanup_failed"
+      cleanup_failure_class = $portFailureClass
       job_disposed = $jobDisposed
     }
   }
@@ -900,6 +935,51 @@ function Test-AitLifecyclePreflightResponse {
     [string]$Value.result_class -ceq "lifecycle_transport_empty")
 }
 
+function Get-AllowedControllerBlockedResultClasses {
+  return @(
+    "scenario_expectation_not_met",
+    "live_candidate_request_invalid",
+    "live_candidate_window_busy",
+    "input_source_epoch_unavailable",
+    "input_gate_capability_unavailable",
+    "speech_timing_observation_missing",
+    "voice_response_latency_over_10s",
+    "private_transcription_not_accepted",
+    "private_turn_sink_unavailable",
+    "private_turn_sink_failed",
+    "live_candidate_environment_unavailable",
+    "live_candidate_processing_failed",
+    "live_candidate_window_failed",
+    "processed_pcm_pipe_lease_invalid",
+    "processed_pcm_pipe_owner_unavailable",
+    "processed_pcm_pipe_lease_missing",
+    "processed_pcm_pipe_lease_expired",
+    "processed_pcm_pipe_server_identity_mismatch",
+    "processed_pcm_pipe_private_input_timeout",
+    "processed_pcm_pipe_connect_failed",
+    "processed_pcm_pipe_connect_timeout",
+    "processed_pcm_pipe_handshake_failed",
+    "processed_pcm_pipe_write_failed",
+    "live_aec_backend_or_sink_missing",
+    "live_aec_bounds_invalid",
+    "live_aec_processing_mode_invalid",
+    "live_aec_processed_packet_invalid",
+    "live_aec_deadline_exceeded",
+    "live_aec_cleanup_failed",
+    "live_aec_quality_metrics_cleanup_failed",
+    "live_aec_quality_metrics_invariant_failed",
+    "live_aec_lifecycle_invariant_failed",
+    "voice_capture_dsp_activation_failed",
+    "voice_capture_dsp_configuration_failed",
+    "voice_capture_dsp_output_format_failed",
+    "voice_capture_dsp_start_failed",
+    "voice_capture_dsp_not_started",
+    "voice_capture_dsp_process_output_failed",
+    "voice_capture_dsp_stop_failed",
+    "live_aec_observer_failed"
+  )
+}
+
 function Get-EarlyControllerBlockerClass {
   param([Parameter(Mandatory = $true)][string]$OutputPath)
   if (-not (Test-Path -LiteralPath $OutputPath -PathType Leaf)) { return $null }
@@ -936,7 +1016,7 @@ function Get-EarlyControllerBlockerClass {
   ) {
     return "live_controller_result_invalid"
   }
-  $allowed = @(
+  $allowedErrors = @(
     "live_controller_configuration_invalid", "live_controller_token_unavailable",
     "live_controller_endpoint_unreachable", "live_controller_endpoint_access_denied",
     "live_controller_endpoint_not_found", "live_controller_endpoint_response_invalid",
@@ -947,7 +1027,17 @@ function Get-EarlyControllerBlockerClass {
     "candidate_window_http_timeout", "production_transport_completion_timeout",
     "post_completion_total_timeout", "whole_route_timeout",
     "cleanup_incomplete")
+  $allowedBlockedResults = @(Get-AllowedControllerBlockedResultClasses)
   $blockerClass = [string]$value.blocker_class
+  $resultClass = [string]$value.result_class
+  $controllerStatus = [string]$value.controller_status
+  $statusAndBlockerValid = (
+    ($controllerStatus -ceq "error" -and
+      $allowedErrors -ccontains $blockerClass) -or
+    ($controllerStatus -ceq "blocked" -and
+      $resultClass -ceq $blockerClass -and
+      $allowedBlockedResults -ccontains $blockerClass)
+  )
   $scenarioClass = [string]$value.scenario
   $timeoutPhaseValid = $(switch ($blockerClass) {
       "candidate_window_http_timeout" {
@@ -993,10 +1083,9 @@ function Get-EarlyControllerBlockerClass {
       $scenarioClass -ceq "invalid"))
   if (
     [string]$value.schema_version -cne "self_output_awareness.live_controller.v0" -or
-    [string]$value.controller_status -cne "error" -or
+    -not $statusAndBlockerValid -or
     -not $scenarioValid -or
     -not $timeoutPhaseValid -or
-    $blockerClass -cnotin $allowed -or
     $value.raw_audio_shared -isnot [bool] -or [bool]$value.raw_audio_shared -or
     $value.raw_text_shared -isnot [bool] -or [bool]$value.raw_text_shared -or
     $value.private_identifier_shared -isnot [bool] -or [bool]$value.private_identifier_shared -or
@@ -1556,7 +1645,7 @@ try {
     "production_transport_not_completed", "user_start_event_unavailable",
     "candidate_window_http_timeout", "production_transport_completion_timeout",
     "post_completion_total_timeout", "whole_route_timeout"
-  )
+  ) + @(Get-AllowedControllerBlockedResultClasses)
   $candidateBlocker = [string]$_.Exception.Message
   $blockerClass = $(if ($candidateBlocker -cin $allowedBlockers) {
       $candidateBlocker
