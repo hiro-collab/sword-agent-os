@@ -230,6 +230,8 @@ Assert-True (
 Assert-True ($source -match '/health"[\s\S]{0,180}-Headers\s+@\{\s*"X-AI-Core-Token"\s*=\s*\$env:AI_TALK_CORE_WEB_TOKEN') "token-protected health must use the canonical per-run token"
 Assert-True ($source -match '/api/self-output-awareness-transport/"[\s\S]{0,300}Test-AitLifecyclePreflightResponse') "exact AIT lifecycle endpoint must be warm and validated before controller start"
 Assert-True ($source.IndexOf('/api/self-output-awareness-transport/') -lt $source.IndexOf('$script:controllerProcess = Start-OwnedProcessSuspended')) "AIT lifecycle preflight must precede controller process start"
+Assert-True ($source -match '\$controllerArguments\s*=\s*@\([\s\S]{0,700}"-PreparationDeadlineMs",\s*"10000",\s*"-Json"') `
+  "live controller child must emit its strict JSON result contract"
 Assert-True ($source -match 'ready_for_system_output_trigger[\s\S]{0,260}system_output_trigger_signal_unavailable') `
   "pre-dispatch controller readiness must have its own fixed blocker"
 Assert-True ($source -match 'ready_for_user_speech[\s\S]{0,260}user_speech_signal_unavailable') `

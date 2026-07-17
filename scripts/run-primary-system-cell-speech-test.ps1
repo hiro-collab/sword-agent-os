@@ -1130,7 +1130,7 @@ try {
     "-BaseUrl", "http://127.0.0.1:8000", "-AitBaseUrl", "http://127.0.0.1:3000",
     "-WindowMs", "3000", "-DeadlineMs", "10000",
     "-ControlledChromeRootPid", [string]$chromeProcess.Id,
-    "-AudioObserverWindowMs", "3000", "-PreparationDeadlineMs", "10000"
+    "-AudioObserverWindowMs", "3000", "-PreparationDeadlineMs", "10000", "-Json"
   )
   if ($TestMode -ceq "genuine_user_speech") {
     $controllerArguments += @(
