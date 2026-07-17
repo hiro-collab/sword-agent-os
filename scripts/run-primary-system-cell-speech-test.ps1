@@ -743,10 +743,49 @@ function Get-EarlyControllerBlockerClass {
     "live_controller_endpoint_cleanup_incomplete", "visible_response_observer_unavailable",
     "visible_response_not_observed", "production_transport_unavailable",
     "production_transport_not_completed", "user_start_event_unavailable",
-    "prepared_hold_expired", "live_controller_failed", "whole_route_timeout",
+    "prepared_hold_expired", "live_controller_failed",
+    "candidate_window_http_timeout", "production_transport_completion_timeout",
+    "post_completion_total_timeout", "whole_route_timeout",
     "cleanup_incomplete")
   $blockerClass = [string]$value.blocker_class
   $scenarioClass = [string]$value.scenario
+  $timeoutPhaseValid = $(switch ($blockerClass) {
+      "candidate_window_http_timeout" {
+        [string]$value.deadline_class -ceq "exceeded" -and
+        [string]$value.endpoint_completion_class -ceq "unverified_after_transport_end" -and
+        [string]$value.http_status_class -ceq "not_observed" -and
+        [string]$value.first_non_silent_audio_observation_class -ceq "not_observed" -and
+        [string]$value.cleanup_class -ceq
+          "controller_http_resources_disposed_endpoint_completion_unverified"
+      }
+      "production_transport_completion_timeout" {
+        [string]$value.deadline_class -ceq "exceeded" -and
+        [string]$value.endpoint_completion_class -ceq "completed_response_observed" -and
+        [string]$value.http_status_class -ceq "success" -and
+        [string]$value.first_non_silent_audio_observation_class -ceq "not_observed" -and
+        [string]$value.cleanup_class -ceq
+          "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
+      }
+      "post_completion_total_timeout" {
+        [string]$value.deadline_class -ceq "exceeded" -and
+        [string]$value.endpoint_completion_class -ceq "completed_response_observed" -and
+        [string]$value.http_status_class -ceq "success" -and
+        [string]$value.first_non_silent_audio_observation_class -ceq
+          "process_tree_render_observed" -and
+        [string]$value.cleanup_class -ceq
+          "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
+      }
+      "whole_route_timeout" {
+        [string]$value.deadline_class -ceq "exceeded" -and
+        [string]$value.endpoint_completion_class -ceq "not_started" -and
+        [string]$value.http_status_class -ceq "not_observed" -and
+        [string]$value.first_non_silent_audio_observation_class -ceq
+          "not_observed" -and
+        [string]$value.cleanup_class -ceq
+          "controller_http_resources_disposed_no_request_started"
+      }
+      default { $true }
+    })
   $scenarioValid = (
     $scenarioClass -ceq "independent_current_session_user_speech" -or
     $scenarioClass -ceq "self_output_or_ambiguous" -or
@@ -758,6 +797,7 @@ function Get-EarlyControllerBlockerClass {
     [string]$value.schema_version -cne "self_output_awareness.live_controller.v0" -or
     [string]$value.controller_status -cne "error" -or
     -not $scenarioValid -or
+    -not $timeoutPhaseValid -or
     $blockerClass -cnotin $allowed -or
     $value.raw_audio_shared -isnot [bool] -or [bool]$value.raw_audio_shared -or
     $value.raw_text_shared -isnot [bool] -or [bool]$value.raw_text_shared -or
@@ -1288,7 +1328,8 @@ try {
     "live_controller_endpoint_cleanup_incomplete", "visible_response_observer_unavailable",
     "visible_response_not_observed", "production_transport_unavailable",
     "production_transport_not_completed", "user_start_event_unavailable",
-    "whole_route_timeout"
+    "candidate_window_http_timeout", "production_transport_completion_timeout",
+    "post_completion_total_timeout", "whole_route_timeout"
   )
   $candidateBlocker = [string]$_.Exception.Message
   $blockerClass = $(if ($candidateBlocker -cin $allowedBlockers) {

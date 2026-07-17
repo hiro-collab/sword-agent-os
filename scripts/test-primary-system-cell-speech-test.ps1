@@ -495,6 +495,99 @@ $earlyControllerResult.cleanup_class = "controller_http_resources_disposed_no_re
   [Text.Encoding]::UTF8)
 Assert-Equal (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath) `
   "production_transport_unavailable" "safe early controller result must retain its fixed blocker"
+$timeoutPhaseCases = @(
+  [ordered]@{
+    blocker = "candidate_window_http_timeout"
+    endpoint = "unverified_after_transport_end"
+    http = "not_observed"
+    audio = "not_observed"
+    cleanup = "controller_http_resources_disposed_endpoint_completion_unverified"
+  },
+  [ordered]@{
+    blocker = "production_transport_completion_timeout"
+    endpoint = "completed_response_observed"
+    http = "success"
+    audio = "not_observed"
+    cleanup = "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
+  },
+  [ordered]@{
+    blocker = "post_completion_total_timeout"
+    endpoint = "completed_response_observed"
+    http = "success"
+    audio = "process_tree_render_observed"
+    cleanup = "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
+  },
+  [ordered]@{
+    blocker = "whole_route_timeout"
+    endpoint = "not_started"
+    http = "not_observed"
+    audio = "not_observed"
+    cleanup = "controller_http_resources_disposed_no_request_started"
+  })
+foreach ($timeoutPhaseCase in $timeoutPhaseCases) {
+  $earlyControllerResult.blocker_class = $timeoutPhaseCase.blocker
+  $earlyControllerResult.deadline_class = "exceeded"
+  $earlyControllerResult.endpoint_completion_class = $timeoutPhaseCase.endpoint
+  $earlyControllerResult.http_status_class = $timeoutPhaseCase.http
+  $earlyControllerResult.first_non_silent_audio_observation_class = $timeoutPhaseCase.audio
+  $earlyControllerResult.cleanup_class = $timeoutPhaseCase.cleanup
+  [IO.File]::WriteAllText(
+    $earlyControllerPath,
+    ($earlyControllerResult | ConvertTo-Json -Depth 8 -Compress),
+    [Text.Encoding]::UTF8)
+  Assert-Equal (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath) `
+    $timeoutPhaseCase.blocker "safe timeout phase must survive the parent boundary: $($timeoutPhaseCase.blocker)"
+  $timeoutContradictions = @(
+    [ordered]@{ field = "deadline_class"; value = "within_deadline" },
+    [ordered]@{
+      field = "endpoint_completion_class"
+      value = $(if ($timeoutPhaseCase.endpoint -ceq "not_started") {
+          "completed_response_observed"
+        } else {
+          "not_started"
+        })
+    },
+    [ordered]@{
+      field = "http_status_class"
+      value = $(if ($timeoutPhaseCase.http -ceq "not_observed") {
+          "success"
+        } else {
+          "not_observed"
+        })
+    },
+    [ordered]@{
+      field = "first_non_silent_audio_observation_class"
+      value = $(if ($timeoutPhaseCase.audio -ceq "not_observed") {
+          "process_tree_render_observed"
+        } else {
+          "not_observed"
+        })
+    },
+    [ordered]@{
+      field = "cleanup_class"
+      value = $(if ($timeoutPhaseCase.cleanup -ceq
+          "controller_http_resources_disposed_no_request_started") {
+          "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
+        } else {
+          "controller_http_resources_disposed_no_request_started"
+        })
+    })
+  foreach ($timeoutContradiction in $timeoutContradictions) {
+    $contradictoryResult = (
+      [pscustomobject]$earlyControllerResult | ConvertTo-Json -Depth 8
+    ) | ConvertFrom-Json
+    $contradictoryResult.PSObject.Properties[$timeoutContradiction.field].Value =
+      $timeoutContradiction.value
+    [IO.File]::WriteAllText(
+      $earlyControllerPath,
+      ($contradictoryResult | ConvertTo-Json -Depth 8 -Compress),
+      [Text.Encoding]::UTF8)
+    Assert-True ($null -eq (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath)) `
+      "timeout phase must fail closed when $($timeoutContradiction.field) contradicts the fixed class: $($timeoutPhaseCase.blocker)"
+  }
+}
+$earlyControllerResult.blocker_class = "production_transport_unavailable"
+$earlyControllerResult.cleanup_class = "controller_http_resources_disposed_no_request_started"
 $earlyControllerResult.scenario = "invalid"
 [IO.File]::WriteAllText(
   $earlyControllerPath,

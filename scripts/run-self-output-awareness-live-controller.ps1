@@ -153,6 +153,9 @@ $AllowedControllerFailureClasses = @(
   "user_start_event_unavailable",
   "prepared_hold_expired",
   "live_controller_failed",
+  "candidate_window_http_timeout",
+  "production_transport_completion_timeout",
+  "post_completion_total_timeout",
   "whole_route_timeout",
   "cleanup_incomplete"
 )
@@ -216,10 +219,21 @@ $deadlineClass = "not_observed"
 $endpointCompletionClass = "not_started"
 $cleanupClass = "controller_http_resources_disposed_no_request_started"
 $blockerClass = "live_controller_failed"
+$routePhaseClass = "preparation"
 
 function Throw-Fixed {
   param([Parameter(Mandatory = $true)][string]$Class)
   throw [System.InvalidOperationException]::new($Class)
+}
+
+function Resolve-RouteTimeoutClass {
+  param([Parameter(Mandatory = $true)][string]$PhaseClass)
+  return $(switch ($PhaseClass) {
+      "candidate_window_http" { "candidate_window_http_timeout" }
+      "production_transport_completion" { "production_transport_completion_timeout" }
+      "post_completion_total" { "post_completion_total_timeout" }
+      default { "whole_route_timeout" }
+    })
 }
 
 function Assert-ExactKeys {
@@ -991,6 +1005,7 @@ try {
   $cancellation = [System.Threading.CancellationTokenSource]::new()
   $cancellation.CancelAfter($httpBudgetMs)
   $endpointRequestStartedAtWallMs = [System.DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  $routePhaseClass = "candidate_window_http"
   $requestStarted = $true
   $response = $client.SendAsync(
     $request,
@@ -1292,6 +1307,7 @@ try {
     $exitCode = 1
   }
 
+  $routePhaseClass = "post_endpoint_observers"
   if ($null -ne $visibleObserverProcess) {
     $remainingObserverMs = Get-RemainingRouteBudgetMs
     $visibleObservation = Complete-VisibleResponseObserver `
@@ -1329,6 +1345,7 @@ try {
     $visibleObservation = $null
   }
   if ($null -ne $productionTransportProcess) {
+    $routePhaseClass = "production_transport_completion"
     $remainingProductionMs = Get-RemainingRouteBudgetMs
     $productionObservation = Complete-ProductionTransportChild `
       -Process $productionTransportProcess `
@@ -1355,19 +1372,21 @@ try {
     }
     $productionObservation = $null
   }
+  $routePhaseClass = "post_completion_total"
   $deadlineClass = "within_deadline"
   $endpointResult = $null
   $baseUri = $null
   $endpointUri = $null
 } catch [System.OperationCanceledException] {
-  Set-Failure -Class "whole_route_timeout"
+  Set-Failure -Class (Resolve-RouteTimeoutClass -PhaseClass $routePhaseClass)
 } catch [System.Net.Http.HttpRequestException] {
   Set-Failure -Class "live_controller_endpoint_unreachable"
 } catch {
-  $failureClass = if (
-    $AllowedControllerFailureClasses -ccontains [string]$_.Exception.Message
-  ) {
-    [string]$_.Exception.Message
+  $fixedExceptionClass = [string]$_.Exception.Message
+  $failureClass = if ($fixedExceptionClass -ceq "whole_route_timeout") {
+    Resolve-RouteTimeoutClass -PhaseClass $routePhaseClass
+  } elseif ($AllowedControllerFailureClasses -ccontains $fixedExceptionClass) {
+    $fixedExceptionClass
   } else {
     "live_controller_failed"
   }
@@ -1444,10 +1463,14 @@ if (-not $controllerCleanupClear) {
   $exitCode = 1
 } elseif ($endpointResponseObserved -and $controllerElapsedMs -gt $DeadlineMs -and $exitCode -eq 0) {
   $controllerStatus = "error"
-  $blockerClass = "whole_route_timeout"
+  $blockerClass = "post_completion_total_timeout"
   $deadlineClass = "exceeded"
   $exitCode = 1
-} elseif ($blockerClass -ceq "whole_route_timeout") {
+} elseif ($blockerClass -cin @(
+    "candidate_window_http_timeout",
+    "production_transport_completion_timeout",
+    "post_completion_total_timeout",
+    "whole_route_timeout")) {
   $deadlineClass = "exceeded"
 }
 

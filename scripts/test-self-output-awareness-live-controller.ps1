@@ -515,6 +515,120 @@ function New-ProductionTransportProcessFactory {
     return $process
   }.GetNewClosure()
 }
+
+function New-ControllerPhaseVariant {
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateSet(
+      "pre_route_timeout",
+      "post_ready_pre_request_timeout",
+      "production_transport_incomplete",
+      "post_completion_total_timeout")]
+    [string]$Mode
+  )
+
+  $variantRoot = Join-Path $tempRoot ("controller-" + $Mode)
+  [void][System.IO.Directory]::CreateDirectory($variantRoot)
+  $variantControllerPath = Join-Path $variantRoot "run-self-output-awareness-live-controller.ps1"
+  $variantTransportPath = Join-Path $variantRoot "run-self-output-awareness-production-transport.ps1"
+  $variantObserverPath = Join-Path $variantRoot "observe-primary-system-cell-visible-response.mjs"
+  $variantSource = [System.IO.File]::ReadAllText($ControllerPath, [System.Text.Encoding]::UTF8)
+  if ($Mode -ceq "pre_route_timeout") {
+    $marker = '$safeScenario = $Scenario'
+    $replacement = $marker + "`n  Start-Sleep -Milliseconds 1100`n  [void](Get-RemainingPreparationBudgetMs)"
+    Assert-True ($variantSource.Contains($marker)) "pre-route timeout variant marker missing"
+    $variantSource = $variantSource.Replace($marker, $replacement)
+  } elseif ($Mode -ceq "post_ready_pre_request_timeout") {
+    $marker = '$httpBudgetMs = Get-RemainingRouteBudgetMs'
+    $replacement = 'Start-Sleep -Milliseconds 1100' + "`n  " + $marker
+    Assert-True ($variantSource.Contains($marker)) "post-ready pre-request timeout variant marker missing"
+    $variantSource = $variantSource.Replace($marker, $replacement)
+  } elseif ($Mode -ceq "post_completion_total_timeout") {
+    $marker = '$routePhaseClass = "post_completion_total"'
+    $replacement = 'Start-Sleep -Milliseconds 2200' + "`n  " + $marker
+    Assert-True ($variantSource.Contains($marker)) "post-completion timeout variant marker missing"
+    $variantSource = $variantSource.Replace($marker, $replacement)
+  }
+  [System.IO.File]::WriteAllText(
+    $variantControllerPath,
+    $variantSource,
+    [System.Text.UTF8Encoding]::new($false))
+  Copy-Item -LiteralPath (
+    Join-Path $RepoRoot "scripts\observe-primary-system-cell-visible-response.mjs"
+  ) -Destination $variantObserverPath
+
+  $transportSource = @'
+param(
+  [string]$AitBaseUrl,
+  [string]$AiTalkCoreBaseUrl,
+  [int]$ControlledChromeRootPid,
+  [int]$ObserverWindowMs,
+  [int]$DeadlineMs,
+  [switch]$EmitArmSignal,
+  [switch]$Json,
+  [string]$StartGateEventName = "",
+  [int]$StartGateHoldMs = 0
+)
+$ErrorActionPreference = "Stop"
+[Console]::Out.WriteLine('{"schema_version":"self_output_awareness.production_transport_listener.v0","result_class":"waiting_for_self_output","raw_private_publication_flags":false}')
+[Console]::Out.Flush()
+[Console]::Out.WriteLine('{"schema_version":"self_output_awareness.production_transport_arm.v0","result_class":"overlap_join_ready","raw_private_publication_flags":false}')
+[Console]::Out.Flush()
+if ([System.Environment]::GetEnvironmentVariable("SWORD_TEST_PRODUCTION_MODE", "Process") -ceq "incomplete") {
+  Start-Sleep -Seconds 30
+  exit 5
+}
+Start-Sleep -Milliseconds 400
+$firstAudioWallMs = [System.DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+$result = [ordered]@{
+  schema_version = "self_output_awareness.production_transport.v0"
+  status = "completed"
+  result_class = "production_self_output_transport_completed"
+  blocker_class = $null
+  lifecycle_ingest_count = 3
+  observation_ingest_count = 1
+  lifecycle_ingest_outcome_class = "acknowledged"
+  observation_ingest_outcome_class = "acknowledged"
+  ait_poll_count = 4
+  core_request_count = 4
+  final_lifecycle_state = "released"
+  observer_result_class = "process_tree_render_observed"
+  first_non_silent_frame_offset_ms = 25
+  first_non_silent_observed_at_utc_ms = $firstAudioWallMs
+  handoff_pickup_ms = 50
+  cooldown_pickup_ms = 75
+  released_pickup_ms = 100
+  observation_ingest_ms = 125
+  overlap_join_ready_class = "overlap_join_ready"
+  elapsed_ms = 150
+  latency_requirement_status = "first_non_silent_wall_timestamp_available"
+  cleanup_class = "route_owned_cleanup_clear"
+  route_owned_process_residue_count = 0
+  route_owned_request_residue_count = 0
+  route_owned_pipe_residue_count = 0
+  route_owned_temp_residue_count = 0
+  audio_route_change_count = 0
+  microphone_route_change_count = 0
+  candidate_authority = $false
+  acceptance_authority = $false
+  turn_input_authority = $false
+  raw_audio_shared = $false
+  raw_text_shared = $false
+  private_identifier_shared = $false
+  private_environment_shared = $false
+  raw_private_publication_flags = $false
+}
+[Console]::Out.WriteLine(($result | ConvertTo-Json -Depth 6 -Compress))
+[Console]::Out.Flush()
+exit 0
+'@
+  [System.IO.File]::WriteAllText(
+    $variantTransportPath,
+    $transportSource,
+    [System.Text.UTF8Encoding]::new($false))
+  return $variantControllerPath
+}
+
 function Invoke-Controller {
   param(
     [string]$BaseUrl,
@@ -530,7 +644,9 @@ function Invoke-Controller {
     [string]$ObserverMode = "",
     [string]$ObserverReceiptPath = "",
     [string]$ObserverPidReceiptPath = "",
-    [bool]$EmitSelfOutputSuppressionReadySignal = $false
+    [bool]$EmitSelfOutputSuppressionReadySignal = $false,
+    [string]$ControllerOverridePath = $ControllerPath,
+    [string]$ProductionMode = ""
   )
 
   $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -540,7 +656,7 @@ function Invoke-Controller {
   $startInfo.RedirectStandardOutput = $true
   $startInfo.RedirectStandardError = $true
   foreach ($argument in @(
-    "-NoProfile", "-File", $ControllerPath,
+    "-NoProfile", "-File", $ControllerOverridePath,
     "-BaseUrl", $BaseUrl,
     "-AitBaseUrl", $AitBaseUrl,
     "-Scenario", $Scenario,
@@ -561,6 +677,11 @@ function Invoke-Controller {
     $startInfo.Environment["AI_TALK_CORE_WEB_TOKEN"] = $privateToken
   } else {
     [void]$startInfo.Environment.Remove("AI_TALK_CORE_WEB_TOKEN")
+  }
+  if ([string]::IsNullOrWhiteSpace($ProductionMode)) {
+    [void]$startInfo.Environment.Remove("SWORD_TEST_PRODUCTION_MODE")
+  } else {
+    $startInfo.Environment["SWORD_TEST_PRODUCTION_MODE"] = $ProductionMode
   }
   if (-not [string]::IsNullOrWhiteSpace($ObserverMode)) {
     $fakeObserverModuleUri = [System.Uri]::new($fakeObserverModulePath).AbsoluteUri
@@ -778,6 +899,19 @@ Assert-True ($controllerSource -match '\$userPhaseStopwatch\s*=\s*\[System\.Diag
 Assert-True ($controllerSource -match 'Get-RemainingPreparationBudgetMs[\s\S]+\$PreparationDeadlineMs[\s\S]+Start-ProductionTransportChild') "preparation must use its own bounded deadline"
 Assert-True ($controllerSource -match 'Complete-ProductionTransportChild[\s\S]+first_non_silent_observed_at_utc_ms[\s\S]+utteranceEndToFirstAudioMs') "production result must feed the bounded first-audio delta"
 Assert-True ($controllerSource -match 'candidate_authority[\s\S]+acceptance_authority[\s\S]+turn_input_authority') "production result validation must retain false authority fields"
+Assert-True ((Resolve-RouteTimeoutClass -PhaseClass "candidate_window_http") -ceq
+  "candidate_window_http_timeout") "candidate-window timeout phase mismatch"
+Assert-True ((Resolve-RouteTimeoutClass -PhaseClass "production_transport_completion") -ceq
+  "production_transport_completion_timeout") "production completion timeout phase mismatch"
+Assert-True ((Resolve-RouteTimeoutClass -PhaseClass "post_completion_total") -ceq
+  "post_completion_total_timeout") "post-completion timeout phase mismatch"
+Assert-True ((Resolve-RouteTimeoutClass -PhaseClass "preparation") -ceq
+  "whole_route_timeout") "unclassified preparation timeout must retain the generic class"
+Assert-True ($controllerSource -match
+  '\$httpBudgetMs\s*=\s*Get-RemainingRouteBudgetMs[\s\S]+\$routePhaseClass\s*=\s*"candidate_window_http"[\s\S]+\$requestStarted\s*=\s*\$true') `
+  "candidate-window phase must start after budget validation and immediately before request ownership"
+Assert-True ($controllerSource -match '\$routePhaseClass\s*=\s*"production_transport_completion"[\s\S]+\$remainingProductionMs\s*=\s*Get-RemainingRouteBudgetMs') `
+  "production-completion phase must be fixed before consuming the child budget"
 
 try {
   $fixedNowUtcMs = [System.DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
@@ -1023,6 +1157,86 @@ try {
     -AssistantEventId "evt-live-visible-1" `
     -ThoughtCoreFirstEventElapsedMs 35 `
     -PcmCleanupCount 1
+
+  $preRouteVariant = New-ControllerPhaseVariant -Mode "pre_route_timeout"
+  $preRouteTimeoutRun = Invoke-Controller `
+    -BaseUrl "http://127.0.0.1:65534" `
+    -DeadlineMs 1000 `
+    -PreparationDeadlineMs 1000 `
+    -ControllerOverridePath $preRouteVariant
+  $preRouteTimeout = Assert-CommonResult -Run $preRouteTimeoutRun
+  Assert-True ($preRouteTimeoutRun.Code -ne 0) "pre-route timeout must fail closed"
+  Assert-True ($preRouteTimeout.blocker_class -ceq "whole_route_timeout") "pre-route timeout class mismatch"
+  Assert-True ($preRouteTimeout.deadline_class -ceq "exceeded") "pre-route deadline class mismatch"
+  Assert-True ($preRouteTimeout.endpoint_completion_class -ceq "not_started") "pre-route timeout must not claim endpoint start"
+  Assert-True ($preRouteTimeout.http_status_class -ceq "not_observed") "pre-route timeout must not claim HTTP observation"
+  Assert-True ($preRouteTimeout.first_non_silent_audio_observation_class -ceq "not_observed") "pre-route timeout must not claim audio observation"
+  Assert-True ($preRouteTimeout.cleanup_class -ceq "controller_http_resources_disposed_no_request_started") "pre-route timeout cleanup mismatch"
+
+  $postReadyPreRequestVariant = New-ControllerPhaseVariant -Mode "post_ready_pre_request_timeout"
+  $postReadyPreRequestRun = Invoke-Controller `
+    -BaseUrl "http://127.0.0.1:65534" `
+    -ControlledChromeRootPid 1 `
+    -AudioObserverWindowMs 100 `
+    -PreparationDeadlineMs 3000 `
+    -DeadlineMs 1000 `
+    -ControllerOverridePath $postReadyPreRequestVariant `
+    -ProductionMode "success"
+  $postReadyPreRequest = Assert-CommonResult -Run $postReadyPreRequestRun
+  Assert-True ($postReadyPreRequestRun.Code -ne 0) "post-ready pre-request timeout must fail closed"
+  Assert-True ($postReadyPreRequest.blocker_class -ceq "whole_route_timeout") "post-ready pre-request timeout class mismatch"
+  Assert-True ($postReadyPreRequest.deadline_class -ceq "exceeded") "post-ready pre-request deadline class mismatch"
+  Assert-True ($postReadyPreRequest.endpoint_completion_class -ceq "not_started") "post-ready pre-request timeout must not claim endpoint start"
+  Assert-True ($postReadyPreRequest.http_status_class -ceq "not_observed") "post-ready pre-request timeout must not claim HTTP observation"
+  Assert-True ($postReadyPreRequest.first_non_silent_audio_observation_class -ceq "not_observed") "post-ready pre-request timeout must not claim audio observation"
+  Assert-True ($postReadyPreRequest.cleanup_class -ceq "controller_http_resources_disposed_no_request_started") "post-ready pre-request timeout cleanup mismatch"
+
+  $productionIncompleteVariant = New-ControllerPhaseVariant -Mode "production_transport_incomplete"
+  $productionIncompleteServer = Start-TestServer -Response $negativeResponse
+  $productionIncompleteRun = Invoke-Controller `
+    -BaseUrl $productionIncompleteServer.BaseUrl `
+    -ControlledChromeRootPid 1 `
+    -AudioObserverWindowMs 100 `
+    -PreparationDeadlineMs 3000 `
+    -DeadlineMs 1000 `
+    -ControllerOverridePath $productionIncompleteVariant `
+    -ProductionMode "incomplete"
+  [void](Complete-TestServer -Server $productionIncompleteServer)
+  $productionIncomplete = Assert-CommonResult -Run $productionIncompleteRun
+  Assert-True ($productionIncompleteRun.Code -ne 0) "incomplete production child must fail closed"
+  Assert-True ($productionIncomplete.blocker_class -ceq "production_transport_completion_timeout") "production timeout class mismatch"
+  Assert-True ($productionIncomplete.deadline_class -ceq "exceeded") "production timeout deadline mismatch"
+  Assert-True ($productionIncomplete.endpoint_completion_class -ceq "completed_response_observed") "production timeout must preserve endpoint completion"
+  Assert-True ($productionIncomplete.http_status_class -ceq "success") "production timeout must preserve HTTP success"
+  Assert-True ($productionIncomplete.first_non_silent_audio_observation_class -ceq "not_observed") "production timeout must not claim audio"
+  Assert-True ($productionIncomplete.cleanup_class -ceq "controller_http_resources_disposed_endpoint_pcm_and_authority_clear") "production timeout cleanup mismatch"
+
+  $postCompletionVariant = New-ControllerPhaseVariant -Mode "post_completion_total_timeout"
+  $postCompletionReceipt = Join-Path $tempRoot "observer-post-completion.receipt.json"
+  $postCompletionServer = Start-TestServer -Response $positiveResponse
+  $postCompletionRun = Invoke-Controller `
+    -BaseUrl $postCompletionServer.BaseUrl `
+    -Scenario "independent_current_session_user_speech" `
+    -ControlledChromeRootPid 1 `
+    -AudioObserverWindowMs 100 `
+    -PreparationDeadlineMs 3000 `
+    -DeadlineMs 2000 `
+    -CdpEndpoint "http://127.0.0.1:9222/" `
+    -ObserverMode "success" `
+    -ObserverReceiptPath $postCompletionReceipt `
+    -ControllerOverridePath $postCompletionVariant `
+    -ProductionMode "success"
+  [void](Complete-TestServer -Server $postCompletionServer)
+  $postCompletion = Assert-CommonResult -Run $postCompletionRun
+  Assert-ObserverProcessReceipt -Path $postCompletionReceipt
+  Assert-True ($postCompletionRun.Code -ne 0) "post-completion total timeout must fail closed"
+  Assert-True ($postCompletion.blocker_class -ceq "post_completion_total_timeout") "post-completion timeout class mismatch"
+  Assert-True ($postCompletion.deadline_class -ceq "exceeded") "post-completion deadline mismatch"
+  Assert-True ($postCompletion.endpoint_completion_class -ceq "completed_response_observed") "post-completion timeout must preserve endpoint completion"
+  Assert-True ($postCompletion.http_status_class -ceq "success") "post-completion timeout must preserve HTTP success"
+  Assert-True ($postCompletion.first_non_silent_audio_observation_class -ceq "process_tree_render_observed") "post-completion timeout must preserve audio observation"
+  Assert-True ($postCompletion.cleanup_class -ceq "controller_http_resources_disposed_endpoint_pcm_and_authority_clear") "post-completion timeout cleanup mismatch"
+
   $positiveServer = Start-TestServer -Response $positiveResponse
   $positiveRun = Invoke-Controller `
     -BaseUrl $positiveServer.BaseUrl `
@@ -1162,7 +1376,7 @@ try {
   $sharedDeadline = Assert-CommonResult -Run $sharedDeadlineRun
   Assert-ObserverProcessZeroIdReceipt -Path $sharedDeadlineReceipt
   Assert-True ($sharedDeadlineRun.Code -ne 0) "combined arm and HTTP delay must fail closed"
-  Assert-True ($sharedDeadline.blocker_class -ceq "whole_route_timeout") "shared deadline blocker mismatch"
+  Assert-True ($sharedDeadline.blocker_class -ceq "candidate_window_http_timeout") "shared deadline phase mismatch"
   Assert-True ($sharedDeadline.controller_elapsed_ms -le 5100) "controller renewed the route deadline across blocking phases"
   Assert-True (
     $controllerSource.IndexOf($routeOperationElapsedStatement, [StringComparison]::Ordinal) -lt
@@ -1422,7 +1636,7 @@ try {
   [void](Complete-TestServer -Server $timeoutServer)
   $timeout = Assert-CommonResult -Run $timeoutRun
   Assert-True ($timeoutRun.Code -ne 0) "timeout must fail closed"
-  Assert-True ($timeout.blocker_class -ceq "whole_route_timeout") "timeout blocker mismatch"
+  Assert-True ($timeout.blocker_class -ceq "candidate_window_http_timeout") "timeout phase mismatch"
   Assert-True ($timeout.deadline_class -ceq "exceeded") "timeout deadline class mismatch"
   Assert-True ($timeout.endpoint_completion_class -ceq "unverified_after_transport_end") "timeout endpoint completion must remain unverified"
   Assert-True ($timeout.cleanup_class -ceq "controller_http_resources_disposed_endpoint_completion_unverified") "timeout cleanup must not claim endpoint completion"
