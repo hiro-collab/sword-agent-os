@@ -1232,7 +1232,13 @@ try {
   }
 
   if (-not $controllerProcess.WaitForExit(12000)) { Throw-Fixed -Class "live_controller_did_not_finish" }
-  if ($controllerProcess.ExitCode -ne 0) { Throw-Fixed -Class "live_controller_failed" }
+  if ($controllerProcess.ExitCode -ne 0) {
+    $terminalBlocker = Get-EarlyControllerBlockerClass -OutputPath $controllerOut
+    if (-not [string]::IsNullOrWhiteSpace($terminalBlocker)) {
+      Throw-Fixed -Class $terminalBlocker
+    }
+    Throw-Fixed -Class "live_controller_failed"
+  }
   $resultText = $(if (Test-Path -LiteralPath $controllerOut -PathType Leaf) {
       (Get-Content -Raw -LiteralPath $controllerOut).Trim()
     } else { "" })

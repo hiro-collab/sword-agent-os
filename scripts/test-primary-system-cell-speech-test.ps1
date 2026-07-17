@@ -249,7 +249,8 @@ foreach ($cleanupFailure in @(
   Assert-True ($source.Contains('"' + $cleanupFailure + '"')) "cleanup failure class must remain fixed: $cleanupFailure"
 }
 Assert-True ($source -match 'route_owned_processes_and_temp_cleared') "successful cleanup class must remain fixed"
-Assert-True ($source -match 'controllerProcess\.ExitCode\s+-ne\s+0[\s\S]+live_controller_failed') "nonzero controller completion must fail the runner"
+Assert-True ($source -match 'controllerProcess\.ExitCode\s+-ne\s+0[\s\S]{0,240}Get-EarlyControllerBlockerClass[\s\S]{0,240}Throw-Fixed\s+-Class\s+\$terminalBlocker[\s\S]{0,240}live_controller_failed') `
+  "nonzero controller completion must preserve a validated fixed child blocker before generic failure"
 Assert-True ($source -match 'Get-RemainingBudgetMs[\s\S]+preparationStopwatch[\s\S]+postStartStopwatch') "preparation and post-start must use separate non-renewing clocks"
 Assert-True ($source -match 'Get-ListeningOwnerPids[\s\S]+Assert-PortsClear[\s\S]+Assert-PortOwnedByRoot') "fixed ports must fail closed and match launched lineage"
 Assert-True ($source -match 'SetEnvironmentVariable\("AI_TALK_CORE_WEB_TOKEN", \$previousCoreToken, "Process"\)') "process token must be restored on cleanup"
