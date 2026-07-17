@@ -39,14 +39,17 @@ $PowerShellCommand = Get-PowerShellCommand
 function Invoke-Checked {
   param(
     [Parameter(Mandatory = $true)][string[]]$Command,
-    [string]$WorkingDirectory = $RepoRoot
+    [string]$WorkingDirectory = $RepoRoot,
+    [switch]$SuppressOutput
   )
   Push-Location $WorkingDirectory
   $previousErrorActionPreference = $ErrorActionPreference
   $stdoutPath = [System.IO.Path]::GetTempFileName()
   $stderrPath = [System.IO.Path]::GetTempFileName()
   try {
-    Write-Host ("> {0}" -f ($Command -join " "))
+    if (-not $SuppressOutput) {
+      Write-Host ("> {0}" -f ($Command -join " "))
+    }
     $ErrorActionPreference = "Continue"
     & $Command[0] @($Command | Select-Object -Skip 1) > $stdoutPath 2> $stderrPath
     $exitCode = $LASTEXITCODE
@@ -57,8 +60,10 @@ function Invoke-Checked {
     if ($exitCode -ne 0 -and (Test-Path -LiteralPath $stderrPath -PathType Leaf)) {
       $output += @(Get-Content -LiteralPath $stderrPath)
     }
-    foreach ($line in @($output)) {
-      Write-Host $line
+    if (-not $SuppressOutput -or $exitCode -ne 0) {
+      foreach ($line in @($output)) {
+        Write-Host $line
+      }
     }
     if ($exitCode -ne 0) {
       throw "command failed with exit code ${exitCode}: $($Command -join ' ')"
@@ -554,6 +559,96 @@ function Test-ReadmeFirstRunGuidance {
     Assert-PathPresent -Path $absoluteDocPath
     $frontDoorSurface = "$frontDoorSurface`n$(Get-Content -Raw -LiteralPath $absoluteDocPath)"
   }
+  $operatePath = Join-Path $RepoRoot "docs\operate.md"
+  $operate = Get-Content -Raw -LiteralPath $operatePath
+  $organSources = Read-JsonFile -Path "manifests/organs/standard-sources.json"
+  $touchControllerSources = @(
+    $organSources.sources |
+      Where-Object { [string]$_.organ_id -eq "touchdesigner-ai-controller" }
+  )
+  if ($touchControllerSources.Count -ne 1) {
+    throw "standard organ sources should contain exactly one touchdesigner-ai-controller"
+  }
+  $touchControllerSource = $touchControllerSources[0]
+  $touchControllerPin = "fc82651fe2adcc14fed129d64e2fade6417df182"
+  $touchControllerTargetPath = "organs/display/touchdesigner-ai-controller"
+  if ([string]$touchControllerSource.commit -ne $touchControllerPin) {
+    throw "TouchDesigner public operator-flow assertions require manifest pin $touchControllerPin"
+  }
+  if ([string]$touchControllerSource.target_path -ne $touchControllerTargetPath) {
+    throw "TouchDesigner public operator-flow assertions require target path $touchControllerTargetPath"
+  }
+
+  Assert-TextMatch -Text $operate -Pattern "Separate projector output[\s\S]{0,120}canonical\s+public\s+browser-output route" -Message "operate docs should preserve the separate projector output flow"
+  Assert-TextMatch -Text $operate -Pattern "mode=stage-output[\s\S]{0,60}hud=0" -Message "operate docs should preserve the generated stage-output URL mode and hidden HUD"
+  Assert-TextMatch -Text $operate -Pattern 'actual title is `Projection Output`' -Message "operate docs should preserve the actual Projection Output popup title"
+  Assert-TextMatch -Text $operate -Pattern '`SELECT WINDOW`' -Message "operate docs should preserve the SELECT WINDOW operator label"
+  Assert-TextMatch -Text $operate -Pattern '`STOP OUTPUT`' -Message "operate docs should preserve the STOP OUTPUT operator label"
+  Assert-TextMatch -Text $operate -Pattern "accepts no audio, permits only a browser or window\s+surface" -Message "operate docs should preserve the browser/window-only video capture boundary"
+  Assert-TextMatch -Text $operate -Pattern "verifies the selected stage identity before streaming" -Message "operate docs should preserve selected capture-source identity verification"
+  Assert-TextMatch -Text $operate -Pattern 'Closing the output window[\s\S]{0,120}ending browser sharing[\s\S]{0,120}terminates the owned capture' -Message "operate docs should preserve non-operator capture terminal paths"
+  Assert-TextMatch -Text $operate -Pattern 'A successful browser output is runtime evidence\s+only\.[\s\S]{0,160}Real-projector brightness, color, readability, and U1 acceptance remain a\s+separate physical and human check' -Message "operate docs should not promote browser output to physical-projector or U1 proof"
+  $stopOutputPosition = $operate.IndexOf('`STOP OUTPUT`', [System.StringComparison]::Ordinal)
+  $broaderRuntimeStopPosition = $operate.IndexOf(
+    "stopping the runtime",
+    [Math]::Max(0, $stopOutputPosition),
+    [System.StringComparison]::Ordinal
+  )
+  if (
+    $stopOutputPosition -lt 0 -or
+    $broaderRuntimeStopPosition -lt 0 -or
+    $stopOutputPosition -ge $broaderRuntimeStopPosition
+  ) {
+    throw "operate docs should place STOP OUTPUT before broader runtime stop guidance"
+  }
+
+  $touchControllerRepo = Resolve-RepoPath $touchControllerTargetPath
+  if (-not (Test-Path -LiteralPath (Join-Path $touchControllerRepo ".git"))) {
+    $message = "TouchDesigner checkout missing; pinned public-source blob assertions unavailable"
+    if ($RequireAssembledCheckouts) {
+      throw $message
+    }
+    Write-Warning "$message; exact manifest pin and operator-doc assertions retained"
+  }
+  else {
+    $touchControllerSafeDirectory = $touchControllerRepo -replace "\\", "/"
+    $pinnedPublicPaths = [ordered]@{
+      index = "tools/public/index.html"
+      server = "tools/server.js"
+      projector = "tools/public/projector.html"
+      capture = "tools/public/displayCaptureSession.js"
+    }
+    $pinnedPublicSource = @{}
+    foreach ($entry in $pinnedPublicPaths.GetEnumerator()) {
+      $pinnedPublicSource[$entry.Key] = (
+        Invoke-Checked -Command @(
+          "git",
+          "--no-replace-objects",
+          "-c",
+          "safe.directory=$touchControllerSafeDirectory",
+          "-C",
+          $touchControllerRepo,
+          "show",
+          "${touchControllerPin}:$($entry.Value)"
+        ) -SuppressOutput
+      ) -join "`n"
+    }
+
+    Assert-TextMatch -Text $pinnedPublicSource.index -Pattern '>Separate projector output<' -Message "pinned Display Runtime GUI should preserve the separate projector output flow"
+    Assert-TextMatch -Text $pinnedPublicSource.index -Pattern '>SELECT WINDOW<' -Message "pinned Display Runtime GUI should preserve the SELECT WINDOW label"
+    Assert-TextMatch -Text $pinnedPublicSource.index -Pattern '>STOP OUTPUT<' -Message "pinned Display Runtime GUI should preserve the STOP OUTPUT label"
+    Assert-TextMatch -Text $pinnedPublicSource.server -Pattern 'searchParams\.set\(''mode'', ''stage-output''\)[\s\S]{0,80}searchParams\.set\(''hud'', ''0''\)' -Message "pinned display server should generate stage-output mode with HUD disabled"
+    Assert-TextMatch -Text $pinnedPublicSource.projector -Pattern '<title>Projection Output</title>' -Message "pinned projector popup should use its actual Projection Output title"
+    Assert-TextNotMatch -Text $pinnedPublicSource.projector -Pattern '<title>Projector Output</title>' -Message "pinned projector popup should not drift to the inaccurate Projector Output title"
+    Assert-TextMatch -Text $pinnedPublicSource.capture -Pattern "ALLOWED_DISPLAY_SURFACES = new Set\(\['browser', 'window'\]\)" -Message "pinned capture should allow only browser and window display surfaces"
+    Assert-TextMatch -Text $pinnedPublicSource.capture -Pattern 'getDisplayMedia\(\{[\s\S]{0,80}video: true,[\s\S]{0,40}audio: false' -Message "pinned capture should request video only with no audio"
+    Assert-TextMatch -Text $pinnedPublicSource.capture -Pattern 'videoTracks\.length !== 1[\s\S]{0,120}audioTracks\.length !== 0' -Message "pinned capture should enforce exactly one video track and no audio tracks"
+    Assert-TextMatch -Text $pinnedPublicSource.capture -Pattern 'captureSourceIdentityLocked = true[\s\S]{0,700}capturehandlechange' -Message "pinned capture should lock and monitor the selected source identity"
+    Assert-TextMatch -Text $pinnedPublicSource.capture -Pattern "const stop = \(\) => \{[\s\S]{0,180}'operator_stopped'" -Message "pinned capture should preserve the operator STOP terminal path"
+    Assert-TextMatch -Text $pinnedPublicSource.capture -Pattern "onTrackEnded = \(\) => \{[\s\S]{0,100}'capture_ended'" -Message "pinned capture should preserve the selected-track-ended terminal path"
+    Assert-TextMatch -Text $pinnedPublicSource.capture -Pattern "projectorWindow\?\.closed[\s\S]{0,100}'projector_closed'" -Message "pinned capture should preserve the projector-close terminal path"
+    Assert-TextMatch -Text $pinnedPublicSource.capture -Pattern "onOwnerUnload = \(\) => \{[\s\S]{0,100}'owner_unloaded'" -Message "pinned capture should preserve the owner-unload terminal path"
+  }
   Assert-TextMatch -Text $frontDoorSurface -Pattern "prepared local|準備済みローカル" -Message "front-door docs should describe prepared local inputs without requiring private folder names"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "_secret_inputs.*product convention|製品として特定のフォルダ名を要求しません" -Message "front-door docs should not make _secret_inputs look like a required product convention"
   Assert-TextMatch -Text $frontDoorSurface -Pattern "First Success" -Message "front-door docs should include the first-success path"
@@ -970,15 +1065,18 @@ function Test-ReadmeFirstRunGuidance {
   Assert-TextNotMatch -Text $preparedSamplePlaybackCollector -Pattern 'Set-AudioDevice|SetDefaultEndpoint|SoundVolumeView' -Message "prepared-sample playback collector should not mutate Windows default audio roles"
   Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "browser_microphone_permission_or_device_unavailable[\s\S]{0,600}browser_audio_input_track_not_live[\s\S]{0,600}browser_audio_output_device_unavailable" -Message "prepared-sample playback collector should fail closed on missing input, non-live track, or missing output"
   Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "clearPrivateProcessEnvironment\(\)[\s\S]{0,800}privateValues\[key\] = ''" -Message "prepared-sample playback collector should clear inherited private environment and retained values before exit"
-  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "--use-fake-ui-for-media-stream" -Message "prepared-sample playback collector may suppress only the microphone permission prompt"
+  Assert-TextNotMatch -Text $preparedSamplePlaybackCollector -Pattern "--use-fake-ui-for-media-stream" -Message "prepared-sample playback collector should not bypass browser permission UI with a launch flag"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "grantPermissions\(\['microphone'\]," -Message "prepared-sample playback collector should grant only microphone permission through the owned browser context"
   Assert-TextNotMatch -Text $preparedSamplePlaybackCollector -Pattern "--use-fake-device-for-media-stream" -Message "prepared-sample playback collector should not replace the real browser microphone input"
-  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "parent_preflight_mount_pending[\s\S]{0,2200}attach_external" -Message "prepared-sample playback collector should attach only after the bounded operator surface probe succeeds"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "parent_preflight_mount_pending" -Message "prepared-sample playback collector should require the canonical parent preflight marker"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "for \(let attempt = 0; attempt < probeAttempts; attempt \+= 1\)[\s\S]{0,2400}if \(!surfaceReady\)[\s\S]{0,900}serverMode: 'attach_external'" -Message "prepared-sample playback collector should attach only after the bounded operator surface probe succeeds"
   Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "Get-NetTCPConnection[\s\S]{0,1600}CreationDate\.ToUniversalTime\(\)\.Ticks" -Message "prepared-sample playback collector should inspect one loopback listener PID and start identity"
   Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "parseOperatorServerIdentity[\s\S]{0,500}owned:\(\\d\{1,10\}\):\(\\d\{1,19\}\)" -Message "prepared-sample playback collector should parse only a bounded PID/start identity"
-  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern 'ParentProcessId[\s\S]{0,2600}node_modules\\\\next\\\\dist\\\\server\\\\lib\\\\start-server[\s\S]{0,800}\$owned=\$directOwned -or \$sealedChild' -Message "prepared-sample playback collector should accept only the direct Next dev owner or its sealed listener child"
-  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "initialIdentity = await inspectOwner\(\)[\s\S]{0,900}confirmedIdentity = await inspectOwner\(\)[\s\S]{0,500}sameOperatorServerIdentity" -Message "prepared-sample playback collector should reject an owner swap during external surface probing"
-  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "adapter\.revalidateExternalServer\(\)[\s\S]{0,240}adapter\.fillExpectedText" -Message "prepared-sample playback collector should revalidate external owner identity before private expected-text use"
-  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "async revalidateExternalServer\(\)[\s\S]{0,420}sameOperatorServerIdentity" -Message "prepared-sample playback collector should compare the current external owner with the retained PID/start identity"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern 'node_modules\\\\next\\\\dist\\\\server\\\\lib\\\\start-server[\s\S]{0,3000}ParentProcessId' -Message "prepared-sample playback collector should bind the sealed listener child contract to the canonical Next start-server module before reading its parent"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern 'ParentProcessId[\s\S]{0,1200}\$sealedChild=[\s\S]{0,500}\$owned=\$directOwned -or \$sealedChild' -Message "prepared-sample playback collector should accept only the direct Next dev owner or its sealed listener child"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "initialIdentity = await inspectOwner\(signal\)[\s\S]{0,800}currentIdentity = await inspectOwner\(signal\)[\s\S]{0,300}sameOperatorServerIdentity\(initialIdentity, currentIdentity\)[\s\S]{0,700}confirmedIdentity = await inspectOwner\(signal\)[\s\S]{0,300}sameOperatorServerIdentity\(initialIdentity, confirmedIdentity\)" -Message "prepared-sample playback collector should reject an owner swap during external surface probing"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "adapter\.revalidateExternalServer\(\{ signal \}\)[\s\S]{0,500}adapter\.fillExpectedText" -Message "prepared-sample playback collector should revalidate external owner identity before private expected-text use"
+  Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "async revalidateExternalServer\(\{ signal = null \} = \{\}\)[\s\S]{0,500}sameOperatorServerIdentity" -Message "prepared-sample playback collector should compare the current external owner with the retained PID/start identity"
   Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "serverMode = resolution\.serverMode[\s\S]{0,200}externalServerIdentity = resolution\.externalServerIdentity[\s\S]{0,200}serverMode === 'attach_external'" -Message "prepared-sample playback collector should retain external owner identity while preserving an attached Next server"
   Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "stopTrackedServer\(\{ serverMode, serverChild \}\)[\s\S]{0,200}externalServerIdentity = null" -Message "prepared-sample playback collector should clear external identity only through tracked server cleanup"
   Assert-TextMatch -Text $preparedSamplePlaybackCollector -Pattern "stopOwnedProcess[\s\S]{0,600}serverChild\.kill\(\)[\s\S]{0,220}serverChild\.kill\('SIGKILL'\)" -Message "prepared-sample playback collector should clear owned Next tracking only after bounded exit confirmation"
