@@ -129,15 +129,34 @@ Assert-True ($threeRunStopwatch.ElapsedMilliseconds -lt 1000) "three machine-onl
 
 $negativeOrder = [Collections.Generic.List[string]]::new()
 Invoke-UnattendedSelfOutputSequence `
-  -StartControllerAndWaitForSystemOutputTriggerReady { $negativeOrder.Add("listener") } `
+  -StartControllerAndWaitForSystemOutputTriggerReady { $negativeOrder.Add("listener_ready") } `
+  -StartPostStartDeadline { $negativeOrder.Add("post_start_deadline") } `
   -TriggerSystemOutput {
-    $negativeOrder.Add("system_output_dispatched_once")
+    $negativeOrder.Add("dispatch_once")
     return "system_output_dispatched_once"
   } `
   -WaitForSuppressionWindowReady { $negativeOrder.Add("suppression_window_ready") }
 Assert-Equal ($negativeOrder -join ",") `
-  "listener,system_output_dispatched_once,suppression_window_ready" `
+  "listener_ready,post_start_deadline,dispatch_once,suppression_window_ready" `
   "unattended negative sequence must start without user wait or cue"
+
+$initialReadinessFailureOrder = [Collections.Generic.List[string]]::new()
+Assert-FixedFailure {
+  Invoke-UnattendedSelfOutputSequence `
+    -StartControllerAndWaitForSystemOutputTriggerReady {
+      $initialReadinessFailureOrder.Add("listener_ready_failed")
+      Throw-Fixed -Class "system_output_trigger_signal_unavailable"
+    } `
+    -StartPostStartDeadline { $initialReadinessFailureOrder.Add("post_start_deadline") } `
+    -TriggerSystemOutput {
+      $initialReadinessFailureOrder.Add("dispatch_once")
+      return "system_output_dispatched_once"
+    } `
+    -WaitForSuppressionWindowReady { $initialReadinessFailureOrder.Add("suppression_window_ready") }
+} "system_output_trigger_signal_unavailable" "initial readiness failure must stop before the post-start clock"
+Assert-Equal ($initialReadinessFailureOrder -join ",") `
+  "listener_ready_failed" `
+  "post-start clock, dispatch, and suppression wait must not run before initial readiness"
 
 $earlyTriggerOrder = [Collections.Generic.List[string]]::new()
 Assert-FixedFailure {
@@ -254,6 +273,23 @@ Assert-True ($source -match 'route_owned_processes_and_temp_cleared') "successfu
 Assert-True ($source -match 'controllerProcess\.ExitCode\s+-ne\s+0[\s\S]{0,240}Get-EarlyControllerBlockerClass[\s\S]{0,240}Throw-Fixed\s+-Class\s+\$terminalBlocker[\s\S]{0,240}live_controller_failed') `
   "nonzero controller completion must preserve a validated fixed child blocker before generic failure"
 Assert-True ($source -match 'Get-RemainingBudgetMs[\s\S]+preparationStopwatch[\s\S]+postStartStopwatch') "preparation and post-start must use separate non-renewing clocks"
+$postStartDeadlineAssignments = [regex]::Matches($source, '\$script:postStartDeadlineMs\s*=\s*(\d+)')
+Assert-Equal $postStartDeadlineAssignments.Count 2 "positive and unattended modes must each set one post-start deadline"
+foreach ($assignment in $postStartDeadlineAssignments) {
+  Assert-Equal $assignment.Groups[1].Value "10000" "post-start maximum must remain exactly 10000 ms without extension"
+}
+$unattendedCallIndex = $source.LastIndexOf('Invoke-UnattendedSelfOutputSequence `')
+$unattendedReadyIndex = $source.LastIndexOf('-StartControllerAndWaitForSystemOutputTriggerReady $startControllerAndWait')
+$unattendedClockIndex = $source.LastIndexOf('-StartPostStartDeadline {')
+$unattendedDispatchIndex = $source.LastIndexOf('-TriggerSystemOutput $triggerSystemOutput')
+$unattendedSuppressionIndex = $source.LastIndexOf('-WaitForSuppressionWindowReady {')
+Assert-True (
+  ($unattendedCallIndex -ge 0) -and
+  ($unattendedReadyIndex -gt $unattendedCallIndex) -and
+  ($unattendedClockIndex -gt $unattendedReadyIndex) -and
+  ($unattendedDispatchIndex -gt $unattendedClockIndex) -and
+  ($unattendedSuppressionIndex -gt $unattendedDispatchIndex)
+) "unattended source order must be readiness, post-start deadline, dispatch, then suppression wait"
 Assert-True ($source -match 'Get-ListeningOwnerPids[\s\S]+Assert-PortsClear[\s\S]+Assert-PortOwnedByRoot') "fixed ports must fail closed and match launched lineage"
 Assert-True ($source -match 'SetEnvironmentVariable\("AI_TALK_CORE_WEB_TOKEN", \$previousCoreToken, "Process"\)') "process token must be restored on cleanup"
 Assert-True (-not $source.Contains("PRIVATE_")) "tracked runner must not contain a private marker"

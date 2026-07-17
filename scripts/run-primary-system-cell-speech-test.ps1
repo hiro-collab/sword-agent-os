@@ -955,10 +955,12 @@ function Invoke-UserSessionSequence {
 function Invoke-UnattendedSelfOutputSequence {
   param(
     [Parameter(Mandatory = $true)][scriptblock]$StartControllerAndWaitForSystemOutputTriggerReady,
+    [Parameter(Mandatory = $true)][scriptblock]$StartPostStartDeadline,
     [Parameter(Mandatory = $true)][scriptblock]$TriggerSystemOutput,
     [Parameter(Mandatory = $true)][scriptblock]$WaitForSuppressionWindowReady
   )
   [void](& $StartControllerAndWaitForSystemOutputTriggerReady)
+  [void](& $StartPostStartDeadline)
   $dispatch = & $TriggerSystemOutput
   if ($dispatch -cne "system_output_dispatched_once") {
     Throw-Fixed -Class "test_ui_dispatch_not_ready"
@@ -1256,10 +1258,12 @@ try {
         })
       }
   } else {
-    $postStartStopwatch = [Diagnostics.Stopwatch]::StartNew()
-    $postStartDeadlineMs = 10000
     Invoke-UnattendedSelfOutputSequence `
       -StartControllerAndWaitForSystemOutputTriggerReady $startControllerAndWait `
+      -StartPostStartDeadline {
+        $script:postStartStopwatch = [Diagnostics.Stopwatch]::StartNew()
+        $script:postStartDeadlineMs = 10000
+      } `
       -TriggerSystemOutput $triggerSystemOutput `
       -WaitForSuppressionWindowReady {
         Wait-ControllerSignal -Process $controllerProcess -OutputPath $controllerOut `
