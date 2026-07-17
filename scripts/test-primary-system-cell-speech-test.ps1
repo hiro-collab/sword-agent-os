@@ -49,7 +49,17 @@ Assert-Equal `
   "projection_owner_prepare_timeout" `
   "fixed owner preparation class must survive parent normalization"
 foreach ($stageClass in @(
+    "projection_owner_target_discovery_failed",
+    "projection_owner_target_readiness_failed",
+    "projection_owner_target_selection_failed",
+    "projection_owner_cdp_connect_failed",
+    "projection_owner_input_hydration_failed",
     "projection_owner_input_hydration_timeout",
+    "projection_owner_reload_command_failed",
+    "projection_owner_reload_command_timeout",
+    "projection_owner_reload_observation_failed",
+    "projection_owner_reload_observation_timeout",
+    "projection_owner_observer_arm_failed",
     "projection_owner_observer_arm_timeout")) {
   Assert-Equal `
     (Resolve-ProjectionOwnerPrepareClass -Value ([pscustomobject]@{
@@ -260,8 +270,11 @@ Assert-True ($source -match 'ready_for_self_output_suppression_window[\s\S]{0,26
 Assert-True ($source -match '\$script:testDispatchCount\s*=\s*1[\s\S]+test_dispatch_count\s*=\s*\$testDispatchCount') `
   "terminal blocker output must preserve the actual bounded UI dispatch count"
 Assert-True ($source -match 'api/stop[\s\S]+api/shutdown[\s\S]+TerminateAndWait') "standard stop must precede Job-owned process cleanup"
+Assert-True ($source -match 'api/stop[\s\S]+api/shutdown[\s\S]+Complete-OwnedRouteCleanup') "standard stop and shutdown must precede final owned cleanup"
 Assert-True ($source -match 'CleanupStopTimeoutSeconds\s*=\s*70[\s\S]+api/stop[\s\S]{0,240}-TimeoutMs\s+\(\$CleanupStopTimeoutSeconds\s*\*\s*1000\)') "standard stop must receive the bounded launcher-compatible timeout"
 Assert-True ($source -match '\$stopResult\.ok\s+-isnot\s+\[bool\][\s\S]{0,120}cleanup_incomplete') "non-successful standard stop response must fail cleanup closed"
+Assert-True ($source -match '\$launcherStackStateDir\s*=\s*Join-Path\s+\$runRoot\s+"launcher-stack-state"[\s\S]{0,320}"-StackStateDir",\s*\$launcherStackStateDir') "Launcher state must be isolated under the marked run root"
+Assert-True ($source -match 'Get-NetTCPConnection\s+-State\s+Listen\s+-ErrorAction\s+Stop') "final route port inspection must fail closed on inspection errors"
 Assert-True ($source -match 'cleanup_failure_class\s*=\s*\$cleanupFailureClass') "cleanup output must publish only the fixed failure class"
 foreach ($cleanupFailure in @(
     "launcher_standard_stop_failed", "launcher_shutdown_failed",
@@ -270,6 +283,7 @@ foreach ($cleanupFailure in @(
   Assert-True ($source.Contains('"' + $cleanupFailure + '"')) "cleanup failure class must remain fixed: $cleanupFailure"
 }
 Assert-True ($source -match 'route_owned_processes_and_temp_cleared') "successful cleanup class must remain fixed"
+Assert-True ($source -match 'route_owned_processes_and_temp_cleared_by_owned_job_recovery') "recovered cleanup must state owned Job recovery explicitly"
 Assert-True ($source -match 'controllerProcess\.ExitCode\s+-ne\s+0[\s\S]{0,240}Throw-Fixed\s+-Class[\s\S]{0,240}Resolve-ControllerNonzeroExitClass') `
   "nonzero controller completion must use the tri-state fixed terminal resolver"
 Assert-True ($source -match 'Get-RemainingBudgetMs[\s\S]+preparationStopwatch[\s\S]+postStartStopwatch') "preparation and post-start must use separate non-renewing clocks"
@@ -832,6 +846,212 @@ Start-Sleep -Milliseconds 2000
   }
   if ($null -ne $jobParent) { $jobParent.Dispose() }
   if ($null -ne $outsideProcess) { $outsideProcess.Dispose() }
+}
+
+function New-FakeOwnedCleanupJob {
+  param(
+    [bool]$TerminateResult = $true,
+    [int]$ActiveProcessCount = 0,
+    [switch]$DisposeFails
+  )
+  $job = [pscustomobject]@{
+    TerminateResult = $TerminateResult
+    ActiveProcessCount = $ActiveProcessCount
+    DisposeFails = [bool]$DisposeFails
+    TerminateCalls = 0
+    DisposeCalls = 0
+  }
+  $job | Add-Member -MemberType ScriptMethod -Name TerminateAndWait -Value {
+    param($TimeoutMs)
+    $this.TerminateCalls += 1
+    return [bool]$this.TerminateResult
+  }
+  $job | Add-Member -MemberType ScriptMethod -Name Dispose -Value {
+    $this.DisposeCalls += 1
+    if ($this.DisposeFails) { throw "injected dispose detail" }
+  }
+  return $job
+}
+
+function New-OwnedCleanupFixture {
+  param([switch]$InvalidMarker)
+  $base = Join-Path $tempRoot ("cleanup-fixture-" + [guid]::NewGuid().ToString("N"))
+  $ownedBase = Join-Path $base "owned"
+  [void][IO.Directory]::CreateDirectory($ownedBase)
+  $runId = [guid]::NewGuid().ToString("N")
+  $runRoot = Join-Path $ownedBase "primary-system-cell-speech-test-$runId"
+  [void][IO.Directory]::CreateDirectory($runRoot)
+  [IO.File]::WriteAllText(
+    (Join-Path $runRoot ".owned-run"),
+    $(if ($InvalidMarker) { "different-owner" } else { $runId }),
+    [Text.Encoding]::ASCII)
+  $stateDir = Join-Path $runRoot "launcher-stack-state"
+  [void][IO.Directory]::CreateDirectory($stateDir)
+  [IO.File]::WriteAllText((Join-Path $stateDir "pids.json"), "{}", [Text.Encoding]::ASCII)
+  return [pscustomobject]@{
+    OwnedBase = $ownedBase
+    RunId = $runId
+    RunRoot = $runRoot
+    StateDir = $stateDir
+  }
+}
+
+$earlyNoResourceCleanup = Complete-OwnedRouteCleanup `
+  -OwnedJob $null -Ports @(3000, 8799) `
+  -RunRoot $null -OwnedBase $null -RunId $null `
+  -LauncherCleanupFailureClass $null `
+  -PortsClearVerifier { param($Ports) if ($Ports.Count -ne 2) { throw "port set changed" } }
+Assert-Equal $earlyNoResourceCleanup.cleanup_class `
+  "route_owned_processes_and_temp_cleared" `
+  "legitimate no-resource cleanup without a launcher failure must remain successful"
+Assert-Equal $earlyNoResourceCleanup.cleanup_failure_class $null `
+  "legitimate no-resource cleanup must not invent a launcher failure"
+Assert-True (-not [bool]$earlyNoResourceCleanup.job_disposed) `
+  "legitimate no-resource cleanup must not claim Job disposal"
+
+$missingJobFixture = New-OwnedCleanupFixture
+$missingJobRemoveProbe = [pscustomobject]@{ Calls = 0 }
+$missingJobRootRemover = {
+  param($Path, $Base, $Id)
+  $missingJobRemoveProbe.Calls += 1
+}.GetNewClosure()
+$missingJobCleanup = Complete-OwnedRouteCleanup `
+  -OwnedJob $null -Ports @(3000, 8799) `
+  -RunRoot $missingJobFixture.RunRoot -OwnedBase $missingJobFixture.OwnedBase `
+  -RunId $missingJobFixture.RunId `
+  -LauncherCleanupFailureClass "launcher_standard_stop_failed" `
+  -PortsClearVerifier { param($Ports) } -RunRootRemover $missingJobRootRemover
+Assert-Equal $missingJobCleanup.cleanup_class "cleanup_incomplete" `
+  "standard stop failure without an owned Job must remain incomplete"
+Assert-Equal $missingJobCleanup.cleanup_failure_class "owned_job_cleanup_failed" `
+  "missing owned Job recovery proof must use a fixed failure class"
+Assert-Equal $missingJobRemoveProbe.Calls 0 `
+  "missing owned Job recovery proof must not invoke run-root deletion"
+Assert-True (Test-Path -LiteralPath $missingJobFixture.RunRoot) `
+  "missing owned Job recovery proof must retain the run root"
+
+foreach ($missingRootField in @("RunRoot", "OwnedBase", "RunId")) {
+  $missingRootFixture = New-OwnedCleanupFixture
+  $missingRootJob = New-FakeOwnedCleanupJob
+  $missingRootRemoveProbe = [pscustomobject]@{ Calls = 0 }
+  $missingRootRemover = {
+    param($Path, $Base, $Id)
+    $missingRootRemoveProbe.Calls += 1
+  }.GetNewClosure()
+  $missingRootArgs = @{
+    OwnedJob = $missingRootJob
+    Ports = @(3000, 8799)
+    RunRoot = $missingRootFixture.RunRoot
+    OwnedBase = $missingRootFixture.OwnedBase
+    RunId = $missingRootFixture.RunId
+    LauncherCleanupFailureClass = "launcher_standard_stop_failed"
+    PortsClearVerifier = { param($Ports) }
+    RunRootRemover = $missingRootRemover
+  }
+  $missingRootArgs[$missingRootField] = $null
+  $missingRootCleanup = Complete-OwnedRouteCleanup @missingRootArgs
+  Assert-Equal $missingRootCleanup.cleanup_class "cleanup_incomplete" `
+    "missing $missingRootField recovery proof must remain incomplete"
+  Assert-Equal $missingRootCleanup.cleanup_failure_class "run_root_cleanup_failed" `
+    "missing $missingRootField recovery proof must use a fixed failure class"
+  Assert-Equal $missingRootRemoveProbe.Calls 0 `
+    "missing $missingRootField recovery proof must not invoke run-root deletion"
+  Assert-True (Test-Path -LiteralPath $missingRootFixture.RunRoot) `
+    "missing $missingRootField recovery proof must retain the run root"
+  Assert-Equal $missingRootJob.TerminateCalls 1 `
+    "missing $missingRootField recovery proof must still terminate the owned Job"
+  Assert-Equal $missingRootJob.DisposeCalls 1 `
+    "missing $missingRootField recovery proof must still dispose the owned Job"
+}
+
+$recoveredFixture = New-OwnedCleanupFixture
+$recoveredJob = New-FakeOwnedCleanupJob
+$recoveredCleanup = Complete-OwnedRouteCleanup `
+  -OwnedJob $recoveredJob -Ports @(3000, 8799) `
+  -RunRoot $recoveredFixture.RunRoot -OwnedBase $recoveredFixture.OwnedBase `
+  -RunId $recoveredFixture.RunId `
+  -LauncherCleanupFailureClass "launcher_standard_stop_failed" `
+  -PortsClearVerifier { param($Ports) if ($Ports.Count -ne 2) { throw "port set changed" } }
+Assert-Equal $recoveredCleanup.cleanup_class `
+  "route_owned_processes_and_temp_cleared_by_owned_job_recovery" `
+  "standard stop failure must recover only through final owned proof"
+Assert-Equal $recoveredCleanup.cleanup_failure_class "launcher_standard_stop_failed" `
+  "recovered cleanup must retain the truthful standard stop failure"
+Assert-Equal $recoveredJob.TerminateCalls 1 "recovery must terminate the owned Job once"
+Assert-Equal $recoveredJob.DisposeCalls 1 "recovery must dispose the owned Job once"
+Assert-True (-not (Test-Path -LiteralPath $recoveredFixture.RunRoot)) `
+  "recovery must remove the isolated state and exact marked run root"
+
+foreach ($failureCase in @(
+    [pscustomobject]@{
+      Name = "terminate"
+      Job = (New-FakeOwnedCleanupJob -TerminateResult $false)
+      PortVerifier = { param($Ports) }
+      RootRemover = $null
+      ExpectedFailure = "owned_job_cleanup_failed"
+      InvalidMarker = $false
+    },
+    [pscustomobject]@{
+      Name = "active"
+      Job = (New-FakeOwnedCleanupJob -ActiveProcessCount 1)
+      PortVerifier = { param($Ports) }
+      RootRemover = $null
+      ExpectedFailure = "owned_job_cleanup_failed"
+      InvalidMarker = $false
+    },
+    [pscustomobject]@{
+      Name = "dispose"
+      Job = (New-FakeOwnedCleanupJob -DisposeFails)
+      PortVerifier = { param($Ports) }
+      RootRemover = $null
+      ExpectedFailure = "owned_job_cleanup_failed"
+      InvalidMarker = $false
+    },
+    [pscustomobject]@{
+      Name = "port inspection"
+      Job = (New-FakeOwnedCleanupJob)
+      PortVerifier = { param($Ports) throw "injected port detail" }
+      RootRemover = $null
+      ExpectedFailure = "route_port_cleanup_failed"
+      InvalidMarker = $false
+    },
+    [pscustomobject]@{
+      Name = "marker"
+      Job = (New-FakeOwnedCleanupJob)
+      PortVerifier = { param($Ports) }
+      RootRemover = $null
+      ExpectedFailure = "run_root_cleanup_failed"
+      InvalidMarker = $true
+    },
+    [pscustomobject]@{
+      Name = "removal"
+      Job = (New-FakeOwnedCleanupJob)
+      PortVerifier = { param($Ports) }
+      RootRemover = { param($Path, $Base, $Id) throw "injected removal detail" }
+      ExpectedFailure = "run_root_cleanup_failed"
+      InvalidMarker = $false
+    }
+  )) {
+  $fixture = New-OwnedCleanupFixture -InvalidMarker:$failureCase.InvalidMarker
+  $cleanupArgs = @{
+    OwnedJob = $failureCase.Job
+    Ports = @(3000, 8799)
+    RunRoot = $fixture.RunRoot
+    OwnedBase = $fixture.OwnedBase
+    RunId = $fixture.RunId
+    LauncherCleanupFailureClass = "launcher_standard_stop_failed"
+    PortsClearVerifier = $failureCase.PortVerifier
+  }
+  if ($null -ne $failureCase.RootRemover) {
+    $cleanupArgs.RunRootRemover = $failureCase.RootRemover
+  }
+  $failedCleanup = Complete-OwnedRouteCleanup @cleanupArgs
+  Assert-Equal $failedCleanup.cleanup_class "cleanup_incomplete" `
+    "$($failureCase.Name) invariant failure must remain incomplete"
+  Assert-Equal $failedCleanup.cleanup_failure_class $failureCase.ExpectedFailure `
+    "$($failureCase.Name) invariant failure must remain fixed"
+  Assert-True (Test-Path -LiteralPath $fixture.RunRoot) `
+    "$($failureCase.Name) invariant failure must retain the run root"
 }
 
 try {

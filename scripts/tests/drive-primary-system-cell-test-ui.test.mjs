@@ -46,8 +46,13 @@ function fakeSession({
   reloadCompleteSequence = null,
   dispatched = true,
   prepareHangs = false,
+  prepareError = null,
   armHangs = false,
+  armError = null,
   dispatchHangs = false,
+  dispatchError = null,
+  reloadError = null,
+  reloadObservationError = null,
   closeFails = false,
   closeErrorClass = null,
   closeHangs = false,
@@ -62,10 +67,12 @@ function fakeSession({
   return {
     arm: async () => {
       armCount += 1;
+      if (armError) throw new Error(armError);
       if (armHangs) return new Promise(() => {});
     },
     prepareFixedVoiceTestInput: async () => {
       operations.push("prepare_fixed_voice_test_input");
+      if (prepareError) throw new Error(prepareError);
       if (prepareHangs) return new Promise(() => {});
       const ready = Array.isArray(inputReadySequence)
         ? inputReadySequence[Math.min(inputReadyIndex, inputReadySequence.length - 1)]
@@ -78,10 +85,12 @@ function fakeSession({
     reloadFixedOwner: async () => {
       operations.push("reload_fixed_owner");
       reloadCount += 1;
+      if (reloadError) throw new Error(reloadError);
       if (reloadHangs) return new Promise(() => {});
     },
     isFixedOwnerReloadComplete: async () => {
       operations.push("check_fixed_owner_reload");
+      if (reloadObservationError) throw new Error(reloadObservationError);
       const complete = Array.isArray(reloadCompleteSequence)
         ? reloadCompleteSequence[
           Math.min(reloadCompleteIndex, reloadCompleteSequence.length - 1)
@@ -92,6 +101,7 @@ function fakeSession({
     },
     dispatchFixedVoiceTestInput: async () => {
       operations.push("dispatch_fixed_voice_test_input");
+      if (dispatchError) throw dispatchError;
       if (dispatchHangs) return new Promise(() => {});
       return { dispatched };
     },
@@ -276,6 +286,54 @@ test("a pending dispatch is bounded and the CDP session closes once", async () =
   assertFixedOutput(result);
 });
 
+test("ordinary dispatch trusts only structured allowlisted result classes", async (t) => {
+  const privateMarker = "private-ordinary-dispatch-detail";
+  const cases = [
+    {
+      name: "allowlisted-looking message without resultClass",
+      error: new Error("test_ui_dispatch_rejected"),
+      expected: "test_ui_driver_failed",
+      forbidden: ["test_ui_dispatch_rejected"],
+    },
+    {
+      name: "structured allowlisted resultClass",
+      error: Object.assign(new Error(`${privateMarker}-allowed`), {
+        resultClass: "test_ui_dispatch_rejected",
+      }),
+      expected: "test_ui_dispatch_rejected",
+      forbidden: [`${privateMarker}-allowed`],
+    },
+    {
+      name: "unknown private structured value",
+      error: Object.assign(new Error(`${privateMarker}-message`), {
+        resultClass: `${privateMarker}-value`,
+      }),
+      expected: "test_ui_driver_failed",
+      forbidden: [`${privateMarker}-message`, `${privateMarker}-value`],
+    },
+  ];
+  for (const entry of cases) {
+    await t.test(entry.name, async () => {
+      const session = fakeSession({ dispatchError: entry.error });
+      const result = await drivePrimarySystemCellTestUi({
+        cdpEndpoint: "http://127.0.0.1:9222/",
+        fetchImpl: fakeFetch(),
+        connectImpl: async () => session,
+        sleep: async () => {},
+      });
+      const serialized = JSON.stringify(result);
+      assert.equal(result.result_class, entry.expected);
+      assert.equal(result.ui_dispatch_count, 0);
+      assert.equal(result.cleanup_class, "cdp_session_released");
+      assert.equal(session.stats().closeCount, 1);
+      for (const forbidden of entry.forbidden) {
+        assert.equal(serialized.includes(forbidden), false);
+      }
+      assertFixedOutput(result);
+    });
+  }
+});
+
 test("cleanup failure replaces a successful dispatch", async () => {
   const result = await drivePrimarySystemCellTestUi({
     cdpEndpoint: "http://127.0.0.1:9222/",
@@ -296,14 +354,24 @@ test("fixed CDP cleanup stages survive without raw cleanup details", async (t) =
   ]);
   for (const [childClass, expectedClass] of cases) {
     await t.test(expectedClass, async () => {
+      const privateMessage = `private cleanup detail for ${childClass}`;
+      const cleanupError = new Error(privateMessage);
+      cleanupError.resultClass = childClass;
       const result = await ensurePrimarySystemCellProjectionOwner({
         cdpEndpoint: "http://127.0.0.1:9222/",
         fetchImpl: fakeFetch(),
-        connectImpl: async () => fakeSession({ closeErrorClass: childClass }),
+        connectImpl: async () => {
+          const session = fakeSession();
+          session.close = async () => {
+            throw cleanupError;
+          };
+          return session;
+        },
       });
       assert.equal(result.result_class, expectedClass);
       assert.equal(result.cleanup_class, expectedClass);
       assert.equal(result.ui_dispatch_count, 0);
+      assert.equal(JSON.stringify(result).includes(privateMessage), false);
       assertFixedOutput(result);
     });
   }
@@ -503,7 +571,7 @@ test("owner preparation times out and never arms while reload completion stays f
     now: () => currentTime,
     sleep: async (milliseconds) => { currentTime += milliseconds; },
   });
-  assert.equal(result.result_class, "projection_owner_input_hydration_timeout");
+  assert.equal(result.result_class, "projection_owner_reload_observation_timeout");
   assert.equal(result.elapsed_ms, 500);
   assert.equal(result.cleanup_class, "cdp_session_released");
   assert.equal(session.stats().reloadCount, 1);
@@ -513,6 +581,33 @@ test("owner preparation times out and never arms while reload completion stays f
     ).length,
     10,
   );
+  assert.equal(session.stats().armCount, 0);
+  assert.equal(session.stats().closeCount, 1);
+  assertFixedOutput(result);
+});
+
+test("a pending owner reload command has a distinct fixed timeout and is cleaned up", async () => {
+  const session = fakeSession({
+    inputReadySequence: [{
+      inputReady: false,
+      pageReloadRequired: true,
+    }],
+    reloadHangs: true,
+  });
+  const result = await ensurePrimarySystemCellProjectionOwner({
+    cdpEndpoint: "http://127.0.0.1:9222/",
+    timeoutMs: 500,
+    fetchImpl: fakeFetch(),
+    connectImpl: async () => session,
+    sleep: async () => {},
+  });
+  assert.equal(result.result_class, "projection_owner_reload_command_timeout");
+  assert.equal(result.ui_dispatch_count, 0);
+  assert.equal(result.elapsed_ms >= 450 && result.elapsed_ms <= 750, true);
+  assert.deepEqual(session.stats().operations, [
+    "prepare_fixed_voice_test_input",
+    "reload_fixed_owner",
+  ]);
   assert.equal(session.stats().armCount, 0);
   assert.equal(session.stats().closeCount, 1);
   assertFixedOutput(result);
@@ -578,6 +673,89 @@ test("owner preparation arms only after the fixed input is hydrated", async () =
     "close",
   ]);
   assertFixedOutput(result);
+});
+
+test("owner preparation maps dynamic operation failures to fixed private-safe stages", async (t) => {
+  const marker = "injected-sensitive-stage-detail";
+  const cases = [
+    {
+      name: "cdp connect",
+      expected: "projection_owner_cdp_connect_failed",
+      session: null,
+      connectImpl: async () => { throw new Error(`${marker}-connect`); },
+      expectedOperations: [],
+      expectedCloseCount: 0,
+      expectedArmCount: 0,
+    },
+    {
+      name: "input hydration",
+      expected: "projection_owner_input_hydration_failed",
+      session: fakeSession({ prepareError: `${marker}-hydrate` }),
+      expectedOperations: ["prepare_fixed_voice_test_input"],
+      expectedCloseCount: 1,
+      expectedArmCount: 0,
+    },
+    {
+      name: "reload command",
+      expected: "projection_owner_reload_command_failed",
+      session: fakeSession({
+        inputReadySequence: [{ inputReady: false, pageReloadRequired: true }],
+        reloadError: `${marker}-reload-command`,
+      }),
+      expectedOperations: [
+        "prepare_fixed_voice_test_input",
+        "reload_fixed_owner",
+      ],
+      expectedCloseCount: 1,
+      expectedArmCount: 0,
+    },
+    {
+      name: "reload observation",
+      expected: "projection_owner_reload_observation_failed",
+      session: fakeSession({
+        inputReadySequence: [{ inputReady: false, pageReloadRequired: true }],
+        reloadObservationError: `${marker}-reload-observation`,
+      }),
+      expectedOperations: [
+        "prepare_fixed_voice_test_input",
+        "reload_fixed_owner",
+        "check_fixed_owner_reload",
+      ],
+      expectedCloseCount: 1,
+      expectedArmCount: 0,
+    },
+    {
+      name: "observer arm",
+      expected: "projection_owner_observer_arm_failed",
+      session: fakeSession({ armError: `${marker}-arm` }),
+      expectedOperations: ["prepare_fixed_voice_test_input"],
+      expectedCloseCount: 1,
+      expectedArmCount: 1,
+    },
+  ];
+  for (const entry of cases) {
+    await t.test(entry.name, async () => {
+      const connectImpl = entry.connectImpl ?? (async () => entry.session);
+      const result = await ensurePrimarySystemCellProjectionOwner({
+        cdpEndpoint: "http://127.0.0.1:9222/",
+        timeoutMs: 500,
+        fetchImpl: fakeFetch(),
+        connectImpl,
+        sleep: async () => {},
+      });
+      assert.equal(result.result_class, entry.expected);
+      assert.equal(result.ui_dispatch_count, 0);
+      assert.equal(JSON.stringify(result).includes(marker), false);
+      if (entry.session) {
+        assert.deepEqual(entry.session.stats().operations, entry.expectedOperations);
+        assert.equal(entry.session.stats().closeCount, entry.expectedCloseCount);
+        assert.equal(entry.session.stats().armCount, entry.expectedArmCount);
+      } else {
+        assert.equal(entry.expectedCloseCount, 0);
+      }
+      assertFixedOutput(result);
+    });
+  }
 });
 
 test("owner preparation has a bounded 20 second cold-start budget only", async () => {

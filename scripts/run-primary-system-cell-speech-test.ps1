@@ -299,7 +299,12 @@ function Resolve-ProjectionOwnerPrepareClass {
     "projection_owner_page_missing", "projection_owner_page_multiple",
     "projection_owner_target_invalid", "projection_owner_target_create_failed",
     "projection_owner_prepare_timeout", "projection_owner_input_hydration_timeout",
+    "projection_owner_reload_command_timeout", "projection_owner_reload_observation_timeout",
     "projection_owner_observer_arm_timeout", "projection_owner_prepare_failed",
+    "projection_owner_target_discovery_failed", "projection_owner_target_readiness_failed",
+    "projection_owner_target_selection_failed", "projection_owner_cdp_connect_failed",
+    "projection_owner_input_hydration_failed", "projection_owner_reload_command_failed",
+    "projection_owner_reload_observation_failed", "projection_owner_observer_arm_failed",
     "test_ui_cleanup_incomplete", "test_ui_page_cleanup_command_failed",
     "test_ui_page_cleanup_state_invalid", "test_ui_socket_cleanup_incomplete"
   )
@@ -605,9 +610,16 @@ function Get-ListeningOwnerPids {
 }
 
 function Assert-PortsClear {
-  param([Parameter(Mandatory = $true)][int[]]$Ports)
+  param(
+    [Parameter(Mandatory = $true)][int[]]$Ports,
+    [scriptblock]$ListenerReader = {
+      @(Get-NetTCPConnection -State Listen -ErrorAction Stop)
+    }
+  )
+  try { $listeners = @(& $ListenerReader) }
+  catch { Throw-Fixed -Class "cleanup_incomplete" }
   foreach ($port in $Ports) {
-    if (@(Get-ListeningOwnerPids -Port $port).Count -ne 0) {
+    if (@($listeners | Where-Object { [int]$_.LocalPort -eq $port }).Count -ne 0) {
       Throw-Fixed -Class "route_port_preexisting"
     }
   }
@@ -687,6 +699,118 @@ function Remove-OwnedRunRoot {
   }
   Remove-Item -LiteralPath $resolvedPath -Recurse -Force
   if (Test-Path -LiteralPath $resolvedPath) { Throw-Fixed -Class "cleanup_incomplete" }
+}
+
+function Complete-OwnedRouteCleanup {
+  param(
+    [AllowNull()]$OwnedJob,
+    [Parameter(Mandatory = $true)][int[]]$Ports,
+    [AllowNull()][string]$RunRoot,
+    [AllowNull()][string]$OwnedBase,
+    [AllowNull()][string]$RunId,
+    [AllowNull()][string]$LauncherCleanupFailureClass,
+    [scriptblock]$PortsClearVerifier = {
+      param($ExpectedPorts)
+      Assert-PortsClear -Ports $ExpectedPorts
+    },
+    [scriptblock]$RunRootRemover = {
+      param($Path, $Base, $Id)
+      Remove-OwnedRunRoot -Path $Path -OwnedBase $Base -RunId $Id
+    }
+  )
+  $fixedLauncherFailure = $null
+  if (-not [string]::IsNullOrWhiteSpace($LauncherCleanupFailureClass)) {
+    if ($LauncherCleanupFailureClass -cnotin @(
+        "launcher_standard_stop_failed",
+        "launcher_shutdown_failed"
+      )) {
+      return [pscustomobject]@{
+        cleanup_class = "cleanup_incomplete"
+        cleanup_failure_class = "cleanup_unclassified"
+        job_disposed = $false
+      }
+    }
+    $fixedLauncherFailure = $LauncherCleanupFailureClass
+  }
+  $requiresStandardStopRecoveryProof =
+    $fixedLauncherFailure -ceq "launcher_standard_stop_failed"
+  $hasOwnedJobRecoveryProof = $null -ne $OwnedJob
+  $hasRunRoot = -not [string]::IsNullOrWhiteSpace($RunRoot)
+  $hasOwnedBase = -not [string]::IsNullOrWhiteSpace($OwnedBase)
+  $hasRunId = -not [string]::IsNullOrWhiteSpace($RunId)
+  $hasAnyRootTupleValue = $hasRunRoot -or $hasOwnedBase -or $hasRunId
+  $hasCompleteRootRecoveryProof = $hasRunRoot -and $hasOwnedBase -and $hasRunId
+
+  $jobDisposed = $false
+  try {
+    if ($null -ne $OwnedJob) {
+      if (-not $OwnedJob.TerminateAndWait(5000)) {
+        Throw-Fixed -Class "cleanup_incomplete"
+      }
+      if ($OwnedJob.ActiveProcessCount -ne 0) {
+        Throw-Fixed -Class "cleanup_incomplete"
+      }
+      $OwnedJob.Dispose()
+      $jobDisposed = $true
+    }
+  } catch {
+    return [pscustomobject]@{
+      cleanup_class = "cleanup_incomplete"
+      cleanup_failure_class = "owned_job_cleanup_failed"
+      job_disposed = $jobDisposed
+    }
+  }
+
+  try { [void](& $PortsClearVerifier $Ports) }
+  catch {
+    return [pscustomobject]@{
+      cleanup_class = "cleanup_incomplete"
+      cleanup_failure_class = "route_port_cleanup_failed"
+      job_disposed = $jobDisposed
+    }
+  }
+  if ($requiresStandardStopRecoveryProof -and -not $hasOwnedJobRecoveryProof) {
+    return [pscustomobject]@{
+      cleanup_class = "cleanup_incomplete"
+      cleanup_failure_class = "owned_job_cleanup_failed"
+      job_disposed = $jobDisposed
+    }
+  }
+  if ($requiresStandardStopRecoveryProof -and -not $hasCompleteRootRecoveryProof) {
+    return [pscustomobject]@{
+      cleanup_class = "cleanup_incomplete"
+      cleanup_failure_class = "run_root_cleanup_failed"
+      job_disposed = $jobDisposed
+    }
+  }
+
+  if ($hasAnyRootTupleValue -and -not $hasCompleteRootRecoveryProof) {
+    return [pscustomobject]@{
+      cleanup_class = "cleanup_incomplete"
+      cleanup_failure_class = "run_root_cleanup_failed"
+      job_disposed = $jobDisposed
+    }
+  }
+  if ($hasCompleteRootRecoveryProof) {
+    try { [void](& $RunRootRemover $RunRoot $OwnedBase $RunId) }
+    catch {
+      return [pscustomobject]@{
+        cleanup_class = "cleanup_incomplete"
+        cleanup_failure_class = "run_root_cleanup_failed"
+        job_disposed = $jobDisposed
+      }
+    }
+  }
+
+  return [pscustomobject]@{
+    cleanup_class = $(if ($null -ne $fixedLauncherFailure) {
+        "route_owned_processes_and_temp_cleared_by_owned_job_recovery"
+      } else {
+        "route_owned_processes_and_temp_cleared"
+      })
+    cleanup_failure_class = $fixedLauncherFailure
+    job_disposed = $jobDisposed
+  }
 }
 
 function Get-ChromeExecutable {
@@ -1059,9 +1183,11 @@ try {
   $tokenChanged = $true
 
   $launcherScript = Join-Path $resolvedRepo "control-plane\core\ops\scripts\home-control-stack\start-home-control-launcher.ps1"
+  $launcherStackStateDir = Join-Path $runRoot "launcher-stack-state"
   $launcherProcess = Start-OwnedProcessSuspended -Job $ownedJob -FilePath $pwshPath -ArgumentList @(
     "-NoLogo", "-NoProfile", "-File", $launcherScript,
-    "-WorkspaceRoot", $resolvedRepo, "-HostName", "127.0.0.1", "-Port", "8799"
+    "-WorkspaceRoot", $resolvedRepo, "-HostName", "127.0.0.1", "-Port", "8799",
+    "-StackStateDir", $launcherStackStateDir
   ) -StandardOutputPath (Join-Path $runRoot "launcher.out.log") `
     -StandardErrorPath (Join-Path $runRoot "launcher.err.log")
   $launcherIdentity = New-OwnedRootIdentity -Process $launcherProcess
@@ -1377,7 +1503,6 @@ try {
     test_dispatch_count = $testDispatchCount
   })
 } finally {
-  $launcherMutationOwnershipClear = $true
   if ($stackStarted -and $launcherOwnershipProven) {
     try {
       $stopResult = Invoke-OwnedLauncherMutation -RootIdentity $launcherIdentity -MutationInvoker {
@@ -1388,7 +1513,6 @@ try {
         Throw-Fixed -Class "cleanup_incomplete"
       }
     } catch {
-      $launcherMutationOwnershipClear = $false
       $cleanupFailureClass = "launcher_standard_stop_failed"
     }
   }
@@ -1402,49 +1526,20 @@ try {
         Throw-Fixed -Class "cleanup_incomplete"
       }
     } catch {
-      $launcherMutationOwnershipClear = $false
       if ($null -eq $cleanupFailureClass) {
         $cleanupFailureClass = "launcher_shutdown_failed"
       }
     }
   }
   if ($null -ne $userStartEvent) { $userStartEvent.Dispose() }
-  try {
-    if ($null -ne $ownedJob) {
-      if (-not $ownedJob.TerminateAndWait(5000)) {
-        if ($null -eq $cleanupFailureClass) { $cleanupFailureClass = "owned_job_cleanup_failed" }
-        Throw-Fixed -Class "cleanup_incomplete"
-      }
-      if ($ownedJob.ActiveProcessCount -ne 0) {
-        if ($null -eq $cleanupFailureClass) { $cleanupFailureClass = "owned_job_cleanup_failed" }
-        Throw-Fixed -Class "cleanup_incomplete"
-      }
-      $ownedJob.Dispose()
-      $ownedJob = $null
-    }
-    try { Assert-PortsClear -Ports $routePorts } catch {
-      if ($null -eq $cleanupFailureClass) { $cleanupFailureClass = "route_port_cleanup_failed" }
-      throw
-    }
-    if (-not $launcherMutationOwnershipClear) { Throw-Fixed -Class "cleanup_incomplete" }
-    if ($tokenChanged) {
-      [Environment]::SetEnvironmentVariable("AI_TALK_CORE_WEB_TOKEN", $previousCoreToken, "Process")
-      $tokenChanged = $false
-      $previousCoreToken = $null
-    }
-    if ($null -ne $runRoot -and $null -ne $ownedBase) {
-      try {
-        Remove-OwnedRunRoot -Path $runRoot -OwnedBase $ownedBase -RunId $ownedRunId
-      } catch {
-        if ($null -eq $cleanupFailureClass) { $cleanupFailureClass = "run_root_cleanup_failed" }
-        throw
-      }
-    }
-    $cleanupClass = "route_owned_processes_and_temp_cleared"
-    $cleanupFailureClass = $null
-  } catch {
-    $cleanupClass = "cleanup_incomplete"
-    if ($null -eq $cleanupFailureClass) { $cleanupFailureClass = "cleanup_unclassified" }
+  $finalCleanup = Complete-OwnedRouteCleanup `
+    -OwnedJob $ownedJob -Ports $routePorts -RunRoot $runRoot `
+    -OwnedBase $ownedBase -RunId $ownedRunId `
+    -LauncherCleanupFailureClass $cleanupFailureClass
+  if ([bool]$finalCleanup.job_disposed) { $ownedJob = $null }
+  $cleanupClass = [string]$finalCleanup.cleanup_class
+  $cleanupFailureClass = $finalCleanup.cleanup_failure_class
+  if ($cleanupClass -ceq "cleanup_incomplete") {
     if ($terminalClass -cne "preparation_or_live_blocked") {
       $terminalClass = "preparation_or_live_blocked"
       $blockerClass = "cleanup_incomplete"
