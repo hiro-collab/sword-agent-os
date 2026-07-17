@@ -1024,7 +1024,10 @@ function Get-EarlyControllerBlockerClass {
     "visible_response_not_observed", "production_transport_unavailable",
     "production_transport_not_completed", "user_start_event_unavailable",
     "prepared_hold_expired", "live_controller_failed",
-    "candidate_window_http_timeout", "production_transport_completion_timeout",
+    "candidate_window_http_timeout",
+    "production_transport_before_cooldown_ack_timeout",
+    "production_transport_cooldown_ack_before_release_ack_timeout",
+    "production_transport_release_ack_before_exit_timeout",
     "post_completion_total_timeout", "whole_route_timeout",
     "cleanup_incomplete")
   $allowedBlockedResults = @(Get-AllowedControllerBlockedResultClasses)
@@ -1048,11 +1051,30 @@ function Get-EarlyControllerBlockerClass {
         [string]$value.cleanup_class -ceq
           "controller_http_resources_disposed_endpoint_completion_unverified"
       }
-      "production_transport_completion_timeout" {
+      "production_transport_before_cooldown_ack_timeout" {
         [string]$value.deadline_class -ceq "exceeded" -and
         [string]$value.endpoint_completion_class -ceq "completed_response_observed" -and
         [string]$value.http_status_class -ceq "success" -and
-        [string]$value.first_non_silent_audio_observation_class -ceq "not_observed" -and
+        [string]$value.first_non_silent_audio_observation_class -ceq
+          "process_tree_render_observed" -and
+        [string]$value.cleanup_class -ceq
+          "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
+      }
+      "production_transport_cooldown_ack_before_release_ack_timeout" {
+        [string]$value.deadline_class -ceq "exceeded" -and
+        [string]$value.endpoint_completion_class -ceq "completed_response_observed" -and
+        [string]$value.http_status_class -ceq "success" -and
+        [string]$value.first_non_silent_audio_observation_class -ceq
+          "process_tree_render_observed" -and
+        [string]$value.cleanup_class -ceq
+          "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
+      }
+      "production_transport_release_ack_before_exit_timeout" {
+        [string]$value.deadline_class -ceq "exceeded" -and
+        [string]$value.endpoint_completion_class -ceq "completed_response_observed" -and
+        [string]$value.http_status_class -ceq "success" -and
+        [string]$value.first_non_silent_audio_observation_class -ceq
+          "process_tree_render_observed" -and
         [string]$value.cleanup_class -ceq
           "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
       }
@@ -1643,7 +1665,10 @@ try {
     "live_controller_endpoint_cleanup_incomplete", "visible_response_observer_unavailable",
     "visible_response_not_observed", "production_transport_unavailable",
     "production_transport_not_completed", "user_start_event_unavailable",
-    "candidate_window_http_timeout", "production_transport_completion_timeout",
+    "candidate_window_http_timeout",
+    "production_transport_before_cooldown_ack_timeout",
+    "production_transport_cooldown_ack_before_release_ack_timeout",
+    "production_transport_release_ack_before_exit_timeout",
     "post_completion_total_timeout", "whole_route_timeout"
   ) + @(Get-AllowedControllerBlockedResultClasses)
   $candidateBlocker = [string]$_.Exception.Message

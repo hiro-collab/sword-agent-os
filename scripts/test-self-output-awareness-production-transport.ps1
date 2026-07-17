@@ -222,7 +222,7 @@ function New-FakeObserverProcess {
 
 function New-ControlledRouteHarness {
   param(
-    [ValidateSet("success", "future_derived_wall", "delayed_start", "released_restart_lower_generation", "superseded_generation", "superseded_generation_silent_new", "history_overflow", "ordinal_gap", "lease_mismatch", "stale_replay", "ack_unknown", "timeout")]
+    [ValidateSet("success", "future_derived_wall", "delayed_start", "released_restart_lower_generation", "superseded_generation", "superseded_generation_silent_new", "history_overflow", "ordinal_gap", "lease_mismatch", "stale_replay", "ack_unknown", "cooldown_ack_unknown", "released_ack_unknown", "timeout")]
     [string]$Mode
   )
   $state = [pscustomobject]@{
@@ -232,6 +232,7 @@ function New-ControlledRouteHarness {
     ObserverStartCount = 0
     ListenerReadyCount = 0
     ArmedCount = 0
+    StageOrder = [Collections.ArrayList]::new()
     LastObserverResult = $null
     ObserverProcess = $null
     ObserverProcesses = [Collections.ArrayList]::new()
@@ -296,7 +297,11 @@ function New-ControlledRouteHarness {
     Assert-Equal $Token "fixed-test-core-token" "Core request uses expected token"
     $copy = ($Body | ConvertTo-Json -Depth 8 -Compress) | ConvertFrom-Json -Depth 8
     [void]$state.CoreBodies.Add($copy)
-    if ($Mode -ceq "ack_unknown" -and $state.CoreBodies.Count -eq 1) {
+    if (
+      ($Mode -ceq "ack_unknown" -and $state.CoreBodies.Count -eq 1) -or
+      ($Mode -ceq "cooldown_ack_unknown" -and $state.CoreBodies.Count -eq 3) -or
+      ($Mode -ceq "released_ack_unknown" -and $state.CoreBodies.Count -eq 4)
+    ) {
       throw [Net.Http.HttpRequestException]::new("fixed-test-ambiguous-dispatch")
     }
     return New-CoreAcknowledgement -RequestBody $Body
@@ -596,6 +601,17 @@ $armedCallback = {
   Assert-Equal (@($successHarness.State.CoreBodies | ForEach-Object event) -join ",") "swordAgentSystemSpeechLifecycleV0,audioSelfOutputObservationV0" "ready proves the matching active join"
   $successHarness.State.ArmedCount += 1
 }.GetNewClosure()
+$stageResetCallback = {
+  [void]$successHarness.State.StageOrder.Add("reset")
+}.GetNewClosure()
+$cooldownAckCallback = {
+  Assert-Equal $successHarness.State.CoreBodies[$successHarness.State.CoreBodies.Count - 1].payload.lifecycle_state "cooldown" "cooldown signal follows matching Core ACK"
+  [void]$successHarness.State.StageOrder.Add("cooldown_acknowledged")
+}.GetNewClosure()
+$releasedAckCallback = {
+  Assert-Equal $successHarness.State.CoreBodies[$successHarness.State.CoreBodies.Count - 1].payload.lifecycle_state "released" "released signal follows matching Core ACK"
+  [void]$successHarness.State.StageOrder.Add("released_acknowledged")
+}.GetNewClosure()
 $successRoute = Invoke-ProductionTransportRoute `
   -RouteAitBaseUrl "http://127.0.0.1:3000" `
   -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" `
@@ -607,6 +623,9 @@ $successRoute = Invoke-ProductionTransportRoute `
   -SleepInvoker $successHarness.SleepInvoker `
   -ListenerReadyCallback $listenerReadyCallback `
   -ArmedCallback $armedCallback `
+  -StageResetCallback $stageResetCallback `
+  -CooldownAckCallback $cooldownAckCallback `
+  -ReleasedAckCallback $releasedAckCallback `
   -CoreTokenOverride "fixed-test-core-token"
 Assert-Equal $successRoute.ExitCode 0 "controlled success route exits clear"
 Assert-Equal $successRoute.Value.lifecycle_ingest_count 3 "controlled success acknowledges three lifecycle events"
@@ -618,6 +637,7 @@ Assert-Equal (@($successHarness.State.CoreBodies | ForEach-Object event) -join "
 Assert-Equal $successHarness.State.ObserverStartCount 1 "controlled success starts one observer"
 Assert-Equal $successHarness.State.ListenerReadyCount 1 "controlled success reports listener readiness exactly once"
 Assert-Equal $successHarness.State.ArmedCount 1 "controlled success reports overlap join exactly once"
+Assert-Equal ($successHarness.State.StageOrder -join ",") "reset,cooldown_acknowledged,released_acknowledged" "stage signals follow strict lifecycle validation and matching Core ACKs"
 Assert-Equal $successRoute.Value.overlap_join_ready_class "overlap_join_ready" "controlled success reports the fixed overlap-ready class"
 Assert-Equal $successHarness.State.ObserverProcess.DisposeCount 1 "controlled success disposes observer"
 Assert-Equal $successRoute.Value.first_non_silent_observed_at_utc_ms `
@@ -795,6 +815,24 @@ $unknownHarness = New-ControlledRouteHarness -Mode "ack_unknown"
 $unknownRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $unknownHarness.RequestInvoker -ObserverStarter $unknownHarness.ObserverStarter -SleepInvoker $unknownHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"
 Assert-Equal $unknownRoute.Value.lifecycle_ingest_count $null "ambiguous Core dispatch does not claim zero lifecycle ingest"
 Assert-Equal $unknownRoute.Value.lifecycle_ingest_outcome_class "dispatched_ack_unknown" "ambiguous Core dispatch is explicit"
+
+$cooldownUnknownHarness = New-ControlledRouteHarness -Mode "cooldown_ack_unknown"
+$cooldownUnknownStages = [Collections.ArrayList]::new()
+$cooldownUnknownReset = { [void]$cooldownUnknownStages.Add("reset") }.GetNewClosure()
+$cooldownUnknownAck = { [void]$cooldownUnknownStages.Add("cooldown") }.GetNewClosure()
+$cooldownUnknownReleased = { [void]$cooldownUnknownStages.Add("released") }.GetNewClosure()
+$cooldownUnknownRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $cooldownUnknownHarness.RequestInvoker -ObserverStarter $cooldownUnknownHarness.ObserverStarter -SleepInvoker $cooldownUnknownHarness.SleepInvoker -StageResetCallback $cooldownUnknownReset -CooldownAckCallback $cooldownUnknownAck -ReleasedAckCallback $cooldownUnknownReleased -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $cooldownUnknownRoute.Value.lifecycle_ingest_outcome_class "dispatched_ack_unknown" "cooldown ambiguous ACK remains explicit"
+Assert-Equal ($cooldownUnknownStages -join ",") "reset" "cooldown stage is not signaled before matching ACK"
+
+$releasedUnknownHarness = New-ControlledRouteHarness -Mode "released_ack_unknown"
+$releasedUnknownStages = [Collections.ArrayList]::new()
+$releasedUnknownReset = { [void]$releasedUnknownStages.Add("reset") }.GetNewClosure()
+$releasedUnknownAck = { [void]$releasedUnknownStages.Add("cooldown") }.GetNewClosure()
+$releasedUnknownReleased = { [void]$releasedUnknownStages.Add("released") }.GetNewClosure()
+$releasedUnknownRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $releasedUnknownHarness.RequestInvoker -ObserverStarter $releasedUnknownHarness.ObserverStarter -SleepInvoker $releasedUnknownHarness.SleepInvoker -StageResetCallback $releasedUnknownReset -CooldownAckCallback $releasedUnknownAck -ReleasedAckCallback $releasedUnknownReleased -CoreTokenOverride "fixed-test-core-token"
+Assert-Equal $releasedUnknownRoute.Value.lifecycle_ingest_outcome_class "dispatched_ack_unknown" "released ambiguous ACK remains explicit"
+Assert-Equal ($releasedUnknownStages -join ",") "reset,cooldown" "released stage is not signaled before matching ACK"
 
 $timeoutHarness = New-ControlledRouteHarness -Mode "timeout"
 $timeoutRoute = Invoke-ProductionTransportRoute -RouteAitBaseUrl "http://127.0.0.1:3000" -RouteAiTalkCoreBaseUrl "http://127.0.0.1:8000" -RouteControlledChromeRootPid 1 -RouteObserverWindowMs 1000 -RouteDeadlineMs 3000 -RequestInvoker $timeoutHarness.RequestInvoker -ObserverStarter $timeoutHarness.ObserverStarter -SleepInvoker $timeoutHarness.SleepInvoker -CoreTokenOverride "fixed-test-core-token"

@@ -858,10 +858,24 @@ $timeoutPhaseCases = @(
     cleanup = "controller_http_resources_disposed_endpoint_completion_unverified"
   },
   [ordered]@{
-    blocker = "production_transport_completion_timeout"
+    blocker = "production_transport_before_cooldown_ack_timeout"
     endpoint = "completed_response_observed"
     http = "success"
-    audio = "not_observed"
+    audio = "process_tree_render_observed"
+    cleanup = "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
+  },
+  [ordered]@{
+    blocker = "production_transport_cooldown_ack_before_release_ack_timeout"
+    endpoint = "completed_response_observed"
+    http = "success"
+    audio = "process_tree_render_observed"
+    cleanup = "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
+  },
+  [ordered]@{
+    blocker = "production_transport_release_ack_before_exit_timeout"
+    endpoint = "completed_response_observed"
+    http = "success"
+    audio = "process_tree_render_observed"
     cleanup = "controller_http_resources_disposed_endpoint_pcm_and_authority_clear"
   },
   [ordered]@{

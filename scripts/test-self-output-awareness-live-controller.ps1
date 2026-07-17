@@ -567,14 +567,27 @@ param(
   [switch]$EmitArmSignal,
   [switch]$Json,
   [string]$StartGateEventName = "",
-  [int]$StartGateHoldMs = 0
+  [int]$StartGateHoldMs = 0,
+  [string]$CooldownAckEventName = "",
+  [string]$ReleasedAckEventName = ""
 )
 $ErrorActionPreference = "Stop"
 [Console]::Out.WriteLine('{"schema_version":"self_output_awareness.production_transport_listener.v0","result_class":"waiting_for_self_output","raw_private_publication_flags":false}')
 [Console]::Out.Flush()
 [Console]::Out.WriteLine('{"schema_version":"self_output_awareness.production_transport_arm.v0","result_class":"overlap_join_ready","raw_private_publication_flags":false}')
 [Console]::Out.Flush()
-if ([System.Environment]::GetEnvironmentVariable("SWORD_TEST_PRODUCTION_MODE", "Process") -ceq "incomplete") {
+$cooldownEvent = [Threading.EventWaitHandle]::OpenExisting($CooldownAckEventName)
+$releasedEvent = [Threading.EventWaitHandle]::OpenExisting($ReleasedAckEventName)
+$productionMode = [System.Environment]::GetEnvironmentVariable("SWORD_TEST_PRODUCTION_MODE", "Process")
+if ($productionMode -cin @("success", "incomplete_after_cooldown", "incomplete_after_release")) {
+  [void]$cooldownEvent.Set()
+}
+if ($productionMode -cin @("success", "incomplete_after_release")) {
+  [void]$releasedEvent.Set()
+}
+$cooldownEvent.Dispose()
+$releasedEvent.Dispose()
+if ($productionMode -clike "incomplete_*") {
   Start-Sleep -Seconds 30
   exit 5
 }
@@ -902,7 +915,7 @@ Assert-True ($controllerSource -match 'candidate_authority[\s\S]+acceptance_auth
 Assert-True ((Resolve-RouteTimeoutClass -PhaseClass "candidate_window_http") -ceq
   "candidate_window_http_timeout") "candidate-window timeout phase mismatch"
 Assert-True ((Resolve-RouteTimeoutClass -PhaseClass "production_transport_completion") -ceq
-  "production_transport_completion_timeout") "production completion timeout phase mismatch"
+  "production_transport_before_cooldown_ack_timeout") "production completion timeout phase mismatch"
 Assert-True ((Resolve-RouteTimeoutClass -PhaseClass "post_completion_total") -ceq
   "post_completion_total_timeout") "post-completion timeout phase mismatch"
 Assert-True ((Resolve-RouteTimeoutClass -PhaseClass "preparation") -ceq
@@ -912,6 +925,221 @@ Assert-True ($controllerSource -match
   "candidate-window phase must start after budget validation and immediately before request ownership"
 Assert-True ($controllerSource -match '\$routePhaseClass\s*=\s*"production_transport_completion"[\s\S]+\$remainingProductionMs\s*=\s*Get-RemainingRouteBudgetMs') `
   "production-completion phase must be fixed before consuming the child budget"
+Assert-True ($controllerSource -match
+  'catch \[System\.InvalidOperationException\][\s\S]{0,260}Throw-Fixed -Class \$productionTransportStageSnapshot') `
+  "already-expired production completion must use the retained in-budget snapshot"
+Assert-True ($controllerSource -notmatch
+  'catch \[System\.InvalidOperationException\][\s\S]{0,260}Get-ProductionTransportCompletionTimeoutClass') `
+  "already-expired production completion must not sample stage events"
+
+$cooldownStageEvent = New-ProductionTransportStageEvent -Stage "cooldown_acknowledged"
+$releasedStageEvent = New-ProductionTransportStageEvent -Stage "released_acknowledged"
+$cooldownStageEventName = [string]$cooldownStageEvent.event_name
+$releasedStageEventName = [string]$releasedStageEvent.event_name
+try {
+  Assert-True ((Get-ProductionTransportCompletionTimeoutClass `
+        -CooldownAckEvent $cooldownStageEvent.handle `
+        -ReleasedAckEvent $releasedStageEvent.handle) -ceq
+      "production_transport_before_cooldown_ack_timeout") `
+    "unsignaled completion stage must classify before cooldown ACK"
+  [void]$cooldownStageEvent.handle.Set()
+  Assert-True ((Get-ProductionTransportCompletionTimeoutClass `
+        -CooldownAckEvent $cooldownStageEvent.handle `
+        -ReleasedAckEvent $releasedStageEvent.handle) -ceq
+      "production_transport_cooldown_ack_before_release_ack_timeout") `
+    "cooldown-only completion stage must classify before release ACK"
+  [void]$releasedStageEvent.handle.Set()
+  Assert-True ((Get-ProductionTransportCompletionTimeoutClass `
+        -CooldownAckEvent $cooldownStageEvent.handle `
+        -ReleasedAckEvent $releasedStageEvent.handle) -ceq
+      "production_transport_release_ack_before_exit_timeout") `
+    "released completion stage must classify before child exit"
+} finally {
+  Assert-True (Close-ProductionTransportStageEvent -StageEvent $cooldownStageEvent) `
+    "cooldown stage handle must dispose"
+  Assert-True (Close-ProductionTransportStageEvent -StageEvent $releasedStageEvent) `
+    "released stage handle must dispose"
+}
+$cooldownStageStillOpen = $true
+try {
+  $reopenedCooldownStage = [Threading.EventWaitHandle]::OpenExisting($cooldownStageEventName)
+  $reopenedCooldownStage.Dispose()
+} catch [Threading.WaitHandleCannotBeOpenedException] {
+  $cooldownStageStillOpen = $false
+}
+Assert-True (-not $cooldownStageStillOpen) "disposed cooldown stage must not remain open"
+$releasedStageStillOpen = $true
+try {
+  $reopenedReleasedStage = [Threading.EventWaitHandle]::OpenExisting($releasedStageEventName)
+  $reopenedReleasedStage.Dispose()
+} catch [Threading.WaitHandleCannotBeOpenedException] {
+  $releasedStageStillOpen = $false
+}
+Assert-True (-not $releasedStageStillOpen) "disposed released stage must not remain open"
+
+$beforeCooldownTimeoutClass =
+  "production_transport_before_cooldown_ack_timeout"
+$cooldownTimeoutClass =
+  "production_transport_cooldown_ack_before_release_ack_timeout"
+$releaseTimeoutClass =
+  "production_transport_release_ack_before_exit_timeout"
+
+$justBeforeElapsedMs = [long]0
+$justBeforeStageClass = $beforeCooldownTimeoutClass
+$justBeforeReadCount = 0
+$justBeforeWaitCount = 0
+$justBeforeBoundary = Wait-ProductionTransportCompletionWithinDeadline `
+  -InitialTimeoutClass $beforeCooldownTimeoutClass `
+  -DeadlineMs 1000 `
+  -WaitForExitInvoker {
+    param([int]$WaitMs)
+    $script:justBeforeWaitCount += 1
+    if ($script:justBeforeWaitCount -eq 1) {
+      $script:justBeforeElapsedMs = 999
+      $script:justBeforeStageClass = $releaseTimeoutClass
+    } else {
+      $script:justBeforeElapsedMs = 1000
+    }
+    return $false
+  } `
+  -StageSnapshotReader {
+    $script:justBeforeReadCount += 1
+    return $script:justBeforeStageClass
+  } `
+  -ElapsedMillisecondsProvider {
+    return $script:justBeforeElapsedMs
+  }
+Assert-True (-not [bool]$justBeforeBoundary.process_exited) `
+  "just-before-deadline fixture must time out"
+Assert-True ([string]$justBeforeBoundary.timeout_class -ceq $releaseTimeoutClass) `
+  "release stage observed just before the deadline must be retained"
+Assert-True ($justBeforeReadCount -eq 1) `
+  "just-before-deadline fixture must sample exactly once within budget"
+Assert-True ($justBeforeWaitCount -eq 2) `
+  "just-before-deadline fixture must cross the boundary with two bounded waits"
+
+$afterDeadlineElapsedMs = [long]0
+$afterDeadlineStageClass = $beforeCooldownTimeoutClass
+$afterDeadlineReadCount = 0
+$afterDeadlineWaitCount = 0
+$afterDeadlineBoundary = Wait-ProductionTransportCompletionWithinDeadline `
+  -InitialTimeoutClass $beforeCooldownTimeoutClass `
+  -DeadlineMs 1000 `
+  -WaitForExitInvoker {
+    param([int]$WaitMs)
+    $script:afterDeadlineWaitCount += 1
+    if ($script:afterDeadlineWaitCount -eq 1) {
+      $script:afterDeadlineElapsedMs = 999
+      $script:afterDeadlineStageClass = $cooldownTimeoutClass
+    } else {
+      $script:afterDeadlineElapsedMs = 1000
+      $script:afterDeadlineStageClass = $releaseTimeoutClass
+    }
+    return $false
+  } `
+  -StageSnapshotReader {
+    $script:afterDeadlineReadCount += 1
+    return $script:afterDeadlineStageClass
+  } `
+  -ElapsedMillisecondsProvider {
+    return $script:afterDeadlineElapsedMs
+  }
+Assert-True (-not [bool]$afterDeadlineBoundary.process_exited) `
+  "post-deadline fixture must time out"
+Assert-True ([string]$afterDeadlineBoundary.timeout_class -ceq $cooldownTimeoutClass) `
+  "release stage arriving at the deadline must not promote the retained cooldown stage"
+Assert-True ($afterDeadlineReadCount -eq 1) `
+  "post-deadline fixture must not sample stage events after budget exhaustion"
+Assert-True ($afterDeadlineWaitCount -eq 2) `
+  "post-deadline fixture must cross the boundary with two bounded waits"
+
+$expiredSnapshotReadCount = 0
+$expiredSnapshot = Update-ProductionTransportCompletionStageSnapshot `
+  -CurrentTimeoutClass $cooldownTimeoutClass `
+  -DeadlineMs 1000 `
+  -StageSnapshotReader {
+    $script:expiredSnapshotReadCount += 1
+    return $releaseTimeoutClass
+  } `
+  -ElapsedMillisecondsProvider { return [long]1000 }
+Assert-True ($expiredSnapshot -ceq $cooldownTimeoutClass) `
+  "an already-expired snapshot must retain the prior fixed stage"
+Assert-True ($expiredSnapshotReadCount -eq 0) `
+  "an already-expired snapshot must not read stage events"
+
+$crossingSnapshotElapsedMs = [long]999
+$crossingSnapshotReadCount = 0
+$crossingSnapshot = Update-ProductionTransportCompletionStageSnapshot `
+  -CurrentTimeoutClass $cooldownTimeoutClass `
+  -DeadlineMs 1000 `
+  -StageSnapshotReader {
+    $script:crossingSnapshotReadCount += 1
+    $script:crossingSnapshotElapsedMs = 1000
+    return $releaseTimeoutClass
+  } `
+  -ElapsedMillisecondsProvider {
+    return $script:crossingSnapshotElapsedMs
+  }
+Assert-True ($crossingSnapshot -ceq $cooldownTimeoutClass) `
+  "a release snapshot that finishes at the deadline must retain the prior cooldown stage"
+Assert-True ($crossingSnapshotReadCount -eq 1) `
+  "a snapshot beginning before the deadline may read once but must not accept a post-boundary result"
+
+$deadlineExitElapsedMs = [long]999
+$deadlineExitWaitCount = 0
+$deadlineExitReadCount = 0
+$deadlineExitBoundary = Wait-ProductionTransportCompletionWithinDeadline `
+  -InitialTimeoutClass $cooldownTimeoutClass `
+  -DeadlineMs 1000 `
+  -WaitForExitInvoker {
+    param([int]$WaitMs)
+    $script:deadlineExitWaitCount += 1
+    $script:deadlineExitElapsedMs = 1000
+    return $true
+  } `
+  -StageSnapshotReader {
+    $script:deadlineExitReadCount += 1
+    return $releaseTimeoutClass
+  } `
+  -ElapsedMillisecondsProvider {
+    return $script:deadlineExitElapsedMs
+  }
+Assert-True (-not [bool]$deadlineExitBoundary.process_exited) `
+  "process exit observed exactly at the deadline must not be accepted as success"
+Assert-True ([string]$deadlineExitBoundary.timeout_class -ceq $cooldownTimeoutClass) `
+  "deadline-edge process exit must retain the prior timeout class"
+Assert-True ($deadlineExitWaitCount -eq 1) `
+  "deadline-edge process exit must use one bounded wait"
+Assert-True ($deadlineExitReadCount -eq 0) `
+  "deadline-edge process exit must not trigger a post-deadline stage read"
+
+$preDeadlineExitElapsedMs = [long]998
+$preDeadlineExitWaitCount = 0
+$preDeadlineExitReadCount = 0
+$preDeadlineExitBoundary = Wait-ProductionTransportCompletionWithinDeadline `
+  -InitialTimeoutClass $cooldownTimeoutClass `
+  -DeadlineMs 1000 `
+  -WaitForExitInvoker {
+    param([int]$WaitMs)
+    $script:preDeadlineExitWaitCount += 1
+    $script:preDeadlineExitElapsedMs = 999
+    return $true
+  } `
+  -StageSnapshotReader {
+    $script:preDeadlineExitReadCount += 1
+    return $releaseTimeoutClass
+  } `
+  -ElapsedMillisecondsProvider {
+    return $script:preDeadlineExitElapsedMs
+  }
+Assert-True ([bool]$preDeadlineExitBoundary.process_exited) `
+  "process exit observed at 999ms must remain a valid in-budget success"
+Assert-True ($null -eq $preDeadlineExitBoundary.timeout_class) `
+  "in-budget process exit must not report a timeout class"
+Assert-True ($preDeadlineExitWaitCount -eq 1) `
+  "in-budget process exit control must use one bounded wait"
+Assert-True ($preDeadlineExitReadCount -eq 0) `
+  "in-budget process exit must not need an additional stage read"
 
 try {
   $fixedNowUtcMs = [System.DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
@@ -1192,24 +1420,30 @@ try {
   Assert-True ($postReadyPreRequest.cleanup_class -ceq "controller_http_resources_disposed_no_request_started") "post-ready pre-request timeout cleanup mismatch"
 
   $productionIncompleteVariant = New-ControllerPhaseVariant -Mode "production_transport_incomplete"
-  $productionIncompleteServer = Start-TestServer -Response $negativeResponse
-  $productionIncompleteRun = Invoke-Controller `
-    -BaseUrl $productionIncompleteServer.BaseUrl `
-    -ControlledChromeRootPid 1 `
-    -AudioObserverWindowMs 100 `
-    -PreparationDeadlineMs 3000 `
-    -DeadlineMs 1000 `
-    -ControllerOverridePath $productionIncompleteVariant `
-    -ProductionMode "incomplete"
-  [void](Complete-TestServer -Server $productionIncompleteServer)
-  $productionIncomplete = Assert-CommonResult -Run $productionIncompleteRun
-  Assert-True ($productionIncompleteRun.Code -ne 0) "incomplete production child must fail closed"
-  Assert-True ($productionIncomplete.blocker_class -ceq "production_transport_completion_timeout") "production timeout class mismatch"
-  Assert-True ($productionIncomplete.deadline_class -ceq "exceeded") "production timeout deadline mismatch"
-  Assert-True ($productionIncomplete.endpoint_completion_class -ceq "completed_response_observed") "production timeout must preserve endpoint completion"
-  Assert-True ($productionIncomplete.http_status_class -ceq "success") "production timeout must preserve HTTP success"
-  Assert-True ($productionIncomplete.first_non_silent_audio_observation_class -ceq "not_observed") "production timeout must not claim audio"
-  Assert-True ($productionIncomplete.cleanup_class -ceq "controller_http_resources_disposed_endpoint_pcm_and_authority_clear") "production timeout cleanup mismatch"
+  foreach ($productionTimeoutCase in @(
+      [ordered]@{ mode = "incomplete_before_cooldown"; blocker = "production_transport_before_cooldown_ack_timeout" },
+      [ordered]@{ mode = "incomplete_after_cooldown"; blocker = "production_transport_cooldown_ack_before_release_ack_timeout" },
+      [ordered]@{ mode = "incomplete_after_release"; blocker = "production_transport_release_ack_before_exit_timeout" }
+    )) {
+    $productionIncompleteServer = Start-TestServer -Response $negativeResponse
+    $productionIncompleteRun = Invoke-Controller `
+      -BaseUrl $productionIncompleteServer.BaseUrl `
+      -ControlledChromeRootPid 1 `
+      -AudioObserverWindowMs 100 `
+      -PreparationDeadlineMs 3000 `
+      -DeadlineMs 1000 `
+      -ControllerOverridePath $productionIncompleteVariant `
+      -ProductionMode $productionTimeoutCase.mode
+    [void](Complete-TestServer -Server $productionIncompleteServer)
+    $productionIncomplete = Assert-CommonResult -Run $productionIncompleteRun
+    Assert-True ($productionIncompleteRun.Code -ne 0) "incomplete production child must fail closed"
+    Assert-True ($productionIncomplete.blocker_class -ceq $productionTimeoutCase.blocker) "production timeout stage mismatch"
+    Assert-True ($productionIncomplete.deadline_class -ceq "exceeded") "production timeout deadline mismatch"
+    Assert-True ($productionIncomplete.endpoint_completion_class -ceq "completed_response_observed") "production timeout must preserve endpoint completion"
+    Assert-True ($productionIncomplete.http_status_class -ceq "success") "production timeout must preserve HTTP success"
+    Assert-True ($productionIncomplete.first_non_silent_audio_observation_class -ceq "process_tree_render_observed") "production timeout must preserve source-proven audio"
+    Assert-True ($productionIncomplete.cleanup_class -ceq "controller_http_resources_disposed_endpoint_pcm_and_authority_clear") "production timeout cleanup mismatch"
+  }
 
   $postCompletionVariant = New-ControllerPhaseVariant -Mode "post_completion_total_timeout"
   $postCompletionReceipt = Join-Path $tempRoot "observer-post-completion.receipt.json"

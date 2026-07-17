@@ -154,7 +154,9 @@ $AllowedControllerFailureClasses = @(
   "prepared_hold_expired",
   "live_controller_failed",
   "candidate_window_http_timeout",
-  "production_transport_completion_timeout",
+  "production_transport_before_cooldown_ack_timeout",
+  "production_transport_cooldown_ack_before_release_ack_timeout",
+  "production_transport_release_ack_before_exit_timeout",
   "post_completion_total_timeout",
   "whole_route_timeout",
   "cleanup_incomplete"
@@ -174,6 +176,10 @@ $requestJson = ""
 $requestBody = $null
 $visibleObserverProcess = $null
 $productionTransportProcess = $null
+$productionCooldownStageEvent = $null
+$productionReleasedStageEvent = $null
+$productionTransportStageSnapshot =
+  "production_transport_before_cooldown_ack_timeout"
 $visibleObserverStdout = $null
 $visibleObserverStderr = $null
 $controllerCleanupClear = $true
@@ -230,7 +236,7 @@ function Resolve-RouteTimeoutClass {
   param([Parameter(Mandatory = $true)][string]$PhaseClass)
   return $(switch ($PhaseClass) {
       "candidate_window_http" { "candidate_window_http_timeout" }
-      "production_transport_completion" { "production_transport_completion_timeout" }
+      "production_transport_completion" { "production_transport_before_cooldown_ack_timeout" }
       "post_completion_total" { "post_completion_total_timeout" }
       default { "whole_route_timeout" }
     })
@@ -478,6 +484,8 @@ function Start-ProductionTransportChild {
     [Parameter(Mandatory = $true)][int]$ObserverWindowMs,
     [Parameter(Mandatory = $true)][int]$ArmTimeoutMs,
     [Parameter(Mandatory = $true)][int]$RouteDeadlineMs,
+    [string]$CooldownAckEventName = "",
+    [string]$ReleasedAckEventName = "",
     [string]$StartGateEventName = "",
     [int]$StartGateHoldMs = 0,
     [AllowNull()][scriptblock]$ProcessFactory = $null
@@ -488,6 +496,17 @@ function Start-ProductionTransportChild {
   if (
     -not [System.IO.File]::Exists($pwshPath) -or
     -not [System.IO.File]::Exists($transportPath)
+  ) {
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  if (
+    $null -eq $ProcessFactory -and (
+      $CooldownAckEventName -cnotmatch
+        '^SwordAgentOS\.SelfOutput\.cooldown_acknowledged\.[a-f0-9]{32}$' -or
+      $ReleasedAckEventName -cnotmatch
+        '^SwordAgentOS\.SelfOutput\.released_acknowledged\.[a-f0-9]{32}$' -or
+      $CooldownAckEventName -ceq $ReleasedAckEventName
+    )
   ) {
     Throw-Fixed -Class "production_transport_unavailable"
   }
@@ -519,6 +538,8 @@ function Start-ProductionTransportChild {
         "-ControlledChromeRootPid", [string]$ChromeRootPid,
         "-ObserverWindowMs", [string]$ObserverWindowMs,
         "-DeadlineMs", [string]$RouteDeadlineMs,
+        "-CooldownAckEventName", $CooldownAckEventName,
+        "-ReleasedAckEventName", $ReleasedAckEventName,
         "-EmitArmSignal", "-Json"
       )) {
       [void]$startInfo.ArgumentList.Add($argument)
@@ -576,6 +597,186 @@ function Start-ProductionTransportChild {
   return $process
 }
 
+function New-ProductionTransportStageEvent {
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("cooldown_acknowledged", "released_acknowledged")]
+    [string]$Stage
+  )
+
+  $eventName = "SwordAgentOS.SelfOutput.$Stage.$([Guid]::NewGuid().ToString('N'))"
+  $createdNew = $false
+  $eventHandle = $null
+  try {
+    $eventHandle = [Threading.EventWaitHandle]::new(
+      $false,
+      [Threading.EventResetMode]::ManualReset,
+      $eventName,
+      [ref]$createdNew)
+  } catch {
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  if (-not $createdNew) {
+    $eventHandle.Dispose()
+    Throw-Fixed -Class "production_transport_unavailable"
+  }
+  return [pscustomobject]@{
+    event_name = $eventName
+    handle = $eventHandle
+  }
+}
+
+function Close-ProductionTransportStageEvent {
+  param([AllowNull()]$StageEvent)
+  if ($null -eq $StageEvent) { return $true }
+  $clear = $true
+  try { $StageEvent.handle.Dispose() } catch { $clear = $false }
+  $StageEvent.event_name = ""
+  $StageEvent.handle = $null
+  return $clear
+}
+
+function Get-ProductionTransportCompletionTimeoutClass {
+  param(
+    [Parameter(Mandatory = $true)][Threading.EventWaitHandle]$CooldownAckEvent,
+    [Parameter(Mandatory = $true)][Threading.EventWaitHandle]$ReleasedAckEvent
+  )
+
+  try {
+    $cooldownAcknowledged = [bool]$CooldownAckEvent.WaitOne(0)
+    $releasedAcknowledged = [bool]$ReleasedAckEvent.WaitOne(0)
+  } catch {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  if ($releasedAcknowledged -and -not $cooldownAcknowledged) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  if ($releasedAcknowledged) {
+    return "production_transport_release_ack_before_exit_timeout"
+  }
+  if ($cooldownAcknowledged) {
+    return "production_transport_cooldown_ack_before_release_ack_timeout"
+  }
+  return "production_transport_before_cooldown_ack_timeout"
+}
+
+function Assert-ProductionTransportCompletionTimeoutClass {
+  param([Parameter(Mandatory = $true)][string]$Class)
+  if (@(
+      "production_transport_before_cooldown_ack_timeout",
+      "production_transport_cooldown_ack_before_release_ack_timeout",
+      "production_transport_release_ack_before_exit_timeout"
+    ) -cnotcontains $Class) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  return $Class
+}
+
+function Update-ProductionTransportCompletionStageSnapshot {
+  param(
+    [Parameter(Mandatory = $true)][string]$CurrentTimeoutClass,
+    [Parameter(Mandatory = $true)][int]$DeadlineMs,
+    [Parameter(Mandatory = $true)][scriptblock]$StageSnapshotReader,
+    [Parameter(Mandatory = $true)][scriptblock]$ElapsedMillisecondsProvider
+  )
+
+  [void](Assert-ProductionTransportCompletionTimeoutClass -Class $CurrentTimeoutClass)
+  if ($DeadlineMs -lt 1) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  try {
+    $elapsedBeforeSnapshotMs = [long](& $ElapsedMillisecondsProvider)
+  } catch {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  if ($elapsedBeforeSnapshotMs -lt 0) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  if ($elapsedBeforeSnapshotMs -ge $DeadlineMs) {
+    return $CurrentTimeoutClass
+  }
+
+  try {
+    $candidateTimeoutClass = [string](& $StageSnapshotReader)
+  } catch {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  [void](Assert-ProductionTransportCompletionTimeoutClass -Class $candidateTimeoutClass)
+  try {
+    $elapsedAfterSnapshotMs = [long](& $ElapsedMillisecondsProvider)
+  } catch {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  if ($elapsedAfterSnapshotMs -lt 0) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  if ($elapsedAfterSnapshotMs -ge $DeadlineMs) {
+    return $CurrentTimeoutClass
+  }
+  return $candidateTimeoutClass
+}
+
+function Wait-ProductionTransportCompletionWithinDeadline {
+  param(
+    [Parameter(Mandatory = $true)][string]$InitialTimeoutClass,
+    [Parameter(Mandatory = $true)][int]$DeadlineMs,
+    [Parameter(Mandatory = $true)][scriptblock]$WaitForExitInvoker,
+    [Parameter(Mandatory = $true)][scriptblock]$StageSnapshotReader,
+    [Parameter(Mandatory = $true)][scriptblock]$ElapsedMillisecondsProvider
+  )
+
+  $lastInBudgetTimeoutClass =
+    Assert-ProductionTransportCompletionTimeoutClass -Class $InitialTimeoutClass
+  if ($DeadlineMs -lt 1) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+  while ($true) {
+    try {
+      $elapsedBeforeWaitMs = [long](& $ElapsedMillisecondsProvider)
+    } catch {
+      Throw-Fixed -Class "production_transport_not_completed"
+    }
+    if ($elapsedBeforeWaitMs -lt 0) {
+      Throw-Fixed -Class "production_transport_not_completed"
+    }
+    if ($elapsedBeforeWaitMs -ge $DeadlineMs) {
+      return [pscustomobject][ordered]@{
+        process_exited = $false
+        timeout_class = $lastInBudgetTimeoutClass
+      }
+    }
+    $remainingMs = [long]$DeadlineMs - $elapsedBeforeWaitMs
+    $waitSliceMs = [int][Math]::Min(25, [Math]::Max(1, $remainingMs))
+    try {
+      $processExited = [bool](& $WaitForExitInvoker $waitSliceMs)
+      $elapsedAfterWaitMs = [long](& $ElapsedMillisecondsProvider)
+    } catch {
+      Throw-Fixed -Class "production_transport_not_completed"
+    }
+    if ($elapsedAfterWaitMs -lt 0) {
+      Throw-Fixed -Class "production_transport_not_completed"
+    }
+    if ($elapsedAfterWaitMs -ge $DeadlineMs) {
+      return [pscustomobject][ordered]@{
+        process_exited = $false
+        timeout_class = $lastInBudgetTimeoutClass
+      }
+    }
+    if ($processExited) {
+      return [pscustomobject][ordered]@{
+        process_exited = $true
+        timeout_class = $null
+      }
+    }
+    $lastInBudgetTimeoutClass =
+      Update-ProductionTransportCompletionStageSnapshot `
+        -CurrentTimeoutClass $lastInBudgetTimeoutClass `
+        -DeadlineMs $DeadlineMs `
+        -StageSnapshotReader $StageSnapshotReader `
+        -ElapsedMillisecondsProvider $ElapsedMillisecondsProvider
+  }
+}
+
 function Wait-ProductionTransportOverlapReady {
   param(
     [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
@@ -607,12 +808,58 @@ function Complete-ProductionTransportChild {
   param(
     [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
     [Parameter(Mandatory = $true)][int]$TimeoutMs,
-    [Parameter(Mandatory = $true)][int]$RouteDeadlineMs
+    [Parameter(Mandatory = $true)][int]$RouteDeadlineMs,
+    [AllowNull()][Threading.EventWaitHandle]$CooldownAckEvent = $null,
+    [AllowNull()][Threading.EventWaitHandle]$ReleasedAckEvent = $null,
+    [AllowNull()][System.Diagnostics.Stopwatch]$CompletionDeadlineStopwatch = $null,
+    [int]$CompletionDeadlineMs = 0,
+    [string]$InitialTimeoutClass =
+      "production_transport_before_cooldown_ack_timeout"
   )
 
-  if (-not $Process.WaitForExit([Math]::Max(1, $TimeoutMs))) {
+  $stageDeadlineEnabled = (
+    $null -ne $CooldownAckEvent -and
+    $null -ne $ReleasedAckEvent -and
+    $null -ne $CompletionDeadlineStopwatch -and
+    $CompletionDeadlineMs -gt 0
+  )
+  $partialStageDeadlineConfiguration = (
+    $null -ne $CooldownAckEvent -or
+    $null -ne $ReleasedAckEvent -or
+    $null -ne $CompletionDeadlineStopwatch -or
+    $CompletionDeadlineMs -gt 0
+  ) -and -not $stageDeadlineEnabled
+  if ($partialStageDeadlineConfiguration) {
+    Throw-Fixed -Class "production_transport_not_completed"
+  }
+
+  $completionWait = $null
+  if ($stageDeadlineEnabled) {
+    $completionWait = Wait-ProductionTransportCompletionWithinDeadline `
+      -InitialTimeoutClass $InitialTimeoutClass `
+      -DeadlineMs $CompletionDeadlineMs `
+      -WaitForExitInvoker {
+        param([int]$WaitMs)
+        return [bool]$Process.WaitForExit($WaitMs)
+      } `
+      -StageSnapshotReader {
+        return Get-ProductionTransportCompletionTimeoutClass `
+          -CooldownAckEvent $CooldownAckEvent `
+          -ReleasedAckEvent $ReleasedAckEvent
+      } `
+      -ElapsedMillisecondsProvider {
+        return [long]$CompletionDeadlineStopwatch.ElapsedMilliseconds
+      }
+  } else {
+    $completionWait = [pscustomobject][ordered]@{
+      process_exited = [bool]$Process.WaitForExit([Math]::Max(1, $TimeoutMs))
+      timeout_class = "whole_route_timeout"
+    }
+  }
+  if (-not [bool]$completionWait.process_exited) {
+    $timeoutClass = [string]$completionWait.timeout_class
     try { $Process.Kill($true) } catch {}
-    Throw-Fixed -Class "whole_route_timeout"
+    Throw-Fixed -Class $timeoutClass
   }
   $stdout = $Process.StandardOutput.ReadToEnd().Trim()
   $stderr = $Process.StandardError.ReadToEnd().Trim()
@@ -914,6 +1161,10 @@ try {
     $productionRouteDeadlineMs = [Math]::Min(
       30000,
       $PreparationDeadlineMs + $DeadlineMs)
+    $productionCooldownStageEvent =
+      New-ProductionTransportStageEvent -Stage "cooldown_acknowledged"
+    $productionReleasedStageEvent =
+      New-ProductionTransportStageEvent -Stage "released_acknowledged"
     $productionTransportProcess = Start-ProductionTransportChild `
       -AitEndpoint $aitUri `
       -AiTalkCoreEndpoint $baseUri `
@@ -921,6 +1172,8 @@ try {
       -ObserverWindowMs $AudioObserverWindowMs `
       -ArmTimeoutMs $productionArmBudgetMs `
       -RouteDeadlineMs $productionRouteDeadlineMs `
+      -CooldownAckEventName $productionCooldownStageEvent.event_name `
+      -ReleasedAckEventName $productionReleasedStageEvent.event_name `
       -StartGateEventName $(if ($startGateEnabled) { $UserStartEventName } else { "" }) `
       -StartGateHoldMs $(if ($startGateEnabled) { $UserStartHoldMs } else { 0 })
     if ($EmitUserSpeechReadySignal -or $EmitSelfOutputSuppressionReadySignal) {
@@ -956,6 +1209,18 @@ try {
       -Process $productionTransportProcess `
       -TimeoutMs $overlapReadyBudgetMs
     $userPhaseStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $productionTransportStageSnapshot =
+      Update-ProductionTransportCompletionStageSnapshot `
+        -CurrentTimeoutClass $productionTransportStageSnapshot `
+        -DeadlineMs $DeadlineMs `
+        -StageSnapshotReader {
+          return Get-ProductionTransportCompletionTimeoutClass `
+            -CooldownAckEvent $productionCooldownStageEvent.handle `
+            -ReleasedAckEvent $productionReleasedStageEvent.handle
+        } `
+        -ElapsedMillisecondsProvider {
+          return [long]$userPhaseStopwatch.ElapsedMilliseconds
+        }
     if ($EmitUserSpeechReadySignal) {
       $readySignal = New-UserSpeechReadySignal
       [Console]::Error.WriteLine(($readySignal | ConvertTo-Json -Compress))
@@ -1346,11 +1611,34 @@ try {
   }
   if ($null -ne $productionTransportProcess) {
     $routePhaseClass = "production_transport_completion"
-    $remainingProductionMs = Get-RemainingRouteBudgetMs
+    $firstNonSilentAudioObservationClass = "process_tree_render_observed"
+    $productionTransportStageSnapshot =
+      Update-ProductionTransportCompletionStageSnapshot `
+        -CurrentTimeoutClass $productionTransportStageSnapshot `
+        -DeadlineMs $DeadlineMs `
+        -StageSnapshotReader {
+          return Get-ProductionTransportCompletionTimeoutClass `
+            -CooldownAckEvent $productionCooldownStageEvent.handle `
+            -ReleasedAckEvent $productionReleasedStageEvent.handle
+        } `
+        -ElapsedMillisecondsProvider {
+          return [long]$userPhaseStopwatch.ElapsedMilliseconds
+        }
+    try {
+      $remainingProductionMs = Get-RemainingRouteBudgetMs
+    } catch [System.InvalidOperationException] {
+      if ([string]$_.Exception.Message -cne "whole_route_timeout") { throw }
+      Throw-Fixed -Class $productionTransportStageSnapshot
+    }
     $productionObservation = Complete-ProductionTransportChild `
       -Process $productionTransportProcess `
       -TimeoutMs $remainingProductionMs `
-      -RouteDeadlineMs $productionRouteDeadlineMs
+      -RouteDeadlineMs $productionRouteDeadlineMs `
+      -CooldownAckEvent $productionCooldownStageEvent.handle `
+      -ReleasedAckEvent $productionReleasedStageEvent.handle `
+      -CompletionDeadlineStopwatch $userPhaseStopwatch `
+      -CompletionDeadlineMs $DeadlineMs `
+      -InitialTimeoutClass $productionTransportStageSnapshot
     $productionTransportProcess.Dispose()
     $productionTransportProcess = $null
     $firstAudioWallMs = [long]$productionObservation.first_non_silent_observed_at_utc_ms
@@ -1428,6 +1716,16 @@ try {
     }
     $productionTransportProcess = $null
   }
+  foreach ($stageEvent in @(
+      $productionCooldownStageEvent,
+      $productionReleasedStageEvent
+    )) {
+    if (-not (Close-ProductionTransportStageEvent -StageEvent $stageEvent)) {
+      $controllerCleanupClear = $false
+    }
+  }
+  $productionCooldownStageEvent = $null
+  $productionReleasedStageEvent = $null
   $response = $null
   $content = $null
   $request = $null
@@ -1468,7 +1766,9 @@ if (-not $controllerCleanupClear) {
   $exitCode = 1
 } elseif ($blockerClass -cin @(
     "candidate_window_http_timeout",
-    "production_transport_completion_timeout",
+    "production_transport_before_cooldown_ack_timeout",
+    "production_transport_cooldown_ack_before_release_ack_timeout",
+    "production_transport_release_ack_before_exit_timeout",
     "post_completion_total_timeout",
     "whole_route_timeout")) {
   $deadlineClass = "exceeded"

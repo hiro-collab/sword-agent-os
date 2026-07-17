@@ -7,6 +7,8 @@ param(
   [int]$DeadlineMs = 10000,
   [string]$StartGateEventName = "",
   [int]$StartGateHoldMs = 0,
+  [string]$CooldownAckEventName = "",
+  [string]$ReleasedAckEventName = "",
   [switch]$EmitArmSignal,
   [switch]$Json
 )
@@ -626,13 +628,20 @@ param(
   [scriptblock]$SleepInvoker = { param([int]$Milliseconds) Start-Sleep -Milliseconds $Milliseconds },
   [scriptblock]$ListenerReadyCallback = {},
   [scriptblock]$ArmedCallback = {},
+  [scriptblock]$StageResetCallback = {},
+  [scriptblock]$CooldownAckCallback = {},
+  [scriptblock]$ReleasedAckCallback = {},
   [bool]$RouteStartGateEnabled = $false,
   [scriptblock]$StartGateWaiter = {},
+  [string]$RouteCooldownAckEventName = "",
+  [string]$RouteReleasedAckEventName = "",
   [AllowNull()][string]$CoreTokenOverride = $null
 )
 $routeStopwatch = [Diagnostics.Stopwatch]::StartNew()
 $routeStartedAtUtcMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $observerProcess = $null
+$cooldownAckEvent = $null
+$releasedAckEvent = $null
 $cleanupClear = $true
 $status = "blocked"
 $resultClass = "transport_not_completed"
@@ -662,9 +671,30 @@ try {
     $RouteObserverWindowMs -lt 100 -or
     $RouteObserverWindowMs -gt 5000 -or
     $RouteDeadlineMs -lt $RouteObserverWindowMs + 1000 -or
-    $RouteDeadlineMs -gt 30000
+    $RouteDeadlineMs -gt 30000 -or
+    ([string]::IsNullOrWhiteSpace($RouteCooldownAckEventName) -ne
+      [string]::IsNullOrWhiteSpace($RouteReleasedAckEventName))
   ) {
     Throw-Fixed -Class "transport_configuration_invalid"
+  }
+  if (-not [string]::IsNullOrWhiteSpace($RouteCooldownAckEventName)) {
+    if (
+      $RouteCooldownAckEventName -cnotmatch
+        '^SwordAgentOS\.SelfOutput\.cooldown_acknowledged\.[a-f0-9]{32}$' -or
+      $RouteReleasedAckEventName -cnotmatch
+        '^SwordAgentOS\.SelfOutput\.released_acknowledged\.[a-f0-9]{32}$' -or
+      $RouteCooldownAckEventName -ceq $RouteReleasedAckEventName
+    ) {
+      Throw-Fixed -Class "transport_configuration_invalid"
+    }
+    try {
+      $cooldownAckEvent =
+        [Threading.EventWaitHandle]::OpenExisting($RouteCooldownAckEventName)
+      $releasedAckEvent =
+        [Threading.EventWaitHandle]::OpenExisting($RouteReleasedAckEventName)
+    } catch {
+      Throw-Fixed -Class "transport_configuration_invalid"
+    }
   }
   $aitUri = Resolve-LoopbackBaseUri -Value $RouteAitBaseUrl
   $coreUri = Resolve-LoopbackBaseUri -Value $RouteAiTalkCoreBaseUrl
@@ -765,6 +795,16 @@ try {
     $finalLifecycleState = [string]$step.lifecycle.lifecycle_state
     switch ($finalLifecycleState) {
       "handoff_accepted" {
+        try {
+          if ($null -ne $cooldownAckEvent) {
+            [void]$cooldownAckEvent.Reset()
+            [void]$releasedAckEvent.Reset()
+          } else {
+            [void](& $StageResetCallback)
+          }
+        } catch {
+          Throw-Fixed -Class "transport_stage_signal_failed"
+        }
         $overlapJoinReadyClass = "not_ready"
         if ($null -ne $observerProcess) {
           $supersededObserver = $observerProcess
@@ -841,8 +881,28 @@ try {
         if ($null -eq $cooldownPickupMs) {
           $cooldownPickupMs = [int]$routeStopwatch.ElapsedMilliseconds
         }
+        try {
+          if ($null -ne $cooldownAckEvent) {
+            [void]$cooldownAckEvent.Set()
+          } else {
+            [void](& $CooldownAckCallback)
+          }
+        } catch {
+          Throw-Fixed -Class "transport_stage_signal_failed"
+        }
       }
-      "released" { $releasedPickupMs = [int]$routeStopwatch.ElapsedMilliseconds }
+      "released" {
+        $releasedPickupMs = [int]$routeStopwatch.ElapsedMilliseconds
+        try {
+          if ($null -ne $releasedAckEvent) {
+            [void]$releasedAckEvent.Set()
+          } else {
+            [void](& $ReleasedAckCallback)
+          }
+        } catch {
+          Throw-Fixed -Class "transport_stage_signal_failed"
+        }
+      }
     }
     $response = $null
     $step = $null
@@ -881,6 +941,7 @@ try {
     "observer_result_invalid", "core_observation_ingest_failed",
     "transport_listener_ready_failed", "start_gate_configuration_invalid",
     "start_gate_unavailable", "start_gate_expired", "transport_arm_failed", "overlap_join_not_ready",
+    "transport_stage_signal_failed",
     "whole_route_timeout", "cleanup_incomplete"
   )
   $class = [string]$_.Exception.Message
@@ -891,6 +952,11 @@ try {
   $coreToken = ""
   if ($null -ne $observerProcess) {
     if (-not (Stop-ObserverChild -Process $observerProcess)) { $cleanupClear = $false }
+  }
+  foreach ($stageEvent in @($cooldownAckEvent, $releasedAckEvent)) {
+    if ($null -ne $stageEvent) {
+      try { $stageEvent.Dispose() } catch { $cleanupClear = $false }
+    }
   }
   if (-not $cleanupClear) {
     $status = "blocked"
@@ -985,6 +1051,8 @@ $execution = Invoke-ProductionTransportRoute `
   -RouteDeadlineMs $DeadlineMs `
   -ListenerReadyCallback $listenerReadyCallback `
   -ArmedCallback $armedCallback `
+  -RouteCooldownAckEventName $CooldownAckEventName `
+  -RouteReleasedAckEventName $ReleasedAckEventName `
   -RouteStartGateEnabled $startGateEnabled `
   -StartGateWaiter $startGateWaiter
 $convertParameters = @{ Depth = 6 }
