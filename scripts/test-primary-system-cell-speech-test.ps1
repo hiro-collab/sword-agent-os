@@ -230,6 +230,14 @@ Assert-True (
 Assert-True ($source -match '/health"[\s\S]{0,180}-Headers\s+@\{\s*"X-AI-Core-Token"\s*=\s*\$env:AI_TALK_CORE_WEB_TOKEN') "token-protected health must use the canonical per-run token"
 Assert-True ($source -match '/api/self-output-awareness-transport/"[\s\S]{0,300}Test-AitLifecyclePreflightResponse') "exact AIT lifecycle endpoint must be warm and validated before controller start"
 Assert-True ($source.IndexOf('/api/self-output-awareness-transport/') -lt $source.IndexOf('$script:controllerProcess = Start-OwnedProcessSuspended')) "AIT lifecycle preflight must precede controller process start"
+Assert-True ($source -match 'ready_for_system_output_trigger[\s\S]{0,260}system_output_trigger_signal_unavailable') `
+  "pre-dispatch controller readiness must have its own fixed blocker"
+Assert-True ($source -match 'ready_for_user_speech[\s\S]{0,260}user_speech_signal_unavailable') `
+  "positive speech readiness must have its own fixed blocker"
+Assert-True ($source -match 'ready_for_self_output_suppression_window[\s\S]{0,260}self_output_suppression_signal_unavailable') `
+  "negative suppression readiness must have its own fixed blocker"
+Assert-True ($source -match '\$script:testDispatchCount\s*=\s*1[\s\S]+test_dispatch_count\s*=\s*\$testDispatchCount') `
+  "terminal blocker output must preserve the actual bounded UI dispatch count"
 Assert-True ($source -match 'api/stop[\s\S]+api/shutdown[\s\S]+TerminateAndWait') "standard stop must precede Job-owned process cleanup"
 Assert-True ($source -match 'CleanupStopTimeoutSeconds\s*=\s*70[\s\S]+api/stop[\s\S]{0,240}-TimeoutMs\s+\(\$CleanupStopTimeoutSeconds\s*\*\s*1000\)') "standard stop must receive the bounded launcher-compatible timeout"
 Assert-True ($source -match '\$stopResult\.ok\s+-isnot\s+\[bool\][\s\S]{0,120}cleanup_incomplete') "non-successful standard stop response must fail cleanup closed"

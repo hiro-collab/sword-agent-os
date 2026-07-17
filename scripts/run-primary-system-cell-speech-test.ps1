@@ -283,6 +283,7 @@ $stackStarted = $false
 $runRoot = $null
 $ownedRunId = [guid]::NewGuid().ToString("N")
 $ownedJob = $null
+$testDispatchCount = 0
 
 function Throw-Fixed {
   param([Parameter(Mandatory = $true)][string]$Class)
@@ -1154,7 +1155,8 @@ try {
       -ErrorPath $controllerErr `
       -ExpectedSchema "self_output_awareness.system_output_trigger_ready.v0" `
       -ExpectedClass "ready_for_system_output_trigger" `
-      -RouteStopwatch $preparationStopwatch -RouteDeadlineMs $preparationDeadlineMs
+      -RouteStopwatch $preparationStopwatch -RouteDeadlineMs $preparationDeadlineMs `
+      -FailureClass "system_output_trigger_signal_unavailable"
   }
   $triggerSystemOutput = {
     $dispatchTimeoutMs = [Math]::Min(5000, (Get-RemainingBudgetMs `
@@ -1166,6 +1168,7 @@ try {
       [string]$uiResult.result_class -cne "test_ui_seed_dispatched" -or
       [int]$uiResult.ui_dispatch_count -ne 1
     ) { Throw-Fixed -Class "test_ui_dispatch_not_ready" }
+    $script:testDispatchCount = 1
     return "system_output_dispatched_once"
   }
 
@@ -1201,7 +1204,8 @@ try {
           -ErrorPath $controllerErr `
           -ExpectedSchema "self_output_awareness.live_controller_ready.v0" `
           -ExpectedClass "ready_for_user_speech" `
-          -RouteStopwatch $postStartStopwatch -RouteDeadlineMs $postStartDeadlineMs
+          -RouteStopwatch $postStartStopwatch -RouteDeadlineMs $postStartDeadlineMs `
+          -FailureClass "user_speech_signal_unavailable"
       } `
       -PublishUserCue {
         Write-Class ([ordered]@{
@@ -1222,7 +1226,8 @@ try {
           -ErrorPath $controllerErr `
           -ExpectedSchema "self_output_awareness.live_controller_ready.v0" `
           -ExpectedClass "ready_for_self_output_suppression_window" `
-          -RouteStopwatch $postStartStopwatch -RouteDeadlineMs $postStartDeadlineMs
+          -RouteStopwatch $postStartStopwatch -RouteDeadlineMs $postStartDeadlineMs `
+          -FailureClass "self_output_suppression_signal_unavailable"
       }
   }
 
@@ -1264,6 +1269,8 @@ try {
     "ait_lifecycle_transport_not_ready",
     "controlled_chrome_unavailable", "controlled_chrome_cdp_unavailable",
     "projection_owner_not_ready", "live_controller_signal_unavailable",
+    "system_output_trigger_signal_unavailable", "user_speech_signal_unavailable",
+    "self_output_suppression_signal_unavailable",
     "live_controller_exited_before_signal", "live_controller_signal_duplicated",
     "user_start_not_received", "prepared_hold_expired", "test_ui_dispatch_not_ready",
     "live_controller_did_not_finish", "live_controller_failed",
@@ -1289,7 +1296,7 @@ try {
     blocker_class = $blockerClass
     projection_owner_prepare_class = Resolve-ProjectionOwnerErrorDetailClass `
       -BlockerClass $blockerClass -PrepareClass $projectionOwnerPrepareClass
-    test_dispatch_count = 0
+    test_dispatch_count = $testDispatchCount
   })
 } finally {
   $launcherMutationOwnershipClear = $true
