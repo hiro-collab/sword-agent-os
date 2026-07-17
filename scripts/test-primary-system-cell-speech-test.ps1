@@ -270,8 +270,8 @@ foreach ($cleanupFailure in @(
   Assert-True ($source.Contains('"' + $cleanupFailure + '"')) "cleanup failure class must remain fixed: $cleanupFailure"
 }
 Assert-True ($source -match 'route_owned_processes_and_temp_cleared') "successful cleanup class must remain fixed"
-Assert-True ($source -match 'controllerProcess\.ExitCode\s+-ne\s+0[\s\S]{0,240}Get-EarlyControllerBlockerClass[\s\S]{0,240}Throw-Fixed\s+-Class\s+\$terminalBlocker[\s\S]{0,240}live_controller_failed') `
-  "nonzero controller completion must preserve a validated fixed child blocker before generic failure"
+Assert-True ($source -match 'controllerProcess\.ExitCode\s+-ne\s+0[\s\S]{0,240}Throw-Fixed\s+-Class[\s\S]{0,240}Resolve-ControllerNonzeroExitClass') `
+  "nonzero controller completion must use the tri-state fixed terminal resolver"
 Assert-True ($source -match 'Get-RemainingBudgetMs[\s\S]+preparationStopwatch[\s\S]+postStartStopwatch') "preparation and post-start must use separate non-renewing clocks"
 $postStartDeadlineAssignments = [regex]::Matches($source, '\$script:postStartDeadlineMs\s*=\s*(\d+)')
 Assert-Equal $postStartDeadlineAssignments.Count 2 "positive and unattended modes must each set one post-start deadline"
@@ -531,6 +531,8 @@ $earlyControllerResult.cleanup_class = "controller_http_resources_disposed_no_re
   [Text.Encoding]::UTF8)
 Assert-Equal (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath) `
   "production_transport_unavailable" "safe early controller result must retain its fixed blocker"
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "production_transport_unavailable" "safe early controller result must propagate through the nonzero-exit resolver"
 $timeoutPhaseCases = @(
   [ordered]@{
     blocker = "candidate_window_http_timeout"
@@ -618,7 +620,8 @@ foreach ($timeoutPhaseCase in $timeoutPhaseCases) {
       $earlyControllerPath,
       ($contradictoryResult | ConvertTo-Json -Depth 8 -Compress),
       [Text.Encoding]::UTF8)
-    Assert-True ($null -eq (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath)) `
+    Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+      "live_controller_result_invalid" `
       "timeout phase must fail closed when $($timeoutContradiction.field) contradicts the fixed class: $($timeoutPhaseCase.blocker)"
   }
 }
@@ -629,7 +632,8 @@ $earlyControllerResult.scenario = "invalid"
   $earlyControllerPath,
   ($earlyControllerResult | ConvertTo-Json -Depth 8 -Compress),
   [Text.Encoding]::UTF8)
-Assert-True ($null -eq (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath)) `
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
   "invalid scenario must not pair with a production transport blocker"
 $earlyControllerResult.blocker_class = "live_controller_configuration_invalid"
 [IO.File]::WriteAllText(
@@ -644,12 +648,126 @@ $earlyControllerResult.blocker_class = "unbounded_private_failure"
   $earlyControllerPath,
   ($earlyControllerResult | ConvertTo-Json -Depth 8 -Compress),
   [Text.Encoding]::UTF8)
-Assert-True ($null -eq (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath)) `
-  "unknown early controller blocker must fail closed to the generic parent class"
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
+  "unknown early controller blocker must fail closed to the invalid-result class"
 $oversizeControllerPath = Join-Path $tempRoot "oversize-controller.json"
 [IO.File]::WriteAllText($oversizeControllerPath, ("x" * 16385), [Text.Encoding]::ASCII)
-Assert-True ($null -eq (Get-EarlyControllerBlockerClass -OutputPath $oversizeControllerPath)) `
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $oversizeControllerPath) `
+  "live_controller_result_invalid" `
   "oversize early controller output must be rejected before JSON materialization"
+
+$absentControllerPath = Join-Path $tempRoot "absent-controller.json"
+Assert-True ($null -eq (Get-EarlyControllerBlockerClass -OutputPath $absentControllerPath)) `
+  "absent early controller output must remain distinguishable from invalid evidence"
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $absentControllerPath) `
+  "live_controller_failed" "absent terminal evidence must retain the generic failure class"
+$emptyControllerPath = Join-Path $tempRoot "empty-controller.json"
+[IO.File]::WriteAllText($emptyControllerPath, "", [Text.Encoding]::UTF8)
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $emptyControllerPath) `
+  "live_controller_failed" "empty terminal evidence must retain the generic failure class"
+
+[IO.File]::WriteAllText($earlyControllerPath, "{not-json", [Text.Encoding]::UTF8)
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" "malformed terminal JSON must fail closed without payload publication"
+
+$nonObjectRootCases = @(
+  [ordered]@{ label = "null"; json = "null" },
+  [ordered]@{ label = "empty array"; json = "[]" },
+  [ordered]@{ label = "one-object array"; json = "[{}]" },
+  [ordered]@{ label = "string"; json = '"private-nonobject-root"' },
+  [ordered]@{ label = "number"; json = "42" },
+  [ordered]@{ label = "boolean"; json = "true" })
+foreach ($nonObjectRootCase in $nonObjectRootCases) {
+  [IO.File]::WriteAllText(
+    $earlyControllerPath,
+    $nonObjectRootCase.json,
+    [Text.Encoding]::UTF8)
+  Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+    "live_controller_result_invalid" `
+    "valid non-object JSON root must return only the fixed invalid-result class without payload echo: $($nonObjectRootCase.label)"
+}
+
+[IO.File]::WriteAllText($earlyControllerPath, "{}", [Text.Encoding]::UTF8)
+Assert-Equal (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
+  "empty object terminal evidence must fail closed before member access"
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
+  "empty object terminal evidence must resolve only to the fixed invalid-result class"
+
+$delimiterCollisionPropertyName = @(
+  Get-ExpectedControllerResultKeys | Sort-Object
+) -join ","
+$delimiterCollisionResult = [PSCustomObject]@{}
+$delimiterCollisionResult | Add-Member `
+  -NotePropertyName $delimiterCollisionPropertyName `
+  -NotePropertyValue "not-published"
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($delimiterCollisionResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
+  "delimiter-collision property name must fail closed without member access or payload echo"
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
+  "delimiter-collision property name must resolve only to the fixed invalid-result class"
+
+$canonicalEarlyResult = ([pscustomobject]$validControllerResult | ConvertTo-Json -Depth 8) | ConvertFrom-Json
+$canonicalEarlyResult.controller_status = "error"
+$canonicalEarlyResult.result_class = "not_completed"
+$canonicalEarlyResult.blocker_class = "production_transport_unavailable"
+$canonicalEarlyResult.cleanup_class = "controller_http_resources_disposed_no_request_started"
+
+$missingRequiredPropertyResult = ($canonicalEarlyResult | ConvertTo-Json -Depth 8) | ConvertFrom-Json
+$missingRequiredPropertyResult.PSObject.Properties.Remove("blocker_class")
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($missingRequiredPropertyResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Get-EarlyControllerBlockerClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
+  "missing required terminal property must fail closed before member access"
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" `
+  "missing required terminal property must resolve only to the fixed invalid-result class"
+
+$invalidSchemaResult = ($canonicalEarlyResult | ConvertTo-Json -Depth 8) | ConvertFrom-Json
+$invalidSchemaResult.schema_version = "self_output_awareness.live_controller.private"
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($invalidSchemaResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" "wrong terminal schema must fail closed"
+
+$invalidStatusResult = ($canonicalEarlyResult | ConvertTo-Json -Depth 8) | ConvertFrom-Json
+$invalidStatusResult.controller_status = "ok"
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($invalidStatusResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" "wrong terminal status must fail closed"
+
+$invalidKeyResult = ($canonicalEarlyResult | ConvertTo-Json -Depth 8) | ConvertFrom-Json
+$invalidKeyResult | Add-Member -NotePropertyName private_extra -NotePropertyValue "not-published"
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($invalidKeyResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" "unexpected terminal key must fail closed"
+
+$privateTerminalResult = ($canonicalEarlyResult | ConvertTo-Json -Depth 8) | ConvertFrom-Json
+$privateTerminalResult.raw_private_publication_flags = $true
+[IO.File]::WriteAllText(
+  $earlyControllerPath,
+  ($privateTerminalResult | ConvertTo-Json -Depth 8 -Compress),
+  [Text.Encoding]::UTF8)
+Assert-Equal (Resolve-ControllerNonzeroExitClass -OutputPath $earlyControllerPath) `
+  "live_controller_result_invalid" "private terminal evidence must fail closed to a fixed class"
 Assert-True ($source -match 'Process\.HasExited[\s\S]{0,220}Get-EarlyControllerBlockerClass') `
   "controller exit must consume the safe child-result contract before generic classification"
 try {

@@ -728,14 +728,37 @@ function Get-EarlyControllerBlockerClass {
   if (-not (Test-Path -LiteralPath $OutputPath -PathType Leaf)) { return $null }
   try { $file = Get-Item -LiteralPath $OutputPath -Force -ErrorAction Stop }
   catch { return $null }
-  if ($file.Length -gt 16384) { return $null }
-  $text = (Get-Content -Raw -LiteralPath $OutputPath -ErrorAction SilentlyContinue).Trim()
-  if (
-    [string]::IsNullOrWhiteSpace($text) -or
-    [Text.Encoding]::UTF8.GetByteCount($text) -gt 16384
-  ) { return $null }
-  try { $value = $text | ConvertFrom-Json } catch { return $null }
+  if ($file.Length -gt 16384) { return "live_controller_result_invalid" }
+  $rawText = Get-Content -Raw -LiteralPath $OutputPath -ErrorAction SilentlyContinue
+  if ($null -eq $rawText) { return $null }
+  $text = $rawText.Trim()
+  if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+  if ([Text.Encoding]::UTF8.GetByteCount($text) -gt 16384) {
+    return "live_controller_result_invalid"
+  }
+  try { $value = $text | ConvertFrom-Json -NoEnumerate }
+  catch { return "live_controller_result_invalid" }
+  if ($null -eq $value -or $value.GetType() -ne [System.Management.Automation.PSCustomObject]) {
+    return "live_controller_result_invalid"
+  }
   $expectedKeys = Get-ExpectedControllerResultKeys
+  $actualKeys = @(
+    $value.PSObject.Properties |
+      ForEach-Object { [string]$_.Name }
+  )
+  $actualKeySet = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::Ordinal)
+  foreach ($actualKey in $actualKeys) {
+    [void]$actualKeySet.Add($actualKey)
+  }
+  if (
+    $actualKeys.Count -ne $expectedKeys.Count -or
+    @($expectedKeys | Where-Object {
+        -not $actualKeySet.Contains([string]$_)
+      }).Count -ne 0
+  ) {
+    return "live_controller_result_invalid"
+  }
   $allowed = @(
     "live_controller_configuration_invalid", "live_controller_token_unavailable",
     "live_controller_endpoint_unreachable", "live_controller_endpoint_access_denied",
@@ -792,8 +815,6 @@ function Get-EarlyControllerBlockerClass {
     ($blockerClass -ceq "live_controller_configuration_invalid" -and
       $scenarioClass -ceq "invalid"))
   if (
-    (@($value.PSObject.Properties.Name | Sort-Object) -join ",") -cne
-      (@($expectedKeys | Sort-Object) -join ",") -or
     [string]$value.schema_version -cne "self_output_awareness.live_controller.v0" -or
     [string]$value.controller_status -cne "error" -or
     -not $scenarioValid -or
@@ -805,8 +826,17 @@ function Get-EarlyControllerBlockerClass {
     $value.private_environment_shared -isnot [bool] -or [bool]$value.private_environment_shared -or
     $value.raw_private_publication_flags -isnot [bool] -or
     [bool]$value.raw_private_publication_flags
-  ) { return $null }
+  ) { return "live_controller_result_invalid" }
   return $blockerClass
+}
+
+function Resolve-ControllerNonzeroExitClass {
+  param([Parameter(Mandatory = $true)][string]$OutputPath)
+  $terminalClass = Get-EarlyControllerBlockerClass -OutputPath $OutputPath
+  if (-not [string]::IsNullOrWhiteSpace($terminalClass)) {
+    return $terminalClass
+  }
+  return "live_controller_failed"
 }
 
 function Wait-ControllerSignal {
@@ -1277,11 +1307,8 @@ try {
 
   if (-not $controllerProcess.WaitForExit(12000)) { Throw-Fixed -Class "live_controller_did_not_finish" }
   if ($controllerProcess.ExitCode -ne 0) {
-    $terminalBlocker = Get-EarlyControllerBlockerClass -OutputPath $controllerOut
-    if (-not [string]::IsNullOrWhiteSpace($terminalBlocker)) {
-      Throw-Fixed -Class $terminalBlocker
-    }
-    Throw-Fixed -Class "live_controller_failed"
+    Throw-Fixed -Class (
+      Resolve-ControllerNonzeroExitClass -OutputPath $controllerOut)
   }
   $resultText = $(if (Test-Path -LiteralPath $controllerOut -PathType Leaf) {
       (Get-Content -Raw -LiteralPath $controllerOut).Trim()
