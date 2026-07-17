@@ -1,6 +1,5 @@
 param(
   [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
-  [ValidateSet("genuine_user_speech", "unattended_self_output_suppression")]
   [string]$TestMode = "genuine_user_speech",
   [string]$UserStartEventName = "",
   [ValidateRange(30, 1800)][int]$UserStartHoldSeconds = 900,
@@ -281,7 +280,7 @@ $userStartEvent = $null
 $launcherStarted = $false
 $stackStarted = $false
 $runRoot = $null
-$ownedRunId = [guid]::NewGuid().ToString("N")
+$ownedRunId = $null
 $ownedJob = $null
 $testDispatchCount = 0
 
@@ -822,12 +821,66 @@ function Get-ChromeExecutable {
   return @($candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1)[0]
 }
 
-function Get-RequiredLauncherServices {
-  return @(
-    "home_assistant_bridge", "environment_state_server", "mediapipe",
-    "vision_snapshot_processor", "aituber_kit", "touchdesigner_control_gui",
-    "thought_core_api", "thought_core_watcher", "voicevox"
+function Get-LauncherRouteContract {
+  param([Parameter(Mandatory = $true)][string]$Mode)
+
+  if ($Mode -ceq "genuine_user_speech") {
+    return [pscustomobject]@{
+      profile_id = "thought-core-v0"
+      requires_saved_camera = $true
+      camera_selection_class = "selected_available"
+      readiness_failure_class = "launcher_nine_service_boundary_not_ready"
+      required_services = @(
+        "home_assistant_bridge", "environment_state_server", "mediapipe",
+        "vision_snapshot_processor", "aituber_kit", "touchdesigner_control_gui",
+        "thought_core_api", "thought_core_watcher", "voicevox"
+      )
+    }
+  }
+  if ($Mode -ceq "unattended_self_output_suppression") {
+    return [pscustomobject]@{
+      profile_id = "demo-fast"
+      requires_saved_camera = $false
+      camera_selection_class = "camera_disabled"
+      readiness_failure_class = "launcher_demo_service_boundary_not_ready"
+      required_services = @("aituber_kit", "thought_core_api", "voicevox")
+    }
+  }
+  Throw-Fixed -Class "launcher_route_contract_invalid"
+}
+
+function Assert-LauncherCameraReadiness {
+  param(
+    [Parameter(Mandatory = $true)][psobject]$Contract,
+    [AllowNull()]$LauncherOptions,
+    [Parameter(Mandatory = $true)][scriptblock]$CameraSelectionInvoker
   )
+
+  if ($null -eq $LauncherOptions) {
+    Throw-Fixed -Class "launcher_route_contract_invalid"
+  }
+  if (-not [bool]$Contract.requires_saved_camera) {
+    if (
+      [string]$Contract.camera_selection_class -cne "camera_disabled" -or
+      -not [bool]$LauncherOptions.SkipMediapipe
+    ) { Throw-Fixed -Class "launcher_route_contract_invalid" }
+    return "camera_disabled"
+  }
+  if (
+    [string]$Contract.camera_selection_class -cne "selected_available" -or
+    [bool]$LauncherOptions.SkipMediapipe
+  ) { Throw-Fixed -Class "launcher_route_contract_invalid" }
+  if ([string]::IsNullOrWhiteSpace([string]$LauncherOptions.MediapipeCameraName)) {
+    Throw-Fixed -Class "saved_camera_selection_missing"
+  }
+  $cameraSelection = & $CameraSelectionInvoker
+  if (
+    [string]$cameraSelection.selection_class -cne "selected_available" -or
+    [bool]$cameraSelection.selected_match -ne $true -or
+    [int]$cameraSelection.device_start_count -ne 0 -or
+    [int]$cameraSelection.capture_count -ne 0
+  ) { Throw-Fixed -Class "saved_camera_selection_not_exactly_available" }
+  return "selected_available"
 }
 
 function Test-AitLifecyclePreflightResponse {
@@ -1149,6 +1202,7 @@ $tokenChanged = $false
 $launcherOwnershipProven = $false
 $routePorts = @(3000, 8000, 8554, 8765, 8770, 8776, 8787, 8788, 8790, 8799, 8889, 18787, 9222)
 try {
+  $launcherRouteContract = Get-LauncherRouteContract -Mode $TestMode
   if (
     ($TestMode -ceq "genuine_user_speech" -and
       $UserStartEventName -cnotmatch "^[A-Za-z0-9][A-Za-z0-9_.-]{7,95}$") -or
@@ -1168,6 +1222,7 @@ try {
   $ownedBase = Join-Path $resolvedRepo ".cache\codex-owned"
   [void][IO.Directory]::CreateDirectory($ownedBase)
   Assert-NoReparseAncestors -Path $ownedBase
+  $ownedRunId = [guid]::NewGuid().ToString("N")
   $runRoot = Join-Path $ownedBase "primary-system-cell-speech-test-$ownedRunId"
   if (Test-Path -LiteralPath $runRoot) { Throw-Fixed -Class "run_root_collision" }
   [void][IO.Directory]::CreateDirectory($runRoot)
@@ -1203,37 +1258,49 @@ try {
   }
   Assert-PortOwnedByRoot -Port 8799 -RootIdentity $launcherIdentity
   $launcherOwnershipProven = $true
-  if ([string]$launcherState.config.selectedProfileId -cne "thought-core-v0") {
+  $launcherProfileMatches = @($launcherState.profiles | Where-Object {
+      $null -ne $_ -and
+      [string]$_.id -ceq [string]$launcherRouteContract.profile_id
+    })
+  if ($launcherProfileMatches.Count -ne 1) {
+    Throw-Fixed -Class "launcher_route_profile_unavailable"
+  }
+  if (
+    [bool]$launcherRouteContract.requires_saved_camera -and
+    [string]$launcherState.config.selectedProfileId -cne [string]$launcherRouteContract.profile_id
+  ) {
     Throw-Fixed -Class "launcher_primary_profile_not_selected"
   }
-  if ([string]::IsNullOrWhiteSpace([string]$launcherState.config.options.MediapipeCameraName)) {
-    Throw-Fixed -Class "saved_camera_selection_missing"
-  }
-  $cameraSelection = Invoke-LoopbackJson -Uri "http://127.0.0.1:8799/api/video-input-devices" `
-    -TimeoutMs (Get-RemainingBudgetMs -Stopwatch $preparationStopwatch `
-      -DeadlineMs $preparationDeadlineMs -FailureClass "preparation_deadline_exceeded")
-  if (
-    [string]$cameraSelection.selection_class -cne "selected_available" -or
-    [bool]$cameraSelection.selected_match -ne $true -or
-    [int]$cameraSelection.device_start_count -ne 0 -or
-    [int]$cameraSelection.capture_count -ne 0
-  ) { Throw-Fixed -Class "saved_camera_selection_not_exactly_available" }
+  $launcherOptions = $(if ([bool]$launcherRouteContract.requires_saved_camera) {
+      $launcherState.config.options
+    } else {
+      $launcherProfileMatches[0].options
+    })
+  $savedCameraSelectionClass = Assert-LauncherCameraReadiness `
+    -Contract $launcherRouteContract -LauncherOptions $launcherOptions `
+    -CameraSelectionInvoker {
+      Invoke-LoopbackJson -Uri "http://127.0.0.1:8799/api/video-input-devices" `
+        -TimeoutMs (Get-RemainingBudgetMs -Stopwatch $preparationStopwatch `
+          -DeadlineMs $preparationDeadlineMs -FailureClass "preparation_deadline_exceeded")
+    }
 
   [void](Invoke-OwnedLauncherMutation -RootIdentity $launcherIdentity -MutationInvoker {
       Invoke-LoopbackJson -Uri "http://127.0.0.1:8799/api/start" -Method POST `
         -TimeoutMs (Get-RemainingBudgetMs -Stopwatch $preparationStopwatch `
           -DeadlineMs $preparationDeadlineMs -FailureClass "preparation_deadline_exceeded") -Body ([ordered]@{
-        profileId = "thought-core-v0"
-        options = $launcherState.config.options
+        profileId = [string]$launcherRouteContract.profile_id
+        options = $launcherOptions
       })
     })
   $stackStarted = $true
-  $requiredServices = Get-RequiredLauncherServices
+  $requiredServices = @($launcherRouteContract.required_services)
   [void](Wait-Until -RouteStopwatch $preparationStopwatch `
-    -RouteDeadlineMs $preparationDeadlineMs -FailureClass "launcher_nine_service_boundary_not_ready" -Condition {
+    -RouteDeadlineMs $preparationDeadlineMs `
+    -FailureClass ([string]$launcherRouteContract.readiness_failure_class) -Condition {
     $status = Invoke-LoopbackJson -Uri "http://127.0.0.1:8799/api/status" `
       -TimeoutMs (Get-RemainingBudgetMs -Stopwatch $preparationStopwatch `
-        -DeadlineMs $preparationDeadlineMs -FailureClass "launcher_nine_service_boundary_not_ready")
+        -DeadlineMs $preparationDeadlineMs `
+        -FailureClass ([string]$launcherRouteContract.readiness_failure_class))
     $readyCount = 0
     foreach ($serviceId in $requiredServices) {
       $service = $status.services.$serviceId
@@ -1376,8 +1443,8 @@ try {
         Write-Class ([ordered]@{
           schema_version = "primary_system_cell_speech_test_prepare.v1"
           result_class = "ready_for_user_session_start"
-          saved_camera_selection_class = "selected_available"
-          launcher_service_count = 9
+          saved_camera_selection_class = $savedCameraSelectionClass
+          launcher_service_count = $requiredServices.Count
           input_availability_class = "enabled"
           projection_owner_class = [string]$ownerPrepare.result_class
           user_clock_started = $false
@@ -1468,7 +1535,9 @@ try {
     "owned_job_assignment_failed", "owned_process_resume_failed", "launcher_unreachable",
     "launcher_primary_profile_not_selected", "saved_camera_selection_missing",
     "saved_camera_selection_not_exactly_available",
-    "launcher_nine_service_boundary_not_ready", "canonical_input_gate_not_ready",
+    "launcher_route_contract_invalid", "launcher_route_profile_unavailable",
+    "launcher_nine_service_boundary_not_ready", "launcher_demo_service_boundary_not_ready",
+    "canonical_input_gate_not_ready",
     "ait_lifecycle_transport_not_ready",
     "controlled_chrome_unavailable", "controlled_chrome_cdp_unavailable",
     "projection_owner_not_ready", "live_controller_signal_unavailable",

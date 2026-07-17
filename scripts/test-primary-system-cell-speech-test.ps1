@@ -42,6 +42,170 @@ Assert-ParserClear -Path $RunPath
 . $RunPath -UserStartEventName "test-dot-source-event"
 $source = Get-Content -Raw -LiteralPath $RunPath
 
+$genuineLauncherContract = Get-LauncherRouteContract -Mode "genuine_user_speech"
+Assert-Equal $genuineLauncherContract.profile_id "thought-core-v0" `
+  "genuine speech must retain the full Primary System Cell profile"
+Assert-Equal ([bool]$genuineLauncherContract.requires_saved_camera) $true `
+  "genuine speech must retain strict saved-camera readiness"
+Assert-Equal $genuineLauncherContract.camera_selection_class "selected_available" `
+  "genuine speech must retain exact saved-camera success"
+Assert-Equal ($genuineLauncherContract.required_services -join ",") `
+  "home_assistant_bridge,environment_state_server,mediapipe,vision_snapshot_processor,aituber_kit,touchdesigner_control_gui,thought_core_api,thought_core_watcher,voicevox" `
+  "genuine speech must retain the exact nine-service boundary"
+Assert-Equal $genuineLauncherContract.readiness_failure_class `
+  "launcher_nine_service_boundary_not_ready" `
+  "genuine speech must retain its exact nine-service blocker"
+
+$unattendedLauncherContract = Get-LauncherRouteContract `
+  -Mode "unattended_self_output_suppression"
+Assert-Equal $unattendedLauncherContract.profile_id "demo-fast" `
+  "unattended suppression must use the canonical no-camera profile"
+Assert-Equal ([bool]$unattendedLauncherContract.requires_saved_camera) $false `
+  "unattended suppression must not require a saved camera"
+Assert-Equal $unattendedLauncherContract.camera_selection_class "camera_disabled" `
+  "unattended suppression must classify the camera as disabled"
+Assert-Equal ($unattendedLauncherContract.required_services -join ",") `
+  "aituber_kit,thought_core_api,voicevox" `
+  "unattended suppression must wait only on its fixed display, core, and audio services"
+Assert-Equal $unattendedLauncherContract.readiness_failure_class `
+  "launcher_demo_service_boundary_not_ready" `
+  "unattended suppression must have a fixed profile-specific readiness blocker"
+
+Assert-FixedFailure {
+  [void](Get-LauncherRouteContract -Mode "unknown-fixture-value")
+} "launcher_route_contract_invalid" `
+  "unknown modes must fail closed without publishing the supplied value"
+
+$unknownModeSentinel = "private-mode-fixture-" + [guid]::NewGuid().ToString("N")
+$unknownModeOwnedBase = Join-Path $RepoRoot ".cache\codex-owned"
+$unknownModeRoutePorts = @(3000, 8000, 8554, 8765, 8770, 8776, 8787, 8788, 8790, 8799, 8889, 18787, 9222)
+$unknownModeOwnedCountBefore = @(
+  Get-ChildItem -LiteralPath $unknownModeOwnedBase -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like "primary-system-cell-speech-test-*" }
+).Count
+$unknownModeListenersBefore = @(
+  Get-NetTCPConnection -State Listen -ErrorAction Stop |
+    Where-Object { $_.LocalPort -in $unknownModeRoutePorts }
+).Count
+Assert-Equal $unknownModeOwnedCountBefore 0 `
+  "unknown-mode subprocess fixture requires zero current owned-run residue"
+Assert-Equal $unknownModeListenersBefore 0 `
+  "unknown-mode subprocess fixture requires zero managed listeners"
+$unknownModeOutput = @(
+  & "C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -File $RunPath `
+    -TestMode $unknownModeSentinel -Json 2>&1
+)
+$unknownModeExitCode = $LASTEXITCODE
+$unknownModeText = ($unknownModeOutput | ForEach-Object { [string]$_ }) -join "`n"
+Assert-Equal $unknownModeExitCode 1 `
+  "unknown top-level mode must exit through the fixed blocked route"
+Assert-True (-not $unknownModeText.Contains($unknownModeSentinel)) `
+  "unknown top-level mode must not echo the private sentinel"
+$unknownModeEnvelopes = @(
+  foreach ($line in $unknownModeOutput) {
+    $candidate = [string]$line
+    if ($candidate.StartsWith("{", [StringComparison]::Ordinal)) {
+      try { $candidate | ConvertFrom-Json } catch {}
+    }
+  }
+)
+$unknownModeError = @(
+  $unknownModeEnvelopes |
+    Where-Object { [string]$_.schema_version -ceq "primary_system_cell_speech_test_error.v1" }
+)
+$unknownModeCleanup = @(
+  $unknownModeEnvelopes |
+    Where-Object { [string]$_.schema_version -ceq "primary_system_cell_speech_test_cleanup.v1" }
+)
+Assert-Equal $unknownModeError.Count 1 `
+  "unknown top-level mode must emit one fixed error envelope"
+Assert-Equal $unknownModeCleanup.Count 1 `
+  "unknown top-level mode must emit one fixed cleanup envelope"
+Assert-Equal $unknownModeError[0].blocker_class "launcher_route_contract_invalid" `
+  "unknown top-level mode must use only the fixed contract blocker"
+Assert-Equal ([int]$unknownModeError[0].test_dispatch_count) 0 `
+  "unknown top-level mode must perform no UI dispatch"
+Assert-Equal ([bool]$unknownModeError[0].raw_private_publication_flags) $false `
+  "unknown top-level mode error must retain the privacy-safe boundary"
+Assert-Equal $unknownModeCleanup[0].blocker_class "launcher_route_contract_invalid" `
+  "unknown top-level mode cleanup must retain the fixed contract blocker"
+Assert-Equal $unknownModeCleanup[0].cleanup_class `
+  "route_owned_processes_and_temp_cleared" `
+  "unknown top-level mode must finish through legitimate no-resource cleanup"
+Assert-Equal ([bool]$unknownModeCleanup[0].raw_private_publication_flags) $false `
+  "unknown top-level mode cleanup must retain the privacy-safe boundary"
+$unknownModeOwnedCountAfter = @(
+  Get-ChildItem -LiteralPath $unknownModeOwnedBase -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like "primary-system-cell-speech-test-*" }
+).Count
+$unknownModeListenersAfter = @(
+  Get-NetTCPConnection -State Listen -ErrorAction Stop |
+    Where-Object { $_.LocalPort -in $unknownModeRoutePorts }
+).Count
+$unknownModeProcessResidue = @(
+  Get-CimInstance Win32_Process -ErrorAction Stop |
+    Where-Object {
+      $_.ProcessId -ne $PID -and
+      [string]$_.CommandLine -match "run-primary-system-cell-speech-test\.ps1"
+    }
+).Count
+Assert-Equal $unknownModeOwnedCountAfter 0 `
+  "unknown top-level mode must leave no current owned-run temp residue"
+Assert-Equal $unknownModeListenersAfter 0 `
+  "unknown top-level mode must leave no managed listener residue"
+Assert-Equal $unknownModeProcessResidue 0 `
+  "unknown top-level mode must leave no matching process residue"
+
+$unattendedCameraEnumerationCount = 0
+$unattendedCameraClass = Assert-LauncherCameraReadiness `
+  -Contract $unattendedLauncherContract `
+  -LauncherOptions ([pscustomobject]@{ SkipMediapipe = $true }) `
+  -CameraSelectionInvoker {
+    $script:unattendedCameraEnumerationCount += 1
+    Throw-Fixed -Class "camera_enumeration_must_not_run"
+  }
+Assert-Equal $unattendedCameraClass "camera_disabled" `
+  "unattended suppression must return only the fixed disabled class"
+Assert-Equal $unattendedCameraEnumerationCount 0 `
+  "unattended suppression must not enumerate camera devices"
+
+$genuineCameraEnumerationCount = 0
+Assert-FixedFailure {
+  [void](Assert-LauncherCameraReadiness `
+    -Contract $genuineLauncherContract `
+    -LauncherOptions ([pscustomobject]@{
+        SkipMediapipe = $false
+        MediapipeCameraName = ""
+      }) `
+    -CameraSelectionInvoker {
+      $script:genuineCameraEnumerationCount += 1
+      return $null
+    })
+} "saved_camera_selection_missing" `
+  "genuine speech must preserve the strict missing-camera blocker"
+Assert-Equal $genuineCameraEnumerationCount 0 `
+  "genuine missing-camera failure must precede device enumeration"
+
+$genuineCameraClass = Assert-LauncherCameraReadiness `
+  -Contract $genuineLauncherContract `
+  -LauncherOptions ([pscustomobject]@{
+      SkipMediapipe = $false
+      MediapipeCameraName = "fixture-camera"
+    }) `
+  -CameraSelectionInvoker {
+    $script:genuineCameraEnumerationCount += 1
+    return [pscustomobject]@{
+      selection_class = "selected_available"
+      selected_match = $true
+      device_start_count = 0
+      capture_count = 0
+    }
+  }
+Assert-Equal $genuineCameraClass "selected_available" `
+  "genuine speech must return only the fixed selected-camera class"
+Assert-Equal $genuineCameraEnumerationCount 1 `
+  "genuine speech must enumerate exactly once after a saved selection is present"
+
 Assert-Equal `
   (Resolve-ProjectionOwnerPrepareClass -Value ([pscustomobject]@{
       result_class = "projection_owner_prepare_timeout"
@@ -234,7 +398,32 @@ $statementIndexes = @($mainStatements | ForEach-Object { $source.IndexOf($_) })
 Assert-True ($source -match 'Invoke-UserSessionSequence[\s\S]+StartControllerAndWaitForSystemOutputTriggerReady[\s\S]+PublishSessionReady[\s\S]+WaitForUserStart') "execution helper must prearm controller before publishing readiness and waiting for user start"
 
 Assert-True ($source -match 'selection_class\s+-cne\s+"selected_available"[\s\S]+selected_match[\s\S]+device_start_count[\s\S]+capture_count') "saved camera selection must fail closed without substitution or capture"
-Assert-True ($source -match 'Get-RequiredLauncherServices[\s\S]+launcher_service_count\s*=\s*9') "Launcher boundary must remain exactly nine services"
+Assert-True ($source -match 'Get-LauncherRouteContract\s+-Mode\s+\$TestMode[\s\S]+profileId\s*=\s*\[string\]\$launcherRouteContract\.profile_id') `
+  "Launcher profile selection must come only from the fixed mode contract"
+Assert-Equal ($source.Split('Get-LauncherRouteContract -Mode $TestMode').Count - 1) 1 `
+  "top-level mode must resolve through the fixed contract exactly once"
+Assert-True ($source -match 'try\s*\{\s*\$launcherRouteContract\s*=\s*Get-LauncherRouteContract\s+-Mode\s+\$TestMode') `
+  "top-level mode contract must be the first statement inside the main guarded route"
+$runnerTokens = $null
+$runnerParseErrors = $null
+$runnerAst = [Management.Automation.Language.Parser]::ParseFile(
+  $RunPath, [ref]$runnerTokens, [ref]$runnerParseErrors)
+$topLevelTestModeParameters = @(
+  $runnerAst.ParamBlock.Parameters |
+    Where-Object { $_.Name.VariablePath.UserPath -ceq "TestMode" }
+)
+Assert-Equal $topLevelTestModeParameters.Count 1 `
+  "runner must declare exactly one top-level TestMode parameter"
+$topLevelTestModeValidateSets = @(
+  $topLevelTestModeParameters[0].Attributes |
+    Where-Object { $_.TypeName.FullName -ieq "ValidateSet" }
+)
+Assert-Equal $topLevelTestModeValidateSets.Count 0 `
+  "top-level TestMode must not be rejected by parameter binding before fixed classification"
+Assert-True ($source -match 'launcher_service_count\s*=\s*\$requiredServices\.Count') `
+  "published Launcher readiness must use the fixed contract service count"
+Assert-True ($source -match 'Assert-LauncherCameraReadiness[\s\S]+CameraSelectionInvoker[\s\S]+api/video-input-devices') `
+  "camera enumeration must remain behind the fixed camera-readiness contract"
 Assert-True ($source -match 'input_availability_class\s+-ceq\s+"enabled"') "canonical body-state readiness field must remain exact"
 Assert-True ($source -match 'projection_owner_prepare_class\s*=\s*Resolve-ProjectionOwnerErrorDetailClass') "owner preparation blocker must expose only its normalized fixed child class"
 Assert-True ($source -match 'Resolve-ProjectionOwnerPrepareClass[\s\S]+projection_owner_prepare_failed') "owner preparation diagnostic must fail closed on unknown child classes"
