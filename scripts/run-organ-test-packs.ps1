@@ -101,6 +101,111 @@ function Test-SafePackPath {
   return Test-SafePackText -Value $Path
 }
 
+function Test-PowerShellCommandExecutable {
+  param([string]$Executable)
+  if ([string]::IsNullOrWhiteSpace($Executable)) {
+    return $false
+  }
+  $leaf = [System.IO.Path]::GetFileName($Executable)
+  return (
+    [string]::Equals($leaf, "powershell", [StringComparison]::OrdinalIgnoreCase) -or
+    [string]::Equals($leaf, "powershell.exe", [StringComparison]::OrdinalIgnoreCase) -or
+    [string]::Equals($leaf, "pwsh", [StringComparison]::OrdinalIgnoreCase) -or
+    [string]::Equals($leaf, "pwsh.exe", [StringComparison]::OrdinalIgnoreCase)
+  )
+}
+
+function Resolve-RepositoryPowerShellFilePath {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  try {
+    if (
+      [string]::IsNullOrWhiteSpace($Path) -or
+      [System.IO.Path]::IsPathRooted($Path) -or
+      $Path -match ":" -or
+      $Path -match "(^|[\\/])\.{1,2}([\\/]|$)" -or
+      $Path -match "[\\/]{2}"
+    ) {
+      throw "invalid"
+    }
+    $segments = @(
+      $Path -split "[\\/]" |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+    if ($segments.Count -eq 0) {
+      throw "invalid"
+    }
+
+    $trimCharacters = [char[]]@(
+      [System.IO.Path]::DirectorySeparatorChar,
+      [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    $repoFull = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd($trimCharacters)
+    $repoPrefix = $repoFull + [System.IO.Path]::DirectorySeparatorChar
+    $candidate = [System.IO.Path]::GetFullPath(
+      (Join-Path $repoFull ($segments -join [System.IO.Path]::DirectorySeparatorChar)))
+    if (-not $candidate.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+      throw "invalid"
+    }
+
+    $cursor = $repoFull
+    for ($index = 0; $index -lt $segments.Count; $index++) {
+      $cursor = Join-Path $cursor $segments[$index]
+      $item = Get-Item -LiteralPath $cursor -Force -ErrorAction Stop
+      if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "invalid"
+      }
+      if ($index -lt ($segments.Count - 1) -and -not [bool]$item.PSIsContainer) {
+        throw "invalid"
+      }
+      if (
+        $index -eq ($segments.Count - 1) -and
+        ([bool]$item.PSIsContainer -or $item -isnot [System.IO.FileInfo])
+      ) {
+        throw "invalid"
+      }
+    }
+
+    $resolved = [System.IO.Path]::GetFullPath(
+      (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).ProviderPath)
+    if (-not $resolved.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+      throw "invalid"
+    }
+    return $resolved
+  }
+  catch {
+    throw "organ_pack_powershell_file_invalid"
+  }
+}
+
+function Resolve-TestCommandArguments {
+  param(
+    [Parameter(Mandatory = $true)][string]$Executable,
+    [string[]]$Arguments = @()
+  )
+  $resolvedArguments = @($Arguments | ForEach-Object { [string]$_ })
+  if (-not (Test-PowerShellCommandExecutable -Executable $Executable)) {
+    return $resolvedArguments
+  }
+
+  $fileArgumentIndexes = @()
+  for ($index = 0; $index -lt $resolvedArguments.Count; $index++) {
+    if ([string]::Equals(
+        $resolvedArguments[$index], "-File", [StringComparison]::OrdinalIgnoreCase)) {
+      $fileArgumentIndexes += $index
+    }
+  }
+  if (
+    $fileArgumentIndexes.Count -ne 1 -or
+    $fileArgumentIndexes[0] -ge ($resolvedArguments.Count - 1)
+  ) {
+    throw "organ_pack_powershell_file_invalid"
+  }
+  $fileValueIndex = $fileArgumentIndexes[0] + 1
+  $resolvedArguments[$fileValueIndex] = Resolve-RepositoryPowerShellFilePath `
+    -Path $resolvedArguments[$fileValueIndex]
+  return $resolvedArguments
+}
+
 function Test-SafeFixtureCandidate {
   param([string]$Path)
   if (-not (Test-SafePackPath -Path $Path)) {
@@ -341,7 +446,18 @@ function Invoke-TestCommand {
   if ([string]::IsNullOrWhiteSpace($executable)) {
     return @{ result = "blocked"; detail = "command missing executable" }
   }
-  $args = ConvertTo-StringArray -Value (Get-OptionalProperty -Object $Test -Name "args" -Default @())
+  $manifestArguments = ConvertTo-StringArray -Value (
+    Get-OptionalProperty -Object $Test -Name "args" -Default @())
+  try {
+    $args = @(Resolve-TestCommandArguments `
+      -Executable $executable -Arguments $manifestArguments)
+  }
+  catch {
+    return @{
+      result = "blocked"
+      detail = "organ_pack_powershell_file_invalid"
+    }
+  }
   $expected = [int](Get-OptionalProperty -Object $Test -Name "expect_exit_code" -Default 0)
   $output = & $executable @args 2>&1
   $exitCode = $LASTEXITCODE

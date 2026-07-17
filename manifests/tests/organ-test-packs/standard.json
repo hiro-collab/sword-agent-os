@@ -65,6 +65,48 @@
           "expect_exit_code": 0
         },
         {
+          "id": "body_schema.state_event_ingest",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/tests/test-state-event-ingest.ps1"
+          ],
+          "expect_exit_code": 0
+        },
+        {
+          "id": "body_schema.diagnostics_body_state_projection",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/tests/test-diagnostics-body-state-projection.ps1"
+          ],
+          "expect_exit_code": 0
+        },
+        {
+          "id": "body_schema.current_state",
+          "mode": "auto",
+          "type": "command",
+          "executable": "powershell",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/tests/test-body-schema-current-state.ps1"
+          ],
+          "expect_exit_code": 0
+        },
+        {
           "id": "self_mirror.dance_stop_lifecycle_contract",
           "mode": "auto",
           "type": "command",
