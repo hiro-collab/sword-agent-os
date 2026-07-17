@@ -160,6 +160,31 @@ product defaults. These controls are the current manual presentation authority.
 Future AI-selected bubble presentation must use the same bounded settings seam
 and remains a separate requirement.
 
+## 投影用の別ウィンドウを出す
+
+The Display Runtime GUI's `Separate projector output` controls the canonical
+public browser-output route. Start the selected runtime, then open the Display
+Runtime GUI from the Launcher. The route creates its own Projection Visual
+source with `mode=stage-output` and `hud=0`; do not substitute an arbitrary page
+or screen capture. The output window's actual title is `Projection Output`.
+
+1. Select `SELECT WINDOW` in the Display Runtime GUI.
+2. In the browser share picker, choose the newly opened Projection Visual stage
+   window. Do not choose the operator GUI, the entire screen, or an unrelated or
+   private window. The route accepts no audio, permits only a browser or window
+   surface, and verifies the selected stage identity before streaming.
+3. Wait until the GUI reports `Projector output active`, then move the
+   `Projection Output` window to the intended display and use the browser or OS
+   full-screen control as needed.
+4. Select `STOP OUTPUT` before stopping the runtime. Closing the output window
+   or ending browser sharing also terminates the owned capture; confirm
+   `Output ended` or `Idle`.
+
+If pop-ups or screen sharing are denied, treat the route as unavailable instead
+of bypassing its source checks. A successful browser output is runtime evidence
+only. Real-projector brightness, color, readability, and U1 acceptance remain a
+separate physical and human check.
+
 ## Primary System Cell を人に見せる前の確認
 
 ```powershell
