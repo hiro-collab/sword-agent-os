@@ -6,6 +6,7 @@ param(
   [int]$AiTalkCorePort = 8000,
   [int]$HomeAssistantBridgePort = 8787,
   [int]$EnvironmentStatePort = 8790,
+  [int]$OpenAIBrokerPort = 18786,
   [int]$MediapipePort = 8765,
   [int]$MediapipeBrowserMonitorPort = 8770,
   [int]$VisionSnapshotProcessorPort = 8776,
@@ -328,6 +329,7 @@ if ($UseIsolatedPorts) {
   Set-PortIfUnbound -Name "AiTalkCorePort" -Value $isolatedPorts["ai_talk_core_web"]
   Set-PortIfUnbound -Name "HomeAssistantBridgePort" -Value $isolatedPorts["home_assistant_bridge"]
   Set-PortIfUnbound -Name "EnvironmentStatePort" -Value $isolatedPorts["environment_state_server"]
+  Set-PortIfUnbound -Name "OpenAIBrokerPort" -Value $isolatedPorts["openai_provider_broker"]
   Set-PortIfUnbound -Name "MediapipePort" -Value $isolatedPorts["mediapipe_camera_hub_stack"]
   Set-PortIfUnbound -Name "MediapipeBrowserMonitorPort" -Value $isolatedPorts["mediapipe_browser_monitor"]
   Set-PortIfUnbound -Name "VisionSnapshotProcessorPort" -Value $isolatedPorts["vision_snapshot_processor"]
@@ -358,6 +360,7 @@ $checks += Test-Tool -Name "npm"
 $checks += Test-LaunchPort -Id "port.ai_talk_core_web" -Port $AiTalkCorePort
 $checks += Test-LaunchPort -Id "port.home_assistant_bridge" -Port $HomeAssistantBridgePort
 $checks += Test-LaunchPort -Id "port.environment_state_server" -Port $EnvironmentStatePort
+$checks += Test-LaunchPort -Id "port.openai_provider_broker" -Port $OpenAIBrokerPort
 $checks += Test-LaunchPort -Id "port.thought_core_api" -Port $ThoughtCorePort
 $checks += Test-LaunchPort -Id "port.mediapipe_camera_hub_stack" -Port $MediapipePort
 $checks += Test-LaunchPort -Id "port.mediapipe_browser_monitor" -Port $MediapipeBrowserMonitorPort
@@ -490,6 +493,7 @@ $warnings = @($checks | Where-Object { $_.severity -eq "warning" -and $_.status 
     ai_talk_core_web = $AiTalkCorePort
     home_assistant_bridge = $HomeAssistantBridgePort
     environment_state_server = $EnvironmentStatePort
+    openai_provider_broker = $OpenAIBrokerPort
     thought_core_api = $ThoughtCorePort
     mediapipe_camera_hub_stack = $MediapipePort
     mediapipe_browser_monitor = $MediapipeBrowserMonitorPort

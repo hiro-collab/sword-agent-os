@@ -60,6 +60,7 @@ Sword Agent OS の concrete profile です。
 標準構成は次をまとめて扱います。
 
 - Thought Core / control plane
+- credential-isolated local OpenAI provider broker
 - speech input
 - camera / gesture reflex
 - environment state
@@ -258,7 +259,7 @@ private proof artifacts, or license-sensitive assets.
 | AITuberKit `.env` | browser input, avatar, projection framing, and AITuberKit voice selection/tuning | expression/display operator lane | local-authoritative; existing file is preserved under central `-Force`; never publish local values |
 | Home Assistant token | state and action bridge | Home Assistant dry-run/live | token never committed or printed |
 | local API token | local bridge auth | Home Assistant live bridge | token never committed or printed |
-| LLM API key | Thought Core real LLM response | LLM lane | key never committed or printed |
+| LLM API key | broker-owned fixed upstream authentication for a Thought Core response | LLM lane | key never committed or printed; Thought Core remains credential-free |
 | `gesture_model.pkl` | gesture classification | camera / gesture lane | local-only model; do not publish without provenance/license review |
 | custom VRM / Live2D | avatar display | custom avatar lane | only licensed local asset; do not publish casually |
 | VOICEVOX | voice synthesis | voice output lane | install/run separately |

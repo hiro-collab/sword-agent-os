@@ -429,13 +429,19 @@ foreach ($platformProfile in $platformProfiles) {
   }
 }
 
-Assert-True ($standardProfile.required_services.Count -eq 9) "standard profile should require 9 services"
-Assert-True ($serviceManifest.services.Count -eq 9) "standard service inventory should define 9 services"
-
 $serviceIds = @($serviceManifest.services | ForEach-Object { $_.service_id })
+$profileServiceIds = @($standardProfile.required_services | ForEach-Object { [string]$_ })
+Assert-True (($profileServiceIds | Select-Object -Unique).Count -eq $profileServiceIds.Count) "standard profile required_services must not contain duplicates"
+Assert-True ($profileServiceIds.Count -eq $serviceIds.Count) "standard profile required_services count must match the service inventory"
 foreach ($serviceId in $standardProfile.required_services) {
   Assert-True ($serviceId -in $serviceIds) "profile requires missing service: $serviceId"
 }
+
+Assert-True ("openai_provider_broker" -in $serviceIds) "standard service inventory must define openai_provider_broker"
+Assert-True ("openai_provider_broker" -in $profileServiceIds) "standard profile must require openai_provider_broker"
+$brokerIndex = [array]::IndexOf([string[]]$profileServiceIds, "openai_provider_broker")
+$thoughtCoreIndex = [array]::IndexOf([string[]]$profileServiceIds, "thought_core_api")
+Assert-True ($brokerIndex -ge 0 -and $thoughtCoreIndex -ge 0 -and $thoughtCoreIndex -eq ($brokerIndex + 1)) "openai_provider_broker must occur immediately before thought_core_api"
 
 $endpointServiceIds = @(
   $serviceManifest.services |

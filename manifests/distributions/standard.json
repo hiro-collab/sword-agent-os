@@ -2,7 +2,7 @@
   "schema_version": "agent_os.distribution.v0",
   "id": "standard",
   "os_version": "0.1.0",
-  "distribution_version": "0.1.38",
+  "distribution_version": "0.1.39",
   "description": "Standard local Sword Agent OS distribution: control plane, standard organ checkouts, local env rendering, and dependency installation.",
   "release_manifest_path": "manifests/releases/standard.json",
   "control_plane_manifest_path": "manifests/control-plane/standard.json",
@@ -155,7 +155,7 @@
     },
     {
       "id": "llm-api-key",
-      "detail": "Set THOUGHT_CORE_LLM_API_KEY or compatible OPENAI_API_KEY for real Thought Core LLM responses."
+      "detail": "Set OPENAI_API_KEY only in the existing ignored control-plane/core/services/thought-core/.env source. The loopback broker alone reads it; Thought Core remains credential-free."
     },
     {
       "id": "avatar-assets",

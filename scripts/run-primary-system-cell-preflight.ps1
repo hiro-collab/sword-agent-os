@@ -3,6 +3,7 @@ param(
   [switch]$ListRows,
   [switch]$SkipEndpointChecks,
   [int]$LauncherPort = 8799,
+  [int]$OpenAIBrokerPort = 18786,
   [int]$ThoughtCorePort = 18787,
   [int]$AituberPort = 3000,
   [int]$EnvironmentStatePort = 8790,
@@ -284,6 +285,7 @@ if ($ListRows) {
   $rows += New-PreflightRow -Id "launch_blocker_summary" -Status "not_evaluated" -PassClass "launch_blockers_0" -HoldClass "blocked_launch_has_blockers" -Detail "run check-launch-readiness and pass -LaunchReadinessBlockers 0 when setup blockers are cleared"
   $rows += New-PreflightRow -Id "demo_safe_settings" -Status "not_evaluated" -PassClass "tracked_defaults_all_off" -HoldClass "blocked_demo_safe_defaults_missing_or_enabled" -Detail "tracked defaults are the canonical inventory; all candidates start disabled; local overrides stay gitignored"
   $rows += New-PreflightRow -Id "launcher" -Status "not_evaluated" -PassClass "reachable" -HoldClass "blocked_launcher_unreachable" -Detail "Launch Manager local status endpoint must be reachable"
+  $rows += New-PreflightRow -Id "openai_provider_broker" -Status "not_evaluated" -PassClass "reachable_no_provider_request" -HoldClass "blocked_openai_provider_broker_unreachable" -Detail "credential-isolated broker health must be reachable; this preflight does not read a key or make an upstream request"
   $rows += New-PreflightRow -Id "thought_core" -Status "not_evaluated" -PassClass "reachable_no_provider_mode" -HoldClass "blocked_thought_core_runtime_unreachable" -Detail "Thought Core health must be reachable without provider calls"
   $rows += New-PreflightRow -Id "aituber_projection_visual" -Status "not_evaluated" -PassClass "reachable" -HoldClass "blocked_aituber_projection_visual_unreachable" -Detail "AITuber/Projection Visual local surface must be reachable"
   $rows += New-PreflightRow -Id "projection_foreground" -Status "not_evaluated" -PassClass "projection_visual_surface_foreground_confirmed" -HoldClass $fallbacks.projection_foreground -Detail "operator or browser control must confirm the Projection Visual surface is in front"
@@ -335,6 +337,14 @@ else {
     -PassClass "reachable" `
     -HoldClass "blocked_launcher_unreachable" `
     -Detail ("endpoint={0}; workspace_class={1}" -f $launcher.status, $launcherWorkspaceClass)
+
+  $openAIBroker = Test-LocalEndpoint -Path "/health" -Port $OpenAIBrokerPort
+  $rows += New-PreflightRow `
+    -Id "openai_provider_broker" `
+    -Status $(if ($openAIBroker.status -eq "reachable") { "pass" } elseif ($openAIBroker.status -eq "not_checked") { "info" } else { "hold" }) `
+    -PassClass "reachable_no_provider_request" `
+    -HoldClass "blocked_openai_provider_broker_unreachable" `
+    -Detail ("endpoint={0}; port={1}; secret_source_class=thought-core-existing-env-v1; credential_owner=openai_provider_broker; provider_network_call=false" -f $openAIBroker.status, $OpenAIBrokerPort)
 
   $thoughtCore = Test-LocalEndpoint -Path "/health" -Port $ThoughtCorePort
   $rows += New-PreflightRow `

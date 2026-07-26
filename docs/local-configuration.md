@@ -65,8 +65,8 @@ can also wait if you only want a minimal no-live startup check.
 
 | Item | Env | Purpose |
 | --- | --- | --- |
-| LLM API key | `THOUGHT_CORE_LLM_API_KEY` or `OPENAI_API_KEY` | Thought Core natural-language responses. For no-LLM checks, use `THOUGHT_CORE_LLM_ENABLED=false`. |
-| LLM model / URL | `THOUGHT_CORE_LLM_MODEL`, `THOUGHT_CORE_LLM_BASE_URL` | OpenAI-compatible LLM endpoint. |
+| Broker-owned LLM API key | `OPENAI_API_KEY` in ignored `control-plane/core/services/thought-core/.env` only | Sword-owned broker reads it; Thought Core never receives it. |
+| LLM provider / URL | `THOUGHT_CORE_LLM_PROVIDER=sword-openai-broker`, `THOUGHT_CORE_LLM_BASE_URL=http://127.0.0.1:18786/v1` | Credential-free Thought Core loopback broker route. |
 | Home Assistant token | `HOME_ASSISTANT_TOKEN` | Appliance state checks and actions. |
 | local bridge token | `HOME_CONTROL_API_TOKEN` | Local protection for the Home Assistant bridge. |
 | Home Control config path | `HOME_CONTROL_CONFIG` | Selected full-schema private/live `home-control.yaml` or reviewed clone-local equivalent. |
@@ -99,8 +99,7 @@ redacted classes, counts, and asset ids.
 | `HOME_ASSISTANT_TOKEN` | Home Assistant state read and action execution | yes | no | yes | yes |
 | `HOME_CONTROL_API_TOKEN` | Local Sword Home Assistant bridge | yes | no | depends on setup | recommended |
 | `ENVIRONMENT_API_TOKEN` | Environment State API | yes | no | yes | no |
-| `THOUGHT_CORE_LLM_API_KEY` | Thought Core LLM provider | yes | no | yes, when LLM is disabled | no |
-| `OPENAI_API_KEY` | Some OpenAI-compatible adapters | yes | no | yes | no |
+| `OPENAI_API_KEY` | Broker-owned fixed upstream authentication | broker ignored source only | no | yes | no |
 | `NEXT_PUBLIC_*` | Browser / AITuber Kit / Projection Visual display and connection settings | no | yes | depends on item | no |
 
 `HOME_CONTROL_API_TOKEN` is not the Home Assistant token. It is a random local
@@ -235,7 +234,7 @@ organs\expression\aituber-kit\.env.example
 
 | Area | Role |
 | --- | --- |
-| Thought Core LLM settings | OpenAI-compatible base URL, model, and API key. |
+| Thought Core LLM settings | Credential-free loopback broker base URL and model; the broker alone owns the ignored API-key source. |
 | Thought Core endpoint | Local Thought Core API URL. |
 | AITuber Kit settings | Local-authoritative Projection Visual, avatar, browser input, voice output, and browser Thought Core connection. |
 | Home Assistant settings | URL, long-lived token, local API token, and device mapping. |

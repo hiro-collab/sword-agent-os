@@ -437,7 +437,7 @@
     {
       "organ_id": "sword-voice-agent-control-plane",
       "role": "thought-core/control-plane",
-      "service_ids": ["thought_core_api", "thought_core_watcher"],
+      "service_ids": ["openai_provider_broker", "thought_core_api", "thought_core_watcher"],
       "capabilities": ["minimum_turn_processing", "turn_routing", "expression_forwarding"],
       "tests": [
         {
@@ -446,6 +446,13 @@
           "type": "path_exists",
           "path": "control-plane/core",
           "expect": "exists"
+        },
+        {
+          "id": "openai_provider_broker.diagnostics_service",
+          "mode": "auto",
+          "type": "diagnostics_service",
+          "service_id": "openai_provider_broker",
+          "expect": "present"
         },
         {
           "id": "thought_core_api.diagnostics_service",

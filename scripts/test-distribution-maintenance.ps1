@@ -295,6 +295,7 @@ function Test-MaintenanceSafetyStatic {
   }
 
   $serviceManifest = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "manifests\services\standard.json") | ConvertFrom-Json
+  $profileManifest = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "manifests\profiles\standard.json") | ConvertFrom-Json
   $defaultLauncherPort = [int]$serviceManifest.port_modes.manifest_default.auxiliary_ports.home_control_launcher
   $isolatedLauncherPort = [int]$serviceManifest.port_modes.isolated_override.auxiliary_ports.home_control_launcher
   if ($defaultLauncherPort -lt 1 -or $defaultLauncherPort -gt 65535) {
@@ -306,6 +307,25 @@ function Test-MaintenanceSafetyStatic {
   if ($defaultLauncherPort -eq $isolatedLauncherPort) {
     throw "isolated launcher port should differ from the default launcher port"
   }
+  $serviceIds = @($serviceManifest.services | ForEach-Object { [string]$_.service_id })
+  $profileServiceIds = @($profileManifest.required_services | ForEach-Object { [string]$_ })
+  if ($profileServiceIds.Count -ne $serviceIds.Count -or @($profileServiceIds | Where-Object { $_ -notin $serviceIds }).Count -ne 0) {
+    throw "standard profile required services should resolve exactly to the service inventory"
+  }
+  $brokerIndex = [array]::IndexOf([string[]]$profileServiceIds, "openai_provider_broker")
+  $thoughtCoreIndex = [array]::IndexOf([string[]]$profileServiceIds, "thought_core_api")
+  if ($brokerIndex -lt 0 -or $thoughtCoreIndex -ne ($brokerIndex + 1)) {
+    throw "standard profile should start openai_provider_broker immediately before thought_core_api"
+  }
+  $defaultBrokerPort = [int]$serviceManifest.port_modes.manifest_default.service_ports.openai_provider_broker
+  $isolatedBrokerPort = [int]$serviceManifest.port_modes.isolated_override.service_ports.openai_provider_broker
+  $isolatedThoughtCorePort = [int]$serviceManifest.port_modes.isolated_override.service_ports.thought_core_api
+  if ($defaultBrokerPort -ne 18786 -or $isolatedBrokerPort -ne 18886 -or $isolatedThoughtCorePort -ne 18888) {
+    throw "standard broker and isolated Thought Core ports should remain manifest-owned"
+  }
+  $centralEnvTemplate = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "templates\env\sword-agent-os.env.example")
+  Assert-TextMatch -Text $centralEnvTemplate -Pattern "thought-core-existing-env-v1|broker alone reads|broker.*ignored source|ignored source.*broker" -Message "central env template should keep broker-owned secret discovery explicit"
+  Assert-TextNotMatch -Text $centralEnvTemplate -Pattern "(?m)^\s*(OPENAI_API_KEY|THOUGHT_CORE_LLM_API_KEY)\s*=" -Message "central env template must not create a Thought Core or central broker credential copy"
 
   $swordFrontDoor = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot "sword.ps1")
   Assert-TextMatch -Text $swordFrontDoor -Pattern "Resolve-LauncherPort" -Message "sword front door should resolve launcher ports from the service manifest"
@@ -3517,6 +3537,7 @@ function New-NativeLaunchWorkspaceFixture {
   Set-Content -LiteralPath (Join-Path $Root "organs\expression\aituber-kit\public\vrm\fixture.vrm") -Value "fixture" -Encoding utf8
   Set-Content -LiteralPath (Join-Path $Root "control-plane\core\scripts\start-thought-core.ps1") -Value "" -Encoding utf8
   Set-Content -LiteralPath (Join-Path $Root "control-plane\core\scripts\start-thought-core-watch.ps1") -Value "" -Encoding utf8
+  Set-Content -LiteralPath (Join-Path $Root "control-plane\core\src\sword_voice_agent\apps\openai_broker.py") -Value "" -Encoding utf8
   Set-Content -LiteralPath (Join-Path $Root "control-plane\core\src\sword_voice_agent\apps\watch_handoff_to_thought_core.py") -Value "" -Encoding utf8
 }
 

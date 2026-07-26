@@ -211,8 +211,8 @@ notepad organs\expression\aituber-kit\.env
 | 設定名 | 何に使うか |
 | --- | --- |
 | `THOUGHT_CORE_LLM_ENABLED=false` | AIサービスなしで確認する |
-| `THOUGHT_CORE_LLM_API_KEY` または `OPENAI_API_KEY` | AIサービスの応答を使う |
-| `THOUGHT_CORE_LLM_MODEL`, `THOUGHT_CORE_LLM_BASE_URL` | 使うAIモデルや接続先を選ぶ |
+| broker 固有 ignored `.env` の `OPENAI_API_KEY` | broker だけが AI service 接続に使う。Thought Core には渡さない |
+| `THOUGHT_CORE_LLM_PROVIDER=sword-openai-broker`, `THOUGHT_CORE_LLM_BASE_URL=http://127.0.0.1:18786/v1` | credential-free Thought Core の標準 broker 接続 |
 | 中央 env の `VOICEVOX_ENDPOINT` | サーバー側 tts-service で VOICEVOX adapter を使う |
 | AITuberKit `.env` の `VOICEVOX_SERVER_URL`, `NEXT_PUBLIC_VOICEVOX_*` | AITuberKit の声・話速を選ぶ |
 | AITuberKit `.env` の `NEXT_PUBLIC_SELECTED_VRM_PATH` | 表示するVRMを選ぶ |

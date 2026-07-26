@@ -148,6 +148,8 @@ function New-NoProviderChildProvenanceDiagnostics {
     "THOUGHT_CORE_LLM_ENABLED",
     "THOUGHT_CORE_ACTION_LLM_ENABLED",
     "THOUGHT_CORE_LLM_BASE_URL",
+    "THOUGHT_CORE_LLM_PROVIDER",
+    "THOUGHT_CORE_LLM_TIMEOUT_S",
     "THOUGHT_CORE_LLM_API_KEY",
     "THOUGHT_CORE_LLM_MODEL",
     "OPENAI_BASE_URL",
@@ -177,7 +179,10 @@ function New-NoProviderChildProvenanceDiagnostics {
   $startScriptClassesObject = [PSCustomObject]$startScriptClasses
 
   $pidEntry = $null
-  if ($PidMap.ContainsKey("thought_core_api")) {
+  if ($PidMap.ContainsKey("openai_provider_broker")) {
+    $pidEntry = $PidMap["openai_provider_broker"]
+  }
+  elseif ($PidMap.ContainsKey("thought_core_api")) {
     $pidEntry = $PidMap["thought_core_api"]
   }
   $childClass = "no_recorded_child_process"
@@ -222,6 +227,8 @@ function New-NoProviderChildProvenanceDiagnostics {
   $inputUnderstandingPath = Join-Path $sourceRoot "input_understanding.py"
   $loopPath = Join-Path $sourceRoot "loop.py"
   $serverPath = Join-Path $sourceRoot "server.py"
+  $standardBrokerPort = [int]$ServiceManifest.port_modes.manifest_default.service_ports.openai_provider_broker
+  $isolatedBrokerPort = [int]$ServiceManifest.port_modes.isolated_override.service_ports.openai_provider_broker
 
   return [PSCustomObject]@{
     schema_version = "no_provider_child_provenance_diagnostics.v0"
@@ -247,6 +254,11 @@ function New-NoProviderChildProvenanceDiagnostics {
       }
     }
     provider_boundary = [PSCustomObject]@{
+      broker_secret_source_class = "thought-core-existing-env-v1"
+      broker_credential_owner_class = "openai_provider_broker_only"
+      broker_standard_port = $standardBrokerPort
+      broker_isolated_port = $isolatedBrokerPort
+      thought_core_credential_class = "credential_free"
       no_provider_binding_runtime_proven = $false
       provider_bearing_runtime_scope_allowed = $false
     }

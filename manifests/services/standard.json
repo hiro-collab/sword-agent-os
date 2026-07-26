@@ -16,6 +16,7 @@
         "ai_talk_core_web": 8000,
         "home_assistant_bridge": 8787,
         "environment_state_server": 8790,
+        "openai_provider_broker": 18786,
         "thought_core_api": 18787,
         "mediapipe_camera_hub_stack": 8765,
         "vision_snapshot_processor": 8776,
@@ -39,6 +40,7 @@
         "ai_talk_core_web": 18800,
         "home_assistant_bridge": 18887,
         "environment_state_server": 18890,
+        "openai_provider_broker": 18886,
         "thought_core_api": 18888,
         "mediapipe_camera_hub_stack": 18865,
         "vision_snapshot_processor": 18876,
@@ -165,6 +167,20 @@
       "notes": "Aggregates projections and freshness. It must keep Home Assistant state separate from camera/vision-derived state."
     },
     {
+      "service_id": "openai_provider_broker",
+      "layer": "turn",
+      "logical_service": "credential-isolated-openai-broker",
+      "organ_id": "sword-voice-agent-control-plane",
+      "target_path": "control-plane/core/src/sword_voice_agent/apps/openai_broker.py",
+      "contracts": ["turn", "access-control"],
+      "start": {"type": "stack-script", "owner": "ops/scripts/home-control-stack/start-home-control-stack.ps1"},
+      "health": {"type": "http", "url": "http://127.0.0.1:18786/health"},
+      "authority_touched": ["credential-isolated-provider-transport"],
+      "behavior": {"behavior_kind": "transport", "agency_mode": "autonomic", "target_domain": "local_provider_transport", "risk_class": "credential_boundary", "approval_mode": "broker_secret_source_only"},
+      "runtime_outputs": [".cache/home-control-stack"],
+      "notes": "Owns fixed-source credential discovery and fixed loopback OpenAI transport. Thought Core remains credential-free."
+    },
+    {
       "service_id": "thought_core_api",
       "layer": "turn",
       "logical_service": "thought-core",
@@ -203,7 +219,7 @@
         ".cache/home-control-stack/thought-core-chat-events.jsonl",
         ".cache/sword_voice_agent"
       ],
-      "notes": "Current local turn service. It may propose memory candidates but must not directly commit long-term memory."
+      "notes": "Current local turn service. It uses the credential-free loopback broker for the standard provider route, may propose memory candidates, and must not directly commit long-term memory."
     },
     {
       "service_id": "mediapipe_camera_hub_stack",
