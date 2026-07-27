@@ -8,7 +8,7 @@
   "version_source": "control-plane/core/pyproject.toml",
   "repo_url": "https://github.com/hiro-collab/sword-voice-agent.git",
   "branch": "codex/initial-sword-voice-agent",
-  "commit": "66ac20474d9ffb7d9ba943b4d1990c9eb50a7fb6",
+  "commit": "5c0a5a64c5733216ffe150c272929b1d6c623a71",
   "adoption": "reference_source",
   "standard_services": [
     "home_assistant_bridge",
