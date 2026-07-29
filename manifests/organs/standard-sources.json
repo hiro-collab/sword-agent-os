@@ -38,8 +38,8 @@
       "component_version": "0.1.0",
       "version_source": "organs/environment/environment-state-server/pyproject.toml",
       "repo_url": "https://github.com/hiro-collab/environment-state-server.git",
-      "branch": "main",
-      "commit": "00ed6420a53a0a074b1ec91382afbf93084fdccc",
+      "branch": "work/environment-camera-exclusion-readiness-v1",
+      "commit": "4b5106610828eff7bdab8120cf2c7942fbf929b3",
       "adoption": "standard_candidate",
       "notes": "Environment snapshot, indicators, health aggregation, and feedback capture."
     },
