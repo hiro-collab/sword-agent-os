@@ -7,8 +7,8 @@
   "component_version": "0.1.0",
   "version_source": "control-plane/core/pyproject.toml",
   "repo_url": "https://github.com/hiro-collab/sword-voice-agent.git",
-  "branch": "work/control-agentic-explicit-capability-selection-v1",
-  "commit": "9a0edfed6d9e0c5fb5ee1d80f1e5e83ca1f222d7",
+  "branch": "work/control-curtain3-catalog-authority-v1",
+  "commit": "1b3ce4301b5e3c7f00e38500c5e4e8a7b96aaed6",
   "adoption": "reference_source",
   "standard_services": [
     "home_assistant_bridge",
