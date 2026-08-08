@@ -35,6 +35,20 @@ This repository is the source of truth for Sword Agent OS.
   workspace user or with an exact per-command override, then report the real
   source-pin state.
 
+## Development Restart Baseline
+
+- Before resuming work from the clean rebuild, read `HANDOVER.md` and
+  `docs/development-restart.md`. Revalidate the current manifests and pins;
+  the recorded commit IDs are a reconstruction snapshot, not permission to
+  ignore newer repository authority.
+- Do not automatically adopt the unselected Control candidate, the deferred
+  avatar service, legacy local assets, secrets, caches, or runtime evidence.
+- Keep source inspection, focused tests, runtime reachability, browser-visible
+  behavior, external observation, physical effects, and user acceptance as
+  separate proof layers.
+- Do not turn placeholder or mock responses into claims about provider-backed
+  AI behavior.
+
 ## Codex Model Selection
 
 - Follow `governance/development/codex-model-selection.md` for development and

@@ -1,6 +1,7 @@
 # Local workspace state
 /local/
 /.cache/
+/.runtime/
 /sword-agent-os/
 
 # Nested organ implementation checkouts

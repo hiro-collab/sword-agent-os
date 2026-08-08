@@ -43,6 +43,9 @@ proof layer は「何を確認したか」を分けて残します。
 ローカルファイルの置き場所、`.env` の作り方、起動、画面の開き方、
 試し動作、停止確認までを順番に書いています。
 
+指定 handover から再構築した開発環境で作業を再開する人は、先に
+`HANDOVER.md` と `docs/development-restart.md` を読んでください。
+
 この README は入口です。細かい設定や安全上の決まりは、下の表にある
 専門文書に分けています。
 
@@ -190,6 +193,7 @@ operator-confirmed switch、proof boundary は `docs/operate.md` と
 | Need | Authority |
 | --- | --- |
 | 初めて使う人向けの導入と動作確認 | `docs/first-run-operator-guide.md` |
+| handover からの開発再開、検証済み範囲、既知の停止条件 | `HANDOVER.md`, `docs/development-restart.md` |
 | 日常の起動、停止、入力機器、投影調整 | `docs/operate.md` |
 | 全体構成 | `docs/architecture.md` |
 | 使える機能の選び方 | `docs/capability-packs.md` |
