@@ -103,6 +103,14 @@ identity、bounded working context、freshness、privacy、dedupe、receipt、St
 すべての段階を横断する条件です。Installabilityとmaintainabilityも最後だけの機能ではなく、
 各sliceでmanifest、config、README、再現可能なcommitを保つ横断条件です。
 
+### 3.4 製品魅力、文化的発想、外部AI
+
+**採用済み設計意図**: 製品魅力は、技術完成後に足す装飾ではありません。Swordの実在する入力、判断、身体表現、観測、保留、失敗、訂正、Stopを、人が一つの身体の因果として理解し、「このAIを部屋に置きたい」と感じられる形へ翻訳する製品要件です。
+
+俗っぽい／文化的な発想は、ゲーム、舞台、配信、特撮、サブカル、大衆的な見せ方等から、人が反射的に理解する間、抑制、期待、落差、確認、余韻を借りるための着想源です。奇抜さ自体を目的にせず、別のAIアバターへそのまま移せるglitch、neon、決め台詞、流行語、派手な動きだけではSword固有の魅力とみなしません。魅力は、実在するSwordのstate、owner、identity、receipt、観測、cleanupから生じなければなりません。
+
+Grok等の外部生成AIはraw inspirationとして利用できますが、事実、要件、実装、runtime、採用、証拠、受入の権限を持ちません。外部AIの生案、Sword側の独立した実現性／安全性評価、正式ownerの採否を必ず分けます。モデル内部の連想は証拠ではなく、外部事実は取得可能な出典で確認します。API key、private state、raw log/media、local path、device/person identity、private provider payloadを外部モデルへ送らず、raw prompt/responseを公開資料へ移しません。
+
 ## 4. 構成名が表すコンセプト
 
 このプロジェクトの名称は、技術方式より責務と利用体験を表しています。
@@ -462,6 +470,12 @@ AIT stage-outputがcanonical composite host、Display Runtimeが最終AIT compos
 
 **未証明**: 選択buildでのavatar、motion、stage-output、projector、room、physical pixels、U1。`avatar-service`はdeferred referenceです。
 
+#### AI支援によるmotion asset作成の履歴判断
+
+**履歴上の候補／現行未採用**: Text-To-VRMAは、既存のlocal VRMA／semantic registry／Motion Runtime境界へ直接入れられるため、最初のlater-spike候補として保持されました。MotionGen等のvideo-to-animationは、利用者自身の権利クリアな短い動きで自然なbody mechanicsを比較する第二候補ですが、既存のBlender-to-VRMA経路が証明できない場合はHOLDです。depth-reference動画生成は、骨格asset、VRMA compatibility、track ownership、決定論的Stop／cleanupを提供せず、depth化も著作権、実演、振付、録画の許可を成立させないため、Sword motion authoringとしては不採用です。
+
+これらは古いtool pinや担当を復活させません。再開時はexact tool／model／installer／dependencyを新しくpinし、code、model weight、sample、converter、input、performer、choreography、recording、generated outputの権利を別々に確認します。生成VRMAはoffline candidate assetであり、presentation state、Motion Runtime authority、visible motion、physical output、U1の証拠ではありません。最初の試験はsyntheticまたは利用者自身が新規に行う2–4秒の単純な動き一つ、第三者の音楽・実演者・既存振付・識別可能な背景なし、local-onlyの出力一つとprovenance record一つに限定します。asset、入力media、中間rig、local avatarをGitや外部serviceへ送るには別の明示的な権利／privacy／adoption承認が必要です。
+
 ### 7.11 Projection Effects
 
 主要領域:
@@ -499,6 +513,14 @@ Fire／Thunderはstage-outputの専用intent-host経路へsource-integratedさ�
 Fire／Thunderはcybernetic dexterityを学習・評価する代表sliceであり、製品そのもののontologyではありません。外部のcyber-techniqueやTouchDesigner知識はadvisory inputに留め、Sword側がbounded adaptation、実行、観測、cleanupを所有します。
 
 最終的には、AIがeffectを選択→parameterize→有限実行→receipt／観測→必要なら調整する再利用可能なcapability loopを目指します。scene、手／頭、複数／移動target、relation grounding、final compositionは未完成です。
+
+#### 「魔法を自在に操る」の意味と現在地
+
+**事実**: 現在のProjection PerformancePlanはFire／Thunderの一回のstartについて、plan／session／revision identity、正規化position、bounded strength、500–12000msのduration、seed、1–4個の順序付きfull-state keyframeを受理します。ledgerにはsession、stale、duplicate、collision、expiry境界があり、executorは一つのactive planだけを保持します。下位Effect Hostにはupdate、normal／emergency Stop、resetの足場がありますが、これだけでは自然会話から実行中のplanを安全に修正する標準経路を証明しません。
+
+**設計意図**: 固定コマンドからFire／Thunderを選んで開始できることは「選べる」体験です。「自在に操れる」体験は、実行中に「少し弱めて」「右へ」「短くして」「止めて」のような自然な訂正を行い、同じplan／sessionの変更として予測可能かつ可逆に反映され、何が受理、変更、拒否、完了、cleanup済みかを正直に理解できることです。曖昧または未対応の発話はmutation 0とし、存在しないpause／undo／successを演出で捏造しません。EmergencyはLLMの語感や演出に依存しない決定論的なneutralizationです。
+
+**候補／未証明**: 会話によるmid-run revision、replay、undo、replace、sequence、body anchor、約20effectの操作、ordinary Japaneseの自然さ、視覚的魅力、room presence、U1は未証明です。これらはcurrent start-plan、host内部update、source/testだけから完了扱いしません。
 
 #### Private external recipe oracles
 
