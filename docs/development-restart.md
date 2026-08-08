@@ -45,6 +45,11 @@ The parent repository was reconstructed from the requested source snapshot:
 - `HANDOVER.md` SHA-256:
   `F23C36DEBC9FB123E1FD2838D4F04C7EB2D26B6AB15727FB0F6A32B7E4DE92E9`
 
+That SHA-256 is the LF-normalized Git blob hash. With Windows
+`core.autocrlf=true`, `Get-FileHash` reads the CRLF working-tree copy as
+`91CB14CA4F043AD16519FD2168AA7A3A48BF179260EBA5EB3D44AE676675CF62`;
+the difference is line-ending conversion, not evidence of tampering.
+
 The standard manifest selected the following checkouts, and strict pin
 verification passed for all 10 entries:
 
@@ -79,6 +84,22 @@ It did not import:
 - `.runtime`, caches, secrets, or raw evidence;
 - local camera, microphone, projector, Home Assistant, VOICEVOX, or provider
   state.
+
+The selected exact nested source contains a user-specific absolute Windows path
+literal in four tracked synthetic redaction-test fixtures. The prefix is
+represented here as `<USER_HOME>`. The exact fixtures are:
+
+- `control-plane/core/tests/test_thought_core_codex_cli_responder.py:526`
+- `control-plane/core/tests/test_thought_core_codex_cli_responder.py:527`
+- `control-plane/core/tests/test_thought_core_codex_cli_responder.py:567`
+- `organs/reflex/mediapipe-sword-sign/tests/test_serve_camera_hub.py:1177`
+
+They are test input, not real secrets or runtime evidence, but a
+zero-literal-local-path publication criterion therefore remains on hold. This
+bootstrap does not rewrite pinned nested source. The corrective unit is to
+replace the literals with placeholders in the nested repositories, run the
+focused tests, commit those nested changes, and adopt the new commits through
+parent manifest pins.
 
 Tracked AITuberKit assets arrived with the remote checkout: six `.vrm` files,
 one `.vrma`, one `.moc3`, one `.model3.json`, 22 `.png` files, and one `.wav`.

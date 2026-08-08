@@ -6,6 +6,9 @@ This repository is the source of truth for Sword Agent OS.
 
 - Treat legacy `sword-agent-system` and `sword-voice-agent` repositories as
   reference sources only unless the user explicitly asks to edit them.
+- Treat the legacy `sword-agent-os-workspace` and all registered worktrees as
+  read-only reference state. Never edit, delete, move, prune, repair, or
+  re-register them.
 - Keep runtime safety policies separate from development governance.
 - Keep development coordination state outside this repository, under the
   workspace-level coordination repository.
@@ -15,6 +18,10 @@ This repository is the source of truth for Sword Agent OS.
 - Prefer small, scoped changes.
 - Do not add secrets, local paths, raw logs, screenshots, audio captures, or
   unredacted user content to tracked files.
+- Without explicit user authorization for the exact action, do not make paid
+  provider requests, use secrets, start live runtime or browser routes, or
+  operate cameras, microphones, Home Assistant, VOICEVOX, TouchDesigner,
+  projectors, or other hardware.
 - Put durable design decisions in `governance/`, `manifests/`, or `policies/`.
 - Put temporary coordination, handoffs, reservations, and thread messages in
   the private coordination repository, not in this repository.
