@@ -48,6 +48,9 @@ This repository is the source of truth for Sword Agent OS.
   `docs/development-restart.md`. Revalidate the current manifests and pins;
   the recorded commit IDs are a reconstruction snapshot, not permission to
   ignore newer repository authority.
+- For clean-rebuild decisions, use this precedence: the latest explicit user
+  instruction, then `HANDOVER.md`, then the specified commit's code and
+  configuration, then older material.
 - Do not automatically adopt the unselected Control candidate, the deferred
   avatar service, legacy local assets, secrets, caches, or runtime evidence.
 - Keep source inspection, focused tests, runtime reachability, browser-visible
