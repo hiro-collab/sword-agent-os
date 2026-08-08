@@ -2,14 +2,14 @@
 
 Status: source-static inventory
 
-- Adapter version: `0.1.2`
+- Adapter version: `0.1.3`
 - Patchset id: `sword-aituberkit`
-- Patchset version: `0.1.2`
+- Patchset version: `0.1.3`
 - Upstream: `tegnike/aituber-kit` `v2.43.2`
   (`abe1f7954e6c6ddd8afcc44ccbf9df7d408a4f62`)
 - Sword fork pin: `hiro-collab/aituber-kit-sword`
-  `experiment/aituber-gesture-voice-bridge`
-  `fb46f983f59adaaf297f08aaedd43af914eb043e`
+  `work/aituber-minimal-text-bubble-stop-r3-v0`
+  `91555125b6f7a212a4863d511e32e5c571ea229c`
 
 This file records how Sword Agent OS treats AITuberKit as an official upstream
 release plus a Sword adapter/patchset and Sword-facing contract tests. It is an
@@ -45,14 +45,17 @@ Sword adapter/patchset.
 | Path | Reason |
 | --- | --- |
 | `src/pages/projection-visual.tsx` | Sword expression-organ display surface |
+| `src/pages/projection-visual-minimal.tsx` | existing bounded text-request and strict assistant-bubble route |
 | `src/utils/projectionVisualQuery.ts` | query-scoped operator/passive/stage mode parsing |
 | `src/components/projectionVisualHud.tsx` | Thought Core, Environment State, HUD rails, update signals |
 | `src/components/projectionVisualAssistantBubble.tsx` | projection speech/readability surface |
+| `src/components/projectionVisualStrictAssistantBubble.tsx` | assistant-message-identity-bound strict transient bubble |
 | `src/components/projectionVisualDisplayStateBridge.tsx` | passive/stage display-state sync |
 | `src/features/stores/projectionDisplay.ts` | local bounded display-state store |
 | `src/pages/api/projectionDisplayState.ts` | bounded local passive display-state API |
 | `src/features/chat/thoughtCoreChat.ts` | client Thought Core stream adapter |
 | `src/pages/api/thoughtCoreChat.ts` | local Thought Core proxy and redacted trace behavior |
+| `src/hooks/useProjectionVisualTransientThoughtRequest.ts` | local transient request lifecycle, provider-evidence projection, visible Stop, and late-result fence |
 | `src/utils/localApiSecurity.ts` | local API boundary and token/loopback enforcement |
 | `src/utils/serverUrlSecurity.ts` | server URL safety checks |
 | `src/features/motionRuntime/*` | Sword motion sequence runtime, VRMA sampling, and bounded playback session |
@@ -80,7 +83,8 @@ upstream extension hooks.
 | Environment values | freshness, provenance, uncertainty, vision estimates, and action/recheck state are visible where relevant |
 | `projectionDisplayState` | JSON shape is bounded and does not carry private prompts, raw provider payloads, local paths, or raw media |
 | Display-state bridge | mocked updates can reflect without live media or appliance actions |
-| Thought Core endpoint | configured local Thought Core endpoint is normal path; unavailable is distinct from completed |
+| Thought Core endpoint | minimal transient mode accepts only the canonical bounded SSE envelope, validates same-turn provider-attempt/authorship evidence and assistant identity, and keeps unavailable or invalid distinct from completed |
+| Minimal transient request / visible Stop | local hook binds request, session, turn, and assistant-message identity; aborts once, removes only the owned bubble, and rejects late results as a source seam rather than process-cleanup proof |
 | Vision Light/update signal | update indication represents meaningful evidence, not constant ambient animation |
 | Passive mode | current bridge is bounded state/message sync, not same-produced-video-output parity |
 
