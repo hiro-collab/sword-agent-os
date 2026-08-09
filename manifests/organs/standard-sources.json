@@ -107,7 +107,7 @@
       "upstream_release_url": "https://github.com/tegnike/aituber-kit/releases/tag/v2.43.2",
       "repo_url": "https://github.com/hiro-collab/aituber-kit-sword.git",
       "branch": "work/aituber-minimal-text-bubble-stop-r3-v0",
-      "commit": "68d210c86a1556e7975516f145d849de4820708c",
+      "commit": "31495e17f4f128e5e2883185381638b74afcb025",
       "sword_adapter_version": "0.1.3",
       "patchset_id": "sword-aituberkit",
       "patchset_version": "0.1.3",
