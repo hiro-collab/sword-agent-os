@@ -111,9 +111,13 @@ user / GUI / Thought Core / Reflex
   -> Body Schema current self-body summary
 ```
 
-The first runtime target is expected to be VRM through AITuberKit after later
-slices open. Slice 1 does not implement the mixer runtime, AITuberKit bridge,
-operator UI, passive display, or visible proof.
+The selected runtime target is VRM through the Sword AITuberKit fork. That fork
+now contains the browser avatar, operator/passive Projection Visual routes,
+motion-stimulus bridge, model-state diagnostics, Controlled Chrome observation
+surface, and Self Mirror integration. The contracts in this directory remain
+the product boundary for requested, composed, and applied motion; they should
+not be read as a claim that those selected browser/runtime integrations are
+still wholly absent.
 
 ## Status Store Keys
 
@@ -158,10 +162,9 @@ redaction/shareability fields instead.
 
 Still held until explicit scope opens:
 
-- Motion Mixer implementation.
-- AITuberKit / VRM adapter implementation.
-- Thought Core runtime routing integration.
-- Operator UI or passive motion status implementation.
+- Full Motion Mixer promotion as the sole production composition authority.
+- Complete Thought Core-to-motion routing across every stimulus/source class.
+- Promotion of diagnostic/operator surfaces into accepted owner-visible proof.
 - No-live VRM representative runtime pass.
 - Real camera, mic, display, projector, TouchDesigner, VMC, OSC, UDP, or live
   Home Assistant proof.

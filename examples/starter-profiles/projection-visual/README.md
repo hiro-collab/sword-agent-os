@@ -50,12 +50,27 @@ Start the selected runtime explicitly:
 .\sword.ps1 start -Run
 ```
 
+This command starts or reuses **Launch Manager**; it does not by itself start
+every selected service. Open `http://127.0.0.1:8799`, choose the intended
+services, and press **Start Stack / 起動する**. For the smallest text
+conversation plus avatar route, keep Provider Broker (fixed), Thought Core,
+and AITuber / Expression; Camera, Home, Environment, GUI, and voice are
+separate capabilities and should be enabled only when that scenario needs
+them.
+
 Wait for Launch Manager, AITuber Kit, Projection Visual, and Thought Core to be
 ready or clearly degraded/blocked. Open the local Projection Visual route:
 
 ```text
 http://127.0.0.1:3000/projection-visual/?mode=passive&visualTest=self-mirror-baseline
 ```
+
+Use `http://127.0.0.1:3000/` for ordinary conversation plus avatar display,
+and `http://127.0.0.1:3000/projection-visual/?mode=operator` when the projected
+surface itself must submit the turn and show its strict response bubble. The
+`mode=passive&visualTest=self-mirror-baseline` route above is an observation
+surface for display state and Self Mirror; it is not a mirror of arbitrary
+chat history from `/`.
 
 If the active runtime is using an isolated or delegated AITuber port, use the
 selected workspace route shown by Launch Manager instead of guessing another
@@ -97,6 +112,13 @@ inspection files include `visual_motion_summary.json`, `result.md`,
 `visual_motion_roi_timeseries.csv`, `visual_motion_chart.html`, and
 `manifest.json`. Do not share or commit raw browser frames.
 Shared reports must not include raw screenshots, raw browser frames, provider payloads, transcripts, private URLs, local absolute paths, tokens, or private asset names.
+
+When the check is finished, stop the selected stack through Launch Manager or
+the normal front door:
+
+```powershell
+.\sword.ps1 stop -Run
+```
 
 System readers such as Thought Core, diagnostics, and review agents should use
 `runtime/visual-motion-analyzer/self-mirror-consumer-routes.json` to discover
