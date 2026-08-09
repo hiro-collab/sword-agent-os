@@ -183,7 +183,10 @@ Do not describe this snapshot as runtime-ready or exact3-ready:
   Ready.
 - Installer text saying that a workspace is ready for first launch is not
   runtime evidence.
-- The missing gesture model blocks the current readiness check.
+- At the time of this snapshot the missing gesture model blocked the whole
+  readiness check. Current default readiness reports it as a warning and keeps
+  only the Camera/Gesture proof lane held; the device-free owner
+  conversation/avatar route does not require that local model.
 - AI Talk Core still has the Windows native dependency blocker described
   above.
 - AITuberKit typecheck, lint, production build, and dependency audit findings

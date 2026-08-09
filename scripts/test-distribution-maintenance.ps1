@@ -4526,18 +4526,19 @@ function Test-NativeLaunchLayoutFixtures {
       "-SkipPortChecks"
     )
     $missingGesture = $missingGestureOutput -join "`n" | ConvertFrom-Json
-    if ([string]$missingGesture.status -ne "blocked") {
-      throw "missing gesture model should block launch readiness; got $($missingGesture.status)"
+    if ([string]$missingGesture.status -ne "warning") {
+      throw "missing gesture model should warn without blocking the device-free owner route; got $($missingGesture.status)"
     }
     $missingGestureCheck = @($missingGesture.checks | Where-Object { [string]$_.id -eq "local.mediapipe_gesture_model" } | Select-Object -First 1)
     if ($missingGestureCheck.Count -eq 0 -or [string]$missingGestureCheck[0].status -ne "missing") {
       throw "missing gesture model check did not report missing"
     }
-    if ([string]$missingGestureCheck[0].severity -ne "blocker") {
-      throw "missing gesture model should be a blocker"
+    if ([string]$missingGestureCheck[0].severity -ne "warning") {
+      throw "missing gesture model should warn while the Camera/Gesture lane remains held"
     }
+    Assert-TextMatch -Text ([string]$missingGestureCheck[0].detail) -Pattern "camera_gesture_lane=held" -Message "missing gesture model detail should hold only the Camera/Gesture lane"
     Assert-TextMatch -Text ([string]$missingGestureCheck[0].detail) -Pattern "model_not_found|Camera Hub topics timeout" -Message "missing gesture model detail should explain the startup symptom"
-    Assert-TextMatch -Text ([string]$missingGestureCheck[0].detail) -Pattern "already have|do not have" -Message "missing gesture model detail should explain both prepared-model and no-model first-run paths"
+    Assert-TextMatch -Text ([string]$missingGestureCheck[0].detail) -Pattern "already have|not required" -Message "missing gesture model detail should distinguish prepared Camera use from the device-free owner route"
     Set-Content -LiteralPath $gestureModelPath -Value "fixture" -Encoding utf8
 
     $partialAiTalkWorkspace = Join-Path $root "partial-ai-talk"
