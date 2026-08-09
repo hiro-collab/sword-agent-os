@@ -130,6 +130,13 @@ against these shapes at the boundary.
 - `motion_stimulus/motion_stimulus.v0.schema.json`: source-static avatar/body
   motion stimulus shape for user/GUI, Thought Core contextual, and
   Reflex-forwarded movement requests.
+  - This Parent contract is the sole semantic authority. The selected Control
+    copy at `contracts/motion-stimulus/motion-stimulus.v0.schema.json` is a
+    checked-in derived projection, not a second authority.
+  - `scripts/test-distribution-maintenance.ps1` verifies the selected projection
+    by strict UTF-8, no-BOM, canonical-LF full-text parity. This is source/static
+    parity only; it does not prove runtime motion, visible motion, device output,
+    or user acceptance.
   - Examples:
     `motion_stimulus/examples/rr003-user-command-stimulus.example.json`,
     `motion_stimulus/examples/rr003-thought-context-stimulus.example.json`,

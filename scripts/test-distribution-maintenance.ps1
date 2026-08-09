@@ -15,6 +15,7 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 $FreshTestInvocationId = [guid]::NewGuid().ToString("N")
 $OwnedFreshTestRoots = @{}
 $FreshTestOwnerMarkerName = ".sword-agent-os-maintenance-owner.json"
+$MotionProjectionSchemaMaxBytes = 256 * 1024
 
 function Write-TestStep {
   param([Parameter(Mandatory = $true)][string]$Message)
@@ -208,6 +209,413 @@ function Get-OptionalProperty {
     return $Default
   }
   return $property.Value
+}
+
+function Assert-MotionProjectionTargetPathValue {
+  param([AllowEmptyString()][string]$TargetPath)
+  try {
+    if ([string]::IsNullOrWhiteSpace($TargetPath) -or
+        [System.IO.Path]::IsPathRooted($TargetPath) -or
+        $TargetPath -match '^[\\/]{2}' -or
+        $TargetPath -match '^[A-Za-z]:') {
+      throw "unsafe"
+    }
+    $normalized = $TargetPath.Replace("\", "/")
+    $segments = @($normalized.Split([char]"/", [System.StringSplitOptions]::None))
+    if ($segments.Count -ne 2 -or
+        @($segments | Where-Object { [string]::IsNullOrWhiteSpace($_) -or $_ -in @(".", "..") }).Count -ne 0 -or
+        $normalized -cne "control-plane/core") {
+      throw "unsafe"
+    }
+    return $segments
+  }
+  catch {
+    throw "motion_projection_path_boundary_rejected"
+  }
+}
+
+function Resolve-MotionProjectionCheckoutPath {
+  param(
+    [AllowEmptyString()][string]$TargetPath,
+    [Parameter(Mandatory = $true)][string]$BoundaryRoot
+  )
+  $segments = @(Assert-MotionProjectionTargetPathValue -TargetPath $TargetPath)
+  try {
+    $rootFull = [System.IO.Path]::GetFullPath($BoundaryRoot).TrimEnd(
+      [System.IO.Path]::DirectorySeparatorChar,
+      [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    if (-not (Test-Path -LiteralPath $rootFull -PathType Container)) {
+      throw "unsafe"
+    }
+    $rootItem = Get-Item -LiteralPath $rootFull -Force
+    if (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "unsafe"
+    }
+    $rootPrefix = $rootFull + [System.IO.Path]::DirectorySeparatorChar
+    $candidate = $rootFull
+    foreach ($segment in $segments) {
+      $candidate = [System.IO.Path]::GetFullPath((Join-Path $candidate $segment))
+      if (-not $candidate.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+          -not (Test-Path -LiteralPath $candidate -PathType Container)) {
+        throw "unsafe"
+      }
+      $item = Get-Item -LiteralPath $candidate -Force
+      if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "unsafe"
+      }
+    }
+    return $candidate
+  }
+  catch {
+    throw "motion_projection_path_boundary_rejected"
+  }
+}
+
+function Resolve-MotionProjectionRegularLeaf {
+  param(
+    [Parameter(Mandatory = $true)][string]$BoundaryRoot,
+    [Parameter(Mandatory = $true)][string]$RelativePath
+  )
+  try {
+    if ([System.IO.Path]::IsPathRooted($RelativePath)) {
+      throw "unsafe"
+    }
+    $normalized = $RelativePath.Replace("\", "/")
+    if ($normalized -cnotin @(
+        "contracts/motion_stimulus/motion_stimulus.v0.schema.json",
+        "contracts/motion-stimulus/motion-stimulus.v0.schema.json"
+      )) {
+      throw "unsafe"
+    }
+    $segments = @($normalized.Split([char]"/", [System.StringSplitOptions]::None))
+    if (@($segments | Where-Object { [string]::IsNullOrWhiteSpace($_) -or $_ -in @(".", "..") }).Count -ne 0) {
+      throw "unsafe"
+    }
+    $rootFull = [System.IO.Path]::GetFullPath($BoundaryRoot).TrimEnd(
+      [System.IO.Path]::DirectorySeparatorChar,
+      [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    if (-not (Test-Path -LiteralPath $rootFull -PathType Container)) {
+      throw "unsafe"
+    }
+    $rootItem = Get-Item -LiteralPath $rootFull -Force
+    if (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "unsafe"
+    }
+    $rootPrefix = $rootFull + [System.IO.Path]::DirectorySeparatorChar
+    $candidate = $rootFull
+    for ($index = 0; $index -lt $segments.Count; $index++) {
+      $candidate = [System.IO.Path]::GetFullPath((Join-Path $candidate $segments[$index]))
+      if (-not $candidate.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+          -not (Test-Path -LiteralPath $candidate)) {
+        throw "unsafe"
+      }
+      $item = Get-Item -LiteralPath $candidate -Force
+      if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "unsafe"
+      }
+      $isLeaf = $index -eq ($segments.Count - 1)
+      if (($isLeaf -and -not (Test-Path -LiteralPath $candidate -PathType Leaf)) -or
+          (-not $isLeaf -and -not (Test-Path -LiteralPath $candidate -PathType Container))) {
+        throw "unsafe"
+      }
+    }
+    return $candidate
+  }
+  catch {
+    throw "motion_projection_path_boundary_rejected"
+  }
+}
+
+function ConvertTo-MotionProjectionCanonicalText {
+  param([Parameter(Mandatory = $true)][byte[]]$Bytes)
+  if ($Bytes.Length -ge 3 -and $Bytes[0] -eq 0xEF -and $Bytes[1] -eq 0xBB -and $Bytes[2] -eq 0xBF) {
+    throw "motion_projection_utf8_bom_rejected"
+  }
+  try {
+    $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+    $text = $utf8.GetString($Bytes)
+  }
+  catch {
+    throw "motion_projection_utf8_invalid"
+  }
+  $normalized = $text.Replace("`r`n", "`n")
+  if ($normalized.Contains("`r")) {
+    throw "motion_projection_bare_cr_rejected"
+  }
+  return $normalized
+}
+
+function Get-MotionProjectionTextSha256 {
+  param([Parameter(Mandatory = $true)][string]$Text)
+  $utf8 = [System.Text.UTF8Encoding]::new($false)
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    return ([System.BitConverter]::ToString($sha.ComputeHash($utf8.GetBytes($Text)))).Replace("-", "").ToLowerInvariant()
+  }
+  finally {
+    $sha.Dispose()
+  }
+}
+
+function Get-MotionProjectionLeafIdentity {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+  if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+      -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    throw "unsafe"
+  }
+  return [PSCustomObject]@{
+    full_name = [System.IO.Path]::GetFullPath($item.FullName)
+    length = [long]$item.Length
+    creation_ticks = [long]$item.CreationTimeUtc.Ticks
+    last_write_ticks = [long]$item.LastWriteTimeUtc.Ticks
+  }
+}
+
+function Read-MotionProjectionStreamBytes {
+  param([Parameter(Mandatory = $true)][System.IO.FileStream]$Stream)
+  if ($Stream.Length -le 0 -or $Stream.Length -gt $MotionProjectionSchemaMaxBytes) {
+    throw "unsafe"
+  }
+  $bytes = [byte[]]::new([int]$Stream.Length)
+  $offset = 0
+  while ($offset -lt $bytes.Length) {
+    $read = $Stream.Read($bytes, $offset, $bytes.Length - $offset)
+    if ($read -le 0) {
+      throw "unsafe"
+    }
+    $offset += $read
+  }
+  return ,$bytes
+}
+
+function Read-MotionProjectionSchema {
+  param(
+    [Parameter(Mandatory = $true)][string]$BoundaryRoot,
+    [Parameter(Mandatory = $true)][string]$RelativePath
+  )
+  $stream = $null
+  $verificationStream = $null
+  try {
+    $prePath = Resolve-MotionProjectionRegularLeaf -BoundaryRoot $BoundaryRoot -RelativePath $RelativePath
+    $preIdentity = Get-MotionProjectionLeafIdentity -Path $prePath
+    $stream = [System.IO.FileStream]::new(
+      $prePath,
+      [System.IO.FileMode]::Open,
+      [System.IO.FileAccess]::Read,
+      [System.IO.FileShare]::Read
+    )
+    $bytes = Read-MotionProjectionStreamBytes -Stream $stream
+
+    $postPath = Resolve-MotionProjectionRegularLeaf -BoundaryRoot $BoundaryRoot -RelativePath $RelativePath
+    $postIdentity = Get-MotionProjectionLeafIdentity -Path $postPath
+    if (-not $prePath.Equals($postPath, [System.StringComparison]::OrdinalIgnoreCase) -or
+        -not $preIdentity.full_name.Equals($postIdentity.full_name, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $preIdentity.length -ne $postIdentity.length -or
+        $preIdentity.creation_ticks -ne $postIdentity.creation_ticks -or
+        $preIdentity.last_write_ticks -ne $postIdentity.last_write_ticks -or
+        $stream.Length -ne $postIdentity.length) {
+      throw "unsafe"
+    }
+
+    $verificationStream = [System.IO.FileStream]::new(
+      $postPath,
+      [System.IO.FileMode]::Open,
+      [System.IO.FileAccess]::Read,
+      [System.IO.FileShare]::Read
+    )
+    $verificationBytes = Read-MotionProjectionStreamBytes -Stream $verificationStream
+    $primaryDigest = [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes))
+    $verificationDigest = [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($verificationBytes))
+    if ($bytes.Length -ne $verificationBytes.Length -or $primaryDigest -cne $verificationDigest) {
+      throw "unsafe"
+    }
+  }
+  catch {
+    throw "motion_projection_schema_read_rejected"
+  }
+  finally {
+    if ($null -ne $verificationStream) {
+      $verificationStream.Dispose()
+    }
+    if ($null -ne $stream) {
+      $stream.Dispose()
+    }
+  }
+
+  $text = ConvertTo-MotionProjectionCanonicalText -Bytes $bytes
+  return [PSCustomObject]@{
+    text = $text
+    sha256 = Get-MotionProjectionTextSha256 -Text $text
+  }
+}
+
+function Resolve-MotionProjectionManifestLeaf {
+  param([Parameter(Mandatory = $true)][string]$BoundaryRoot)
+  try {
+    $rootFull = [System.IO.Path]::GetFullPath($BoundaryRoot).TrimEnd(
+      [System.IO.Path]::DirectorySeparatorChar,
+      [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    if (-not (Test-Path -LiteralPath $rootFull -PathType Container)) {
+      throw "unsafe"
+    }
+    $rootItem = Get-Item -LiteralPath $rootFull -Force -ErrorAction Stop
+    if (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "unsafe"
+    }
+    $rootPrefix = $rootFull + [System.IO.Path]::DirectorySeparatorChar
+    $candidate = $rootFull
+    $segments = @("manifests", "control-plane", "standard.json")
+    for ($index = 0; $index -lt $segments.Count; $index++) {
+      $candidate = [System.IO.Path]::GetFullPath((Join-Path $candidate $segments[$index]))
+      if (-not $candidate.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+          -not (Test-Path -LiteralPath $candidate)) {
+        throw "unsafe"
+      }
+      $item = Get-Item -LiteralPath $candidate -Force -ErrorAction Stop
+      if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "unsafe"
+      }
+      $isLeaf = $index -eq ($segments.Count - 1)
+      if (($isLeaf -and -not (Test-Path -LiteralPath $candidate -PathType Leaf)) -or
+          (-not $isLeaf -and -not (Test-Path -LiteralPath $candidate -PathType Container))) {
+        throw "unsafe"
+      }
+    }
+    return $candidate
+  }
+  catch {
+    throw "motion_projection_manifest_read_rejected"
+  }
+}
+
+function Read-MotionProjectionManifest {
+  param([Parameter(Mandatory = $true)][string]$BoundaryRoot)
+  $stream = $null
+  $verificationStream = $null
+  try {
+    $prePath = Resolve-MotionProjectionManifestLeaf -BoundaryRoot $BoundaryRoot
+    $preIdentity = Get-MotionProjectionLeafIdentity -Path $prePath
+    $stream = [System.IO.FileStream]::new(
+      $prePath,
+      [System.IO.FileMode]::Open,
+      [System.IO.FileAccess]::Read,
+      [System.IO.FileShare]::Read
+    )
+    $bytes = Read-MotionProjectionStreamBytes -Stream $stream
+
+    $postPath = Resolve-MotionProjectionManifestLeaf -BoundaryRoot $BoundaryRoot
+    $postIdentity = Get-MotionProjectionLeafIdentity -Path $postPath
+    if (-not $prePath.Equals($postPath, [System.StringComparison]::OrdinalIgnoreCase) -or
+        -not $preIdentity.full_name.Equals($postIdentity.full_name, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $preIdentity.length -ne $postIdentity.length -or
+        $preIdentity.creation_ticks -ne $postIdentity.creation_ticks -or
+        $preIdentity.last_write_ticks -ne $postIdentity.last_write_ticks -or
+        $stream.Length -ne $postIdentity.length) {
+      throw "unsafe"
+    }
+
+    $verificationStream = [System.IO.FileStream]::new(
+      $postPath,
+      [System.IO.FileMode]::Open,
+      [System.IO.FileAccess]::Read,
+      [System.IO.FileShare]::Read
+    )
+    $verificationBytes = Read-MotionProjectionStreamBytes -Stream $verificationStream
+    $primaryDigest = [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes))
+    $verificationDigest = [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($verificationBytes))
+    if ($bytes.Length -ne $verificationBytes.Length -or $primaryDigest -cne $verificationDigest) {
+      throw "unsafe"
+    }
+
+    $text = ConvertTo-MotionProjectionCanonicalText -Bytes $bytes
+    return $text | ConvertFrom-Json -ErrorAction Stop
+  }
+  catch {
+    throw "motion_projection_manifest_read_rejected"
+  }
+  finally {
+    if ($null -ne $verificationStream) {
+      $verificationStream.Dispose()
+    }
+    if ($null -ne $stream) {
+      $stream.Dispose()
+    }
+  }
+}
+
+function Get-MotionProjectionCheckoutIdentityState {
+  param([Parameter(Mandatory = $true)][string]$Checkout)
+  try {
+    $gitMarker = Join-Path $Checkout ".git"
+    if (-not (Test-Path -LiteralPath $gitMarker)) {
+      return "missing"
+    }
+    $preItem = Get-Item -LiteralPath $gitMarker -Force -ErrorAction Stop
+    $preIsLeaf = Test-Path -LiteralPath $gitMarker -PathType Leaf
+    $preIsContainer = Test-Path -LiteralPath $gitMarker -PathType Container
+    if (($preItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+        ($preIsLeaf -eq $preIsContainer)) {
+      throw "unsafe"
+    }
+
+    $postItem = Get-Item -LiteralPath $gitMarker -Force -ErrorAction Stop
+    $postIsLeaf = Test-Path -LiteralPath $gitMarker -PathType Leaf
+    $postIsContainer = Test-Path -LiteralPath $gitMarker -PathType Container
+    if (($postItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+        ($postIsLeaf -eq $postIsContainer) -or
+        $preIsLeaf -ne $postIsLeaf -or
+        $preIsContainer -ne $postIsContainer -or
+        -not $preItem.FullName.Equals($postItem.FullName, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $preItem.CreationTimeUtc.Ticks -ne $postItem.CreationTimeUtc.Ticks -or
+        $preItem.LastWriteTimeUtc.Ticks -ne $postItem.LastWriteTimeUtc.Ticks -or
+        ($preIsLeaf -and $preItem.Length -ne $postItem.Length)) {
+      throw "unsafe"
+    }
+    return "ok"
+  }
+  catch {
+    throw "motion_projection_checkout_identity_rejected"
+  }
+}
+
+function Assert-MotionProjectionSingleMutationChangesHash {
+  param(
+    [Parameter(Mandatory = $true)][string]$CanonicalText,
+    [Parameter(Mandatory = $true)][string]$OldText,
+    [Parameter(Mandatory = $true)][string]$NewText,
+    [Parameter(Mandatory = $true)][string]$CanonicalSha256
+  )
+  if ([regex]::Matches($CanonicalText, [regex]::Escape($OldText)).Count -ne 1) {
+    throw "motion_projection_mutation_oracle_failed"
+  }
+  $mutated = $CanonicalText.Replace($OldText, $NewText)
+  if ((Get-MotionProjectionTextSha256 -Text $mutated) -ceq $CanonicalSha256) {
+    throw "motion_projection_mutation_oracle_failed"
+  }
+}
+
+function Assert-MotionProjectionTargetRejected {
+  param(
+    [AllowEmptyString()][string]$TargetPath,
+    [Parameter(Mandatory = $true)][string]$BoundaryRoot
+  )
+  $rejected = $false
+  try {
+    [void](Resolve-MotionProjectionCheckoutPath -TargetPath $TargetPath -BoundaryRoot $BoundaryRoot)
+  }
+  catch {
+    if ($_.Exception.Message -cne "motion_projection_path_boundary_rejected") {
+      throw "motion_projection_mutation_oracle_failed"
+    }
+    $rejected = $true
+  }
+  if (-not $rejected) {
+    throw "motion_projection_mutation_oracle_failed"
+  }
 }
 
 function Test-PowerShellSyntax {
@@ -1164,6 +1572,8 @@ function Test-ReadmeFirstRunGuidance {
   $motionProfileSurface = "$motionStimulusSchema`n$motionFullRelaxedExample`n$motionRuntimeReadme`n$moduleUsageIndex"
   Assert-TextMatch -Text $motionStimulusSchema -Pattern '"motion\.runtime\.vrm_expression_weights\.v0"[\s\S]{0,140}"motion\.runtime\.vrm_expression_weights\.full_relaxed\.v0"' -Message "motion stimulus schema should expose default and full-relaxed expression profile refs"
   Assert-TextMatch -Text $motionStimulusSchema -Pattern "full_relaxed profile is a bounded diagnostic option" -Message "motion stimulus schema should prevent treating full-relaxed as default proof"
+  Assert-TextMatch -Text $contractsReadme -Pattern 'motion_stimulus/motion_stimulus\.v0\.schema\.json[\s\S]{0,420}sole semantic authority[\s\S]{0,260}checked-in derived projection' -Message "motion stimulus docs should keep Parent authority and selected Control projection distinct"
+  Assert-TextMatch -Text $contractsReadme -Pattern 'canonical-LF full-text parity[\s\S]{0,180}source/static[\s\S]{0,180}does not prove runtime motion[\s\S]{0,180}user acceptance' -Message "motion stimulus projection docs should retain the source-only proof ceiling"
   Assert-TextMatch -Text $motionFullRelaxedExample -Pattern '"expression_profile_ref"\s*:\s*"motion\.runtime\.vrm_expression_weights\.full_relaxed\.v0"' -Message "motion stimulus examples should include a full-relaxed contract fixture"
   Assert-TextMatch -Text $motionFullRelaxedExample -Pattern '"proof_layer"\s*:\s*"source_static"' -Message "full-relaxed motion stimulus example should stay source/static"
   Assert-TextMatch -Text $motionFullRelaxedExample -Pattern '"raw_media_shared"\s*:\s*false[\s\S]{0,240}"provider_payload_shared"\s*:\s*false[\s\S]{0,120}"home_assistant_route"\s*:\s*false' -Message "full-relaxed motion stimulus example should preserve raw/private/provider/HA boundaries"
@@ -2410,6 +2820,311 @@ function Test-AssembledCheckoutState {
     assembled = ($missing.Count -eq 0)
     missing = $missing
   }
+}
+
+function New-MotionProjectionJunctionFixture {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Target,
+    [Parameter(Mandatory = $true)][string]$OwnedRoot
+  )
+  try {
+    $rootFull = [System.IO.Path]::GetFullPath($OwnedRoot).TrimEnd(
+      [System.IO.Path]::DirectorySeparatorChar,
+      [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    $rootPrefix = $rootFull + [System.IO.Path]::DirectorySeparatorChar
+    $pathFull = [System.IO.Path]::GetFullPath($Path)
+    $targetFull = [System.IO.Path]::GetFullPath($Target)
+    if (-not $pathFull.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+        -not $targetFull.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+        -not (Test-Path -LiteralPath $rootFull -PathType Container)) {
+      throw "unsafe"
+    }
+    $rootItem = Get-Item -LiteralPath $rootFull -Force -ErrorAction Stop
+    if (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "unsafe"
+    }
+  }
+  catch {
+    throw "motion_projection_mutation_oracle_failed"
+  }
+
+  try {
+    return New-Item -ItemType Junction -Path $pathFull -Target $targetFull -ErrorAction Stop
+  }
+  catch {
+    try {
+      if (Test-Path -LiteralPath $pathFull) {
+        $partialItem = Get-Item -LiteralPath $pathFull -Force -ErrorAction Stop
+        if (($partialItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) {
+          throw "unsafe"
+        }
+        Remove-Item -LiteralPath $pathFull -Force -ErrorAction Stop
+      }
+    }
+    catch {
+      throw "motion_projection_fixture_cleanup_failed"
+    }
+    throw "reparse_fixture_unavailable"
+  }
+}
+
+function Test-MotionProjectionPathMutationOracles {
+  $root = New-FreshTestRoot
+  $coreLink = $null
+  $leafLink = $null
+  try {
+    $oversizeBoundary = Join-Path $root "oversize-boundary"
+    $oversizeLeaf = Join-Path $oversizeBoundary "contracts\motion-stimulus\motion-stimulus.v0.schema.json"
+    $oversizeStream = $null
+    try {
+      New-Item -ItemType Directory -Force -Path (Split-Path -Parent $oversizeLeaf) | Out-Null
+      $oversizeStream = [System.IO.FileStream]::new(
+        $oversizeLeaf,
+        [System.IO.FileMode]::CreateNew,
+        [System.IO.FileAccess]::Write,
+        [System.IO.FileShare]::None
+      )
+      $oversizeStream.SetLength($MotionProjectionSchemaMaxBytes + 1)
+    }
+    catch {
+      throw "motion_projection_fixture_setup_failed"
+    }
+    finally {
+      if ($null -ne $oversizeStream) {
+        $oversizeStream.Dispose()
+      }
+    }
+    $oversizeRejected = $false
+    try {
+      [void](Read-MotionProjectionSchema `
+        -BoundaryRoot $oversizeBoundary `
+        -RelativePath "contracts/motion-stimulus/motion-stimulus.v0.schema.json")
+    }
+    catch {
+      if ($_.Exception.Message -cne "motion_projection_schema_read_rejected") {
+        throw "motion_projection_mutation_oracle_failed"
+      }
+      $oversizeRejected = $true
+    }
+    if (-not $oversizeRejected) {
+      throw "motion_projection_mutation_oracle_failed"
+    }
+
+    $corePath = Join-Path $root "control-plane\core"
+    New-Item -ItemType Directory -Force -Path $corePath | Out-Null
+    [void](Resolve-MotionProjectionCheckoutPath -TargetPath "control-plane/core" -BoundaryRoot $root)
+
+    foreach ($unsafeTarget in @(
+        "",
+        ".",
+        "./control-plane/core",
+        "control-plane/./core",
+        "control-plane/../core",
+        "../control-plane/core",
+        "/control-plane/core",
+        "\\server\share\control-plane\core",
+        "X:\synthetic-motion-projection\control-plane\core",
+        "control-plane",
+        "control-plane/core/extra",
+        "control-plane//core"
+      )) {
+      Assert-MotionProjectionTargetRejected -TargetPath $unsafeTarget -BoundaryRoot $root
+    }
+
+    Remove-Item -LiteralPath $corePath -Recurse -Force
+    $externalCore = Join-Path $root "external-core"
+    New-Item -ItemType Directory -Path $externalCore | Out-Null
+    $coreLink = New-MotionProjectionJunctionFixture -Path $corePath -Target $externalCore -OwnedRoot $root
+    Assert-MotionProjectionTargetRejected -TargetPath "control-plane/core" -BoundaryRoot $root
+    Remove-Item -LiteralPath $coreLink.FullName -Force
+    $coreLink = $null
+
+    New-Item -ItemType Directory -Force -Path (Join-Path $corePath "contracts\motion-stimulus") | Out-Null
+    $externalLeaf = Join-Path $root "external-leaf"
+    New-Item -ItemType Directory -Path $externalLeaf | Out-Null
+    $leafLink = New-MotionProjectionJunctionFixture `
+      -Path (Join-Path $corePath "contracts\motion-stimulus\motion-stimulus.v0.schema.json") `
+      -Target $externalLeaf `
+      -OwnedRoot $root
+    $leafRejected = $false
+    try {
+      [void](Resolve-MotionProjectionRegularLeaf `
+        -BoundaryRoot $corePath `
+        -RelativePath "contracts/motion-stimulus/motion-stimulus.v0.schema.json")
+    }
+    catch {
+      if ($_.Exception.Message -cne "motion_projection_path_boundary_rejected") {
+        throw "motion_projection_mutation_oracle_failed"
+      }
+      $leafRejected = $true
+    }
+    if (-not $leafRejected) {
+      throw "motion_projection_mutation_oracle_failed"
+    }
+    Remove-Item -LiteralPath $leafLink.FullName -Force
+    $leafLink = $null
+  }
+  finally {
+    $cleanupFailed = $false
+    foreach ($link in @($leafLink, $coreLink)) {
+      if ($null -ne $link -and (Test-Path -LiteralPath $link.FullName)) {
+        try {
+          Remove-Item -LiteralPath $link.FullName -Force
+        }
+        catch {
+          $cleanupFailed = $true
+        }
+      }
+    }
+    try {
+      Remove-FreshTestRoot -Path $root
+    }
+    catch {
+      $cleanupFailed = $true
+    }
+    if ($cleanupFailed) {
+      throw "motion_projection_fixture_cleanup_failed"
+    }
+  }
+}
+
+function Test-MotionStimulusProjectionParity {
+  Write-TestStep "motion stimulus selected-Control projection parity"
+  Test-MotionProjectionPathMutationOracles
+
+  $manifest = Read-MotionProjectionManifest -BoundaryRoot $RepoRoot
+  $targetPath = [string]$manifest.target_path
+  $segments = @(Assert-MotionProjectionTargetPathValue -TargetPath $targetPath)
+  $candidateCheckout = Join-Path (Join-Path $RepoRoot $segments[0]) $segments[1]
+  try {
+    $candidateCheckoutPresent = Test-Path -LiteralPath $candidateCheckout -PathType Container
+  }
+  catch {
+    throw "motion_projection_checkout_identity_rejected"
+  }
+  if (-not $candidateCheckoutPresent) {
+    if ($RequireAssembledCheckouts) {
+      throw "motion_projection_checkout_missing"
+    }
+    Write-Warning "motion projection checkout missing; parity unavailable"
+    return
+  }
+
+  $checkout = Resolve-MotionProjectionCheckoutPath -TargetPath $targetPath -BoundaryRoot $RepoRoot
+  $checkoutIdentityState = Get-MotionProjectionCheckoutIdentityState -Checkout $checkout
+  if ($checkoutIdentityState -ceq "missing") {
+    if ($RequireAssembledCheckouts) {
+      throw "motion_projection_checkout_identity_rejected"
+    }
+    Write-Warning "motion projection checkout identity missing; parity unavailable"
+    return
+  }
+
+  $canonical = Read-MotionProjectionSchema `
+    -BoundaryRoot $RepoRoot `
+    -RelativePath "contracts/motion_stimulus/motion_stimulus.v0.schema.json"
+  $projection = Read-MotionProjectionSchema `
+    -BoundaryRoot $checkout `
+    -RelativePath "contracts/motion-stimulus/motion-stimulus.v0.schema.json"
+  if (-not $canonical.text.EndsWith("`n") -or -not $projection.text.EndsWith("`n")) {
+    throw "motion_projection_final_newline_required"
+  }
+  if ($canonical.sha256 -cne $projection.sha256) {
+    throw "motion_projection_full_text_mismatch"
+  }
+
+  try {
+    $canonicalObject = $canonical.text | ConvertFrom-Json
+    $projectionObject = $projection.text | ConvertFrom-Json
+    $canonicalDiagnostic = $canonicalObject | ConvertTo-Json -Depth 100 -Compress
+    $projectionDiagnostic = $projectionObject | ConvertTo-Json -Depth 100 -Compress
+  }
+  catch {
+    throw "motion_projection_json_diagnostic_invalid"
+  }
+  if ($canonicalDiagnostic -cne $projectionDiagnostic) {
+    throw "motion_projection_json_diagnostic_mismatch"
+  }
+  $profileSchema = $canonicalObject.properties.requirements.properties.expression_profile_ref
+  $profileRefs = @($profileSchema.enum | ForEach-Object { [string]$_ })
+  if (($profileRefs -join "`n") -cne (@(
+        "motion.runtime.vrm_expression_weights.v0",
+        "motion.runtime.vrm_expression_weights.full_relaxed.v0"
+      ) -join "`n") -or
+      [string]$profileSchema.description -notmatch "full_relaxed profile is a bounded diagnostic option") {
+    throw "motion_projection_semantic_vector_invalid"
+  }
+
+  Assert-MotionProjectionSingleMutationChangesHash `
+    -CanonicalText $canonical.text `
+    -OldText '"motion.runtime.vrm_expression_weights.full_relaxed.v0"' `
+    -NewText '"motion.runtime.vrm_expression_weights.unselected.v0"' `
+    -CanonicalSha256 $canonical.sha256
+  Assert-MotionProjectionSingleMutationChangesHash `
+    -CanonicalText $canonical.text `
+    -OldText "full_relaxed profile is a bounded diagnostic option" `
+    -NewText "full_relaxed profile is a default runtime option" `
+    -CanonicalSha256 $canonical.sha256
+  Assert-MotionProjectionSingleMutationChangesHash `
+    -CanonicalText $canonical.text `
+    -OldText '"format": "date-time"' `
+    -NewText '"format": "date"' `
+    -CanonicalSha256 $canonical.sha256
+  $idLine = '  "$id": "https://sword-agent-os.local/contracts/motion_stimulus.v0.schema.json",'
+  $titleLine = '  "title": "Agent OS motion_stimulus.v0",'
+  Assert-MotionProjectionSingleMutationChangesHash `
+    -CanonicalText $canonical.text `
+    -OldText ($idLine + "`n" + $titleLine) `
+    -NewText ($titleLine + "`n" + $idLine) `
+    -CanonicalSha256 $canonical.sha256
+  $withoutFinalNewline = $canonical.text.Substring(0, $canonical.text.Length - 1)
+  if ((Get-MotionProjectionTextSha256 -Text $withoutFinalNewline) -ceq $canonical.sha256) {
+    throw "motion_projection_mutation_oracle_failed"
+  }
+
+  $utf8 = [System.Text.UTF8Encoding]::new($false)
+  $crlfVariant = $canonical.text.Replace("`n", "`r`n")
+  $normalizedVariant = ConvertTo-MotionProjectionCanonicalText -Bytes $utf8.GetBytes($crlfVariant)
+  if ((Get-MotionProjectionTextSha256 -Text $normalizedVariant) -cne $canonical.sha256) {
+    throw "motion_projection_eol_equivalence_failed"
+  }
+  $bareCrRejected = $false
+  try {
+    [void](ConvertTo-MotionProjectionCanonicalText -Bytes $utf8.GetBytes($canonical.text.Replace("`n", "`r")))
+  }
+  catch {
+    if ($_.Exception.Message -cne "motion_projection_bare_cr_rejected") {
+      throw "motion_projection_mutation_oracle_failed"
+    }
+    $bareCrRejected = $true
+  }
+  if (-not $bareCrRejected) {
+    throw "motion_projection_mutation_oracle_failed"
+  }
+
+  $canonicalBytes = $utf8.GetBytes($canonical.text)
+  $bomBytes = New-Object byte[] ($canonicalBytes.Length + 3)
+  $bomBytes[0] = 0xEF
+  $bomBytes[1] = 0xBB
+  $bomBytes[2] = 0xBF
+  [System.Array]::Copy($canonicalBytes, 0, $bomBytes, 3, $canonicalBytes.Length)
+  $bomRejected = $false
+  try {
+    [void](ConvertTo-MotionProjectionCanonicalText -Bytes $bomBytes)
+  }
+  catch {
+    if ($_.Exception.Message -cne "motion_projection_utf8_bom_rejected") {
+      throw "motion_projection_mutation_oracle_failed"
+    }
+    $bomRejected = $true
+  }
+  if (-not $bomRejected) {
+    throw "motion_projection_mutation_oracle_failed"
+  }
+
+  Write-Host "motion projection parity ok"
 }
 
 function Test-InstalledWorkspaceMaintenance {
@@ -4026,6 +4741,7 @@ Test-FreshTestRootOwnershipSafety
 Test-FixtureSubtreeCleanupSafety
 Test-HomeControlTrackingHelperFixtures
 Test-ManifestAndVersion
+Test-MotionStimulusProjectionParity
 Test-UpdateFixtureHoldBehavior
 Test-DistributionPinCheckerFixtures
 Test-EnvRenderFixtures
