@@ -8,7 +8,7 @@
   "version_source": "control-plane/core/pyproject.toml",
   "repo_url": "https://github.com/hiro-collab/sword-voice-agent.git",
   "branch": "work/control-ait-worker-error-class-v0",
-  "commit": "ff44e03ef10f86d83f8b21060706d684be028307",
+  "commit": "19d2bea45c0f84a01316d5e480003a552ca8cc9a",
   "adoption": "reference_source",
   "standard_services": [
     "home_assistant_bridge",
